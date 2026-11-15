@@ -19,12 +19,13 @@ import {sceneClasses, sceneMarkup, sceneVars, weatherChanged} from "../ps/markup
 import {paletteAt} from "../ps/palette";
 import {HEAT_HAZE, weatherLayers} from "../ps/plains";
 import {publishMoment, unpublish} from "../ps/publish";
-import {roomMarkup, windowWeather} from "../ps/room";
+import {roomMarkup, windowMotion, windowWeather} from "../ps/room";
 import {overcastBuilder, watchComposer, watchLand} from "../ps/watchers";
 import {fireDriver, ngSun} from "./flame";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
 import {ngBirds} from "./poses";
 import {rainTiles} from "./rain";
+import {ROOM_MOTION_CSS} from "./room-motion";
 import {NG_STILL_CSS} from "./styles";
 import {phaseSeconds, tierFor, type Tier} from "./tiers";
 
@@ -99,7 +100,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		root.insertAdjacentHTML("beforeend", roomMarkup());
 		room = root.querySelector(".ps-indoor") as HTMLElement;
 		roomSheet = new CSSStyleSheet();
-		roomSheet.replaceSync(roomCss());
+		roomSheet.replaceSync(roomCss() + ROOM_MOTION_CSS);
 		document.adoptedStyleSheets = [...document.adoptedStyleSheets, roomSheet];
 	};
 
@@ -313,8 +314,17 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			const slot = room.querySelector(".ps-yt-weather") as HTMLElement;
 			slot.innerHTML = windowWeather(m.weather, isPhoneLayout());
 			slot.dataset.weather = m.weather;
+			// What moves in them, rebuilt with them (plan 2).
+			const panes = room.querySelector(".ps-ym-panes") as HTMLElement;
+			panes.innerHTML = windowMotion(m.weather, isPhoneLayout());
+			panes.dataset.weather = m.weather;
 			roomBuilt = m.weather;
 		}
+
+		// The room's stars sleep when the plains' do (the stars' gate): nothing twinkles unseen.
+		room?.querySelectorAll(".ps-ym-stars").forEach((el) =>
+			el.classList.toggle("ps-off", !live.stars)
+		);
 
 		sunLive = live.sun;
 

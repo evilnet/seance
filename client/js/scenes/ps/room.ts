@@ -12,6 +12,7 @@
  * (`ps-yt-lit`). The windows' weather is a slot (`.ps-yt-weather`) the scene
  * fills for the day (task 5). Pure and Vue-free: mocha loads it directly.
  */
+import {rainTiles} from "../psng/rain";
 import {WEATHERS, type Weather} from "./engine";
 import type {RoomColour} from "./indoor";
 import {
@@ -1010,11 +1011,30 @@ function windowPanes(): Array<{clip: string; inner: Quad}> {
 }
 
 /** A cloud in the plains' own cloud colour. */
-function cloud(x: number, y: number, k: number, style = "fill: var(--ps-cloud)"): string {
-	return `<g class="ps-yt-cloud" style="${style}" transform="translate(${n(x)},${n(y)}) scale(${
+/** A cloud's four ellipses, about its middle: 47 × 23 design units at scale 1. */
+const CLOUD_SHAPE =
+	'<ellipse cx="0" cy="4" rx="22" ry="6"/><ellipse cx="-8" cy="0" rx="9" ry="7"/><ellipse cx="5" cy="-2" rx="11" ry="9"/><ellipse cx="15" cy="2" rx="8" ry="6"/>';
+
+function cloud(
+	x: number,
+	y: number,
+	k: number,
+	style = "fill: var(--ps-cloud)",
+	extra = ""
+): string {
+	return `<g class="ps-yt-cloud${
+		extra ? ` ${extra}` : ""
+	}" style="${style}" transform="translate(${n(x)},${n(y)}) scale(${
 		Math.round(k * 100) / 100
-	})"><ellipse cx="0" cy="4" rx="22" ry="6"/><ellipse cx="-8" cy="0" rx="9" ry="7"/><ellipse cx="5" cy="-2" rx="11" ry="9"/><ellipse cx="15" cy="2" rx="8" ry="6"/></g>`;
+	})">${CLOUD_SHAPE}</g>`;
 }
+
+/** How many of a pane's `k` (the back window's count) it draws: by its width, halved on a phone. */
+const paneCount = (k: number, width: number, backWidth: number, phone: boolean) =>
+	Math.max(1, Math.round(k * (width / backWidth) * (phone ? 0.5 : 1)));
+
+/** The crown's opening, as the eye sees it. */
+const crownOpening = () => circle3(0, CROWN_H, 0, CROWN_R - 0.06).map(project);
 
 /** How many clouds the back window shows in each fair weather. */
 const FAIR_CLOUDS: Partial<Record<Weather, number>> = {clear: 2, wind: 4, heat: 1};
@@ -1034,8 +1054,7 @@ export function windowWeather(weather: Weather, phone: boolean): string {
 	panes.forEach((pane, i) => {
 		const {x: ix, y: iy, w: iw, h: ih} = bbox(pane.inner);
 		const r = rng(211 + i * 17 + WEATHERS.indexOf(weather) * 101);
-		const count = (k: number) =>
-			Math.max(1, Math.round(k * (iw / backWidth) * (phone ? 0.5 : 1)));
+		const count = (k: number) => paneCount(k, iw, backWidth, phone);
 		let s = `<g clip-path="url(#${pane.clip})">`;
 		s += `<rect x="${n(ix)}" y="${n(iy)}" width="${n(iw)}" height="${n(
 			ih
@@ -1047,7 +1066,9 @@ export function windowWeather(weather: Weather, phone: boolean): string {
 				s += cloud(
 					ix + iw * (0.15 + 0.7 * r()),
 					iy + ih * (0.1 + 0.25 * r()),
-					(0.55 + 0.35 * r()) * (iw / backWidth) ** 0.3
+					(0.55 + 0.35 * r()) * (iw / backWidth) ** 0.3,
+					undefined,
+					"ps-yt-still-clouds"
 				);
 			}
 		} else {
@@ -1069,7 +1090,9 @@ export function windowWeather(weather: Weather, phone: boolean): string {
 			for (let k = 0; k < count(weather === "storm" ? 60 : 34); k++) {
 				const x = ix + r() * (iw + 10);
 				const y = iy + r() * ih;
-				s += `<line class="ps-yt-rain" x1="${n(x)}" y1="${n(y)}" x2="${n(x - 3)}" y2="${n(
+				s += `<line class="ps-yt-rain ps-yt-still-weather" x1="${n(x)}" y1="${n(
+					y
+				)}" x2="${n(x - 3)}" y2="${n(
 					y + 9
 				)}" style="stroke: color-mix(in oklab, var(--ps-sky-hor), #fff 45%)" stroke-width="1" opacity=".6"/>`;
 			}
@@ -1085,9 +1108,9 @@ export function windowWeather(weather: Weather, phone: boolean): string {
 
 		if (weather === "snow") {
 			for (let k = 0; k < count(44); k++) {
-				s += `<circle class="ps-yt-flake" cx="${n(ix + r() * iw)}" cy="${n(
-					iy + r() * ih
-				)}" r="${n(
+				s += `<circle class="ps-yt-flake ps-yt-still-weather" cx="${n(
+					ix + r() * iw
+				)}" cy="${n(iy + r() * ih)}" r="${n(
 					0.7 + r() * 1.2
 				)}" style="fill: color-mix(in oklab, var(--ps-cloud), #fff 60%)"/>`;
 			}
@@ -1105,6 +1128,91 @@ export function windowWeather(weather: Weather, phone: boolean): string {
 	});
 
 	return out + `</g>`;
+}
+
+/**
+ * The windows' motion (plan 2, docs/projects/ps-yurt.md §8): one HTML pane over each window and the
+ * crown's opening, placed in the room's design frame (room-motion.ts reads --x/--y/--w/--h) and clipped
+ * to the glass, holding what moves in the day's weather: the fair weathers' clouds, drifting; the
+ * plains' rain tiles (rain.ts); snow; the storm's flash; and stars that twinkle. As many as the still
+ * windows draw (windowWeather), halved on a phone; built on the same weather trigger.
+ */
+export function windowMotion(weather: Weather, phone: boolean): string {
+	const windows = windowPanes();
+	const backWidth = bbox(windows[0].inner).w;
+	const pct = (v: number) => `${(v * 100).toFixed(2)}%`;
+	const panes: Array<{name: string; q: ReadonlyArray<readonly number[]>; window: boolean}> = [
+		...windows.map((w) => ({name: w.clip.replace("ps-yt-win-", ""), q: w.inner, window: true})),
+		{name: "crown", q: crownOpening(), window: false},
+	];
+	const fair = FAIR_CLOUDS[weather];
+
+	return panes
+		.map((pane, i) => {
+			const {x, y, w, h} = bbox(pane.q as Quad);
+			const r = rng(611 + i * 17 + WEATHERS.indexOf(weather) * 101);
+			const count = (k: number) => paneCount(k, w, backWidth, phone);
+			const clip = pane.q
+				.map((p) => `${pct((p[0] - x) / w)} ${pct((p[1] - y) / h)}`)
+				.join(",");
+			let s = "";
+			// Stars first: the farthest thing in a pane.
+			const stars = pane.window ? (pane.name === "back" ? 6 : 4) : 5;
+			s += `<div class="ps-ym-stars">`;
+
+			for (let k = 0; k < stars; k++) {
+				const tw = 3 + 3 * r();
+				s += `<i class="ps-ym-tw" style="left:${pct(r())};top:${pct(
+					r() * (pane.window ? 0.55 : 1)
+				)};--tw:${tw.toFixed(2)}s;--twl:${(-r() * 6).toFixed(2)}s"></i>`;
+			}
+
+			s += `</div>`;
+
+			if (pane.window && fair !== undefined) {
+				for (let k = 0; k < count(fair); k++) {
+					const kk = (0.55 + 0.35 * r()) * (w / backWidth) ** 0.3;
+					const top = 0.1 + 0.25 * r();
+					const cd =
+						(70 + 30 * r()) * Math.sqrt(w / backWidth) * (weather === "wind" ? 0.5 : 1);
+					s += `<div class="ps-ym-cloud" style="top:${pct(top)};width:${pct(
+						(47 * kk) / w
+					)};--cd:${cd.toFixed(1)}s;--cdl:${(-r() * cd).toFixed(
+						1
+					)}s"><svg viewBox="-23 -12 47 23" style="fill: var(--ps-cloud)">${CLOUD_SHAPE}</svg></div>`;
+				}
+			}
+
+			if (pane.window && (weather === "rain" || weather === "storm")) {
+				s += rainTiles(count(weather === "storm" ? 60 : 34), {width: w, height: h});
+			}
+
+			if (pane.window && weather === "snow") {
+				let flakes = "";
+
+				for (let k = 0; k < count(44); k++) {
+					flakes += `<i style="left:${(r() * 105).toFixed(1)}%;--fs:${(
+						(2 + 3.4 * r()) /
+						16
+					).toFixed(3)}rem;--fd:${(3 + 3 * r()).toFixed(2)}s;--fdl:${(-r() * 6).toFixed(
+						2
+					)}s;--fx:${(-30 + 50 * r()).toFixed(1)}cqw;opacity:${(0.5 + 0.5 * r()).toFixed(
+						2
+					)}"></i>`;
+				}
+
+				s += `<div class="ps-snow">${flakes}</div>`;
+			}
+
+			if (pane.window && weather === "storm") {
+				s += `<div class="ps-flash"></div>`;
+			}
+
+			return `<div class="ps-ym-pane" data-pane="${pane.name}" style="--x:${n(x)};--y:${n(
+				y
+			)};--w:${n(w)};--h:${n(h)};clip-path:polygon(${clip})">${s}</div>`;
+		})
+		.join("");
 }
 
 /** The room, as the page shows it. */
@@ -1150,7 +1258,7 @@ export function roomMarkup(): string {
 	}
 
 	// The crown: its ring, the sky through it, its bent ribs.
-	const opening = circle3(0, CROWN_H, 0, CROWN_R - 0.06).map(project);
+	const opening = crownOpening();
 	const openingPts = pts(opening);
 	const openingOut = pts(grow(opening, 2));
 	const arch = (f: number, alongX: boolean) => {

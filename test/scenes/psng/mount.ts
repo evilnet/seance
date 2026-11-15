@@ -437,6 +437,39 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			});
 		});
 
+		it("the moving panes follow the day's weather with the static slot, moving or frozen (plan 2, Review Focus 2)", function () {
+			// 21 June 2026 is clear, 22 June heat.
+			withPage(new Date(2026, 5, 21, 23, 59), (page, clock) => {
+				const scene = mountOn(page, {view: "query"});
+				const panes = room(page).querySelector(".ps-ym-panes");
+				expect(panes.dataset.weather).to.equal("clear");
+				expect(panes.markup).to.contain("ps-ym-cloud");
+				scene.update(state({view: "query", attended: false}));
+				clock.tick(120_000);
+				expect(() => scene.update(state({view: "query"}))).to.not.throw();
+				expect(panes.dataset.weather).to.equal("heat");
+				expect(panes.markup).to.not.contain("psng-rain-tile");
+				scene.destroy();
+			});
+		});
+
+		it("the room's stars sleep when the plains' do (the stars' gate): ps-off on its star layers by day", function () {
+			for (const [hour, off] of [
+				[12, true],
+				[23, false],
+			] as const) {
+				withPage(new Date(2026, 5, 21, hour, 0), (page) => {
+					const indoor = new FakeElement(".ps-indoor");
+					const stars = new FakeElement(".ps-ym-stars");
+					indoor.lists.set(".ps-ym-stars", () => [stars]);
+					page.root.planted.set(".ps-indoor", indoor);
+					const scene = mountOn(page, {view: "query"});
+					expect(stars.classList.contains("ps-off"), `${hour}:00`).to.equal(off);
+					scene.destroy();
+				});
+			}
+		});
+
 		it("a query publishes the roof as the canvas, light words and the room's tints; a channel publishes as before, at once both ways", function () {
 			withPage(new Date(2026, 5, 21, 12, 30), (page) => {
 				const meta = page.plantMeta(THEME_COLOR);
