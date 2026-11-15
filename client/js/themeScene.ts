@@ -506,8 +506,13 @@ export function installThemeSceneHooks(): void {
 		window.setTimeout(probe, 2000);
 	}
 
+	// Windows' contrast themes (forced colours): style.css takes the scene
+	// out of the page there, so it is as good as hidden and must not keep its
+	// frame loop running behind the system's colours.
+	const forced = window.matchMedia?.("(forced-colors: active)");
+
 	const sync = () => {
-		const visible = document.visibilityState !== "hidden";
+		const visible = document.visibilityState !== "hidden" && forced?.matches !== true;
 
 		// Back on its tab: someone is looking. A tab switch inside a window
 		// fires no focus, so without this a scene that rested while hidden
@@ -520,11 +525,12 @@ export function installThemeSceneHooks(): void {
 	};
 
 	document.addEventListener("visibilitychange", sync);
+	forced?.addEventListener?.("change", sync);
 	window.addEventListener("online", () => void themeScene.retry());
 	window.addEventListener("pageshow", (event: PageTransitionEvent) => {
 		if (event.persisted) {
 			attention.input();
-			themeScene.setVisible(true);
+			sync();
 		}
 	});
 	sync();

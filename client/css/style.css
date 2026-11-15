@@ -10455,3 +10455,57 @@ html[data-reduce-motion] *::after {
 	transition-duration: 0.01ms !important;
 	scroll-behavior: auto !important;
 }
+
+/* Windows' contrast themes (forced colours, in every Windows browser and the
+ * Windows app's WebView2). The system repaints text, backgrounds and borders
+ * in its own few colours and drops shadows and gradients, so everything this
+ * stylesheet and the themes say with a fill or a shadow alone is lost: the
+ * focus ring (outline 0 and a box-shadow on many controls), the open
+ * conversation, a selected segment or tab, a mention's band, a badge's
+ * shape. Those are restated here as outlines and borders in system colours.
+ * A media query, not an attribute like the rest: the mode is Windows' alone,
+ * and Chromium applies it live. The ps scene leaves the page (themeScene.ts
+ * stops its frame loop too), and no surface keeps a blur, which the system's
+ * opaque Canvas would only make dearer. */
+@media (forced-colors: active) {
+	#theme-scene {
+		display: none !important;
+	}
+
+	*,
+	*::before,
+	*::after {
+		backdrop-filter: none !important;
+	}
+
+	:focus-visible {
+		outline: 2px solid highlight !important;
+		outline-offset: 1px;
+	}
+
+	/* The composer shows its focus on the bar (#form:focus-within), as an edge and a shadow. */
+	#form:focus-within,
+	.channel-list-item.active,
+	[aria-selected="true"],
+	[role="radio"][aria-checked="true"],
+	[aria-pressed="true"] {
+		outline: 2px solid highlight;
+		outline-offset: -2px;
+	}
+
+	/* A mention keeps its bar, the one mark left once the row's tint is gone. */
+	#chat .chat-view[data-type="channel"] .msg.highlight {
+		border-inline-start-color: highlight;
+	}
+
+	/* An outline, not a border, so the badge keeps its size. */
+	.badge {
+		outline: 1px solid canvastext;
+		outline-offset: -1px;
+	}
+
+	/* Away, busy and online are told apart by their colour alone. */
+	.presence-dot {
+		forced-color-adjust: none;
+	}
+}

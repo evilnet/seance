@@ -137,11 +137,9 @@ html[data-platform="macos"] #sidebar {
 	background: transparent;
 }
 
-@media (prefers-reduced-transparency: reduce) {
-	html[data-platform="macos"] body,
-	html[data-platform="macos"] #sidebar {
-		background: var(--mac-rail-bg);
-	}
+html[data-reduce-transparency][data-platform="macos"] body,
+html[data-reduce-transparency][data-platform="macos"] #sidebar {
+	background: var(--mac-rail-bg);
 }
 
 /* Source-list rows (their sizes are the Mac app's, style.css): a rounded
@@ -321,10 +319,8 @@ input[type="checkbox"] {
 	color: inherit;
 }
 
-@media (prefers-reduced-transparency: reduce) {
-	#context-menu,
-	.textcomplete-menu {
-		background-color: var(--menu-bg);
-		backdrop-filter: none;
-	}
+:root[data-reduce-transparency] #context-menu,
+:root[data-reduce-transparency] .textcomplete-menu {
+	background-color: var(--menu-bg);
+	backdrop-filter: none;
 }

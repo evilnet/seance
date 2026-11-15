@@ -2776,8 +2776,8 @@ html[data-contrast="more"]:root[data-ps-text="light"] #chat .chat {
 /* The "Highlighted row" look (style.css's data-own-messages="band": its tint
  * on the row, the text no longer muted) keeps its band on the card: the
  * band's tint as an image over the card's fill, in both lights, and over the
- * solid card under reduced transparency (the solid rule names the card rows
- * at a lower specificity and takes only the scrim's image away). */
+ * solid card under reduced transparency (the solid own-row rule, the last in
+ * this file, sets the fill alone and leaves the band's image). */
 html[data-own-messages="band"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.self:is([data-type="message"], [data-type="action"]) {
 	background-image: linear-gradient(var(--own-bg, color-mix(in srgb, currentcolor 7%, transparent)) 0 0);
 }
@@ -3771,54 +3771,58 @@ html[data-reduce-motion]:root {
  * card and the pills, an own row's card and a mention's, the glass column,
  * the scrim without its gradient). The phone's overlays are named by their
  * state selectors too, which a bare #sidebar would lose to on specificity. */
-@media (prefers-reduced-transparency: reduce) {
-	/* stylelint-disable max-line-length -- the words' surfaces' scopes */
-	#sidebar,
-	#chat .header,
-	#chat .userlist,
-	#form,
-	html[data-platform="macos"] #chat .header,
-	html[data-platform="macos"] #chat .header > :is(.title, .topic, button),
-	html[data-platform="macos"] #chat .header > span > button,
-	html[data-platform="macos"] #form,
-	#chat .msg-reaction:not(.self, .msg-reaction-add),
-	#viewport.menu-open #sidebar,
-	#viewport.menu-dragging #sidebar,
-	#viewport.userlist-open #chat .userlist,
-	:root[data-ps-light="night"] #sidebar,
-	:root[data-ps-light="night"] #chat .header,
-	:root[data-ps-light="night"] #chat .userlist,
-	:root[data-ps-light="night"] #form,
-	:root[data-ps-light="night"] #chat .msg-reaction:not(.self, .msg-reaction-add),
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg,
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.self:is([data-type="message"], [data-type="action"]),
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.self:is([data-type="message"], [data-type="action"]),
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight,
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
-	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-scope-note,
-	:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-scope-note,
-	:root[data-ps-words="glass"] #chat .chat-content > .chat,
-	:root[data-ps-light="night"][data-ps-words="glass"] #chat .chat-content > .chat,
-	:root[data-ps-words="scrim"] #chat .chat-content > .chat,
-	:root[data-ps-light="night"][data-ps-words="scrim"] #chat .chat-content > .chat,
-	:root[dir="rtl"][data-ps-words="scrim"] #chat .chat-content > .chat,
-	:root[dir="rtl"][data-ps-light="night"][data-ps-words="scrim"] #chat .chat-content > .chat {
-		background-color: var(--ps-g-solid);
-		background-image: none;
-		/* stylelint-disable-next-line property-no-vendor-prefix -- the glass's prefixed blur, undone */
-		-webkit-backdrop-filter: none;
-		backdrop-filter: none;
-	}
-	/* stylelint-enable max-line-length */
+
+/* stylelint-disable max-line-length -- the words' surfaces' scopes */
+:root[data-reduce-transparency] #sidebar,
+:root[data-reduce-transparency] #chat .header,
+:root[data-reduce-transparency] #chat .userlist,
+:root[data-reduce-transparency] #form,
+html[data-reduce-transparency][data-platform="macos"] #chat .header,
+html[data-reduce-transparency][data-platform="macos"] #chat .header > :is(.title, .topic, button),
+html[data-reduce-transparency][data-platform="macos"] #chat .header > span > button,
+html[data-reduce-transparency][data-platform="macos"] #form,
+:root[data-reduce-transparency] #chat .msg-reaction:not(.self, .msg-reaction-add),
+:root[data-reduce-transparency] #viewport.menu-open #sidebar,
+:root[data-reduce-transparency] #viewport.menu-dragging #sidebar,
+:root[data-reduce-transparency] #viewport.userlist-open #chat .userlist,
+:root[data-reduce-transparency][data-ps-light="night"] #sidebar,
+:root[data-reduce-transparency][data-ps-light="night"] #chat .header,
+:root[data-reduce-transparency][data-ps-light="night"] #chat .userlist,
+:root[data-reduce-transparency][data-ps-light="night"] #form,
+:root[data-reduce-transparency][data-ps-light="night"] #chat .msg-reaction:not(.self, .msg-reaction-add),
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-scope-note,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-scope-note,
+:root[data-reduce-transparency][data-ps-words="glass"] #chat .chat-content > .chat,
+:root[data-reduce-transparency][data-ps-light="night"][data-ps-words="glass"] #chat .chat-content > .chat,
+:root[data-reduce-transparency][data-ps-words="scrim"] #chat .chat-content > .chat,
+:root[data-reduce-transparency][data-ps-light="night"][data-ps-words="scrim"] #chat .chat-content > .chat,
+:root[data-reduce-transparency][dir="rtl"][data-ps-words="scrim"] #chat .chat-content > .chat,
+:root[data-reduce-transparency][dir="rtl"][data-ps-light="night"][data-ps-words="scrim"] #chat .chat-content > .chat {
+	background-color: var(--ps-g-solid);
+	background-image: none;
+	/* stylelint-disable-next-line property-no-vendor-prefix -- the glass's prefixed blur, undone */
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 }
+
+/* An own row's card, solid too: its fill alone, which the card rule's
+ * specificity needs, so the "Highlighted row" band (an image) stays on it. */
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.self:is([data-type="message"], [data-type="action"]),
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.self:is([data-type="message"], [data-type="action"]) {
+	background-color: var(--ps-g-solid);
+}
+/* stylelint-enable max-line-length */
