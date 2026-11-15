@@ -1,12 +1,12 @@
 // Chat cues (client/js/chatCues.ts, docs/resources/themes.md § Chat cues) in
-// a real browser, under the ps theme: someone joining the open channel puts
-// `data-chat-cue="join"` on <html> and the moon and sun run `ps-cue-join`;
-// each message after it replaces it and runs `ps-cue-message` again; a mention
-// replaces it, and a message the mention; the cue is gone
-// CUE_MS later; a line in another channel, our own line and a part cue
-// nothing; switching channels ends a cue; and with reduced motion on nothing
-// is cued. A frozen scene still beats; the Scene animation setting at Still
-// does not.
+// a real browser, under the default theme: someone else's line in the open
+// channel sets `data-chat-cue` on <html> and its row rises in
+// (`chat-cue-arrive`), a mention flashes too (`chat-cue-mention`), and the cue
+// is gone CUE_MS later; a line in another channel and a part cue nothing
+// (our own lines: test/tests/chatCues.ts); switching channels ends a cue; ps and Keeki answering or naming
+// each other raise hearts (`chat-cue-hearts`), and nobody else does; under
+// reduced motion the cue is still set, nothing moves, and ps and Keeki's row
+// blushes instead.
 //
 //   pnpm build && python3 -m http.server -d "$PWD/public" 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/chat-cues.mjs
@@ -27,7 +27,9 @@ export const url = `http://localhost:${PORT}/?host=127.0.0.1&port=${IRCD_PORT}&t
 )}`;
 
 const CUE = `(document.documentElement.dataset.chatCue ?? null)`;
-const GLOW = `[".ps-moon svg", ".ps-sun svg"].map((s) => getComputedStyle(document.querySelector("#theme-scene " + s)).animationName).join(" ")`;
+const LAST = `[...document.querySelectorAll("#chat .msg")].at(-1)`;
+const ROW_ANIM = `getComputedStyle(${LAST}).animationName`;
+const HEARTS = `getComputedStyle(${LAST}, "::after").animationName`;
 const INPUT = `document.querySelector("#input")`;
 
 export default async function run(page) {
@@ -36,110 +38,85 @@ export default async function run(page) {
 		port: IRCD_PORT,
 		onLine(line, ctx) {
 			send = ctx.send;
+
+			if (line.startsWith("JOIN ")) {
+				for (const chan of [CHANNEL, OTHER]) {
+					ctx.send(`:${ctx.nick}!u@tiny JOIN ${chan}`);
+					ctx.send(
+						`:tiny.test 353 ${ctx.nick} = ${chan} :${ctx.nick} alice bob ps Keeki`
+					);
+					ctx.send(`:tiny.test 366 ${ctx.nick} ${chan} :End of /NAMES list.`);
+				}
+
+				return true;
+			}
+
 			return false;
 		},
 	});
 	const from = (nick) => `:${nick}!u@tiny`;
+	const say = (nick, text) => send(`${from(nick)} PRIVMSG ${CHANNEL} :${text}`);
 	const cueIs = async (want, label) =>
 		page.check(`${label}: cue ${want}`, (await page.evaluate(CUE)) === want);
+	const lastSays = (text) =>
+		page.waitFor(`${LAST}?.textContent.includes(${JSON.stringify(text)})`, {label: text});
 
 	try {
 		await page.send("Emulation.setFocusEmulationEnabled", {enabled: true});
-		await page.addInitScript(
-			`try { localStorage.setItem("settings", JSON.stringify({theme: "ps"})); } catch (e) {}`
-		);
 		await page.goto(page.url, {waitForSelector: "#connect form"});
 		await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
-		const item = `document.querySelector('.channel-list-item[data-name="${CHANNEL}"]')`;
-		await page.waitFor(item, {label: CHANNEL});
-		await page.evaluate(`${item}.click()`);
-		await page.waitFor(
-			`${INPUT} && document.querySelector("#theme-scene.psng")?.children.length > 0`,
-			{label: "the channel under the ps scene"}
-		);
-		await page.sleep(2500);
+		const item = (name) => `document.querySelector('.channel-list-item[data-name="${name}"]')`;
+		await page.waitFor(item(CHANNEL), {label: CHANNEL});
+		await page.evaluate(`${item(CHANNEL)}.click()`);
+		await page.waitFor(INPUT, {label: "the channel"});
+		await page.sleep(1000);
 		await cueIs(null, "after our own joins");
-		await page.screenshot("before");
 
-		send(`${from("alice")} JOIN ${CHANNEL}`);
-		await page.waitFor(`${CUE} === "join"`, {label: "the join cue"});
-		const glow = await page.evaluate(GLOW);
-		page.check(`a join: the moon and sun flare (${glow})`, glow === "ps-cue-join ps-cue-join");
-		await page.sleep(600); // near the flare's peak
-		await page.screenshot("join-glow");
-
-		// Each message restarts the beat: a "message" attribute is taken off and put back.
-		await page.evaluate(`(() => {
-			window.__restarts = 0;
-			new MutationObserver((l) => (window.__restarts += l.filter((m) => m.oldValue === "message").length))
-				.observe(document.documentElement, {attributeOldValue: true, attributeFilter: ["data-chat-cue"]});
-		})()`);
-		send(`${from("alice")} PRIVMSG ${CHANNEL} :hello`);
-		await page.waitFor(`${CUE} === "message"`, {label: "a message replacing the join"});
+		say("alice", "hello");
+		await lastSays("hello");
+		await cueIs("message", "a message");
 		page.check(
-			"a message: ps-cue-message",
-			(await page.evaluate(GLOW)) === "ps-cue-message ps-cue-message"
+			"a message: its row rises in",
+			(await page.evaluate(ROW_ANIM)) === "chat-cue-arrive"
 		);
-		await page.sleep(300);
-		await page.screenshot("message-beat");
-		send(`${from("alice")} PRIVMSG ${CHANNEL} :again`);
-		await page.waitFor(`window.__restarts >= 1 && ${CUE} === "message"`, {
-			label: "the second message's restart",
-		});
+		page.check("not ps and Keeki: no hearts", (await page.evaluate(HEARTS)) === "none");
 
-		send(`${from("bob")} PRIVMSG ${CHANNEL} :${NICK}: ping`);
-		await page.waitFor(`${CUE} === "mention"`, {label: "a mention"});
+		say("bob", `${NICK}: ping`);
+		await lastSays("ping");
+		await cueIs("mention", "a mention");
 		page.check(
-			"a mention: ps-cue-mention",
-			(await page.evaluate(GLOW)) === "ps-cue-mention ps-cue-mention"
+			"a mention: rises and flashes",
+			(await page.evaluate(ROW_ANIM)) === "chat-cue-arrive, chat-cue-mention"
 		);
-		send(`${from("alice")} PRIVMSG ${CHANNEL} :under the mention`);
-		await page.sleep(300);
-		await cueIs("message", "a message after a mention");
-
 		await page.waitFor(`${CUE} === null`, {label: "the cue's end", timeout: 4000});
-		page.check("the end: no glow", !(await page.evaluate(GLOW)).includes("ps-cue"));
+		page.check("the end: no animation", (await page.evaluate(ROW_ANIM)) === "none");
 
 		send(`${from("alice")} PRIVMSG ${OTHER} :somewhere else`);
 		await page.sleep(300);
 		await cueIs(null, "a line in another channel");
 
-		await page.evaluate(
-			`(() => { const i = ${INPUT}; i.value = "my own line"; i.dispatchEvent(new Event("input")); })()`
-		);
-		const enter = {key: "Enter", code: "Enter", windowsVirtualKeyCode: 13};
-		await page.send("Input.dispatchKeyEvent", {type: "keyDown", ...enter});
-		await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...enter});
-		await page.sleep(500);
-		await cueIs(null, "our own line");
-
-		// A resting scene still beats (a phone left untouched freezes it); the
-		// Scene animation setting at Still does not. Both set by hand here.
-		const SCENE = `document.querySelector("#theme-scene")`;
-		await page.evaluate(`${SCENE}.classList.add("psng-frozen")`);
-		send(`${from("alice")} PRIVMSG ${CHANNEL} :while it rests`);
-		await page.waitFor(`${CUE} === "message"`, {label: "a message on a frozen scene"});
-		page.check(
-			"frozen: still beats",
-			(await page.evaluate(GLOW)) === "ps-cue-message ps-cue-message"
-		);
-		await page.evaluate(`${SCENE}.classList.remove("psng-frozen")`);
-		await page.evaluate(`${SCENE}.dataset.motion = "still"`);
-		page.check("the Still setting: no beat", !(await page.evaluate(GLOW)).includes("ps-cue"));
-		await page.evaluate(`${SCENE}.dataset.motion = "auto"`);
-		await page.waitFor(`${CUE} === null`, {label: "that cue's end", timeout: 4000});
-
-		send(`${from("carol")} PART ${CHANNEL} :bye`);
+		send(`${from("bob")} PART ${CHANNEL} :bye`);
 		await page.sleep(300);
 		await cueIs(null, "a part");
 
+		// ps and Keeki: a line naming the other, and an answer to the other's line.
+		say("ps", "hey Keeki");
+		await lastSays("hey Keeki");
+		page.check("ps names Keeki: hearts", (await page.evaluate(HEARTS)) === "chat-cue-hearts");
+		await page.sleep(500);
+		await page.screenshot("hearts");
+		say("Keeki", "hi there");
+		await lastSays("hi there");
+		page.check("Keeki answers ps: hearts", (await page.evaluate(HEARTS)) === "chat-cue-hearts");
+		say("alice", "and me");
+		await lastSays("and me");
+		page.check("alice after them: no hearts", (await page.evaluate(HEARTS)) === "none");
+
 		// A cue ends with its conversation.
-		send(`${from("erin")} JOIN ${CHANNEL}`);
-		await page.waitFor(`${CUE} === "join"`, {label: "a join before switching"});
-		await page.evaluate(
-			`document.querySelector('.channel-list-item[data-name="${OTHER}"]').click()`
-		);
+		await page.evaluate(`${item(OTHER)}.click()`);
 		await page.waitFor(`${CUE} === null`, {label: "the cue ends on a switch", timeout: 1000});
+		await page.evaluate(`${item(CHANNEL)}.click()`);
+		await page.sleep(500);
 
 		await page.send("Emulation.setEmulatedMedia", {
 			features: [{name: "prefers-reduced-motion", value: "reduce"}],
@@ -147,9 +124,18 @@ export default async function run(page) {
 		await page.waitFor(`document.documentElement.hasAttribute("data-reduce-motion")`, {
 			label: "reduced motion on",
 		});
-		send(`${from("dave")} JOIN ${CHANNEL}`);
-		await page.sleep(500);
-		await cueIs(null, "reduced motion");
+		say("ps", "Keeki, still here?");
+		await lastSays("still here?");
+		await cueIs("message", "reduced motion: the cue is still set");
+		const still = JSON.parse(
+			await page.evaluate(
+				`JSON.stringify({row: ${ROW_ANIM}, hearts: ${HEARTS}, bg: getComputedStyle(${LAST}).backgroundColor})`
+			)
+		);
+		page.check(
+			`reduced motion: nothing moves, the row blushes (${still.bg})`,
+			still.row === "none" && still.hearts === "none" && still.bg !== "rgba(0, 0, 0, 0)"
+		);
 	} finally {
 		await ircd.close();
 	}

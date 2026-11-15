@@ -108,11 +108,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			const effect = a.effect as KeyframeEffect | null;
 			const el = effect?.target as HTMLElement | null | undefined;
 
-			// A chat cue (ps.css) plays on through a rest; pinned, it would hold
-			// the moon mid-swell.
-			const cue = (a as CSSAnimation).animationName?.startsWith("ps-cue-");
-
-			if (!el || effect?.pseudoElement || cue) {
+			if (!el || effect?.pseudoElement) {
 				continue;
 			}
 
@@ -329,9 +325,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		setGroups();
 		findViewport();
 		root.dataset.view = state.view;
-		// The user's Scene animation setting, for ps.css's chat cues: they play
-		// whatever the tier, but not when the user asked for a still scene.
-		root.dataset.motion = state.motion;
 		root.classList.toggle("ps-private", state.view === "query");
 		composer?.refind();
 
@@ -371,7 +364,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				...MOTION_CLASSES
 			);
 			delete root.dataset.view;
-			delete root.dataset.motion;
 			delete root.dataset.weather;
 			delete root.dataset.season;
 		},

@@ -3526,6 +3526,83 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	--msg-acting-bg: var(--msg-hover-bg, color-mix(in srgb, currentcolor 8%, transparent));
 }
 
+/* Chat cues (docs/resources/themes.md § Chat cues): the default use of
+ * <html data-chat-cue>, which is set only for someone else's live line in the
+ * open conversation, so the newest row is that line and never history. It
+ * rises in, and a mention flashes. :where() keeps it at no specificity: a
+ * theme that animates its rows (ps) keeps its own, and any theme restyles it. */
+@keyframes chat-cue-arrive {
+	from {
+		opacity: 0;
+		transform: translateY(0.5rem);
+	}
+}
+
+@keyframes chat-cue-mention {
+	from {
+		background-color: color-mix(in srgb, var(--link-color) 22%, transparent);
+	}
+}
+
+:where(html[data-chat-cue]:not([data-reduce-motion]) #chat .msg:not(.self):last-child) {
+	animation: chat-cue-arrive 0.35s ease-out;
+}
+
+:where(html[data-chat-cue="mention"]:not([data-reduce-motion]) #chat .msg:not(.self):last-child) {
+	animation:
+		chat-cue-arrive 0.35s ease-out,
+		chat-cue-mention 1.5s ease-out;
+}
+
+/* ps and Keeki: when one of them names the other, or answers the other's
+ * line, hearts rise from the line (in every theme). Under reduced motion the
+ * row blushes instead, for as long as the cue lasts. */
+@keyframes chat-cue-hearts {
+	0% {
+		opacity: 0;
+		transform: translateY(0.5rem) scale(0.8);
+	}
+
+	20% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 0;
+		transform: translateY(-2.5rem) scale(1.15);
+	}
+}
+
+html[data-chat-cue]:not([data-reduce-motion])
+	#chat
+	.msg:not(.self):last-child:is([data-type="message"], [data-type="action"]):is(
+		[data-from="ps" i]:has(.content .user[data-name="Keeki" i]),
+		[data-from="Keeki" i]:has(.content .user[data-name="ps" i]),
+		.msg[data-from="ps" i] + [data-from="Keeki" i],
+		.msg[data-from="Keeki" i] + [data-from="ps" i]
+	)::after {
+	content: "♥ ♥ ♥" / "";
+	position: absolute;
+	inset-inline-end: 1.5rem;
+	bottom: 0.25rem;
+	color: var(--chat-cue-heart, #ff5fa2);
+	font-size: 1rem;
+	letter-spacing: 0.25rem;
+	pointer-events: none;
+	animation: chat-cue-hearts 2.4s ease-out forwards;
+}
+
+html[data-chat-cue][data-reduce-motion]
+	#chat
+	.msg:not(.self):last-child:is([data-type="message"], [data-type="action"]):is(
+		[data-from="ps" i]:has(.content .user[data-name="Keeki" i]),
+		[data-from="Keeki" i]:has(.content .user[data-name="ps" i]),
+		.msg[data-from="ps" i] + [data-from="Keeki" i],
+		.msg[data-from="Keeki" i] + [data-from="ps" i]
+	) {
+	background-color: color-mix(in srgb, var(--chat-cue-heart, #ff5fa2) 14%, transparent);
+}
+
 #chat .unread-marker {
 	position: relative;
 	text-align: center;

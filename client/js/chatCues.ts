@@ -5,14 +5,14 @@
  * (`message`, `join`, `mention`) for any theme's CSS to select on.
  *
  * Every cue shows: a new one replaces the one showing and restarts the
- * theme's animation.
- * None while the page is hidden or motion is reduced, and the one showing ends
- * when either happens, or the open conversation or the theme changes
+ * theme's animation. Cues show under reduced motion too, so a theme can answer
+ * with something still (a colour, a border); its motion stays behind
+ * `:not([data-reduce-motion])`. None while the page is hidden, and the one
+ * showing ends when it is hidden or the open conversation or theme changes
  * (`clear`). The document is touched only inside functions, so mocha loads it.
  */
 
 import {MessageType} from "../../shared/types/msg";
-import {onSystemAccessibility} from "./helpers/systemAccessibility";
 
 export type ChatCue = "message" | "join" | "mention";
 
@@ -95,7 +95,7 @@ export const chatCues = createChatCues({
 			html.dataset.chatCue = cue;
 		}
 
-		// Hidden or reduced motion ends a cue; installed with the first one.
+		// A hidden page ends a cue; installed with the first one.
 		if (!watching) {
 			watching = true;
 			document.addEventListener("visibilitychange", () => {
@@ -103,12 +103,9 @@ export const chatCues = createChatCues({
 					chatCues.clear();
 				}
 			});
-			onSystemAccessibility((a) => a.reduceMotion && chatCues.clear());
 		}
 	},
-	allowed: () =>
-		document.visibilityState === "visible" &&
-		!document.documentElement.hasAttribute("data-reduce-motion"),
+	allowed: () => document.visibilityState === "visible",
 	after(ms, fn) {
 		const id = window.setTimeout(fn, ms);
 		return () => window.clearTimeout(id);
