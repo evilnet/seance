@@ -1,6 +1,6 @@
 # Inside the yurt: the `ps` theme's private conversations
 
-**Status: plan 1 (the still room) built, 2026-11-15** (`docs/projects/ps-yurt-plan-1.md`, on `ps-theme-clean`); plan 2 (the room's motion, §13) not started. The approved mockup is `docs/resources/themes/ps-yurt/mockup.html` (its README says what in it is the design); where the two disagree, this document wins. It supersedes `docs/projects/ps-theme.md` §5.7 (the frosted plains).
+**Status: plan 1 (the still room) and plan 2 (its motion) built, 2026-11-15** (`docs/projects/ps-yurt-plan-1.md`, merged into develop; `docs/projects/ps-yurt-plan-2.md`, on `ps-yurt-motion`). The approved mockup is `docs/resources/themes/ps-yurt/mockup.html` (its README says what in it is the design); where the two disagree, this document wins. It supersedes `docs/projects/ps-theme.md` §5.7 (the frosted plains).
 
 ## 1. Intent
 
@@ -160,6 +160,25 @@ A query is now just another view to `tierFor`.
 
 **Plan 1 ships the room still** (§13). Under today's rule a query is still anyway, and the still room is needed regardless for reduced motion and hidden pages.
 
+**As built (plan 2, 2026-11-15).** The room is a stack of layers in `.ps-indoor`, bottom to top:
+
+1. the back svg, with what is seen through the openings (the views out, their weather, the crown's sky), each overdrawing its opening;
+2. `.ps-ym-panes`, the moving HTML panes (`windowMotion`);
+3. the front svg, everything else, with holes at the openings (an even-odd clip; a mask re-rastered the svg off the pixel grid at fractional scales);
+4. the glows as screen-blended layers of their own, the fire's in `.ps-ym-fireglow`;
+5. the over svg, with the stove's second drawing, the beam and the fire;
+6. `.ps-ym-top`, with the moving fire, the lamp's flame and the steam.
+
+One length, `--ps-ym-s`, places the HTML in the design frame as the svg's `slice` does. `psng/room-motion.ts` (`ROOM_MOTION_CSS`, adopted with the room's sheet) hangs the motion on NG's groups, in phase:
+
+- `hearth`, a new group: the fire's body and the glow on the mockup's `flick`, the tongues and the lamp's flame on its `flick-b`;
+- `steam`, a new group: the smoke's keyframes;
+- `clouds`;
+- `weather`: the plains' own rain tiles, snow and flash, run by NG's rules;
+- `stars`, which sleep by day with the plains' stars gate.
+
+Each moving part swaps with plan 1's still drawing (`ps-yt-still-<group>`), and NG's catch-all still exempts the room's animated classes. Calm keeps the hearth; the window clouds rest under `psng-calm`, as measured (§11.2). The sun's canvas never draws in a query, and a change of view rewrites `--psng-t`, so the picture shown starts its loops where the clock puts them. The browser census is `tools/scenarios/ps-yurt.mjs`.
+
 ## 9. Legibility
 
 The floors do not change: 4.6 : 1 for text and 3 : 1 for marks (ps-theme.md §11). They must hold through whichever of the six words treatments the user has chosen, and through the header, composer, sidebar and chips, over the room's grounds, at every minute and in every weather:
@@ -302,9 +321,9 @@ The iPhone sitting is the user's.
 
 **Changed on purpose:**
 
-- `theme-ps.mjs` `checkFrosted` becomes a room check, and its `FROST_STATE` stops reading `.ps-sun`.
-- `ps-ng.mjs` `frozenCensus` in a query becomes "a query runs as a channel does".
-- `ps-scene-settings.mjs` loses its query checks with the withdrawn rule.
+- `theme-ps.mjs` `checkFrosted` becomes a room check, and its `FROST_STATE` stops reading `.ps-sun` (done, plan 1 task 9; the room runs in a query since plan 2).
+- `ps-ng.mjs` `frozenCensus` in a query becomes "a query runs as a channel does" (done, plan 2 task 5: `queryMoving`).
+- `ps-scene-settings.mjs` loses its query checks with the withdrawn rule (nothing to change: the rule never landed, §15).
 
 **Docs:**
 
