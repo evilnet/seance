@@ -93,20 +93,12 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		const topAt = markup.indexOf('<div class="ps-ym-top">');
 		const top = markup.slice(topAt);
 		const over = markup.slice(markup.indexOf('<svg class="ps-yt ps-yt-over"'), topAt);
-		expect(top).to.match(
-			/^<div class="ps-ym-top"><div class="ps-ym-fire" style="--x:[^"]+"><div class="ps-ym-fire-body"><svg /
-		);
-		expect(top.indexOf('class="ps-ym-fire-body"')).to.be.below(
-			top.indexOf('class="ps-ym-fire-tongues"')
-		);
-		const inner = (c: string) =>
-			(new RegExp(`<div class="${c}"><svg [^>]*>(.*?)</svg></div>`).exec(top) ?? ["", ""])[1];
+		expect(top).to.match(/^<div class="ps-ym-top"><div class="ps-ym-fire" style="--x:[^"]+">/);
 		const still = (/<g class="ps-yt-still-hearth ps-yt-burn">(.*?)<\/g>/.exec(over) ?? [
 			"",
 			"",
 		])[1];
-		expect(still).to.contain("url(#ps-yt-fire)");
-		expect(inner("ps-ym-fire-body") + inner("ps-ym-fire-tongues")).to.equal(still);
+		expect(still, "plan 1's still fire").to.contain("url(#ps-yt-fire)");
 		expect(top).to.match(
 			/<div class="ps-ym-lamp" style="--x:[^"]+"><div class="ps-ym-flame"><svg /
 		);
@@ -125,6 +117,55 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		);
 	});
 
+	it("draws the stove's flames to dance: three tongues, a core and four sparks, clipped to the door (§16)", function () {
+		const top = markup.slice(markup.indexOf('<div class="ps-ym-top">'));
+		const style = (/<div class="ps-ym-fire" style="([^"]+)">/.exec(top) ?? ["", ""])[1];
+		const clip = (/clip-path:polygon\(([^)]*)\)/.exec(style) ?? ["", ""])[1];
+		const points = clip.split(",").map((p) => p.trim().split(/\s+/));
+		expect(points.length, "the door's outline").to.be.at.least(16);
+
+		for (const p of points) {
+			expect(p.length).to.equal(2);
+			p.forEach((v) => {
+				expect(v).to.match(/^[0-9.]+%$/);
+				expect(parseFloat(v), "inside the box").to.be.within(0, 100);
+			});
+		}
+
+		const flames = top.slice(
+			top.indexOf('<div class="ps-ym-flames">'),
+			top.indexOf('<div class="ps-ym-steam"')
+		);
+		expect(top).to.match(/<div class="ps-ym-fire" style="[^"]+"><div class="ps-ym-flames">/);
+		const count = (c: string) => flames.split(c).length - 1;
+		expect(count('class="ps-ym-tongue '), "tongues").to.equal(3);
+		expect(count('class="ps-ym-core"'), "core").to.equal(1);
+		expect(count('class="ps-ym-spark"'), "sparks").to.equal(4);
+		["ps-ym-t1", "ps-ym-t2", "ps-ym-t3"].forEach((t) => expect(count(`${t}"`), t).to.equal(1));
+		expect(markup).to.not.contain("ps-ym-fire-body");
+		expect(markup).to.not.contain("ps-ym-fire-tongues");
+
+		const box = (t: string) => {
+			const m = new RegExp(`class="ps-ym-tongue ${t}" style="([^"]+)"`).exec(flames);
+			const get = (k: string) =>
+				parseFloat((new RegExp(`${k}:([0-9.]+)%`).exec(m?.[1] ?? "") ?? ["", "NaN"])[1]);
+			return {bottom: get("bottom"), height: get("height")};
+		};
+		const [t1, t2, t3] = ["ps-ym-t1", "ps-ym-t2", "ps-ym-t3"].map(box);
+		expect(t2.height, "the middle tongue the tallest").to.be.above(
+			Math.max(t1.height, t3.height)
+		);
+		// The coal bed's top curves round the stove, so the feet differ by a hair.
+		[t1, t3].forEach((t) =>
+			expect(t.bottom, "their feet on the coals").to.be.closeTo(t2.bottom, 2)
+		);
+		expect(flames).to.match(/<svg viewBox="0 0 20 40" preserveAspectRatio="none">/);
+
+		for (const m of flames.matchAll(/class="ps-ym-spark" style="([^"]+)"/g)) {
+			expect(m[1]).to.match(/--sd:[0-9.]+s;--sdl:-?[0-9.]+s/);
+		}
+	});
+
 	it("draws the coal bed under the fire, and fades the still fire and steam with the burn (plan 3)", function () {
 		const over = markup.slice(
 			markup.indexOf('<svg class="ps-yt ps-yt-over"'),
@@ -132,6 +173,11 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		);
 		const embers = over.indexOf('class="ps-yt-embers"');
 		expect(embers).to.be.above(0);
+		const bed = over.slice(embers, over.indexOf("</g>", embers));
+		expect(bed.indexOf('fill="#120d10"'), "a dark firebox behind the coals (§16)").to.be.above(
+			0
+		);
+		expect(bed.indexOf('fill="#120d10"')).to.be.below(bed.indexOf('fill="#3a1610"'));
 		expect(embers).to.be.below(over.indexOf('class="ps-yt-still-hearth ps-yt-burn"'));
 		expect(
 			markup.split("ps-yt-still-steam ps-yt-burn").length - 1,

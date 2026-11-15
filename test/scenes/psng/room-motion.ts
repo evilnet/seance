@@ -66,20 +66,57 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 		expect(rule(".psng-m-weather ", "ps-yt-still-weather", NONE)).to.equal(true);
 	});
 
-	it("hearth: the fire, its glow and the lamp's flame flicker with psng-m-hearth, in phase; out of the page without it; the still fire out while they move", function () {
+	it("hearth: the stove's glow and the lamp's flame flicker with psng-m-hearth, in phase; the fire and the lamp out of the page without it; the still fire out while they move", function () {
 		expect(rule(":not(.psng-m-hearth)", "ps-ym-fire", NONE), "the fire hidden").to.equal(true);
 		expect(rule(":not(.psng-m-hearth)", "ps-ym-lamp", NONE), "the lamp hidden").to.equal(true);
 
-		for (const c of [
-			"ps-ym-fire-body",
-			"ps-ym-fireglow",
-			"ps-ym-fire-tongues",
-			"ps-ym-flame",
-		]) {
+		for (const c of ["ps-ym-fireglow", "ps-ym-flame"]) {
 			expect(rule(".psng-m-hearth ", c, PHASED), c).to.equal(true);
 		}
 
 		expect(rule(".psng-m-hearth ", "ps-yt-still-hearth", NONE), "swapped").to.equal(true);
+	});
+
+	it("hearth: the tongues and the core dance in phase with psng-m-hearth (§16)", function () {
+		const beats: Array<[string, RegExp]> = [
+			["ps-ym-t1", /animation:\s*psng-yt-lick-a 0\.95s ease-in-out infinite/],
+			["ps-ym-t2", /animation:\s*psng-yt-lick-b 1\.2s ease-in-out infinite/],
+			["ps-ym-t3", /animation:\s*psng-yt-lick-c 0\.8s ease-in-out infinite/],
+			["ps-ym-core", /animation:\s*psng-yt-core 0\.45s ease-in-out infinite alternate/],
+		];
+
+		for (const [c, beat] of beats) {
+			expect(rule(".psng-m-hearth ", c, PHASED), `${c} in phase`).to.equal(true);
+			expect(rule(".psng-m-hearth ", c, beat), `${c} on its beat`).to.equal(true);
+		}
+	});
+
+	it("the sparks rise at full and rest in calm (§16)", function () {
+		expect(
+			rule(".psng-m-hearth:not(.psng-calm) ", "ps-ym-spark", PHASED),
+			"in phase at full"
+		).to.equal(true);
+		expect(
+			rule(
+				".psng-m-hearth:not(.psng-calm) ",
+				"ps-ym-spark",
+				/animation:\s*psng-yt-rise var\(--sd\) linear infinite/
+			),
+			"on their own beats"
+		).to.equal(true);
+		expect(rule("", "ps-ym-spark", /opacity:\s*0\.001/), "resting").to.equal(true);
+		expect(rule(".psng-calm ", "ps-ym-spark", NONE), "out in calm").to.equal(true);
+	});
+
+	it("the fire's strength and size follow the burn (§16)", function () {
+		expect(rule("", "ps-ym-fire", /opacity:\s*var\(--ps-in-burn\)/), "strength").to.equal(true);
+		expect(rule("", "ps-ym-fire", /overflow:\s*hidden/), "kept in the door").to.equal(true);
+		expect(rule("", "ps-ym-flames", /transform:[^;]*var\(--ps-in-burn\)/), "size").to.equal(
+			true
+		);
+		expect(rule("", "ps-ym-flames", /transform-origin:\s*50% 100%/), "from the coals").to.equal(
+			true
+		);
 	});
 
 	it("steam: out of the page without psng-m-steam, rising in phase with it; the still steam out while it moves", function () {
@@ -100,6 +137,27 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 			expect(values.length, name).to.be.greaterThan(3);
 			values.forEach((v) => expect(v, name).to.be.above(0).and.below(1));
 			expect(block?.[1], name).to.not.match(/transform/);
+		}
+	});
+
+	it("the licks move by transform alone; the core and the sparks fade, never at exactly 1 or 0 (§16)", function () {
+		const block = (name: string) =>
+			(new RegExp(`@keyframes ${name}\\s*\\{((?:[^{}]*\\{[^{}]*\\})*[^{}]*)\\}`).exec(
+				strip(ROOM_MOTION_CSS)
+			) ?? ["", ""])[1];
+
+		for (const name of ["psng-yt-lick-a", "psng-yt-lick-b", "psng-yt-lick-c"]) {
+			expect(block(name), name).to.match(/transform/);
+			expect(block(name), name).to.not.match(/opacity/);
+		}
+
+		for (const name of ["psng-yt-core", "psng-yt-rise"]) {
+			const values = [...block(name).matchAll(/opacity:\s*([0-9.]+)/g)].map((m) =>
+				Number(m[1])
+			);
+			expect(values.length, name).to.be.at.least(2);
+			values.forEach((v) => expect(v, name).to.be.above(0).and.below(1));
+			expect(block(name), name).to.match(/transform/);
 		}
 	});
 
@@ -130,12 +188,23 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 			.flatMap(([sel]) =>
 				sel
 					.split(",")
-					.map((x) => x.trim().replace(/^#theme-scene\.psng\.psng-m-[a-z]+ /, ""))
+					.map((x) =>
+						x.trim().replace(/^#theme-scene\.psng\.psng-m-[a-z]+(:not\([^)]*\))? /, "")
+					)
 			);
 		expect(animated).to.not.be.empty;
 
+		// A compound like .ps-ym-tongue.ps-ym-t1 is exempt through any one of its classes.
+		const exempt = (a: string) =>
+			list.includes(a) ||
+			(/^(\.[\w-]+)+$/.test(a) &&
+				a
+					.split(".")
+					.filter(Boolean)
+					.some((c) => list.includes(`.${c}`)));
+
 		for (const a of animated) {
-			expect(list, a).to.include(a);
+			expect(exempt(a), a).to.equal(true);
 		}
 	});
 
