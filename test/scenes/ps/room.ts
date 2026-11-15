@@ -101,7 +101,10 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		);
 		const inner = (c: string) =>
 			(new RegExp(`<div class="${c}"><svg [^>]*>(.*?)</svg></div>`).exec(top) ?? ["", ""])[1];
-		const still = (/<g class="ps-yt-still-hearth">(.*?)<\/g>/.exec(over) ?? ["", ""])[1];
+		const still = (/<g class="ps-yt-still-hearth ps-yt-burn">(.*?)<\/g>/.exec(over) ?? [
+			"",
+			"",
+		])[1];
 		expect(still).to.contain("url(#ps-yt-fire)");
 		expect(inner("ps-ym-fire-body") + inner("ps-ym-fire-tongues")).to.equal(still);
 		expect(top).to.match(
@@ -120,6 +123,20 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		expect(markup.split("ps-yt-still-steam").length - 1, "both drawings of the stove").to.equal(
 			2
 		);
+	});
+
+	it("draws the coal bed under the fire, and fades the still fire and steam with the burn (plan 3)", function () {
+		const over = markup.slice(
+			markup.indexOf('<svg class="ps-yt ps-yt-over"'),
+			markup.indexOf('<div class="ps-ym-top">')
+		);
+		const embers = over.indexOf('class="ps-yt-embers"');
+		expect(embers).to.be.above(0);
+		expect(embers).to.be.below(over.indexOf('class="ps-yt-still-hearth ps-yt-burn"'));
+		expect(
+			markup.split("ps-yt-still-steam ps-yt-burn").length - 1,
+			"both stove drawings"
+		).to.equal(2);
 	});
 
 	it("keeps the plains' classes out of the room", function () {

@@ -325,6 +325,11 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		room?.querySelectorAll(".ps-ym-stars").forEach((el) =>
 			el.classList.toggle("ps-off", !live.stars)
 		);
+		// The stove burns while the plains' chimney smokes (ps-yurt.md §16): its moving fire, its glow and
+		// the pot's steam sleep with the smoke's gate.
+		room?.querySelectorAll(".ps-ym-fire, .ps-ym-fireglow, .ps-ym-steam").forEach((el) =>
+			el.classList.toggle("ps-off", !live.smoke)
+		);
 
 		sunLive = live.sun;
 

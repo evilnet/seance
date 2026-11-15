@@ -1458,7 +1458,7 @@ export function roomMarkup(): string {
 		[1.1, 1.6, 2.1, 2.6].map((h) => across(h, h + 0.04, 0.088, 0.1, cls("pipeBand"))).join("") +
 		sprite(
 			[-0.17, 0.76, -0.1],
-			SPR.pot + `<g class="ps-yt-still-steam">${SPR.steam}</g>`,
+			SPR.pot + `<g class="ps-yt-still-steam ps-yt-burn">${SPR.steam}</g>`,
 			0.0055
 		) +
 		sprite([0.18, 0.76, -0.12], SPR.kettle, 0.0055);
@@ -1493,6 +1493,14 @@ export function roomMarkup(): string {
 		) +
 		Dr.rect(-0.125, 0.33, 0.125, 0.36, `fill="#ffcf6a" opacity=".55" ${LIT}`);
 	const fire = fireBody + fireTongues;
+	// The coal bed at the door's foot (§16): dull embers, always drawn, the fire burning over them; by day,
+	// with the stove out, they are all the door shows.
+	const embers =
+		Dr.rect(-0.12, 0.33, 0.12, 0.356, `fill="#3a1610" ${LIT}`) +
+		Dr.circle(-0.075, 0.345, 0.018, `fill="#b5401c" opacity=".75" ${LIT}`) +
+		Dr.circle(-0.015, 0.342, 0.022, `fill="#d2582a" opacity=".7" ${LIT}`) +
+		Dr.circle(0.045, 0.346, 0.017, `fill="#9c2f1a" opacity=".8" ${LIT}`) +
+		Dr.circle(0.09, 0.343, 0.014, `fill="#c04a20" opacity=".7" ${LIT}`);
 	const door = project(doorMap(0, 0.42));
 
 	// The posts that hold the crown.
@@ -1813,7 +1821,8 @@ export function roomMarkup(): string {
 	const over =
 		`<g class="ps-yt-stove-over">${stoveBody}</g>` +
 		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
-		`<g class="ps-yt-still-hearth">${fire}</g>` +
+		`<g class="ps-yt-embers">${embers}</g>` +
+		`<g class="ps-yt-still-hearth ps-yt-burn">${fire}</g>` +
 		(lights.flame ? `<g class="ps-yt-glow-lamp ps-yt-still-hearth">${lights.flame}</g>` : "") +
 		(lights.screenFace ? `<g class="ps-yt-glow-screen">${lights.screenFace}</g>` : "");
 

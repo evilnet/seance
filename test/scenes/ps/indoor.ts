@@ -95,10 +95,35 @@ describe("ps yurt: the room's colour and light by the minute (indoor.ts, docs/pr
 		}
 	});
 
-	it("writes exactly the eight levels", function () {
+	it("the fire burns while the chimney smokes, and its glow with it (§16)", function () {
+		const noon = at(new Date(2026, 5, 21, 12, 30), "clear");
+		const night = at(new Date(2026, 5, 21, 23, 0), "clear");
+		const storm = at(new Date(2026, 5, 21, 12, 30), "storm");
+		expect(indoorLevels(noon.m, noon.p)).to.include({burn: 0, fire: 0});
+		const n = indoorLevels(night.m, night.p);
+		expect(n.burn).to.equal(1);
+		expect(n.fire).to.be.closeTo(0.8, 0.001);
+		expect(indoorLevels(storm.m, storm.p), "a stormy day").to.include({burn: 0, fire: 0});
+		let dusk: ReturnType<typeof at> | undefined;
+
+		for (let min = 18 * 60; min < 24 * 60 && !dusk; min++) {
+			const c = at(new Date(2026, 5, 21, 0, min), "clear");
+
+			if (c.p.smokeOpacity > 0 && c.p.smokeOpacity < 1) {
+				dusk = c;
+			}
+		}
+
+		expect(dusk, "a minute of dusk").to.not.equal(undefined);
+		expect(indoorLevels(dusk!.m, dusk!.p).burn).to.equal(dusk!.p.smokeOpacity);
+		expect(roomCss()).to.contain(".ps-yt-burn { opacity: var(--ps-in-burn); }");
+	});
+
+	it("writes exactly the nine levels", function () {
 		const {m, p} = at(new Date(2026, 5, 21, 18, 30), "clear");
 		expect(Object.keys(indoorVars(m, p)).sort()).to.deep.equal([
 			"--ps-in-beam",
+			"--ps-in-burn",
 			"--ps-in-fire",
 			"--ps-in-golden",
 			"--ps-in-lamp",

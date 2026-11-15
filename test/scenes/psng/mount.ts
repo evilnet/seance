@@ -335,7 +335,8 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					"--ps-in-shade": "0.000",
 					"--ps-in-warm": "0.000",
 					"--ps-in-golden": "0.000",
-					"--ps-in-fire": "0.320",
+					"--ps-in-fire": "0.000",
+					"--ps-in-burn": "0.000",
 					"--ps-in-lamp": "0.000",
 					"--ps-in-beam": "1.000",
 					"--ps-in-sun": "0.000",
@@ -449,6 +450,37 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				expect(() => scene.update(state({view: "query"}))).to.not.throw();
 				expect(panes.dataset.weather).to.equal("heat");
 				expect(panes.markup).to.not.contain("psng-rain-tile");
+				scene.destroy();
+			});
+		});
+
+		it("the moving fire, its glow and the steam sleep while the chimney does (plan 3, Review Focus 2)", function () {
+			withPage(new Date(2026, 5, 21, 19, 0), (page, clock) => {
+				const indoor = new FakeElement(".ps-indoor");
+				const parts = [
+					new FakeElement(".ps-ym-fire"),
+					new FakeElement(".ps-ym-fireglow"),
+					new FakeElement(".ps-ym-steam"),
+				];
+				indoor.lists.set(".ps-ym-fire, .ps-ym-fireglow, .ps-ym-steam", () => parts);
+				page.root.planted.set(".ps-indoor", indoor);
+				const scene = mountOn(page, {view: "query"});
+				const smoke = () => Number(page.root.style.props.get("--ps-smoke-op") ?? 0);
+				expect(smoke(), "no smoke at 19:00").to.equal(0);
+				expect(
+					parts.every((e) => e.classList.contains("ps-off")),
+					"asleep by day"
+				).to.equal(true);
+
+				for (let i = 0; i < 4 * 60 && smoke() === 0; i++) {
+					clock.tick(60_000);
+				}
+
+				expect(smoke(), "smoke by 23:00").to.be.above(0);
+				expect(
+					parts.some((e) => e.classList.contains("ps-off")),
+					"awake with the smoke"
+				).to.equal(false);
 				scene.destroy();
 			});
 		});

@@ -149,8 +149,10 @@ export interface IndoorLevels {
 	warm: number;
 	/** The golden hour's light through the windows and on the floor: clear weather only, never at night. */
 	golden: number;
-	/** The stove's glow. */
+	/** The stove's glow: the burn's, a little stronger in a storm. */
 	fire: number;
+	/** How far the stove burns: the plains' own chimney smoke (palette.ts smokeOpacity), dusk to dawn (§16). */
+	burn: number;
 	/** The lamp on the chests: on at night, in a storm and in an overcast golden hour. */
 	lamp: number;
 	/** The sun through the crown, and its pool on the floor. */
@@ -170,7 +172,8 @@ export function indoorLevels(m: Moment, p: Palette): IndoorLevels {
 		shade: 0.74 * p.dark + 0.55 * wx.dim * (1 - p.dark),
 		warm: 0.2 * p.glowOpacity * (1 - p.dark) + 0.3 * p.dark,
 		golden: clear ? 0.2 * p.glowOpacity * (1 - p.dark) : 0,
-		fire: Math.min(1, 0.32 + 0.48 * p.dark + 0.18 * wx.storm),
+		fire: Math.min(1, p.smokeOpacity * (0.8 + 0.18 * wx.storm)),
+		burn: p.smokeOpacity,
 		lamp: Math.max(
 			clamp01((p.dark - 0.3) / 0.3),
 			wx.storm,
@@ -221,6 +224,7 @@ export function roomCss(): string {
 		"\n.ps-yt-beam, .ps-yt-pool-sun { opacity: var(--ps-in-beam); }" +
 		"\n.ps-yt-golden { opacity: var(--ps-in-golden); }" +
 		"\n.ps-yt-glow-fire { opacity: var(--ps-in-fire); }" +
+		"\n.ps-yt-burn { opacity: var(--ps-in-burn); }" +
 		"\n.ps-yt-glow-lamp { opacity: var(--ps-in-lamp); }" +
 		"\n.ps-yt-glow-screen { opacity: var(--ps-in-screen); }" +
 		"\n.ps-yt-window-sun { opacity: var(--ps-in-sun); }" +
