@@ -1,26 +1,20 @@
 /**
  * Chat cues (docs/resources/themes.md § Chat cues): a theme's way to react to
- * what happens in the open conversation without running code of its own. A
- * live join, part or message there, or a mention, shows for a few seconds as
- * `<html data-chat-cue="join">` (or `part`, `message`, `mention`), which any
- * theme's CSS can select on, and is passed to the theme's scene, if it has one
- * (themeScene.ts `SceneHandle.cue`). A cue says only what kind of thing
- * happened: never who, where or what was said.
+ * what happens in the open conversation without running code of its own.
+ * Someone else's live join, part, message or mention there shows for CUE_MS as
+ * `<html data-chat-cue="join">` (or `part`, `message`, `mention`) for any
+ * theme's CSS to select on. A cue says only what kind of thing happened.
  *
- * One cue at a time: while one shows, a second is dropped (a mention replaces
+ * One cue at a time: while one shows another is dropped (a mention replaces
  * anything but a mention), and after one ends the next waits QUIET_MS, so a
- * busy channel glows now and then rather than all the time. Nothing is cued
- * for history, catch-up or our own lines, and nothing while the page is hidden
- * or the user asks for reduced motion. It touches the document only inside
- * functions, so mocha loads it.
+ * busy channel glows now and then rather than all the time. Nothing while the
+ * page is hidden or the user asks for reduced motion. The document is touched
+ * only inside functions, so mocha loads it.
  */
 
 import {MessageType} from "../../shared/types/msg";
-import {themeScene} from "./themeScene";
 
 export type ChatCue = "join" | "part" | "message" | "mention";
-
-export const CHAT_CUES: readonly ChatCue[] = ["join", "part", "message", "mention"];
 
 /** How long a cue shows: long enough for a glow to rise and fall. */
 export const CUE_MS = 3000;
@@ -55,95 +49,53 @@ export function cueForMessage(msg: {
 	}
 }
 
-export interface ChatCues {
-	/** Shows `cue` if nothing stops it (the rules above); returns whether it did. */
-	fire(cue: ChatCue): boolean;
-	/** Ends the cue showing, if any, at once (a theme switch, a teardown). */
-	clear(): void;
-	readonly current: ChatCue | null;
-}
-
+/** The rules above around `show`; returns the function that fires a cue. */
 export function createChatCues(opts: {
-	/** Shows a cue, or none. */
 	show(cue: ChatCue | null): void;
-	/** Whether a cue may show now (the page visible, motion allowed). */
 	allowed(): boolean;
 	now(): number;
 	after(ms: number, fn: () => void): () => void;
-}): ChatCues {
+}): (cue: ChatCue) => void {
 	let current: ChatCue | null = null;
-	let cancel: (() => void) | undefined;
+	let cancel = () => {};
 	let endedAt = -Infinity;
 
-	const end = () => {
-		cancel?.();
-		cancel = undefined;
+	return (cue) => {
+		const mention = cue === "mention";
 
-		if (current) {
+		if (
+			!opts.allowed() ||
+			(current && (!mention || current === "mention")) ||
+			(!current && !mention && opts.now() - endedAt < QUIET_MS)
+		) {
+			return;
+		}
+
+		cancel();
+		current = cue;
+		opts.show(cue);
+		cancel = opts.after(CUE_MS, () => {
 			current = null;
 			endedAt = opts.now();
 			opts.show(null);
-		}
-	};
-
-	return {
-		get current() {
-			return current;
-		},
-
-		fire(cue: ChatCue): boolean {
-			const mention = cue === "mention";
-
-			if (!opts.allowed()) {
-				return false;
-			}
-
-			if (current && (!mention || current === "mention")) {
-				return false;
-			}
-
-			if (!current && !mention && opts.now() - endedAt < QUIET_MS) {
-				return false;
-			}
-
-			cancel?.();
-			current = cue;
-			opts.show(cue);
-			cancel = opts.after(CUE_MS, end);
-			return true;
-		},
-
-		clear: end,
-	};
-}
-
-/** The app's cues: `<html data-chat-cue>` and the theme's scene (themeScene.ts). */
-let appCues: ChatCues | undefined;
-
-export function chatCues(): ChatCues {
-	if (!appCues) {
-		appCues = createChatCues({
-			show(cue) {
-				const html = document.documentElement;
-
-				if (cue) {
-					html.dataset.chatCue = cue;
-				} else {
-					delete html.dataset.chatCue;
-				}
-
-				themeScene.cue(cue);
-			},
-			allowed: () =>
-				document.visibilityState === "visible" &&
-				!document.documentElement.hasAttribute("data-reduce-motion"),
-			now: () => performance.now(),
-			after(ms, fn) {
-				const id = window.setTimeout(fn, ms);
-				return () => window.clearTimeout(id);
-			},
 		});
-	}
-
-	return appCues;
+	};
 }
+
+export const fireChatCue = createChatCues({
+	show(cue) {
+		if (cue) {
+			document.documentElement.dataset.chatCue = cue;
+		} else {
+			delete document.documentElement.dataset.chatCue;
+		}
+	},
+	allowed: () =>
+		document.visibilityState === "visible" &&
+		!document.documentElement.hasAttribute("data-reduce-motion"),
+	now: () => performance.now(),
+	after(ms, fn) {
+		const id = window.setTimeout(fn, ms);
+		return () => window.clearTimeout(id);
+	},
+});

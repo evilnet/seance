@@ -1169,12 +1169,11 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 /* Chat cues (themes.md § Chat cues): someone joins the open channel and the
  * moon (by day the sun) glows for a moment; a mention glows warmer and
- * longer. The scene puts psng-cue-<kind> on its root only while it moves
- * (never still, frozen or under reduced motion), and the rule outranks
- * styles.ts's "every animation off" on purpose: it is the one animation a cue
- * asks for (`:root` lifts it past that rule's own (1,3,1), which an adopted
- * sheet would win on a tie). Only one of the two bodies is up at a time; the other's opacity
- * is 0, so its glow is never seen. */
+ * longer. Only while the scene moves: psng-m-clouds is on in full and calm
+ * and never still, and psng-frozen marks a rest. These rules outrank
+ * styles.ts's "every animation off" (1,3,1) on purpose: a cue is the one
+ * animation it lets through. Only one of the two bodies is up at a time; the
+ * other's opacity is 0, so its glow is never seen. */
 @keyframes ps-cue-glow {
 	0%,
 	100% {
@@ -1198,13 +1197,11 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	}
 }
 
-:root #theme-scene.psng.psng-cue-join .ps-moon svg,
-:root #theme-scene.psng.psng-cue-join .ps-sun svg {
+:root[data-chat-cue="join"] #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
 	animation: ps-cue-glow 2.6s ease-in-out !important;
 }
 
-:root #theme-scene.psng.psng-cue-mention .ps-moon svg,
-:root #theme-scene.psng.psng-cue-mention .ps-sun svg {
+:root[data-chat-cue="mention"] #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
 	animation: ps-cue-mention 2.9s ease-in-out !important;
 }
 

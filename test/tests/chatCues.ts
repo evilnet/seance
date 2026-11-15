@@ -8,12 +8,12 @@ import {
 	type ChatCue,
 } from "../../client/js/chatCues";
 
-/** A cue host on a hand-wound clock, recording what it showed. */
+/** The cue rules on a hand-wound clock, recording what they showed. */
 function rig(allowed = () => true) {
 	let t = 0;
 	let timers: {at: number; fn: () => void}[] = [];
 	const shown: (ChatCue | null)[] = [];
-	const cues = createChatCues({
+	const fire = createChatCues({
 		show: (cue) => shown.push(cue),
 		allowed,
 		now: () => t,
@@ -29,7 +29,7 @@ function rig(allowed = () => true) {
 		timers = timers.filter((x) => x.at > t);
 		due.forEach((x) => x.fn());
 	};
-	return {cues, shown, advance};
+	return {fire, shown, advance};
 }
 
 describe("chat cues (chatCues.ts)", function () {
@@ -56,58 +56,47 @@ describe("chat cues (chatCues.ts)", function () {
 
 	describe("createChatCues", function () {
 		it("shows a cue for CUE_MS, then ends it", function () {
-			const {cues, shown, advance} = rig();
-			expect(cues.fire("join")).to.equal(true);
-			expect(cues.current).to.equal("join");
+			const {fire, shown, advance} = rig();
+			fire("join");
 			advance(CUE_MS - 1);
 			expect(shown).to.deep.equal(["join"]);
 			advance(1);
 			expect(shown).to.deep.equal(["join", null]);
-			expect(cues.current).to.equal(null);
 		});
 
 		it("drops a second cue while one shows, and waits QUIET_MS after one ends", function () {
-			const {cues, shown, advance} = rig();
-			cues.fire("join");
-			expect(cues.fire("message")).to.equal(false);
-			expect(cues.fire("join")).to.equal(false);
+			const {fire, shown, advance} = rig();
+			fire("join");
+			fire("message");
+			fire("join");
 			advance(CUE_MS);
-			expect(cues.fire("message")).to.equal(false);
+			fire("message");
 			advance(QUIET_MS);
-			expect(cues.fire("message")).to.equal(true);
+			fire("message");
 			expect(shown).to.deep.equal(["join", null, "message"]);
 		});
 
 		it("a mention replaces any other cue and skips the quiet, but not another mention", function () {
-			const {cues, shown, advance} = rig();
-			cues.fire("message");
-			expect(cues.fire("mention")).to.equal(true);
-			expect(cues.fire("mention")).to.equal(false);
+			const {fire, shown, advance} = rig();
+			fire("message");
+			fire("mention");
+			fire("mention");
 			// The mention's own full time, not what was left of the message's.
 			advance(CUE_MS - 1);
-			expect(cues.current).to.equal("mention");
+			expect(shown).to.deep.equal(["message", "mention"]);
 			advance(1);
-			expect(cues.fire("mention")).to.equal(true);
+			fire("mention");
 			expect(shown).to.deep.equal(["message", "mention", null, "mention"]);
 		});
 
 		it("shows nothing while not allowed (hidden page, reduced motion)", function () {
 			let ok = false;
-			const {cues, shown} = rig(() => ok);
-			expect(cues.fire("mention")).to.equal(false);
+			const {fire, shown} = rig(() => ok);
+			fire("mention");
 			expect(shown).to.deep.equal([]);
 			ok = true;
-			expect(cues.fire("join")).to.equal(true);
-		});
-
-		it("clear ends the cue at once and its timer with it", function () {
-			const {cues, shown, advance} = rig();
-			cues.fire("join");
-			cues.clear();
-			advance(CUE_MS);
-			expect(shown).to.deep.equal(["join", null]);
-			cues.clear();
-			expect(shown).to.deep.equal(["join", null]);
+			fire("join");
+			expect(shown).to.deep.equal(["join"]);
 		});
 	});
 });

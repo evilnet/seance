@@ -13,7 +13,6 @@ import {PHONE_LAYOUT_QUERY} from "./helpers/device";
 import {isIOSShell, nativeCall, nativeListen} from "./helpers/shell";
 import {createPowerMerge, framesSayLowPower} from "./helpers/power";
 import {onAndroidSystemStatus} from "./helpers/systemAccessibility";
-import type {ChatCue} from "./chatCues";
 
 export type SceneView = "channel" | "query" | "other";
 
@@ -64,11 +63,6 @@ export interface SceneHostState {
 export interface SceneHandle {
 	update(state: SceneHostState): void;
 	destroy(): void;
-	/**
-	 * A chat cue starts, or the one showing ends (null): chatCues.ts. Optional;
-	 * a scene that moves less than the cue asks (still, frozen) ignores it.
-	 */
-	cue?(cue: ChatCue | null): void;
 }
 
 export interface SceneModule {
@@ -92,8 +86,6 @@ export interface SceneHost {
 	/** What the device is; a mounted scene is updated once, and only when a value changed. */
 	setDevice(device: Partial<{phone: boolean; lowPower: boolean}>): void;
 	setView(view: SceneView): void;
-	/** Passes a chat cue (or its end) to the mounted scene, if it takes them. */
-	cue(cue: ChatCue | null): void;
 	/**
 	 * Re-attempts the load of the currently-asked theme's scene, if its last
 	 * load failed and nothing has replaced it since. A no-op otherwise (nothing
@@ -123,11 +115,8 @@ export function createSceneHost(opts: {
 	// has superseded that attempt. Cleared by any `setTheme` (win or lose) and
 	// by a successful mount; `retry()` reads it and nothing else sets it.
 	let failed: string | null = null;
-	// Whether the mounted scene was given a cue it has not been told the end of.
-	let cueing = false;
 
 	const unmount = () => {
-		cueing = false;
 		handle?.destroy();
 		handle = null;
 		mounted = null;
@@ -271,20 +260,6 @@ export function createSceneHost(opts: {
 
 			state.view = view;
 			handle?.update({...state});
-		},
-
-		cue(cue: ChatCue | null): void {
-			// A scene nobody can see is not cued, but is always told an end.
-			if (!handle?.cue || (cue && !(state.visible && state.attended))) {
-				return;
-			}
-
-			if (!cue && !cueing) {
-				return;
-			}
-
-			cueing = cue !== null;
-			handle.cue(cue);
 		},
 
 		retry,

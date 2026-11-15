@@ -457,42 +457,6 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			});
 		});
 
-		it("a chat cue's class shows only while the scene moves, and goes with its end", function () {
-			withPage(new Date(2026, 5, 21, 23, 0), (page) => {
-				follow(page);
-				const scene = mountOn(page);
-				const cues = () =>
-					[...page.root.classList.names].filter((n) => n.startsWith("psng-cue-"));
-				scene.cue!("join");
-				expect(cues()).to.deep.equal(["psng-cue-join"]);
-				scene.cue!("mention");
-				expect(cues(), "one at a time").to.deep.equal(["psng-cue-mention"]);
-				scene.update(state({attended: false}));
-				expect(cues(), "frozen: none").to.deep.equal([]);
-				scene.update(state());
-				expect(cues(), "moving again: back while it lasts").to.deep.equal([
-					"psng-cue-mention",
-				]);
-				scene.update(state({motion: "still"}));
-				expect(cues(), "still: none").to.deep.equal([]);
-				scene.update(state({motion: "calm"}));
-				expect(cues()).to.deep.equal(["psng-cue-mention"]);
-				setReducedMotion(true);
-
-				try {
-					expect(cues(), "reduced motion: none").to.deep.equal([]);
-				} finally {
-					setReducedMotion(false);
-				}
-
-				scene.cue!(null);
-				expect(cues()).to.deep.equal([]);
-				scene.cue!("join");
-				scene.destroy();
-				expect(cues()).to.deep.equal([]);
-			});
-		});
-
 		it("calm: the clouds and psng-calm; destroy removes every class", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);

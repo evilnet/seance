@@ -12,7 +12,6 @@ import {isPhoneLayout} from "../../helpers/device";
 import {onSystemAccessibility, systemAccessibility} from "../../helpers/systemAccessibility";
 import storage from "../../localStorage";
 import type {SceneHandle, SceneHostState} from "../../themeScene";
-import {CHAT_CUES, type ChatCue} from "../../chatCues";
 import {momentAt, type Weather} from "../ps/engine";
 import {GATES, liveLayers, type Gate} from "../ps/layers";
 import {sceneClasses, sceneMarkup, sceneVars, weatherChanged} from "../ps/markup";
@@ -30,8 +29,6 @@ import {phaseSeconds, tierFor, type Tier} from "./tiers";
 /** How long the scene stays still after the phone's drawer closes: its 160 ms slide, and some margin. */
 export const RELEASE_MS = 400;
 const MOTION_CLASSES = [...GROUPS.map((g) => `psng-m-${g}`), "psng-calm"];
-/** A chat cue's class on the root while it shows (ps.css § chat cues): `psng-cue-join` and so on. */
-const CUE_CLASSES = CHAT_CUES.map((c) => `psng-cue-${c}`);
 const SMIL = "animate, animateMotion, animateTransform, set";
 /** What a freeze pins inline. */
 const PINNED = ["transform", "opacity"] as const;
@@ -87,16 +84,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let viewport: HTMLElement | null = null;
 	let drawer: MutationObserver | undefined;
 	let release: number | undefined;
-	let cue: ChatCue | null = null;
-
-	// The cue's class, only while the scene moves: a still or frozen scene shows none.
-	const showCue = () => {
-		const on = cue && tier !== "still" && !frozen ? `psng-cue-${cue}` : null;
-
-		for (const name of CUE_CLASSES) {
-			root.classList.toggle(name, name === on);
-		}
-	};
 
 	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
 	// anywhere else no frame is requested (calm keeps the one frame it has painted).
@@ -156,7 +143,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 		frozenAt = Date.now();
 		root.classList.add("psng-frozen");
-		showCue();
 	};
 
 	const thaw = () => {
@@ -222,7 +208,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 		sunOn = on.has("sun");
 		syncFire();
-		showCue();
 	};
 
 	// On the phone layout the sidebar is a drawer whose live blur re-samples the scene every frame
@@ -355,10 +340,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 	const handle: SceneHandle = {
 		update,
-		cue(next) {
-			cue = next;
-			showCue();
-		},
 		destroy() {
 			window.clearTimeout(timer);
 			window.clearTimeout(release);
@@ -380,8 +361,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				"ps-hot",
 				"ps-west",
 				"psng-frozen",
-				...MOTION_CLASSES,
-				...CUE_CLASSES
+				...MOTION_CLASSES
 			);
 			delete root.dataset.view;
 			delete root.dataset.weather;
