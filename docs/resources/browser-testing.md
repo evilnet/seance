@@ -155,12 +155,20 @@ export default async function run(page) {
 | `consoleLogs`, `consoleErrors`, `wsFrames` | collected since launch; a frame has `dir`, `requestId` (one per socket), `payloadData` |
 | `send(method, params)`                     | raw CDP, for anything not wrapped                                                      |
 | `expectWsErrors`                           | set true while dials are refused on purpose (a failed dial is otherwise a failure)     |
+| `devtoolsPort`                             | the browser's DevTools port; `lib/device.mjs` `openTab(page)` uses it                  |
 
 To take the connection away from under the page — a phone's radio going off —
 connect through `tools/scenarios/lib/irc-proxy.mjs`: `startProxy({port, target})`
 gives `cut()` (drop every proxied socket without a word), `refuse()` /
 `accept()` (every new dial dropped at once, or let through) and `close()`.
 `reconnect-after-backoff.mjs` and `disconnected-channel.mjs` are built on it.
+
+For a second copy of the app, `tools/scenarios/lib/device.mjs` hands back the
+same page API (`evaluate`, `waitFor`, `click`, `goto`, …) over another target:
+`startDevice()` starts another browser with a profile of its own (a second
+device), `openTab(page)` opens a second window of the driver's browser, which
+shares its localStorage and receives its `storage` events (two tabs, or the
+installed app beside a tab). `settings-cross-tab.mjs` is built on `openTab`.
 
 To use a cap the testnet ircd leaves off — nefarious2 gates several behind
 feature flags that default to off, `CAP_draft_read_marker` among them, and
