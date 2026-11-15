@@ -2,10 +2,11 @@
 // a real browser, under the ps theme: someone joining the open channel puts
 // `data-chat-cue="join"` on <html> and the moon and sun run `ps-cue-join`;
 // each message after it replaces it and runs `ps-cue-message` again; a mention
-// replaces it and a message does not cut the mention short; the cue is gone
+// replaces it, and a message the mention; the cue is gone
 // CUE_MS later; a line in another channel, our own line and a part cue
 // nothing; switching channels ends a cue; and with reduced motion on nothing
-// is cued.
+// is cued. A frozen scene still beats; the Scene animation setting at Still
+// does not.
 //
 //   pnpm build && python3 -m http.server -d "$PWD/public" 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/chat-cues.mjs
@@ -53,8 +54,8 @@ export default async function run(page) {
 		await page.waitFor(item, {label: CHANNEL});
 		await page.evaluate(`${item}.click()`);
 		await page.waitFor(
-			`${INPUT} && document.querySelector("#theme-scene.psng-m-clouds")?.children.length > 0`,
-			{label: "the channel under the moving ps scene"}
+			`${INPUT} && document.querySelector("#theme-scene.psng")?.children.length > 0`,
+			{label: "the channel under the ps scene"}
 		);
 		await page.sleep(2500);
 		await cueIs(null, "after our own joins");
@@ -94,7 +95,7 @@ export default async function run(page) {
 		);
 		send(`${from("alice")} PRIVMSG ${CHANNEL} :under the mention`);
 		await page.sleep(300);
-		await cueIs("mention", "a message during a mention");
+		await cueIs("message", "a message after a mention");
 
 		await page.waitFor(`${CUE} === null`, {label: "the cue's end", timeout: 4000});
 		page.check("the end: no glow", !(await page.evaluate(GLOW)).includes("ps-cue"));
@@ -111,6 +112,22 @@ export default async function run(page) {
 		await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...enter});
 		await page.sleep(500);
 		await cueIs(null, "our own line");
+
+		// A resting scene still beats (a phone left untouched freezes it); the
+		// Scene animation setting at Still does not. Both set by hand here.
+		const SCENE = `document.querySelector("#theme-scene")`;
+		await page.evaluate(`${SCENE}.classList.add("psng-frozen")`);
+		send(`${from("alice")} PRIVMSG ${CHANNEL} :while it rests`);
+		await page.waitFor(`${CUE} === "message"`, {label: "a message on a frozen scene"});
+		page.check(
+			"frozen: still beats",
+			(await page.evaluate(GLOW)) === "ps-cue-message ps-cue-message"
+		);
+		await page.evaluate(`${SCENE}.classList.remove("psng-frozen")`);
+		await page.evaluate(`${SCENE}.dataset.motion = "still"`);
+		page.check("the Still setting: no beat", !(await page.evaluate(GLOW)).includes("ps-cue"));
+		await page.evaluate(`${SCENE}.dataset.motion = "auto"`);
+		await page.waitFor(`${CUE} === null`, {label: "that cue's end", timeout: 4000});
 
 		send(`${from("carol")} PART ${CHANNEL} :bye`);
 		await page.sleep(300);

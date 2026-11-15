@@ -1169,11 +1169,13 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 /* Chat cues (themes.md § Chat cues): the moon (by day the sun) answers the
  * open channel. Every message gives it a beat, a join a long flare, a mention
- * two warm ones. Only while the scene moves (psng-m-clouds is on in full and
- * calm, never still; psng-frozen marks a rest) and never under reduced
- * motion. These rules outrank styles.ts's "every animation off" (1,3,1) on
- * purpose: a cue is the one animation it lets through. Only one of the two
- * bodies is up at a time; the other's opacity is 0. */
+ * two warm ones. Whatever the scene's tier, even resting or frozen (a phone
+ * nobody has touched for two minutes, low power, a query): a cue is the page
+ * telling the user something, not the scene's ambient motion. Never under
+ * reduced motion or the Scene animation setting at Still (data-motion, set
+ * by the scene). These rules outrank styles.ts's "every animation off"
+ * (1,3,1) and the frozen rule on purpose. Only one of the two bodies is up at
+ * a time; the other's opacity is 0. */
 @keyframes ps-cue-message {
 	0%,
 	100% {
@@ -1216,15 +1218,15 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	}
 }
 
-:root[data-chat-cue="message"]:not([data-reduce-motion]) #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
+:root[data-chat-cue="message"]:not([data-reduce-motion]) #theme-scene.psng:not([data-motion="still"]) :is(.ps-moon, .ps-sun) svg {
 	animation: ps-cue-message 1.2s ease-out !important;
 }
 
-:root[data-chat-cue="join"]:not([data-reduce-motion]) #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
+:root[data-chat-cue="join"]:not([data-reduce-motion]) #theme-scene.psng:not([data-motion="still"]) :is(.ps-moon, .ps-sun) svg {
 	animation: ps-cue-join 2.6s ease-in-out !important;
 }
 
-:root[data-chat-cue="mention"]:not([data-reduce-motion]) #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
+:root[data-chat-cue="mention"]:not([data-reduce-motion]) #theme-scene.psng:not([data-motion="still"]) :is(.ps-moon, .ps-sun) svg {
 	animation: ps-cue-mention 2.9s ease-in-out !important;
 }
 

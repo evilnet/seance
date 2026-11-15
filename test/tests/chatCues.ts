@@ -68,17 +68,6 @@ describe("chat cues (chatCues.ts)", function () {
 			expect(shown).to.deep.equal(["join", "message", "message", null]);
 		});
 
-		it("only a mention cuts a mention short", function () {
-			const {fire, shown, advance} = rig();
-			fire("mention");
-			fire("message");
-			fire("join");
-			fire("mention");
-			advance(CUE_MS);
-			fire("message");
-			expect(shown).to.deep.equal(["mention", "mention", null, "message"]);
-		});
-
 		it("shows nothing while not allowed (hidden page, reduced motion)", function () {
 			let ok = false;
 			const {fire, shown} = rig(() => ok);

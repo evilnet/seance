@@ -5,7 +5,7 @@
  * (`message`, `join`, `mention`) for any theme's CSS to select on.
  *
  * Every cue shows: a new one replaces the one showing and restarts the
- * theme's animation, except that nothing but a mention cuts a mention short.
+ * theme's animation.
  * None while the page is hidden or motion is reduced, and the one showing ends
  * when either happens, or the open conversation or the theme changes
  * (`clear`). The document is touched only inside functions, so mocha loads it.
@@ -68,7 +68,7 @@ export function createChatCues(opts: {
 
 	return {
 		fire(cue) {
-			if (!opts.allowed() || (current === "mention" && cue !== "mention")) {
+			if (!opts.allowed()) {
 				return;
 			}
 

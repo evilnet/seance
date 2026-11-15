@@ -362,6 +362,17 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 		});
 	});
 
+	it("publishes the Scene animation setting as data-motion on its root", function () {
+		withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+			const scene = mountOn(page);
+			expect(page.root.dataset.motion).to.equal("auto");
+			scene.update(state({motion: "still"}));
+			expect(page.root.dataset.motion).to.equal("still");
+			scene.destroy();
+			expect(page.root.dataset.motion).to.equal(undefined);
+		});
+	});
+
 	it("a query sets ps-private", function () {
 		withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 			const scene = mountOn(page);
