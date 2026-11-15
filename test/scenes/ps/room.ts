@@ -48,10 +48,11 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 			'<div class="ps-ym-fireglow"><svg class="ps-yt" viewBox="-320 0 1920 800"',
 			'<svg class="ps-yt ps-yt-glow" viewBox="-320 0 1920 800"',
 			'<svg class="ps-yt ps-yt-over" viewBox="-320 0 1920 800"',
-			'<div class="ps-ym-top"></div></div>',
+			'<div class="ps-ym-top">',
 		].map(at);
 		expect(order[0]).to.equal(0);
 		order.slice(1).forEach((i, k) => expect(i, `layer ${k + 1}`).to.be.above(order[k]));
+		expect(markup.endsWith("</div></div>")).to.equal(true);
 		expect(markup).to.not.contain("mix-blend-mode");
 	});
 
@@ -86,6 +87,39 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 	it("lets the sun through the crown fall over the stove and its pipe, drawn twice or not", function () {
 		const over = markup.indexOf('class="ps-yt-stove-over"');
 		expect(markup.indexOf('class="ps-yt-beam"')).to.be.above(over);
+	});
+
+	it("draws the fire, the lamp's flame and the steam over the over layer (plan 2, task 4)", function () {
+		const topAt = markup.indexOf('<div class="ps-ym-top">');
+		const top = markup.slice(topAt);
+		const over = markup.slice(markup.indexOf('<svg class="ps-yt ps-yt-over"'), topAt);
+		expect(top).to.match(
+			/^<div class="ps-ym-top"><div class="ps-ym-fire" style="--x:[^"]+"><div class="ps-ym-fire-body"><svg /
+		);
+		expect(top.indexOf('class="ps-ym-fire-body"')).to.be.below(
+			top.indexOf('class="ps-ym-fire-tongues"')
+		);
+		const inner = (c: string) =>
+			(new RegExp(`<div class="${c}"><svg [^>]*>(.*?)</svg></div>`).exec(top) ?? ["", ""])[1];
+		const still = (/<g class="ps-yt-still-hearth">(.*?)<\/g>/.exec(over) ?? ["", ""])[1];
+		expect(still).to.contain("url(#ps-yt-fire)");
+		expect(inner("ps-ym-fire-body") + inner("ps-ym-fire-tongues")).to.equal(still);
+		expect(top).to.match(
+			/<div class="ps-ym-lamp" style="--x:[^"]+"><div class="ps-ym-flame"><svg /
+		);
+		expect(top.split('class="ps-ym-flame"').length - 1).to.equal(1);
+		const steam = (/<div class="ps-ym-steam" style="[^"]+">(.*?)<\/div>/.exec(top) ?? [
+			"",
+			"",
+		])[1];
+		expect(steam.split("<i ").length - 1).to.equal(3);
+		expect(
+			markup.split("ps-yt-still-hearth").length - 1,
+			"the fire and the lamp's flame"
+		).to.equal(2);
+		expect(markup.split("ps-yt-still-steam").length - 1, "both drawings of the stove").to.equal(
+			2
+		);
 	});
 
 	it("keeps the plains' classes out of the room", function () {

@@ -57,7 +57,98 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 	background: #fff;
 }
 
+/* The fire's two layers and the lamp's flame fill their boxes; the lamp burns at its level. */
+#theme-scene .ps-ym-fire > div,
+#theme-scene .ps-ym-lamp > div {
+	position: absolute;
+	inset: 0;
+}
+
+#theme-scene .ps-ym-fire svg,
+#theme-scene .ps-ym-lamp svg {
+	display: block;
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+#theme-scene .ps-ym-lamp {
+	opacity: var(--ps-in-lamp);
+}
+
+/* The pot's steam: puffs from its rim, on the smoke's keyframes (ps.css ps-smoke-rise). */
+#theme-scene .ps-ym-steam i {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	inline-size: 0.75rem;
+	block-size: 0.75rem;
+	border-radius: 50%;
+	background: radial-gradient(closest-side, rgb(255 255 255 / 55%), transparent);
+	opacity: 0;
+}
+
 /* ---- the groups: each moves with its class, in phase ---- */
+/* The hearth: the approved mockup's flicker — the fire's body and the stove's glow on its flick, the
+ * tongues and the lamp's flame on its flick-b (1 written 0.999, as a pose's: never exactly 1 or 0). */
+#theme-scene.psng.psng-m-hearth .ps-ym-fire-body,
+#theme-scene.psng.psng-m-hearth .ps-ym-fireglow {
+	animation: psng-yt-flick 2.4s ease-in-out infinite;
+	animation-delay: calc(0s - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-hearth .ps-ym-fire-tongues,
+#theme-scene.psng.psng-m-hearth .ps-ym-flame {
+	animation: psng-yt-flick-b 1.7s ease-in-out infinite;
+	animation-delay: calc(0s - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-steam .ps-ym-steam i {
+	animation: ps-smoke-rise var(--sd) linear infinite;
+	animation-delay: calc(var(--sdl) - var(--psng-t));
+}
+
+@keyframes psng-yt-flick {
+	0%,
+	100% {
+		opacity: 0.999;
+	}
+
+	22% {
+		opacity: 0.86;
+	}
+
+	47% {
+		opacity: 0.97;
+	}
+
+	63% {
+		opacity: 0.8;
+	}
+
+	81% {
+		opacity: 0.94;
+	}
+}
+
+@keyframes psng-yt-flick-b {
+	0%,
+	100% {
+		opacity: 0.9;
+	}
+
+	30% {
+		opacity: 0.999;
+	}
+
+	55% {
+		opacity: 0.75;
+	}
+
+	80% {
+		opacity: 0.95;
+	}
+}
+
 #theme-scene.psng.psng-m-clouds .ps-ym-cloud {
 	animation: ps-drift var(--cd) linear infinite;
 	animation-delay: calc(var(--cdl) - var(--psng-t));
@@ -70,12 +161,17 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 
 /* ---- the swaps: the still drawing while a group is off, the moving one while it is on ---- */
 #theme-scene.psng.psng-m-clouds .ps-yt-still-clouds,
-#theme-scene.psng.psng-m-weather .ps-yt-still-weather {
+#theme-scene.psng.psng-m-weather .ps-yt-still-weather,
+#theme-scene.psng.psng-m-hearth .ps-yt-still-hearth,
+#theme-scene.psng.psng-m-steam .ps-yt-still-steam {
 	display: none;
 }
 
 #theme-scene.psng:not(.psng-m-clouds) .ps-ym-cloud,
-#theme-scene.psng:not(.psng-m-stars) .ps-ym-stars {
+#theme-scene.psng:not(.psng-m-stars) .ps-ym-stars,
+#theme-scene.psng:not(.psng-m-hearth) .ps-ym-fire,
+#theme-scene.psng:not(.psng-m-hearth) .ps-ym-lamp,
+#theme-scene.psng:not(.psng-m-steam) .ps-ym-steam {
 	display: none;
 }
 `;

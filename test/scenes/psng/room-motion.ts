@@ -53,6 +53,43 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 		expect(rule(".psng-m-weather ", "ps-yt-still-weather", NONE)).to.equal(true);
 	});
 
+	it("hearth: the fire, its glow and the lamp's flame flicker with psng-m-hearth, in phase; out of the page without it; the still fire out while they move", function () {
+		expect(rule(":not(.psng-m-hearth)", "ps-ym-fire", NONE), "the fire hidden").to.equal(true);
+		expect(rule(":not(.psng-m-hearth)", "ps-ym-lamp", NONE), "the lamp hidden").to.equal(true);
+
+		for (const c of [
+			"ps-ym-fire-body",
+			"ps-ym-fireglow",
+			"ps-ym-fire-tongues",
+			"ps-ym-flame",
+		]) {
+			expect(rule(".psng-m-hearth ", c, PHASED), c).to.equal(true);
+		}
+
+		expect(rule(".psng-m-hearth ", "ps-yt-still-hearth", NONE), "swapped").to.equal(true);
+	});
+
+	it("steam: out of the page without psng-m-steam, rising in phase with it; the still steam out while it moves", function () {
+		expect(rule(":not(.psng-m-steam)", "ps-ym-steam", NONE), "hidden").to.equal(true);
+		expect(rule(".psng-m-steam ", "ps-ym-steam", PHASED), "in phase").to.equal(true);
+		expect(rule(".psng-m-steam ", "ps-yt-still-steam", NONE), "swapped").to.equal(true);
+	});
+
+	it("the mockup's two flickers move by opacity alone, never at exactly 1 or 0", function () {
+		for (const name of ["psng-yt-flick", "psng-yt-flick-b"]) {
+			const block = new RegExp(
+				`@keyframes ${name}\\s*\\{((?:[^{}]*\\{[^{}]*\\})*[^{}]*)\\}`
+			).exec(strip(ROOM_MOTION_CSS));
+			expect(block, name).to.not.equal(null);
+			const values = [...(block?.[1] ?? "").matchAll(/opacity:\s*([0-9.]+)/g)].map((m) =>
+				Number(m[1])
+			);
+			expect(values.length, name).to.be.greaterThan(3);
+			values.forEach((v) => expect(v, name).to.be.above(0).and.below(1));
+			expect(block?.[1], name).to.not.match(/transform/);
+		}
+	});
+
 	it("names only keyframes that exist, and defines only ones that move by transform and opacity", function () {
 		const known = new Set([
 			...defined(PS_CSS),

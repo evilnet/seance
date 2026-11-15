@@ -53,7 +53,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 /* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
  * each of those while its psng-m-<group> class is absent. The sun's rays are exempt too (Task 6); g.ps-sway stays still for good (the wrapper sways).
  * The yurt's moving parts too (docs/projects/ps-yurt.md §8; psng/room-motion.ts stills them by their groups). */
-#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .psng-lark-fl, .psng-lark-ch, .psng-lark-cl, .ps-ym-cloud, .ps-ym-tw) {
+#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .psng-lark-fl, .psng-lark-ch, .psng-lark-cl, .ps-ym-cloud, .ps-ym-tw, .ps-ym-fire-body, .ps-ym-fire-tongues, .ps-ym-fireglow, .ps-ym-flame, .ps-ym-steam i) {
 	animation: none !important;
 }
 

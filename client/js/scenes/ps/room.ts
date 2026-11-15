@@ -254,6 +254,8 @@ interface Lights {
 	lamp?: P3;
 	screen?: P3;
 	flame?: string;
+	/** Where the lamp's flame sprite stands (plan 2: its moving copy is placed there). */
+	flameAt?: P3;
 	screenFace?: string;
 }
 
@@ -677,6 +679,7 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 		s += sprite(lampAt, SPR.lamp) + sprite(fr.pt(0.36, 0.3, 1.05), SPR.bowl);
 		lights.lamp = fr.pt(-0.25, 0.24, 1.25);
 		lights.flame = sprite(lampAt, SPR.flame);
+		lights.flameAt = lampAt;
 		return {d: 0.52, svg: s};
 	},
 
@@ -1453,11 +1456,17 @@ export function roomMarkup(): string {
 		poly3(circle3(0, 0.84, 0.1, 0.11, 24), cls("collarTop")) +
 		across(0.84, CROWN_H + 0.3, 0.075, 0.1, cls("pipe")) +
 		[1.1, 1.6, 2.1, 2.6].map((h) => across(h, h + 0.04, 0.088, 0.1, cls("pipeBand"))).join("") +
-		sprite([-0.17, 0.76, -0.1], SPR.pot + SPR.steam, 0.0055) +
+		sprite(
+			[-0.17, 0.76, -0.1],
+			SPR.pot + `<g class="ps-yt-still-steam">${SPR.steam}</g>`,
+			0.0055
+		) +
 		sprite([0.18, 0.76, -0.12], SPR.kettle, 0.0055);
 	const stove = piece("stove", stoveBody);
-	const fire =
-		Dr.arched(-0.125, 0.125, 0.33, 0.48, 0.06, `fill="url(#ps-yt-fire)" ${LIT}`) +
+	// The fire in the door: its body, and its tongues with the glow along the door's foot (plan 2 flickers
+	// the two apart, as the mockup's flick and flick-b did).
+	const fireBody = Dr.arched(-0.125, 0.125, 0.33, 0.48, 0.06, `fill="url(#ps-yt-fire)" ${LIT}`);
+	const fireTongues =
 		Dr.poly(
 			[
 				[-0.09, 0.34],
@@ -1483,6 +1492,7 @@ export function roomMarkup(): string {
 			`fill="#fff6c4" opacity=".9" ${LIT}`
 		) +
 		Dr.rect(-0.125, 0.33, 0.125, 0.36, `fill="#ffcf6a" opacity=".55" ${LIT}`);
+	const fire = fireBody + fireTongues;
 	const door = project(doorMap(0, 0.42));
 
 	// The posts that hold the crown.
@@ -1803,9 +1813,46 @@ export function roomMarkup(): string {
 	const over =
 		`<g class="ps-yt-stove-over">${stoveBody}</g>` +
 		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
-		fire +
-		(lights.flame ? `<g class="ps-yt-glow-lamp">${lights.flame}</g>` : "") +
+		`<g class="ps-yt-still-hearth">${fire}</g>` +
+		(lights.flame ? `<g class="ps-yt-glow-lamp ps-yt-still-hearth">${lights.flame}</g>` : "") +
 		(lights.screenFace ? `<g class="ps-yt-glow-screen">${lights.screenFace}</g>` : "");
+
+	// What moves over it all (plan 2, task 4): the fire in two layers that flicker apart, the lamp's flame,
+	// and the pot's steam; each in a box in the design frame (room-motion.ts), drawn in its own svg.
+	const place = (b: {x: number; y: number; w: number; h: number}) =>
+		`--x:${n(b.x)};--y:${n(b.y)};--w:${n(b.w)};--h:${n(b.h)}`;
+	const viewBox = (b: {x: number; y: number; w: number; h: number}) =>
+		`${n(b.x)} ${n(b.y)} ${n(b.w)} ${n(b.h)}`;
+	const fireBox = bbox(
+		[doorMap(-0.14, 0.31), doorMap(0.14, 0.31), doorMap(-0.14, 0.57), doorMap(0.14, 0.57)].map(
+			project
+		) as Quad
+	);
+	let moving =
+		`<div class="ps-ym-fire" style="${place(fireBox)}">` +
+		`<div class="ps-ym-fire-body"><svg viewBox="${viewBox(fireBox)}">${fireBody}</svg></div>` +
+		`<div class="ps-ym-fire-tongues"><svg viewBox="${viewBox(
+			fireBox
+		)}">${fireTongues}</svg></div>` +
+		`</div>`;
+
+	if (lights.flame && lights.flameAt && depthOf(lights.flameAt) > NEAR) {
+		// SPR.flame spans x ±5 and y -26 to -9 at the sprite's unit (0.0115), a margin round it.
+		const [fx, fy, fz] = project(lights.flameAt);
+		const k = (FOCAL * 0.0115) / fz;
+		const flameBox = {x: fx - 6 * k, y: fy - 27 * k, w: 12 * k, h: 19 * k};
+		moving += `<div class="ps-ym-lamp" style="${place(
+			flameBox
+		)}"><div class="ps-ym-flame"><svg viewBox="${viewBox(flameBox)}">${
+			lights.flame
+		}</svg></div></div>`;
+	}
+
+	const potRim = project([-0.17, 0.84, -0.1]);
+	moving +=
+		`<div class="ps-ym-steam" style="--x:${n(potRim[0])};--y:${n(potRim[1])};--w:0;--h:0">` +
+		[0, -1.2, -2.4].map((d) => `<i style="--sd:3.6s;--sdl:${d}s"></i>`).join("") +
+		`</div>`;
 
 	const layer = (names: string, content: string) =>
 		`<svg class="${names}" viewBox="-320 0 1920 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${content}</svg>`;
@@ -1818,7 +1865,7 @@ export function roomMarkup(): string {
 		`<div class="ps-ym-fireglow">${layer("ps-yt", fireGlow)}</div>` +
 		layer("ps-yt ps-yt-glow", otherGlows) +
 		layer("ps-yt ps-yt-over", over) +
-		`<div class="ps-ym-top"></div>` +
+		`<div class="ps-ym-top">${moving}</div>` +
 		`</div>`
 	);
 }
