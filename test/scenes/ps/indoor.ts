@@ -8,6 +8,7 @@ import {
 	ROOM_COLOURS,
 	ROOM_GROUNDS,
 	ROOM_LIT,
+	FIREBOX_BURNING,
 	ROOM_NIGHT,
 	roomCss,
 	shadeRoom,
@@ -119,11 +120,12 @@ describe("ps yurt: the room's colour and light by the minute (indoor.ts, docs/pr
 		expect(roomCss()).to.contain(".ps-yt-burn { opacity: var(--ps-in-burn); }");
 	});
 
-	it("writes exactly the nine levels", function () {
+	it("writes exactly the ten levels", function () {
 		const {m, p} = at(new Date(2026, 5, 21, 18, 30), "clear");
 		expect(Object.keys(indoorVars(m, p)).sort()).to.deep.equal([
 			"--ps-in-beam",
 			"--ps-in-burn",
+			"--ps-in-cavity",
 			"--ps-in-fire",
 			"--ps-in-golden",
 			"--ps-in-lamp",
@@ -155,6 +157,53 @@ describe("ps yurt: the room's colour and light by the minute (indoor.ts, docs/pr
 			.and.include(p.mount);
 		ROOM_LIT.forEach((hex) => expect(g.map((x) => x.hex)).to.not.include(hex));
 		expect(g.filter((x) => x.zone === "top").map((x) => x.area)).to.include("room roofA");
+	});
+
+	it("counts the stove's dark door, its firebox and coal bed, among the grounds, out of the glows' reach (plan 3, final review)", function () {
+		expect(ROOM_GROUNDS).to.include("firebox").and.include("coalBed");
+		const {m, p} = at(new Date(2026, 0, 2, 22, 0), "clear");
+		const areas = indoorGrounds(m, p).map((x) => x.area);
+		expect(areas).to.include("room firebox").and.include("room coalBed");
+		expect(areas).to.not.include("room firebox under the fire");
+		expect(areas).to.not.include("room coalBed under the lamp");
+	});
+
+	it("darkens the firebox only under the night glass, with the dark, and sweeps it at that strength (plan 3, final review)", function () {
+		expect(roomCss()).to.contain(".ps-yt-cavity { opacity: var(--ps-in-cavity); }");
+		const night = at(new Date(2026, 0, 2, 22, 0), "clear");
+		const l = indoorLevels(night.m, night.p);
+		expect([l.burn, l.cavity]).to.deep.equal([1, 1]);
+		const burning = indoorGrounds(night.m, night.p).find(
+			(x) => x.area === "room firebox burning"
+		);
+		expect(FIREBOX_BURNING).to.match(/^#[0-9a-f]{6}$/);
+		expect(burning?.hex, "at full burn, the firebox's night colour").to.equal(FIREBOX_BURNING);
+		const noon = at(new Date(2026, 0, 2, 12, 0), "clear");
+		expect(indoorGrounds(noon.m, noon.p).map((x) => x.area)).to.not.include(
+			"room firebox burning"
+		);
+
+		// A stormy dusk: the fire alight under the day glass, the firebox not yet dark.
+		let seen = 0;
+
+		for (let min = 14 * 60; min < 20 * 60; min += 5) {
+			const {m, p} = at(new Date(2026, 0, 2, 0, min), "storm");
+			const lv = indoorLevels(m, p);
+
+			if (lv.burn > 0 && p.dark <= 0.5) {
+				seen++;
+				expect(lv.cavity, `minute ${min}`).to.equal(0);
+				expect(indoorGrounds(m, p).map((x) => x.area)).to.not.include(
+					"room firebox burning"
+				);
+			}
+
+			if (p.dark > 0.5) {
+				expect(lv.cavity, `minute ${min}`).to.be.above(0);
+			}
+		}
+
+		expect(seen, "dusk minutes with the fire alight under the day glass").to.be.above(0);
 	});
 
 	it("gives the canvas the roof's colour", function () {

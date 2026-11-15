@@ -337,6 +337,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					"--ps-in-golden": "0.000",
 					"--ps-in-fire": "0.000",
 					"--ps-in-burn": "0.000",
+					"--ps-in-cavity": "0.000",
 					"--ps-in-lamp": "0.000",
 					"--ps-in-beam": "1.000",
 					"--ps-in-sun": "0.000",

@@ -174,10 +174,16 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		const embers = over.indexOf('class="ps-yt-embers"');
 		expect(embers).to.be.above(0);
 		const bed = over.slice(embers, over.indexOf("</g>", embers));
-		expect(bed.indexOf('fill="#120d10"'), "a dark firebox behind the coals (§16)").to.be.above(
-			0
-		);
-		expect(bed.indexOf('fill="#120d10"')).to.be.below(bed.indexOf('fill="#3a1610"'));
+		// Both are room colours, shaded with the hour and seen by the legibility sweep (§9): by day
+		// the dark door stands under the message column (the final review of plan 3).
+		const firebox = bed.indexOf('class="ps-yt-c-firebox"');
+		expect(firebox, "a dark firebox behind the coals (§16)").to.be.above(0);
+		expect(firebox).to.be.below(bed.indexOf('class="ps-yt-c-coalBed"'));
+		expect(bed).to.not.contain('fill="#3a1610"');
+		// Under the night glass it darkens behind the flames (never shaded: the sweep checks it, indoor.ts).
+		const dark = bed.indexOf('fill="#120d10" class="ps-yt-lit ps-yt-cavity"');
+		expect(dark, "the firebox darkening with the burn").to.be.above(firebox);
+		expect(dark).to.be.below(bed.indexOf('class="ps-yt-c-coalBed"'));
 		expect(embers).to.be.below(over.indexOf('class="ps-yt-still-hearth ps-yt-burn"'));
 		expect(
 			markup.split("ps-yt-still-steam ps-yt-burn").length - 1,

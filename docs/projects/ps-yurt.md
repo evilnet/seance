@@ -314,9 +314,9 @@ Each 21:00 figure is the median of three, with its range:
 | Full, clear noon, plan 3 (one run)  | 7.8 → 2.3                         | 32.0 → 17.2                             |
 | Still, clear noon, plan 3 (one run) | — → 0.09                          | — → 0.27                                |
 
-**Calm at night reads over the plains' calm.** On the phone profile a calm query at 21:00 read 18.9 % against the channel's 4.5 % (plan 2: 0.95 %), and the page recalculated style 60 times a second against plan 2's 2. That is the case §11 names, where the fire would be the next to leave calm; §16 keeps the dance in calm. Plan 3 leaves it as built and reports it: the two sections disagree, and §11's gate is the iPhone sitting.
+**Calm at night reads over the plains' calm.** On the phone profile a calm query at 21:00 read 18.9 % against the channel's 4.5 % (plan 2: 0.95 %), and the page recalculated style 60 times a second against plan 2's 2. A phone's Auto is calm (tiers.ts), so this is every phone's default in a query at night. That is the case §11 names, where the fire would be the next to leave calm; §16 keeps the dance in calm. Plan 3 leaves it as built and reports it: the two sections disagree, and §11's gate is the iPhone sitting.
 
-**The cause is the page, not the room.** Single runs on the phone profile, calm at 21:00, rank only:
+**The trigger is the page; what each tick costs in the room is not settled.** Single runs on the phone profile, calm at 21:00, rank only:
 
 - One CSS change at a time, none moved it from 17–21 %: no clip, no size container, no overflow, the licks without skew, the burn's opacity pinned, the licks alone off, the core alone off.
 - With the licks and the core both off the query read 0.85 %, and with the fire hidden 0.87 %.
@@ -324,14 +324,15 @@ Each 21:00 figure is the median of three, with its range:
 - A probe with a plain transform animation (its `animation` set inline and `important`, so NG's catch-all leaves it alone) recalculated style 60 times a second wherever it stood: on `body`, `#theme-scene`, `.ps-indoor`, `.ps-ym-top`, `.ps-ym-fire` and `.ps-ym-flames`. With no probe it was 2 a second.
 - Chrome's trace reports no compositing failure for any of the room's six animations. A bare page built the same way composites the same keyframes at under one recalculation a second: the clip, the size container, the isolation, the screen-blended glow, the burn-scaled parent, the svg gradient and the delay from a custom property.
 
-So in this headless Chromium every transform animation in the app's page is ticked on the main thread, opacity animations are not, and nothing in the room's CSS changes that. It is §11.2's finding for NG's own cloud drift. Whether a phone's compositor does the same is for the iPhone sitting (§11), with the room calm at night first.
+So in this headless Chromium every transform animation in the app's page is ticked on the main thread and opacity animations are not: §11.2's finding for NG's own cloud drift. That explains why there is a tick every frame, not what it costs. A calm channel also restyles every frame (about 47 a second, §11.2) and reads 4.5 %, while the calm query restyles 60 a second and reads 18.9 %: a tick costs about three to four times as much in the room, which has about 1,000 more elements (§11.1), whatever the number of moving boxes. Giving the tongues and the core layers of their own (`will-change: transform`) did not change it (18.7 % against 17.8 %, two runs each). Whether a phone's compositor ticks the same way is for the iPhone sitting (§11), with the room calm at night first.
 
-**At full the night costs a little more, and the day less.** At full a 21:00 query read 34.6 % against plan 2's 30.3 % on the phone profile, and 4.1 against 2.7 on the desktop: the four dancing boxes on top of the drift's recalculation every frame. At a clear noon the fire, its glow and the steam are out, and a query read 17.2 % against plan 2's 21.4 % on the phone profile (single runs).
+**At full the night costs a little more, and the day less.** At full a 21:00 query read 34.6 % against plan 2's 30.3 % on the phone profile, and 4.1 against 2.7 on the desktop: the four dancing boxes on top of the drift's recalculation every frame. That widens §11.2's open breach, where the query at night already cost more than the channel (now 34.6 % against 27.1 %). At a clear noon the fire, its glow and the steam are out, and a query read 17.2 % against plan 2's 21.4 % on the phone profile (single runs).
 
 The candidates are the user's call:
 
 - keep the dance in calm, as built (§16);
 - in calm, let the tongues and the core flicker by opacity instead of licking: 1.1 % in Chrome, but a flicker rather than a dance;
+- find out what a tick costs in the room (the trace's restyled elements and paint per frame, a calm query against a calm channel): a room-side cause could keep the dance in calm and narrow the full tier's breach too;
 - decide after the iPhone sitting.
 
 Scripts: `tmp/yurt-check/perf3-run.sh`, `perf3-iso.sh`, `probe-anc.mjs` and `trace-fire.mjs` (scratch).
@@ -458,7 +459,7 @@ Shown side by side in an Artifact; the user picked A:
 - **The swaps and gates:**
   - The still fire shows only while the fire burns; the embers show only while it is out.
   - The moving fire, the sparks and the steam take `ps-off` while the stove is out. That is the stars' gate (plan 2): nothing animates unseen.
-- **Legibility:** the sweep loses the day's grounds under the fire's glow, which only removes light. The night is unchanged.
+- **Legibility:** the sweep loses the day's grounds under the fire's glow, which only removes light. As built it gains the door: the firebox and its coal bed are room colours, as dark as the floors allow by day (about the door's own iron), and the firebox darkens behind the flames only once the night glass is up (`cavity`), each swept at its strength (the final review of plan 3). The night is otherwise unchanged.
 
 ### Non-goals
 

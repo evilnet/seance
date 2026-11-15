@@ -14,7 +14,7 @@
  */
 import {rainTiles} from "../psng/rain";
 import {WEATHERS, type Weather} from "./engine";
-import type {RoomColour} from "./indoor";
+import {FIREBOX_BURNING, type RoomColour} from "./indoor";
 import {
 	abox,
 	arc,
@@ -1502,11 +1502,20 @@ export function roomMarkup(): string {
 		) +
 		Dr.rect(-0.125, 0.33, 0.125, 0.36, `fill="#ffcf6a" opacity=".55" ${LIT}`);
 	const fire = fireBody + fireTongues;
-	// The firebox behind the door, dark, and its coal bed at the foot (§16): dull embers, always drawn, the
-	// fire burning over them; by day, with the stove out, a dark door with a few embers is all it shows.
+	// The firebox behind the door and its coal bed at the foot (§16), room colours the legibility sweep sees
+	// (indoor.ts): dull embers, always drawn, the fire burning over them; by day, with the stove out, the dark
+	// door and a few embers are all it shows, and by night the hour's shade darkens it behind the flames.
 	const embers =
-		Dr.arched(OPEN.s0, OPEN.s1, OPEN.t0, OPEN.t1, OPEN.rise, `fill="#120d10" ${LIT}`) +
-		Dr.rect(-0.12, 0.33, 0.12, 0.356, `fill="#3a1610" ${LIT}`) +
+		Dr.arched(OPEN.s0, OPEN.s1, OPEN.t0, OPEN.t1, OPEN.rise, cls("firebox")) +
+		Dr.arched(
+			OPEN.s0,
+			OPEN.s1,
+			OPEN.t0,
+			OPEN.t1,
+			OPEN.rise,
+			`fill="${FIREBOX_BURNING}" class="ps-yt-lit ps-yt-cavity"`
+		) +
+		Dr.rect(-0.12, 0.33, 0.12, 0.356, cls("coalBed")) +
 		Dr.circle(-0.075, 0.345, 0.018, `fill="#b5401c" opacity=".75" ${LIT}`) +
 		Dr.circle(-0.015, 0.342, 0.022, `fill="#d2582a" opacity=".7" ${LIT}`) +
 		Dr.circle(0.045, 0.346, 0.017, `fill="#9c2f1a" opacity=".8" ${LIT}`) +

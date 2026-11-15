@@ -11,7 +11,7 @@
 import {hexRgb, mixOklab, rgbHex} from "./colour";
 import type {Moment} from "./engine";
 import type {SceneGround} from "./grounds";
-import {WEATHER, type Palette} from "./palette";
+import {GLASS_NIGHT_AT, WEATHER, type Palette} from "./palette";
 
 /**
  * Every colour the room is painted with, by name: the approved mockup's
@@ -61,6 +61,10 @@ export const ROOM_COLOURS = {
 	hearthL: "#807c77",
 	iron: "#2c2d33",
 	ironD: "#3c3d43",
+	// The stove's firebox and its coal bed (plan 3), warm and as dark as §9's floors allow by day: about the
+	// door's own iron, which plan 1 lightened to the sweep's limit; the hour's shade darkens them by night.
+	firebox: "#4a3f41",
+	coalBed: "#573730",
 	ironLit: "#4a4c55",
 	ironMid: "#3c3e45",
 	ironShadow: "#3d3e42",
@@ -134,6 +138,12 @@ export const ROOM_LIT: readonly string[] = [
 	"#a9c6ff",
 ];
 
+/**
+ * The firebox at night (plan 3): a dark that fades in over the firebox's room colour once the night glass
+ * is up (the `cavity` level), never shaded; the sweep sees it at that strength.
+ */
+export const FIREBOX_BURNING = "#120d10";
+
 /** What the shade mixes toward, and what the golden hour mixes toward. */
 export const ROOM_NIGHT = "#0b0f24";
 export const ROOM_WARM = "#ff9a50";
@@ -153,6 +163,11 @@ export interface IndoorLevels {
 	fire: number;
 	/** How far the stove burns: the plains' own chimney smoke (palette.ts smokeOpacity), dusk to dawn (§16). */
 	burn: number;
+	/**
+	 * How dark the firebox is behind the flames: none while the day glass is up (palette.ts GLASS_NIGHT_AT),
+	 * where §9's floors bind it, then with the dark, full by 0.9, about where the burn is (plan 3's review).
+	 */
+	cavity: number;
 	/** The lamp on the chests: on at night, in a storm and in an overcast golden hour. */
 	lamp: number;
 	/** The sun through the crown, and its pool on the floor. */
@@ -174,6 +189,7 @@ export function indoorLevels(m: Moment, p: Palette): IndoorLevels {
 		golden: clear ? 0.2 * p.glowOpacity * (1 - p.dark) : 0,
 		fire: Math.min(1, p.smokeOpacity * (0.8 + 0.18 * wx.storm)),
 		burn: p.smokeOpacity,
+		cavity: p.dark > GLASS_NIGHT_AT ? Math.min(1, (p.dark - GLASS_NIGHT_AT) / 0.4) : 0,
 		lamp: Math.max(
 			clamp01((p.dark - 0.3) / 0.3),
 			wx.storm,
@@ -225,6 +241,7 @@ export function roomCss(): string {
 		"\n.ps-yt-golden { opacity: var(--ps-in-golden); }" +
 		"\n.ps-yt-glow-fire { opacity: var(--ps-in-fire); }" +
 		"\n.ps-yt-burn { opacity: var(--ps-in-burn); }" +
+		"\n.ps-yt-cavity { opacity: var(--ps-in-cavity); }" +
 		"\n.ps-yt-glow-lamp { opacity: var(--ps-in-lamp); }" +
 		"\n.ps-yt-glow-screen { opacity: var(--ps-in-screen); }" +
 		"\n.ps-yt-window-sun { opacity: var(--ps-in-sun); }" +
@@ -258,6 +275,8 @@ export const ROOM_GROUNDS: readonly RoomColour[] = [
 	"hearth",
 	"hearthL",
 	"ironD",
+	"firebox",
+	"coalBed",
 	"ironLit",
 	"ironMid",
 	"ironShadow",
@@ -288,6 +307,8 @@ const TOP: readonly RoomColour[] = ["roofA", "roofB", "crown"];
 /** The stove's own colours: room.ts draws the stove again over its glow, so the glows never light them. */
 const STOVE: readonly RoomColour[] = [
 	"ironD",
+	"firebox",
+	"coalBed",
 	"ironLit",
 	"ironMid",
 	"ironShadow",
@@ -312,6 +333,14 @@ function screen(base: string, light: string, alpha: number): string {
 	return rgbHex(ch(0), ch(1), ch(2));
 }
 
+/** `top` painted at `alpha` over `base`, per sRGB channel. */
+function over(base: string, top: string, alpha: number): string {
+	const a = hexRgb(base);
+	const b = hexRgb(top);
+	const ch = (i: number) => a[i] + (b[i] - a[i]) * alpha;
+	return rgbHex(ch(0), ch(1), ch(2));
+}
+
 export function indoorGrounds(m: Moment, p: Palette): SceneGround[] {
 	const l = indoorLevels(m, p);
 	const out: SceneGround[] = [];
@@ -320,6 +349,14 @@ export function indoorGrounds(m: Moment, p: Palette): SceneGround[] {
 
 	for (const key of ROOM_GROUNDS) {
 		add(`room ${key}`, shadeRoom(ROOM_COLOURS[key], l), TOP.includes(key) ? "top" : "middle");
+	}
+
+	if (l.cavity > 0) {
+		add(
+			"room firebox burning",
+			over(shadeRoom(ROOM_COLOURS.firebox, l), FIREBOX_BURNING, l.cavity),
+			"middle"
+		);
 	}
 
 	// The windows' panes and the crown's sky: the plains' own colours, never shaded.
