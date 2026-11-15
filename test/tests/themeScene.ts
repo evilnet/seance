@@ -208,6 +208,42 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 		]);
 	});
 
+	it("passes chat cues to a scene that takes them, only while it can be seen", async function () {
+		const log: string[] = [];
+		const mod: SceneModule = {
+			mount: () => ({
+				update: () => undefined,
+				destroy: () => log.push("destroy"),
+				cue: (c) => log.push(`cue ${c}`),
+			}),
+		};
+		const h = host({ps: () => Promise.resolve(mod)});
+		h.cue("join"); // nothing mounted yet
+		await h.setTheme("ps");
+		h.cue("join");
+		h.cue(null);
+		h.cue(null); // no cue showing: no second end
+		h.setVisible(false);
+		h.cue("mention"); // hidden: not cued
+		h.setVisible(true);
+		h.setAttended(false);
+		h.cue("mention"); // nobody attending: not cued
+		h.setAttended(true);
+		h.cue("mention");
+		h.setVisible(false);
+		h.cue(null); // an end always reaches it
+		expect(log).to.deep.equal(["cue join", "cue null", "cue mention", "cue null"]);
+	});
+
+	it("a scene without a cue hook is never cued", async function () {
+		const {log, mod} = fakeScene();
+		const h = host({ps: () => Promise.resolve(mod)});
+		await h.setTheme("ps");
+		h.cue("join");
+		h.cue(null);
+		expect(log).to.deep.equal(["mount true true channel"]);
+	});
+
 	it("forwards attention to the mounted scene, only when it changes", async function () {
 		const {log, mod} = fakeScene();
 		const h = host({ps: () => Promise.resolve(mod)});

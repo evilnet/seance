@@ -85,6 +85,20 @@ Five themes come as a light/dark pair: Coffee/Creama, Cobalt/Frost, Princess\_/P
 
 `style.css` greys an own message's text to `--body-color-muted`, TheLounge's look, and a theme was free to band the row instead (the Princess pair). The grey is hard to read on an iPhone under a dark theme — a system setting there flattens it into the background, which Android and a desk do not do — so the choice is the user's, not the theme's: Settings → Appearance → Your own messages picks **greyed text** (the default, every theme as it was), a **highlighted row** (the text like everyone else's, the row on a band) or **nothing**. The value lands on `<html data-own-messages>` (`client/js/helpers/ownMessages.ts`, `settings.ts`) and the three looks are rules in `style.css`, so no theme file needs to know about it. The three do not overlap: a band a theme paints on `.msg.self` itself (the Princess pair, Keeki) shows under **highlighted row** only, in the colour the theme names with `--own-bg` (without one the band is the text colour at 7% over the row). Own join and mode lines are `.self` as well and are left to the theme in every mode: the band is for what was said. Browser check: `tools/scenarios/own-messages.mjs` (coffee and princess, every setting, a reload).
 
+## Chat cues
+
+A theme can react to what happens in the open conversation without shipping code (`client/js/chatCues.ts`). Someone else's live join, part (a quit or kick counts), message or mention there sets `<html data-chat-cue="join">` (or `part`, `message`, `mention`) for `CUE_MS` (3 s), so a theme's CSS, or the user's own stylesheet, can select on it:
+
+```css
+html[data-chat-cue="join"] .header .title {
+  animation: my-glow 2.5s ease-in-out;
+}
+```
+
+The rules keep it calm and say nothing: a cue names only the kind of thing that happened, never who, where or what. One shows at a time; while it does, another is dropped (a mention replaces anything but a mention), and after it ends the next waits `QUIET_MS` (2 s), so a busy channel glows now and then rather than all the time. Nothing is cued for history, catch-up, a placed line, a notice rerouted to the open window, an edit, a pending copy or our own lines (`socket-events/msg.ts`, `cueForMessage`), nor while the page is hidden or `html[data-reduce-motion]` is set. A theme's cue animation should be short and is still the theme's to keep within its own motion rules.
+
+A theme with a scene is told too (`themeScene.ts`: `SceneHandle.cue`, optional, called with the cue and with `null` at its end, only while the page is visible and attended). The `ps` scene puts `psng-cue-<kind>` on `#theme-scene` while it moves (never still, frozen or under reduced motion), and `ps.css` makes the moon (by day the sun) glow on a join and glow warmer and longer on a mention: a `filter` animation, the one exception to NG's transform-and-opacity rule, which `tools/scenarios/ps-ng.mjs`'s census never sees since nothing cues it there. Tests `test/tests/chatCues.ts`, `test/tests/themeScene.ts`, `test/scenes/psng/mount.ts`; browser check `tools/scenarios/chat-cues.mjs` (no ircd: `lib/tiny-ircd.mjs`).
+
 ## Checking a theme
 
 `pnpm test` never loads a stylesheet. Build, serve `public/`, and look (`docs/resources/browser-testing.md`); the Appearance dropdown switches live. `tools/scenarios/themes.mjs` drives that dropdown through every theme against the dev ircd, checks the stylesheet link, the stored name and the browser chrome colour, measures the pairs above on the four handoff themes (text, timestamps, links, the join line, a nick on a highlighted row at ≥ 4.5:1; icons and the placeholder at ≥ 3:1) from computed styles, and leaves a screenshot of the chat under each theme.

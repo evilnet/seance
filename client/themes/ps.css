@@ -1167,6 +1167,47 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	overflow: visible;
 }
 
+/* Chat cues (themes.md § Chat cues): someone joins the open channel and the
+ * moon (by day the sun) glows for a moment; a mention glows warmer and
+ * longer. The scene puts psng-cue-<kind> on its root only while it moves
+ * (never still, frozen or under reduced motion), and the rule outranks
+ * styles.ts's "every animation off" on purpose: it is the one animation a cue
+ * asks for (`:root` lifts it past that rule's own (1,3,1), which an adopted
+ * sheet would win on a tie). Only one of the two bodies is up at a time; the other's opacity
+ * is 0, so its glow is never seen. */
+@keyframes ps-cue-glow {
+	0%,
+	100% {
+		filter: none;
+	}
+
+	30% {
+		filter: brightness(1.35) drop-shadow(0 0 1.25rem rgb(255 246 220 / 85%));
+	}
+}
+
+@keyframes ps-cue-mention {
+	0%,
+	100% {
+		filter: none;
+	}
+
+	25%,
+	55% {
+		filter: brightness(1.5) drop-shadow(0 0 1.75rem rgb(255 196 150 / 90%));
+	}
+}
+
+:root #theme-scene.psng.psng-cue-join .ps-moon svg,
+:root #theme-scene.psng.psng-cue-join .ps-sun svg {
+	animation: ps-cue-glow 2.6s ease-in-out !important;
+}
+
+:root #theme-scene.psng.psng-cue-mention .ps-moon svg,
+:root #theme-scene.psng.psng-cue-mention .ps-sun svg {
+	animation: ps-cue-mention 2.9s ease-in-out !important;
+}
+
 /* The sun's slow rays: a turning conic, masked to a ring. */
 #theme-scene .ps-rays {
 	position: absolute;

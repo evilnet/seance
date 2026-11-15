@@ -17,6 +17,7 @@ import {forgetTranslations} from "../translate/reader";
 import {nativeAlertsAvailable, requestAttention, showNativeAlert} from "../helpers/nativeAlerts";
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
+import {chatCues, cueForMessage} from "../chatCues";
 
 socket.on("msg", function (data) {
 	const receivingChannel = store.getters.findChannel(data.chan);
@@ -80,6 +81,16 @@ socket.on("msg", function (data) {
 	// bottom until their echo settles them, so everything else goes in
 	// ahead of them.
 	insertMessage(channel.messages, data.msg);
+
+	// A theme's chat cue (chatCues.ts): something live in the open
+	// conversation, never history, catch-up or a notice rerouted here.
+	if (isActiveChannel && !rerouted && !data.replay && !data.placed) {
+		const cue = cueForMessage(data.msg);
+
+		if (cue) {
+			chatCues().fire(cue);
+		}
+	}
 
 	// The edit of a line in a past view; a pending copy waits for its echo.
 	if (channel.past && data.msg.editOf && !data.msg.pending) {
