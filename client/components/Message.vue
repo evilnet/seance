@@ -17,6 +17,7 @@
 		:data-type="message.type"
 		:data-command="message.command"
 		:data-from="message.from && message.from.nick"
+		:data-live="live"
 		@touchstart.passive="onTouchStart"
 		@touchmove.passive="onTouchMove"
 		@touchend="onTouchEnd"
@@ -258,6 +259,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, onUnmounted, PropType, ref, watch} from "vue";
+import {liveRows} from "../js/liveRows";
 
 import Username from "./Username.vue";
 import LinkPreview from "./LinkPreview.vue";
@@ -359,9 +361,15 @@ export default defineComponent({
 		keepScrollPosition: Function as PropType<() => void>,
 		isPreviousSource: Boolean,
 		focused: Boolean,
+		/** A row of the open conversation's list, which may claim a live note (liveRows.ts). */
+		inChat: Boolean,
 	},
 	setup(props) {
 		const store = useStore();
+
+		// Taken once, as the row mounts: a row mounted again later (another
+		// conversation and back, a past view closed) is not new.
+		const live = (props.inChat && liveRows.take(props.message.id)) || undefined;
 		const {t, locale} = useI18n();
 
 		// On a touch device the toolbar opens on a long press, as it does in
@@ -780,6 +788,7 @@ export default defineComponent({
 		};
 
 		return {
+			live,
 			quoteButton,
 			store,
 			actionsOpen,

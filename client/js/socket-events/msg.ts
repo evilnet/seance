@@ -17,6 +17,7 @@ import {forgetTranslations} from "../translate/reader";
 import {nativeAlertsAvailable, requestAttention, showNativeAlert} from "../helpers/nativeAlerts";
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
+import {liveKindOf, liveRows} from "../liveRows";
 
 socket.on("msg", function (data) {
 	const receivingChannel = store.getters.findChannel(data.chan);
@@ -80,6 +81,22 @@ socket.on("msg", function (data) {
 	// bottom until their echo settles them, so everything else goes in
 	// ahead of them.
 	insertMessage(channel.messages, data.msg);
+
+	// A live line in the open conversation, for a theme's CSS (liveRows.ts):
+	// never history, catch-up, a placed line or a notice rerouted here.
+	if (
+		isActiveChannel &&
+		!rerouted &&
+		!data.replay &&
+		!data.placed &&
+		document.visibilityState === "visible"
+	) {
+		const kind = liveKindOf(data.msg);
+
+		if (kind) {
+			liveRows.mark(data.msg.id, kind);
+		}
+	}
 
 	// The edit of a line in a past view; a pending copy waits for its echo.
 	if (channel.past && data.msg.editOf && !data.msg.pending) {
