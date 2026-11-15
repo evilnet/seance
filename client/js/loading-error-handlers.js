@@ -193,8 +193,14 @@
 				  !(storedTheme && storedTheme !== serverTheme && pairOf(storedTheme));
 		const theme = matchSystem ? pairedTheme(chosen) : chosen;
 
-		if (theme && themeEl.getAttribute("href") !== `themes/${theme}.css`) {
-			themeEl.setAttribute("href", `themes/${theme}.css`);
+		// The build's version rides in the query index.html carries
+		// (`?v=…`, themeHref in helpers/themeHref.ts), so loadTheme finds the
+		// same href and does not load the theme a second time.
+		const version = (themeEl.getAttribute("href") ?? "").replace(/^[^?]*/, "");
+		const href = `themes/${theme}.css${version}`;
+
+		if (theme && themeEl.getAttribute("href") !== href) {
+			themeEl.setAttribute("href", href);
 		}
 
 		if (

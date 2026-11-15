@@ -456,7 +456,7 @@ export default async function run(page) {
 			});
 			await setSetting("theme", name);
 			await page.waitFor(
-				`document.getElementById("theme").getAttribute("href") === "themes/${name}.css"`,
+				`document.getElementById("theme").getAttribute("href").replace(/\\?.*$/, "") === "themes/${name}.css"`,
 				{label: `the ${name} stylesheet`}
 			);
 			await page.sleep(800);

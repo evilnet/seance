@@ -586,8 +586,9 @@ export default async function run(page) {
 	await pickPs(page);
 	page.check(
 		"the stylesheet is themes/ps.css",
-		(await page.evaluate(`document.getElementById("theme").getAttribute("href")`)) ===
-			"themes/ps.css"
+		(await page.evaluate(
+			`document.getElementById("theme").getAttribute("href").replace(/\\?.*$/, "")`
+		)) === "themes/ps.css"
 	);
 	await page.waitFor(OTHERS_LINE, {label: "the neighbour's line, under ps"});
 

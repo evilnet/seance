@@ -21,6 +21,9 @@
 // reopen the app.
 
 const cacheName = "__HASH__";
+// The build's themes (client/themes/*.css), written in at build time.
+const STAMPED_THEMES = "__THEMES__";
+const THEMES = Array.isArray(STAMPED_THEMES) ? STAMPED_THEMES : ["coffee"];
 // The deploy's name (config.json `appName`), written in at build time like
 // the hash; a worker run from source (the test harness) says "Seance".
 const STAMPED_APP_NAME = "__APP_NAME__";
@@ -101,8 +104,14 @@ const shellPaths = [
 	`js/bundle.js?v=${cacheName}`,
 	`js/push.js?v=${cacheName}`,
 	`css/style.css?v=${cacheName}`,
-	"themes/coffee.css",
-	"themes/day.css", // coffee.css @imports it (the window frame)
+	// Every theme: each is one small file now (vite.config.mts bundleTheme),
+	// about 90 KB gzipped together, and the worker cannot read which one the
+	// page has stored. Without them an update evicts the theme in use with the
+	// old cache, and the next offline start has none. A theme's own assets
+	// (ps's fonts and scene art under themes/ps/) are not here: they are
+	// cached as the page fetches them, so a first offline start in ps has
+	// its stylesheet but falls back to the system fonts and no art.
+	...THEMES.map((name) => `themes/${name}.css?v=${cacheName}`),
 	"fonts/fa-solid-900.woff2",
 	"img/logo-tile.png",
 ];

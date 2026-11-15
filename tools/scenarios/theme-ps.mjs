@@ -296,7 +296,8 @@ const PORT = process.env.SEANCE_IRC_PORT ?? "8067";
 
 export const url = `${BASE}?host=127.0.0.1&port=${PORT}&tls=false&nick=${NICK}&join=%23seance,%23kittens`;
 
-const THEME_HREF = `document.getElementById("theme").getAttribute("href")`;
+// The link without the build's `?v=` (helpers/themeHref.ts).
+const THEME_HREF = `document.getElementById("theme").getAttribute("href").replace(/\\?.*$/, "")`;
 const OWN_TEXT = `hello from the plains ${RUN}`;
 /** How long the echo of our own message is held back (see INSTALL_SHIM). */
 const HOLD_MS = 1500;
@@ -1643,7 +1644,7 @@ const HOLD_THEME = `(() => {
 	const T0 = performance.now();
 	const value = Object.getOwnPropertyDescriptor(Attr.prototype, "value");
 	const setAttribute = Element.prototype.setAttribute;
-	const ps = (v) => /(^|\\/)ps\\.css$/.test(String(v));
+	const ps = (v) => /(^|\\/)ps\\.css(\\?|$)/.test(String(v));
 	let pending = null;
 	const wait = () => {
 		if (!document.querySelector("#theme-scene .ps-yurt") || !document.querySelector("#chat .chat")) {
