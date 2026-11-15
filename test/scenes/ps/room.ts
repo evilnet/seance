@@ -38,6 +38,41 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		literal.forEach((tag) => expect(tag, tag).to.contain("ps-yt-lit"));
 	});
 
+	it("is a stack of layers in the design frame, in order (plan 2, task 2)", function () {
+		const at = (s: string) => markup.indexOf(s);
+		const order = [
+			'<div class="ps-indoor"><svg class="ps-yt" viewBox="-320 0 1920 800" preserveAspectRatio="xMidYMid slice"',
+			'<div class="ps-ym-panes" data-weather="">',
+			'<svg class="ps-yt ps-yt-front" viewBox="-320 0 1920 800"',
+			'<div class="ps-ym-fireglow"><svg class="ps-yt" viewBox="-320 0 1920 800"',
+			'<svg class="ps-yt ps-yt-glow" viewBox="-320 0 1920 800"',
+			'<svg class="ps-yt ps-yt-over" viewBox="-320 0 1920 800"',
+			'<div class="ps-ym-top"></div></div>',
+		].map(at);
+		expect(order[0]).to.equal(0);
+		order.slice(1).forEach((i, k) => expect(i, `layer ${k + 1}`).to.be.above(order[k]));
+		expect(markup).to.not.contain("mix-blend-mode");
+	});
+
+	it("sees the views out, their weather and the crown's sky behind the panes; the frames, the ribs and all that stands in front; the glows above them", function () {
+		const panes = markup.indexOf('class="ps-ym-panes"');
+		const glow = markup.indexOf('class="ps-ym-fireglow"');
+		expect(markup.indexOf('class="ps-yt-weather"')).to.be.below(panes);
+		[
+			"ps-yt-p-window-back",
+			"ps-yt-p-window-left",
+			"ps-yt-p-window-right",
+			"ps-yt-ribs",
+			"ps-yt-p-stove",
+			"ps-yt-p-table",
+		].forEach((c) => expect(markup.indexOf(c), c).to.be.above(panes).and.below(glow));
+		expect(markup.indexOf('class="ps-yt-glow-fire"')).to.be.above(glow);
+		// The front's holes are a clip, not a mask: a mask re-rasters the whole svg off the pixel grid
+		// at a fractional scale (plan 2, task 2's ruling).
+		expect(markup.split('clip-path="url(#ps-yt-openings)"').length - 1).to.equal(1);
+		expect(markup).to.not.contain('<mask id="ps-yt-openings"');
+	});
+
 	it("lets the fire and the lamp light what stands in the room, the stove dark against its own glow (§6)", function () {
 		const glows = markup.indexOf('class="ps-yt-glow-fire"');
 		expect(glows).to.be.above(0);

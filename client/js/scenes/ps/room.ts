@@ -840,6 +840,16 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 type Quad = Array<[number, number, number]>;
 const quadPath = (q: Quad) => "M" + q.map((p) => n(p[0]) + "," + n(p[1])).join(" L") + " Z";
 
+/** `q`'s points pushed `d` design units out from its centre: a clip that overdraws its opening (plan 2). */
+function grow(q: ReadonlyArray<readonly number[]>, d: number): number[][] {
+	const cx = q.reduce((t, p) => t + p[0], 0) / q.length;
+	const cy = q.reduce((t, p) => t + p[1], 0) / q.length;
+	return q.map((p) => {
+		const l = Math.hypot(p[0] - cx, p[1] - cy) || 1;
+		return [p[0] + ((p[0] - cx) / l) * d, p[1] + ((p[1] - cy) / l) * d, ...p.slice(2)];
+	});
+}
+
 function bbox(q: Quad) {
 	const xs = q.map((p) => p[0]);
 	const ys = q.map((p) => p[1]);
@@ -1140,7 +1150,9 @@ export function roomMarkup(): string {
 	}
 
 	// The crown: its ring, the sky through it, its bent ribs.
-	const openingPts = pts(circle3(0, CROWN_H, 0, CROWN_R - 0.06).map(project));
+	const opening = circle3(0, CROWN_H, 0, CROWN_R - 0.06).map(project);
+	const openingPts = pts(opening);
+	const openingOut = pts(grow(opening, 2));
 	const arch = (f: number, alongX: boolean) => {
 		const l: P3[] = [];
 		const rr = CROWN_R - 0.06;
@@ -1568,38 +1580,63 @@ export function roomMarkup(): string {
 		`<linearGradient id="ps-yt-beam-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe8" stop-opacity=".34"/><stop offset="1" stop-color="#fff3cc" stop-opacity=".07"/></linearGradient>` +
 		`<clipPath id="ps-yt-roof-clip"><polygon points="${roofPoly}"/></clipPath>` +
 		`<clipPath id="ps-yt-wall-clip"><polygon points="${wallPoly}"/></clipPath>` +
+		// The views out and their weather overdraw their openings by 2 units (the frames cover it).
 		views
-			.map((v) => `<clipPath id="${v.clip}"><polygon points="${pts(v.inner)}"/></clipPath>`)
+			.map(
+				(v) =>
+					`<clipPath id="${v.clip}"><polygon points="${pts(
+						grow(v.inner, 2)
+					)}"/></clipPath>`
+			)
 			.join("") +
 		`<clipPath id="ps-yt-crown"><polygon points="${openingPts}"/></clipPath>` +
+		`<clipPath id="ps-yt-crown-out"><polygon points="${openingOut}"/></clipPath>` +
+		// The front's holes: exactly the openings, where the back shows through. A clip, not a mask: a
+		// mask re-rasters its whole svg off the pixel grid at a fractional scale.
+		`<clipPath id="ps-yt-openings"><path clip-rule="evenodd" d="M-3000,-3000H5000V5000H-3000Z${[
+			...views.map((v) => v.inner),
+			opening,
+		]
+			.map((q) => `M${q.map((p) => `${n(p[0])},${n(p[1])}`).join("L")}Z`)
+			.join("")}"/></clipPath>` +
 		`</defs>`;
 
-	const body =
+	// What is seen through the openings (plan 2, task 2): the views out, their weather (the scene fills
+	// it for the day), the crown's sky, its veil and its still stars, each overdrawing its opening.
+	const behind =
+		views.map((v) => windowView(v.inner, v.clip, v.side, v.seed)).join("") +
+		`<g class="ps-yt-weather" data-weather=""></g>` +
+		piece(
+			"crown",
+			`<polygon points="${openingOut}" style="fill: color-mix(in oklab, var(--ps-sky-top), var(--ps-sky-mid) 35%)"/>` +
+				`<polygon points="${openingOut}" style="fill: var(--ps-veil-c); opacity: var(--ps-veil)"/>` +
+				`<g clip-path="url(#ps-yt-crown-out)"><g class="ps-yt-star">${crownStars}</g></g>`
+		);
+
+	// Everything else, with holes at the openings for the back to show through; nothing in it blends.
+	const inFront =
+		`<g clip-path="url(#ps-yt-openings)">` +
 		// The floor first: everything else stands on it or rises from its edge.
 		`<rect x="-3000" y="-3000" width="8000" height="8000" fill="url(#ps-yt-floor)"/>` +
 		`<g opacity=".5">${boards}</g>` +
-		// The roof and its poles, the crown.
+		// The roof and its poles, the crown's ring.
 		`<polygon points="${roofPoly}" fill="url(#ps-yt-roof)"/>` +
 		`<g clip-path="url(#ps-yt-roof-clip)">${poles}</g>` +
-		piece(
-			"crown",
-			poly3(circle3(0, CROWN_H, 0, CROWN_R + 0.1), cls("crown")) +
-				`<polygon points="${openingPts}" style="fill: color-mix(in oklab, var(--ps-sky-top), var(--ps-sky-mid) 35%)"/>` +
-				`<polygon points="${openingPts}" style="fill: var(--ps-veil-c); opacity: var(--ps-veil)"/>` +
-				`<g clip-path="url(#ps-yt-crown)"><g class="ps-yt-star">${crownStars}</g>${ribs}</g>` +
-				poly3(
-					circle3(0, CROWN_H, 0, CROWN_R - 0.03),
-					`fill="none" ${cls(undefined, "poleEdge")} stroke-width="2"`
-				)
-		) +
+		poly3(circle3(0, CROWN_H, 0, CROWN_R + 0.1), cls("crown")) +
 		// The wall: lining, lattice, the band under the roof and the skirt.
 		`<polygon points="${wallPoly}" fill="url(#ps-yt-wall)"/>` +
 		`<g clip-path="url(#ps-yt-wall-clip)" opacity=".9">${lattice}</g>` +
 		ribbon(WALL_H - 0.09, WALL_H, R - 0.04, cls("band")) +
 		ribbon(0, 0.1, R - 0.04, cls("skirt")) +
-		// The views out, their weather (the scene fills it for the day), the windows' frames.
-		views.map((v) => windowView(v.inner, v.clip, v.side, v.seed)).join("") +
-		`<g class="ps-yt-weather" data-weather=""></g>` +
+		`</g>` +
+		// The crown's bent ribs and its rim, over its sky.
+		`<g class="ps-yt-ribs"><g clip-path="url(#ps-yt-crown)">${ribs}</g>` +
+		poly3(
+			circle3(0, CROWN_H, 0, CROWN_R - 0.03),
+			`fill="none" ${cls(undefined, "poleEdge")} stroke-width="2"`
+		) +
+		`</g>` +
+		// The windows' frames.
 		piece("window-back", back) +
 		piece("curtains", curtains) +
 		sideWindows +
@@ -1626,10 +1663,11 @@ export function roomMarkup(): string {
 			backBox.h * 1.2
 		)}" fill="url(#ps-yt-g-golden)"/></g>` +
 		// Everything standing, far to near.
-		standing +
-		// The glows light the walls, the floor and everything standing (a screen blend over them, the
-		// mockup's order); the stove is drawn again over them, so its iron stays dark against its own glow.
-		`<g style="mix-blend-mode: screen">` +
+		standing;
+
+	// The glows light the walls, the floor and everything standing: layers of their own that ps.css
+	// screen-blends over the room (the mockup's order); the fire's sits in a box that can flicker.
+	const fireGlow =
 		`<circle class="ps-yt-glow-fire" cx="${n(door[0])}" cy="${n(door[1])}" r="${n(
 			(FOCAL * 2.4) / door[2]
 		)}" fill="url(#ps-yt-g-fire)"/>` +
@@ -1639,7 +1677,8 @@ export function roomMarkup(): string {
 			1.3,
 			1.0,
 			'fill="url(#ps-yt-g-fire)"'
-		)}</g>` +
+		)}</g>`;
+	const otherGlows =
 		(lamp
 			? `<circle class="ps-yt-glow-lamp" cx="${n(lamp[0])}" cy="${n(lamp[1])}" r="${n(
 					(FOCAL * 0.75) / lamp[2]
@@ -1649,15 +1688,29 @@ export function roomMarkup(): string {
 			? `<circle class="ps-yt-glow-screen" cx="${n(screenAt[0])}" cy="${n(
 					screenAt[1]
 			  )}" r="${n((FOCAL * 0.45) / screenAt[2])}" fill="url(#ps-yt-g-screen)"/>`
-			: "") +
-		`</g>` +
+			: "");
+
+	// Over the glows: the stove drawn again, so its iron stays dark against its own glow; the sun's
+	// beam through the crown, over everything it falls across; and what stays bright in the dark.
+	const over =
 		`<g class="ps-yt-stove-over">${stoveBody}</g>` +
-		// The sun's beam through the crown, over everything it falls across, the stove and its pipe too.
 		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
-		// What stays bright in the dark: the fire, the lamp's flame, the screen at night.
 		fire +
 		(lights.flame ? `<g class="ps-yt-glow-lamp">${lights.flame}</g>` : "") +
 		(lights.screenFace ? `<g class="ps-yt-glow-screen">${lights.screenFace}</g>` : "");
 
-	return `<div class="ps-indoor"><svg class="ps-yt" viewBox="-320 0 1920 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${defs}${body}</svg></div>`;
+	const layer = (names: string, content: string) =>
+		`<svg class="${names}" viewBox="-320 0 1920 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${content}</svg>`;
+
+	return (
+		`<div class="ps-indoor">` +
+		layer("ps-yt", defs + behind) +
+		`<div class="ps-ym-panes" data-weather=""></div>` +
+		layer("ps-yt ps-yt-front", inFront) +
+		`<div class="ps-ym-fireglow">${layer("ps-yt", fireGlow)}</div>` +
+		layer("ps-yt ps-yt-glow", otherGlows) +
+		layer("ps-yt ps-yt-over", over) +
+		`<div class="ps-ym-top"></div>` +
+		`</div>`
+	);
 }

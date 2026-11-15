@@ -2840,12 +2840,25 @@ describe("the ps theme's private view (docs/projects/ps-yurt.md): the yurt's roo
 		expect(valueOf(ROOM, "transition")).to.equal(undefined);
 	});
 
-	it("lays the room over the whole scene; its svg covers it (the viewBox and xMidYMid slice place it, ps/room.ts)", function () {
+	it("lays the room over the whole scene, each of its layers over all of it; each svg covers it (the viewBox and xMidYMid slice place it, ps/room.ts)", function () {
 		expect(valueOf(ROOM, "position")).to.equal("absolute");
 		expect(valueOf(ROOM, "inset")).to.equal("0");
-		expect(valueOf(`${ROOM} > svg`, "display")).to.equal("block");
-		expect(valueOf(`${ROOM} > svg`, "inline-size")).to.equal("100%");
-		expect(valueOf(`${ROOM} > svg`, "block-size")).to.equal("100%");
+		// The glow layers blend with the room alone (plan 2, task 2).
+		expect(valueOf(ROOM, "isolation")).to.equal("isolate");
+
+		for (const layer of [`${ROOM} > svg`, `${ROOM} > div`]) {
+			expect(valueOf(layer, "position"), layer).to.equal("absolute");
+			expect(valueOf(layer, "inset"), layer).to.equal("0");
+		}
+
+		expect(valueOf(`${ROOM} svg.ps-yt`, "display")).to.equal("block");
+		expect(valueOf(`${ROOM} svg.ps-yt`, "inline-size")).to.equal("100%");
+		expect(valueOf(`${ROOM} svg.ps-yt`, "block-size")).to.equal("100%");
+	});
+
+	it("blends the glow layers over the room as the screen they were inside the one svg", function () {
+		expect(valueOf(`${ROOM} > .ps-ym-fireglow`, "mix-blend-mode")).to.equal("screen");
+		expect(valueOf(`${ROOM} > .ps-yt-glow`, "mix-blend-mode")).to.equal("screen");
 	});
 
 	it("never frosts the plains any more: the wrapper has no filter, transform or layer, in a query or out of one", function () {

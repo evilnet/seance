@@ -1063,15 +1063,31 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	display: none;
 }
 
+/* The room is a stack of layers (plan 2): the views out, the moving panes, the
+ * room in front, the glows, what is drawn over them, the moving hearth. It
+ * isolates, so the glow layers' screen blend stays in the room. */
 #theme-scene .ps-indoor {
+	position: absolute;
+	inset: 0;
+	isolation: isolate;
+}
+
+#theme-scene .ps-indoor > svg,
+#theme-scene .ps-indoor > div {
 	position: absolute;
 	inset: 0;
 }
 
-#theme-scene .ps-indoor > svg {
+#theme-scene .ps-indoor svg.ps-yt {
 	display: block;
 	inline-size: 100%;
 	block-size: 100%;
+}
+
+/* The glows, a screen blend over the room as they were inside its one svg. */
+#theme-scene .ps-indoor > .ps-ym-fireglow,
+#theme-scene .ps-indoor > .ps-yt-glow {
+	mix-blend-mode: screen;
 }
 
 /* The box html gives everything, stated rather than inherited. style.css's
