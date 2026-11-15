@@ -1625,9 +1625,8 @@ export function roomMarkup(): string {
 		)}" rx="${n(backBox.w * 0.8)}" ry="${n(
 			backBox.h * 1.2
 		)}" fill="url(#ps-yt-g-golden)"/></g>` +
-		// Everything standing, far to near; the sun's beam through the crown.
+		// Everything standing, far to near.
 		standing +
-		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
 		// The glows light the walls, the floor and everything standing (a screen blend over them, the
 		// mockup's order); the stove is drawn again over them, so its iron stays dark against its own glow.
 		`<g style="mix-blend-mode: screen">` +
@@ -1653,6 +1652,8 @@ export function roomMarkup(): string {
 			: "") +
 		`</g>` +
 		`<g class="ps-yt-stove-over">${stoveBody}</g>` +
+		// The sun's beam through the crown, over everything it falls across, the stove and its pipe too.
+		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
 		// What stays bright in the dark: the fire, the lamp's flame, the screen at night.
 		fire +
 		(lights.flame ? `<g class="ps-yt-glow-lamp">${lights.flame}</g>` : "") +

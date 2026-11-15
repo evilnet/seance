@@ -47,6 +47,11 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		expect(markup.indexOf("url(#ps-yt-fire)")).to.be.above(over);
 	});
 
+	it("lets the sun through the crown fall over the stove and its pipe, drawn twice or not", function () {
+		const over = markup.indexOf('class="ps-yt-stove-over"');
+		expect(markup.indexOf('class="ps-yt-beam"')).to.be.above(over);
+	});
+
 	it("keeps the plains' classes out of the room", function () {
 		expect(markup).to.not.match(/class="[^"]*\bps-(moon|sun|stars|weather|frost)\b/);
 		expect(markup).to.contain("ps-m-ell").and.contain("ps-m-shape");
