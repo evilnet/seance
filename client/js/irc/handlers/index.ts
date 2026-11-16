@@ -16,7 +16,12 @@ import history, {chathistoryBatch, ZNC_PLAYBACK_BATCH, zncPlaybackBatch} from ".
 import {searchBatch} from "../historysearch";
 import {AUTHTOKEN_BATCH} from "../authtoken";
 import {MULTILINE_CAP, multilineBatch} from "../multiline";
-import {BOUNCER_REPLAY_BATCH, bouncerReplayBatch, persistenceBatch} from "../persistence";
+import {
+	BOUNCER_REPLAY_BATCH,
+	RESTORATION_BATCH_TYPES,
+	bouncerReplayBatch,
+	persistenceBatch,
+} from "../persistence";
 import {labeledBatch} from "../request";
 import type {Handler} from "../types";
 import account from "./account";
@@ -102,7 +107,9 @@ registerBatchHandler("soju.im/search", searchBatch);
 registerBatchHandler("draft/chathistory-targets", targetsBatch);
 registerBatchHandler(MULTILINE_CAP, multilineBatch);
 registerBatchHandler(AUTHTOKEN_BATCH, authtokenBatch);
-registerBatchHandler("draft/persistence", persistenceBatch);
+for (const type of RESTORATION_BATCH_TYPES) {
+	registerBatchHandler(type, persistenceBatch);
+}
 registerBatchHandler(BOUNCER_REPLAY_BATCH, bouncerReplayBatch);
 // Ours resolve their request (../request.ts); anyone else's are unwrapped.
 registerBatchHandler("labeled-response", labeledBatch);

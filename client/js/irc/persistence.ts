@@ -45,6 +45,17 @@ import {presenceResumed} from "./presence";
 
 /** The persistence cap, and the profile every account has implicitly. */
 export const PERSISTENCE_CAP = "draft/persistence";
+/**
+ * The vendor capability nefarious2 is to move its extras to (ATTACH, DETACH,
+ * LIST, PROFILE, REPLAY, the `attach-cursor` token and the session's
+ * restoration batch), leaving `draft/persistence` exactly as the spec defines
+ * it. Until a server ships it, both names are read: the cap's value for the
+ * `attach-cursor` token, and either name as the restoration batch's type.
+ * Provisional: the name is not settled upstream yet.
+ */
+export const PERSISTENCE_EXT_CAP = "evilnet.github.io/persistence";
+/** Batch types a server opens to restore a held session, old name first. */
+export const RESTORATION_BATCH_TYPES: readonly string[] = [PERSISTENCE_CAP, PERSISTENCE_EXT_CAP];
 export const PERSISTENCE_PROFILE = "default";
 /** CAP 302 token that says `PERSISTENCE ATTACH` takes a catch-up cursor. */
 export const ATTACH_CURSOR_TOKEN = "attach-cursor";
@@ -149,7 +160,7 @@ export function noteRestorationActivity(client: IrcClient): void {
  */
 function restorationBatchOpen(client: IrcClient): boolean {
 	for (const open of openBatchesOf(client).values()) {
-		if (open.type === PERSISTENCE_CAP) {
+		if (RESTORATION_BATCH_TYPES.includes(open.type)) {
 			return true;
 		}
 	}
@@ -191,7 +202,8 @@ function clearWait(state: RestoreState): void {
 }
 
 /**
- * The `draft/persistence` batch: run its lines through the normal handlers
+ * The session's restoration batch (`draft/persistence`, or its vendor name,
+ * {@link RESTORATION_BATCH_TYPES}): run its lines through the normal handlers
  * in restoring mode (state only, no lines), then JOIN whatever the server
  * did not give back — if the autojoin was waiting for this.
  */
@@ -222,18 +234,19 @@ export const persistenceBatch: BatchHandler = (client, batch) => {
 
 /**
  * True when the server takes a catch-up cursor on `PERSISTENCE ATTACH`
- * (`draft/persistence=attach,detach,list,attach-cursor`, `ircd.c`). The
- * value is a comma-separated token list and unknown tokens are expected, so
- * only the exact token counts.
+ * (`draft/persistence=attach,detach,list,attach-cursor`, `ircd.c`; later the
+ * same token on {@link PERSISTENCE_EXT_CAP}). The value is a comma-separated
+ * token list and unknown tokens are expected, so only the exact token counts.
  */
 export function supportsAttachCursor(caps: CapNegotiator): boolean {
-	const value = caps.value(PERSISTENCE_CAP);
-
-	if (value === undefined) {
-		return false;
-	}
-
-	return value.split(",").some((token) => token.trim() === ATTACH_CURSOR_TOKEN);
+	return [PERSISTENCE_EXT_CAP, PERSISTENCE_CAP].some((cap) => {
+		return (
+			caps
+				.value(cap)
+				?.split(",")
+				.some((token) => token.trim() === ATTACH_CURSOR_TOKEN) ?? false
+		);
+	});
 }
 
 /**
@@ -315,12 +328,12 @@ export function inBouncerReplay(batch: OpenBatch): boolean {
 
 /** True when `batch` is, or is nested in, the server's session restoration. */
 export function inRestoration(batch: OpenBatch): boolean {
-	return within(batch, PERSISTENCE_CAP);
+	return within(batch, ...RESTORATION_BATCH_TYPES);
 }
 
-function within(batch: OpenBatch, type: string): boolean {
+function within(batch: OpenBatch, ...types: string[]): boolean {
 	for (let b: OpenBatch | undefined = batch; b; b = b.parent) {
-		if (b.type === type) {
+		if (types.includes(b.type)) {
 			return true;
 		}
 	}
