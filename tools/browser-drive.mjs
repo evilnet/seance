@@ -599,6 +599,9 @@ const page = {
 		return consoleLogs.filter((l) => l.type === "error" || l.type === "exception");
 	},
 	outDir,
+	/** The browser's DevTools port, for a second tab of this browser
+	 * (tools/scenarios/lib/device.mjs `openTab`). */
+	devtoolsPort: port,
 	url: opt("url", null),
 	flags,
 	opt,

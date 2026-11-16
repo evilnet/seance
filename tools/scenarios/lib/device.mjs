@@ -10,6 +10,16 @@
 //   …
 //   await b.close();
 //
+// openTab(page) is the same API on a second tab of the driver's own browser
+// instead: one profile, so the two share localStorage and each sees the
+// other's writes as `storage` events, as two tabs of one browser (or the
+// installed app beside a browser tab) do.
+//
+//   const b = await openTab(page);
+//   await b.goto(page.url, {waitForSelector: "#connect form"});
+//   …
+//   await b.close();
+//
 // Clicks are real mouse events at the element's centre, as browser-drive's
 // are. Page exceptions and console errors are collected in `consoleErrors`.
 
@@ -95,16 +105,69 @@ export async function startDevice({
 		abandon(new Error(`${name}: no DevTools target (port ${port || "unknown"})`));
 	}
 
-	const socket = new WebSocket(target);
-
 	try {
-		await new Promise((res, rej) => {
-			socket.onopen = res;
-			socket.onerror = () => rej(new Error(`${name}: could not attach to DevTools`));
+		return await attach(target, {
+			name,
+			width,
+			height,
+			timeout,
+			logFrames,
+			async release() {
+				if (!exited) {
+					proc.kill();
+				}
+
+				await sleep(300);
+
+				try {
+					rmSync(profile, {recursive: true, force: true});
+				} catch {
+					// still being written; it is under $TMPDIR
+				}
+			},
 		});
 	} catch (e) {
 		abandon(e);
 	}
+}
+
+/** A second tab in the driver's browser (see the top of this file). */
+export async function openTab(
+	page,
+	{
+		name = "tab-b",
+		width = 1280,
+		height = 900,
+		timeout = 20000,
+		logFrames = process.env.SEANCE_DEVICE_FRAMES === "1",
+	} = {}
+) {
+	// A window of its own, so neither tab is a hidden background tab.
+	const {targetId} = await page.send("Target.createTarget", {
+		url: "about:blank",
+		newWindow: true,
+	});
+
+	return attach(`ws://127.0.0.1:${page.devtoolsPort}/devtools/page/${targetId}`, {
+		name,
+		width,
+		height,
+		timeout,
+		logFrames,
+		async release() {
+			await page.send("Target.closeTarget", {targetId}).catch(() => {});
+		},
+	});
+}
+
+/** The page API over one DevTools page target; `release` runs on close(). */
+async function attach(target, {name, width, height, timeout, logFrames, release}) {
+	const socket = new WebSocket(target);
+
+	await new Promise((res, rej) => {
+		socket.onopen = res;
+		socket.onerror = () => rej(new Error(`${name}: could not attach to DevTools`));
+	});
 
 	const pending = new Map();
 	const consoleErrors = [];
@@ -275,17 +338,7 @@ export async function startDevice({
 				//
 			}
 
-			if (!exited) {
-				proc.kill();
-			}
-
-			await sleep(300);
-
-			try {
-				rmSync(profile, {recursive: true, force: true});
-			} catch {
-				// still being written; it is under $TMPDIR
-			}
+			await release();
 		},
 	};
 }

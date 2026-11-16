@@ -125,6 +125,9 @@ export async function boot(): Promise<void> {
 	// 'theme' setting depends on serverConfiguration.themes so
 	// settings cannot be applied before this point
 	void store.dispatch("settings/applyAll");
+	// From here on, a settings change made in another tab is applied here as
+	// it lands; not earlier, for the same reason as applyAll.
+	void store.dispatch("settings/watch");
 
 	// The root service worker isolates the app's documents only while
 	// translation is on (translate/index.ts startIsolationMirror): told now,

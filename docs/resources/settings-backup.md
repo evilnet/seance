@@ -108,8 +108,10 @@ the file does not carry, and the page reloads — that is how every module
 re-reads its storage (the settings store, `saved-networks.ts`, `sort.ts`,
 `mute.ts`, `ignore.ts`, `mediaTrust.ts` all load at boot). Nothing runs
 between the writes and the reload, so in-memory state cannot overwrite the
-file's entries. Writes come first because `localStorage.ts` swallows a full
-quota: each write is read back, and one that did not land undoes the ones
+file's entries. Another tab open on the app takes the restored settings as
+they land and writes only what it changes afterwards
+(`docs/resources/client-features.md` § Settings in more than one tab).
+Writes come first because `localStorage.ts` swallows a full quota: each write is read back, and one that did not land undoes the ones
 before it and throws `BackupStorageError`, which the form shows instead of
 reloading, so a full device keeps what it had. A reload on Settings stays on Settings (`router.ts`
 `onStandalonePage`); autoconnect networks come back on their own.
