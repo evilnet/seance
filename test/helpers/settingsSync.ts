@@ -144,6 +144,27 @@ describe("settingsSync", function () {
 				["theme", "gates"],
 			]);
 		});
+
+		it("keeps a setting another build left out of its write", function () {
+			// A tab on a build without `media` changed the clock: its write
+			// has no `media`, which this tab has switched off. Only the clock
+			// changes here, and this tab's next write stores `media` again.
+			const state = {...defaults, media: false};
+			const older: Record<string, unknown> = {...defaults, use12hClock: false};
+			delete older.media;
+			expect(storedChanges(older, state, defaults)).to.deep.equal([["use12hClock", false]]);
+			expect(settingsToStore(older, state, defaults, "fontSize", "huge")).to.include({
+				media: false,
+				use12hClock: false,
+			});
+		});
+
+		it("keeps this tab's value over a stored one of the wrong type", function () {
+			const state = {...defaults, use12hClock: false};
+			expect(storedChanges({...defaults, use12hClock: "no"}, state, defaults)).to.deep.equal(
+				[]
+			);
+		});
 	});
 
 	it("keeps a change made in one tab through a stale tab's write", function () {

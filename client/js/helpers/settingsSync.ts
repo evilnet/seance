@@ -96,13 +96,19 @@ function sameSetting(a: unknown, b: unknown): boolean {
 }
 
 /**
- * The settings another copy's write changes here: every setting whose value
- * for what is now stored (assignStoredSettings) differs from this copy's
- * `state`, so this copy shows what a reload would show. A setting with no
- * usable stored value goes back to its default — that is also how an emptied
- * entry (another copy signed out and cleared storage, or restored a file with
- * no settings) reads. Keeping this copy's values instead would write them back
- * with its next change and undo the clear.
+ * The settings another copy's write changes here: every setting whose usable
+ * stored value differs from this copy's `state`.
+ *
+ * An emptied entry (another copy signed out and cleared storage, or restored
+ * a file with no settings) takes every setting back to its default, as a
+ * reload would. Keeping this copy's values instead would write them back with
+ * its next change and undo the clear.
+ *
+ * A setting missing from a stored object that holds others keeps this copy's
+ * value: the write came from a copy on another build that does not know the
+ * setting (settingsToStore drops what a build does not know), and taking it
+ * as a reset would switch the setting off here too. This copy's next write
+ * stores it again, as settingsToStore fills it from `state`.
  *
  * `defaults` is what a fresh profile gets on this deploy: createState() with
  * the deploy's default theme, which boot.ts stores for a profile that has
@@ -113,12 +119,18 @@ export function storedChanges(
 	state: Settings,
 	defaults: Settings
 ): Array<[string, unknown]> {
-	const next = assignStoredSettings(defaults, stored);
+	const emptied = Object.keys(stored).length === 0;
 	const changes: Array<[string, unknown]> = [];
 
-	for (const key in next) {
-		if (!sameSetting(next[key], state[key])) {
-			changes.push([key, next[key]]);
+	for (const key in defaults) {
+		const value = usable(stored, defaults, key)
+			? stored[key]
+			: emptied
+			? defaults[key]
+			: state[key];
+
+		if (!sameSetting(value, state[key])) {
+			changes.push([key, value]);
 		}
 	}
 

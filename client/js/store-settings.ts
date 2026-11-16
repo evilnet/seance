@@ -118,10 +118,13 @@ export function createSettingsStore(store: Store<State>) {
 
 				window.addEventListener("storage", (ev: StorageEvent) => {
 					// `key` is null when another tab cleared all of storage
-					// (Auth.signout); newValue is null then, and when the
-					// entry was removed: nothing stored, read as defaults.
+					// (Auth.signout). What is stored now, not the event's
+					// newValue: this tab may have written a change of its own
+					// since the other tab's write, and newValue would take
+					// it back. Nothing stored (cleared, or the entry
+					// removed) reads as defaults.
 					if (ev.key === "settings" || ev.key === null) {
-						follow(ev.newValue);
+						follow(storage.get("settings"));
 					}
 				});
 				window.addEventListener("pageshow", (ev: PageTransitionEvent) => {

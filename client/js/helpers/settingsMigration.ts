@@ -75,8 +75,10 @@ export function overridesChoice(
  * settings predate it and who already chose what it would override
  * (overridesChoice).
  *
- * `update()` stores the whole settings object on every change, so a stored
- * object without the new key was saved before the setting existed. The
+ * Every write carries every setting the build knows (settingsSync.ts
+ * `settingsToStore`: the changed key onto what is stored, the rest filled
+ * from the tab's state), so a stored object without the new key was saved
+ * before the setting existed. The
  * caller (store-settings.ts `migrate`, run by boot.ts once branding has
  * loaded) passes the deploy's default theme in `defaults`. A fresh install
  * (nothing stored) gets the new default, and so does a user who never
