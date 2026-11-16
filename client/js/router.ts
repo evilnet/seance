@@ -33,6 +33,7 @@ import {shouldShowGeneralSettings} from "./helpers/settingsTabs";
 import {forgetTranslations} from "./translate/reader";
 import * as saved from "./irc/saved-networks";
 import {clearPendingTarget, setPendingTarget} from "./helpers/pendingTarget";
+import {fromOwnWorker} from "./helpers/ownWorker";
 
 const router = createRouter({
 	history: createWebHashHistory(),
@@ -411,7 +412,8 @@ function onStandalonePage(): boolean {
 
 if ("serviceWorker" in navigator) {
 	navigator.serviceWorker.addEventListener("message", (event) => {
-		if (!event.data || event.data.type !== "open") {
+		// Another deploy's notification click is for its own windows.
+		if (!event.data || event.data.type !== "open" || !fromOwnWorker(event)) {
 			return;
 		}
 

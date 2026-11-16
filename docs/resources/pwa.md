@@ -64,7 +64,7 @@ Ship `NODE_ENV=production pnpm build`.
   `scripts/build-info.mts`: a hash of the version and the commit, so two builds of
   different commits never share one; a dirty tree or a checkout without git
   makes every build distinct): `?v=` on the asset URLs, the worker's cache
-  name, and `process.env.SEANCE_BUILD` in the bundle (`client/js/build.ts`).
+  name (`<scope>|<token>`), and `process.env.SEANCE_BUILD` in the bundle (`client/js/build.ts`).
   The one exception is the entry, `js/bundle-<hash>.js`: it is named by its
   content instead, because lazy chunks import it by its plain name and a
   page that had loaded `bundle.js?v=…` would run a second copy of the app.
@@ -73,8 +73,8 @@ Ship `NODE_ENV=production pnpm build`.
   `pwa.ts` `checkForUpdate()`, from the foreground hooks (throttled to one
   check per five minutes) and hourly while a window stays open, because
   browsers never look on their own for a page that stays put. The new worker
-  precaches its shell, `skipWaiting`s, deletes every cache from an older
-  build (but never the translation engines' model caches —
+  precaches its shell, `skipWaiting`s, deletes its own older builds' caches
+  (never another deploy's, and never the translation engines' model caches —
   `transformers-cache` and `webllm/*`, see `docs/resources/translation.md`
   § Weights), claims every window and announces
   `{type: "build", build}` to them; a page whose own token differs commits
@@ -102,6 +102,18 @@ Ship `NODE_ENV=production pnpm build`.
   the app when it is closed or the OS has suspended its WebSocket — one
   push-only registration per network; see `docs/projects/push-subscription.md`
   and `push-per-network.md`.
+- **Several deploys on one origin.** GitHub Pages serves the release at
+  `/seance/` and develop and every PR preview in directories inside it
+  (`.github/workflows/pages.yml`). Each registers its own worker, but Cache
+  Storage and the worker's list of windows are per origin, so the worker
+  names its shell cache after its scope (`<scope>|<token>`, the `|` keeping
+  `/seance/|` from matching `/seance/develop/|`) and deletes only its own
+  older builds, plus once the bare-token names shells had before; and
+  `appWindows()` counts a window as its own only when nothing but a file name
+  follows the deploy's directory, for every message to the app and every
+  "is the app open?". Pages ignore a message from a worker that runs another
+  directory's `service-worker.js` (`client/js/helpers/ownWorker.ts`), for
+  workers installed before that.
 
 ## The install guide
 

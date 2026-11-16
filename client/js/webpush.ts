@@ -36,6 +36,7 @@ import {
 	refreshNativePush,
 } from "./helpers/nativePush";
 import {isAndroidShell, isDesktopShell} from "./helpers/shell";
+import {fromOwnWorker} from "./helpers/ownWorker";
 import {clearNativeAlert, nativeAlertsAvailable} from "./helpers/nativeAlerts";
 import {ChanType} from "../../shared/types/chan";
 import type {ClientChan} from "./types";
@@ -2032,7 +2033,9 @@ socket.on("webpush:available", ({network}) => {
 
 if (browserSupported() && "serviceWorker" in navigator) {
 	navigator.serviceWorker.addEventListener("message", (event) => {
-		if (!event.data) {
+		// Another deploy's worker would have this page subscribe on its own
+		// registration, or send its replies.
+		if (!event.data || !fromOwnWorker(event)) {
 			return;
 		}
 

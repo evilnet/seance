@@ -2340,6 +2340,25 @@ describe("service worker notification click", function () {
 
 		expect(sw.opened).to.deep.equal([`${SCOPE}#/chan-7`]);
 	});
+
+	it("opens this deploy when only another deploy on the origin has a window", async function () {
+		// The release at the root, develop and a preview nested inside it, and
+		// another project on the same github.io origin.
+		const develop = makeClient(undefined, `${SCOPE}develop/#/chan-1`);
+		const preview = makeClient(undefined, `${SCOPE}pr103/#/chan-1`);
+		const other = makeClient(undefined, "https://app.test-other/");
+		const sw = makeSW({clients: [develop, preview, other]});
+		const rec = await pushed(sw, "#seance");
+
+		await fireClick(sw, rec, "");
+
+		expect(sw.opened).to.deep.equal([`${SCOPE}#/net/net-1/%23seance`]);
+
+		for (const c of [develop, preview, other]) {
+			expect(c.posted).to.deep.equal([]);
+			expect(c.focusCalls).to.equal(0);
+		}
+	});
 });
 
 /** A PushSubscription as browsers give it: the keys only through toJSON(). */
@@ -2421,6 +2440,32 @@ describe("service worker subscription renewal", function () {
 				/ pushsubscriptionchange on the root registration: not renewed$/.test(l)
 			)
 		).to.equal(true);
+	});
+
+	it("asks only this deploy's pages to redo a subscription it cannot renew", async function () {
+		const own = makeClient(undefined, `${SCOPE}#/chan-1`);
+		const develop = makeClient(undefined, `${SCOPE}develop/#/chan-1`);
+		const sw = makeSW({scope: NET_SCOPE, clients: [own, develop]});
+		const promises: Promise<unknown>[] = [];
+		// No new subscription, and none to be had here (no pushManager): the
+		// page has to make one.
+		const ev = {
+			oldSubscription: {endpoint: "https://push.example/OLD"},
+			newSubscription: null,
+			waitUntil: (p: Promise<unknown>) => promises.push(p),
+		};
+
+		for (const h of sw.handlers.pushsubscriptionchange) {
+			h(ev);
+		}
+
+		await Promise.all(promises).catch(() => {});
+
+		expect(own.posted).to.deep.equal([{type: "resubscribe", network: "net-1"}]);
+		expect(
+			develop.posted,
+			"develop's page would subscribe on its own registration"
+		).to.deep.equal([]);
 	});
 });
 
@@ -2901,12 +2946,12 @@ describe("service worker build announcement", function () {
 		expect(a.posted).to.deep.equal([]);
 	});
 
-	it("keeps the translation engines' model caches on a shell update", async function () {
-		const sw = makeSW({clients: []});
+	/** Activate a worker over `names` in Cache Storage; what it deleted. */
+	async function swept(names: string[], scope = SCOPE): Promise<string[]> {
+		const sw = makeSW({clients: [], scope});
 		const deleted: string[] = [];
 
-		sw.sandbox.caches.keys = (): Promise<string[]> =>
-			Promise.resolve(["older-build", "transformers-cache", "webllm/model", "webllm/config"]);
+		sw.sandbox.caches.keys = (): Promise<string[]> => Promise.resolve(names);
 
 		sw.sandbox.caches.delete = (name: string): Promise<boolean> => {
 			deleted.push(name);
@@ -2916,8 +2961,76 @@ describe("service worker build announcement", function () {
 		sw.sandbox.clients.claim = (): Promise<void> => Promise.resolve();
 
 		await activate(sw);
+		return deleted;
+	}
 
-		expect(deleted).to.deep.equal(["older-build"]);
+	it("keeps the translation engines' model caches on a shell update", async function () {
+		expect(
+			await swept([
+				`${SCOPE}|older-build`,
+				"transformers-cache",
+				"webllm/model",
+				"webllm/config",
+			])
+		).to.deep.equal([`${SCOPE}|older-build`]);
+	});
+
+	// GitHub Pages puts every deploy on one origin, the others nested inside
+	// the release's directory, and Cache Storage is per origin.
+	it("deletes only its own older builds, never another deploy's shell", async function () {
+		const names = [
+			`${SCOPE}|__HASH__`, // this build (the unbuilt source's token)
+			`${SCOPE}|3f9c2a71b0`, // this deploy, an older build
+			`${SCOPE}develop/|8e41d0c5a2`,
+			`${SCOPE}pr103/|c07b5e9f13`,
+			"https://other.test/|3f9c2a71b0",
+		];
+
+		expect(await swept(names)).to.deep.equal([`${SCOPE}|3f9c2a71b0`]);
+		// develop's worker: its own older build goes, the release's shells stay
+		expect(await swept(names, `${SCOPE}develop/`)).to.deep.equal([
+			`${SCOPE}develop/|8e41d0c5a2`,
+		]);
+	});
+
+	it("sweeps the names shells had before they carried the scope, nothing else of others'", async function () {
+		expect(
+			await swept([
+				"3f9c2a71b0",
+				"older-build",
+				"other-site-v2",
+				"3F9C2A71B0",
+				"3f9c2a71b0aa",
+			])
+		).to.deep.equal(["3f9c2a71b0"]);
+	});
+
+	it("announces to this deploy's windows only, not to deploys nested under it", async function () {
+		const own = makeClient(undefined, `${SCOPE}#/chan-1`);
+		const ownFile = makeClient(undefined, `${SCOPE}index.html?x=1#/chan-2`);
+		const develop = makeClient(undefined, `${SCOPE}develop/#/chan-1`);
+		const preview = makeClient(undefined, `${SCOPE}pr103/`);
+		const sw = makeSW({clients: [own, ownFile, develop, preview]});
+		withActivation(sw);
+
+		await activate(sw);
+
+		expect(own.posted).to.deep.equal([{type: "build", build: "__HASH__"}]);
+		expect(ownFile.posted).to.deep.equal([{type: "build", build: "__HASH__"}]);
+		expect(develop.posted, "develop has its own worker").to.deep.equal([]);
+		expect(preview.posted, "a preview has its own worker").to.deep.equal([]);
+	});
+
+	it("a nested deploy's worker leaves the release's windows alone", async function () {
+		const release = makeClient(undefined, `${SCOPE}#/chan-1`);
+		const develop = makeClient(undefined, `${SCOPE}develop/#/chan-1`);
+		const sw = makeSW({clients: [release, develop], scope: `${SCOPE}develop/`});
+		withActivation(sw);
+
+		await activate(sw);
+
+		expect(release.posted).to.deep.equal([]);
+		expect(develop.posted).to.deep.equal([{type: "build", build: "__HASH__"}]);
 	});
 });
 
@@ -3105,6 +3218,9 @@ describe("service worker push module surface", function () {
 });
 
 describe("service worker shell cache", function () {
+	/** The Cache Storage names `cached()` saw opened, in order. */
+	let openedAs: string[] = [];
+
 	/**
 	 * Drive one `fetch` event through the worker and report what it put into
 	 * the shell cache. `length` is the response's `content-length` header,
@@ -3129,14 +3245,17 @@ describe("service worker shell cache", function () {
 				},
 			});
 
-		sw.sandbox.caches.open = (): Promise<any> =>
-			Promise.resolve({
+		sw.sandbox.caches.open = (name: string): Promise<any> => {
+			openedAs.push(name);
+
+			return Promise.resolve({
 				match: (): Promise<undefined> => Promise.resolve(undefined),
 				put(request: any): Promise<void> {
 					put.push(typeof request === "string" ? request : request.url);
 					return Promise.resolve();
 				},
 			});
+		};
 
 		const request = {url, method: "GET", mode: "no-cors", destination: "script"};
 
@@ -3153,6 +3272,12 @@ describe("service worker shell cache", function () {
 		await Promise.all([responded, ...waited]);
 		return put;
 	}
+
+	it("keeps the shell under this deploy's own name: its scope, then the build", async function () {
+		openedAs = [];
+		await cached(makeSW(), `${SCOPE}js/bundle.js`, null);
+		expect(openedAs).to.deep.equal([`${SCOPE}|__HASH__`]);
+	});
 
 	it("caches an ordinary asset", async function () {
 		const sw = makeSW();
