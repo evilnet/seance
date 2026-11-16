@@ -2288,8 +2288,6 @@
   "settings.general.keepAliveHeading": "Baggrundsforbindelse",
   "settings.general.keepAliveHelp": "Holder dine forbindelser åbne, mens appen ikke er på skærmen, med en notifikation, som Android viser hele tiden. Bruger mere batteri.",
   "settings.general.keepAliveNotificationsOff": "Notifikationer er slået fra for {appName} i Androids indstillinger, så forbindelsesnotifikationen er skjult. Android kan stadig stoppe appen.",
-  "settings.general.keepPrivate": "Gem private samtaler på denne enhed",
-  "settings.general.keepPrivateHelp": "Private samtaler kommer tilbage efter en genindlæsning: de nyeste {lines} linjer af dine {queries} seneste samtaler, gemt i denne browser. Slår du dette fra, slettes de fra denne enhed.",
   "settings.general.nativeApp": "Indbygget app",
   "settings.general.openLinks": "Åbn web+irc:// links med {appName}",
   "settings.general.privateHeading": "Private samtaler",

@@ -2239,8 +2239,6 @@
   "settings.general.keepAliveHeading": "后台连接",
   "settings.general.keepAliveHelp": "应用不在屏幕上时也保持连接，Android 会一直显示一条通知。会更耗电。",
   "settings.general.keepAliveNotificationsOff": "Android 设置中关闭了 {appName} 的通知，因此连接通知被隐藏。Android 仍可能停止该应用。",
-  "settings.general.keepPrivate": "在此设备上保留私聊",
-  "settings.general.keepPrivateHelp": "重新加载后私聊会恢复：最近 {queries} 个对话中最新的 {lines} 行保存在此浏览器中。关闭此项会从此设备删除它们。",
   "settings.general.nativeApp": "原生应用",
   "settings.general.openLinks": "通过 {appName} 打开 web+irc:// 链接",
   "settings.general.privateHeading": "私聊",

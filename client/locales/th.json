@@ -2243,8 +2243,6 @@
   "settings.general.keepAliveHeading": "การเชื่อมต่อในเบื้องหลัง",
   "settings.general.keepAliveHelp": "คงการเชื่อมต่อไว้ขณะที่แอปไม่ได้อยู่บนหน้าจอ โดย Android จะแสดงการแจ้งเตือนตลอดเวลา ใช้แบตเตอรี่มากขึ้น",
   "settings.general.keepAliveNotificationsOff": "การแจ้งเตือนของ {appName} ปิดอยู่ในการตั้งค่า Android จึงไม่เห็นการแจ้งเตือนการเชื่อมต่อ Android อาจยังหยุดแอปได้",
-  "settings.general.keepPrivate": "เก็บบทสนทนาส่วนตัวไว้บนอุปกรณ์นี้",
-  "settings.general.keepPrivateHelp": "บทสนทนาส่วนตัวจะกลับมาหลังโหลดใหม่: {lines} บรรทัดล่าสุดของ {queries} บทสนทนาล่าสุด เก็บไว้ในเบราว์เซอร์นี้ การปิดตัวเลือกนี้จะลบข้อมูลเหล่านั้นออกจากอุปกรณ์นี้",
   "settings.general.nativeApp": "แอปเนทีฟ",
   "settings.general.openLinks": "เปิดลิงก์ web+irc:// ด้วย {appName}",
   "settings.general.privateHeading": "บทสนทนาส่วนตัว",

@@ -2248,8 +2248,6 @@
   "settings.general.keepAliveHeading": "Kết nối nền",
   "settings.general.keepAliveHelp": "Giữ các kết nối của bạn mở khi ứng dụng không hiển thị trên màn hình, kèm một thông báo Android hiển thị liên tục. Tốn pin hơn.",
   "settings.general.keepAliveNotificationsOff": "Thông báo của {appName} đang tắt trong cài đặt Android nên thông báo kết nối bị ẩn. Android vẫn có thể dừng ứng dụng.",
-  "settings.general.keepPrivate": "Lưu cuộc trò chuyện riêng trên thiết bị này",
-  "settings.general.keepPrivateHelp": "Cuộc trò chuyện riêng sẽ quay lại sau khi tải lại: {lines} dòng mới nhất của {queries} cuộc gần đây nhất, lưu trong trình duyệt này. Tắt mục này sẽ xóa chúng khỏi thiết bị này.",
   "settings.general.nativeApp": "Ứng dụng gốc",
   "settings.general.openLinks": "Mở các liên kết web+irc:// bằng {appName}",
   "settings.general.privateHeading": "Cuộc trò chuyện riêng",

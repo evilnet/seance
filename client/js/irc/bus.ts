@@ -9,7 +9,7 @@ import type {EventBus} from "../socket";
 import {t} from "../i18n/core";
 import {bouncerRequest} from "./bouncer";
 import type {IrcClient} from "./client";
-import {requestMore} from "./history";
+import {requestFill, requestMore} from "./history";
 import {requestReplyParent, requestSearch, requestSearchContext} from "./historysearch";
 import {changeBans} from "./banList";
 import {refreshOper, setSnomask} from "./oper";
@@ -360,6 +360,26 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 
 	bus.handle("history:trim", ({target, ids}) => {
 		registry.clientForChannel(target)?.channelById(target)?.forget(ids);
+	});
+
+	bus.handle("history:clear", ({target}) => {
+		const client = registry.clientForChannel(target);
+		const chan = client?.channelById(target);
+
+		if (client && chan) {
+			client.clearHistory(chan);
+		}
+	});
+
+	bus.handle("history:fill", ({target, id}) => {
+		const client = registry.clientForChannel(target);
+		const chan = client?.channelById(target);
+
+		// Nothing could be asked (offline, refused): the divider's control
+		// is released as it was.
+		if (client && chan && !requestFill(client, chan, id)) {
+			client.setGap(chan, id, !!chan.msgRefs.get(id)?.gap);
+		}
 	});
 
 	bus.handle("network:get", (uuid) => {

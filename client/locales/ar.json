@@ -2606,8 +2606,6 @@
   "settings.general.keepAliveHeading": "الاتصال في الخلفية",
   "settings.general.keepAliveHelp": "يُبقي اتصالاتك مفتوحة حين لا يكون التطبيق على الشاشة، مع إشعار يعرضه Android طوال الوقت. يستهلك بطارية أكثر.",
   "settings.general.keepAliveNotificationsOff": "الإشعارات متوقفة لـ {appName} في إعدادات Android، لذا إشعار الاتصال مخفي. قد يوقف Android التطبيق مع ذلك.",
-  "settings.general.keepPrivate": "الاحتفاظ بالمحادثات الخاصة على هذا الجهاز",
-  "settings.general.keepPrivateHelp": "تعود المحادثات الخاصة بعد إعادة التحميل: أحدث {lines} سطر من أحدث {queries} محادثة لك، محفوظة في هذا المتصفح. إيقاف هذا الخيار يحذفها من هذا الجهاز.",
   "settings.general.nativeApp": "التطبيق",
   "settings.general.openLinks": "فتح روابط web+irc:// باستخدام {appName}",
   "settings.general.privateHeading": "المحادثات الخاصة",

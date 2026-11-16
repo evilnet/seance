@@ -2261,8 +2261,6 @@
   "settings.general.keepAliveHeading": "Hintergrundverbindung",
   "settings.general.keepAliveHelp": "Hält Ihre Verbindungen offen, während die App nicht auf dem Bildschirm ist, mit einer Benachrichtigung, die Android die ganze Zeit anzeigt. Verbraucht mehr Akku.",
   "settings.general.keepAliveNotificationsOff": "Benachrichtigungen für {appName} sind in den Android-Einstellungen ausgeschaltet, daher ist die Verbindungsbenachrichtigung verborgen. Android kann die App trotzdem beenden.",
-  "settings.general.keepPrivate": "Private Gespräche auf diesem Gerät behalten",
-  "settings.general.keepPrivateHelp": "Private Gespräche kehren nach dem Neuladen zurück: die neuesten {lines} Zeilen Ihrer {queries} letzten Gespräche, gespeichert in diesem Browser. Wenn Sie dies ausschalten, werden sie von diesem Gerät gelöscht.",
   "settings.general.nativeApp": "Native Anwendung",
   "settings.general.openLinks": "web+irc://-Links mit {appName} öffnen",
   "settings.general.privateHeading": "Private Gespräche",

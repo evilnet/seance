@@ -8,7 +8,7 @@ import {normalizePsWords} from "./helpers/psWords";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
-import {setQueryLogEnabled} from "./irc/querylog";
+import {setConversationsEnabled} from "./irc/conversationStore";
 import {setClosedQueriesKept} from "./irc/closedQueries";
 import {forgetPrivateTerms, loadAll} from "./translate/channelStore";
 import {setKeepAlive} from "./helpers/keepAlive";
@@ -386,15 +386,17 @@ const defaultConfig = {
 	sendTypingNotifications: {
 		default: true,
 	},
-	// Keep the recent lines of private conversations in this browser so they
-	// come back after a reload (irc/querylog.ts). Off deletes what is kept
+	// Keep the recent lines of every conversation, channels and private ones,
+	// in this browser so they are there at once after a reload
+	// (irc/conversationStore.ts; the key predates channels being kept, and is
+	// kept so the user's choice carries over). Off deletes what is kept
 	// (the translation terms learnt in queries included) and keeps nothing
 	// more; applyAll runs this at boot too, before any
 	// network is created, so a page with it off restores nothing.
 	keepPrivateConversations: {
 		default: true,
 		apply(store: TypedStore, value: boolean) {
-			setQueryLogEnabled(value);
+			setConversationsEnabled(value);
 			setClosedQueriesKept(value); // the closed ones' names too, here and shared
 
 			// And the translation terms learnt in queries: whole short lines

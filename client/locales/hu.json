@@ -2313,8 +2313,6 @@
   "settings.general.keepAliveHeading": "Háttérkapcsolat",
   "settings.general.keepAliveHelp": "Nyitva tartja a kapcsolataidat, amíg az alkalmazás nincs a képernyőn; közben az Android folyamatosan egy értesítést mutat. Több akkumulátort használ.",
   "settings.general.keepAliveNotificationsOff": "Az Android beállításaiban ki vannak kapcsolva az értesítések ehhez: {appName}, így a kapcsolat értesítése rejtve marad. Az Android ettől még leállíthatja az alkalmazást.",
-  "settings.general.keepPrivate": "Privát beszélgetések megőrzése ezen az eszközön",
-  "settings.general.keepPrivateHelp": "A privát beszélgetések újratöltés után visszatérnek: a {queries} legutóbbi beszélgetésed legújabb {lines} sora, ebben a böngészőben tárolva. Ha kikapcsolod, törlődnek erről az eszközről.",
   "settings.general.nativeApp": "Natív alkalmazás",
   "settings.general.openLinks": "web+irc:// linkek megnyitása ezzel: {appName}",
   "settings.general.privateHeading": "Privát beszélgetések",

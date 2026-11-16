@@ -23,7 +23,11 @@ import {
 } from "../../client/js/irc/closedQueries";
 import type {SharedNetworkChan} from "../../shared/types/network";
 import * as saved from "../../client/js/irc/saved-networks";
-import {flushQueryLogs} from "../../client/js/irc/querylog";
+import {
+	flushConversationStores,
+	MemoryBackend,
+	useConversationBackend,
+} from "../../client/js/irc/conversationStore";
 import {MUTE_READ_DELAY_MS} from "../../client/js/irc/pushMute";
 import {RESTORE_MAX_WAIT_MS} from "../../client/js/irc/persistence";
 import {ALL_CAPS, Harness, joined, register, setup, stubStorage} from "./support";
@@ -139,7 +143,8 @@ describe("closed queries (irc/closedQueries.ts)", function () {
 			expect(h.messages(id).map((m) => m.text)).to.deep.equal(["while you were away"]);
 		});
 
-		it("a query log from before another tab closed it is not restored", function () {
+		it("a conversation kept from before another tab closed it is not restored", async function () {
+			useConversationBackend(new MemoryBackend());
 			const uuid = "closed-restore-net";
 			saved.save({
 				uuid,
@@ -156,13 +161,17 @@ describe("closed queries (irc/closedQueries.ts)", function () {
 			const first = setup({uuid});
 			joined(first, ALL_CAPS);
 			first.transport.line(`@time=${T0};msgid=p0 :bob!bob@host PRIVMSG alice :hi`);
-			flushQueryLogs();
+			await flushConversationStores();
 			// Another tab closed it.
 			new ClosedQueries(uuid, (n) => n.toLowerCase()).close("bob", Date.parse(T0));
 
-			const second = setup({uuid});
-			expect(second.client.findChannel("bob")).to.equal(undefined);
-			expect(second.client.queryLog.names()).to.deep.equal([]);
+			try {
+				const second = setup({uuid});
+				expect(second.client.findChannel("bob")).to.equal(undefined);
+				expect(second.client.conversations.meta("bob")).to.equal(undefined);
+			} finally {
+				useConversationBackend(null);
+			}
 		});
 
 		it("the user's /query forgets the close", function () {

@@ -8,6 +8,7 @@ import {ChanState, ChanType} from "../../../shared/types/chan";
 import type {SharedNetworkChan} from "../../../shared/types/network";
 import type {SharedUser} from "../../../shared/types/user";
 import {MessageType, type SharedMsg, type UserInMessage} from "../../../shared/types/msg";
+import {lineKey} from "./conversationStore";
 import type {HistorySpec} from "./history";
 
 export type Casefold = (s: string) => string;
@@ -50,6 +51,10 @@ export interface MsgRef {
 	from?: Author;
 	/** The msgid of the line it edits, if it is an edit. */
 	editOf?: string;
+	/** Lines may be missing before this one (SharedMsg.gapBefore). */
+	gap?: boolean;
+	/** What the store keys a line without a msgid by (conversationStore.ts lineKey). */
+	key?: string;
 }
 
 /**
@@ -216,6 +221,15 @@ export class Channel {
 	 * and so do reads from other sessions.
 	 */
 	readHeld = false;
+	/**
+	 * "Clear history" (epoch ms): nothing at or before it is shown, kept or
+	 * offered again on this device (IrcClient.clearHistory).
+	 */
+	clearedAt: number | undefined = undefined;
+	/** This connection's JOIN left the gap to the server's cursor replay (persistence.ts). */
+	replayCovered = false;
+	/** A page of older lines is being read from the device (history.ts requestMore). */
+	deviceMore = false;
 	/** A `more` page the connection died on; asked again once we are back (history.ts). */
 	lostMore: HistorySpec | undefined = undefined;
 	/**
@@ -305,6 +319,14 @@ export class Channel {
 			ref.editOf = msg.editOf;
 		}
 
+		if (msg.gapBefore) {
+			ref.gap = true;
+		}
+
+		if (!msg.msgid) {
+			ref.key = lineKey(msg);
+		}
+
 		this.msgRefs.set(msg.id, ref);
 		return ref;
 	}
@@ -357,6 +379,27 @@ export class Channel {
 	/** Id of the loaded message with `msgid`, if we have shown it. */
 	idOf(msgid: string): number | undefined {
 		return this.idByMsgid.get(msgid);
+	}
+
+	/**
+	 * Whether `msg` is one of the lines shown: by msgid, or without one by
+	 * its time and best-effort identity (conversationStore.ts lineKey).
+	 */
+	shows(msg: SharedMsg): boolean {
+		if (msg.msgid) {
+			return this.idByMsgid.has(msg.msgid);
+		}
+
+		const time = new Date(msg.time).getTime();
+		const key = lineKey(msg);
+
+		for (const ref of this.msgRefs.values()) {
+			if (ref.key === key && ref.time.getTime() === time) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** msgids already shown (history deduplication). */

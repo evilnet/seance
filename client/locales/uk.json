@@ -2457,8 +2457,6 @@
   "settings.general.keepAliveHeading": "Фонове підключення",
   "settings.general.keepAliveHelp": "Тримає підключення відкритими, поки застосунок не на екрані; Android увесь цей час показує сповіщення. Витрачає більше заряду.",
   "settings.general.keepAliveNotificationsOff": "Сповіщення для {appName} вимкнено в налаштуваннях Android, тому сповіщення про підключення приховане. Android однаково може зупинити застосунок.",
-  "settings.general.keepPrivate": "Зберігати приватні розмови на цьому пристрої",
-  "settings.general.keepPrivateHelp": "Приватні розмови повертаються після перезавантаження: останні {lines} рядків ваших {queries} нещодавніх розмов зберігаються в цьому браузері. Якщо вимкнути, їх буде видалено з цього пристрою.",
   "settings.general.nativeApp": "Застосунок",
   "settings.general.openLinks": "Відкривати посилання web+irc:// у {appName}",
   "settings.general.privateHeading": "Приватні розмови",

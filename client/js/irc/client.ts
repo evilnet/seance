@@ -57,7 +57,7 @@ import {
 	SAID_TYPES,
 	countsAsUnread,
 } from "./channel";
-import {QueryLog} from "./querylog";
+import {ConversationStore, type ConvKind} from "./conversationStore";
 import {commandNames, dispatchInput} from "./commands";
 import {describeClose} from "./disconnect";
 import {handlers, unhandled} from "./handlers";
@@ -535,8 +535,8 @@ export class IrcClient {
 	readonly authtoken = new TokenRequests();
 	readonly channels: Channel[] = [];
 	readonly lobby: Channel;
-	/** Private conversations kept on this device (querylog.ts). */
-	readonly queryLog: QueryLog;
+	/** Every window's lines kept on this device (conversationStore.ts). */
+	readonly conversations: ConversationStore;
 	/** The queries the user closed: a line from before the close never reopens one. */
 	readonly closed: ClosedQueries;
 	/** This connection's GET of the shared closes answered (irc/closedQueries.ts). */
@@ -562,8 +562,8 @@ export class IrcClient {
 	 * form through {@link setServices}. Undefined: none configured.
 	 */
 	services: ServicesConfig | undefined;
-	/** Query windows brought back from the log, filled on the first announce. */
-	private restoredQueries: Channel[] = [];
+	/** Windows brought back from the device's store, filled on the first announce. */
+	private restoredWindows: Channel[] = [];
 	caps = new CapNegotiator(SEANCE_CAPS);
 
 	/** Our current nick as the server knows it (or the one we asked for). */
@@ -619,6 +619,8 @@ export class IrcClient {
 	attachCursor: string | undefined;
 	/** The server took that cursor: it replays the gap, so catchup.ts stands down. */
 	serverReplay = false;
+	/** The server could not place that cursor and replays from a point of its own (`CURSOR_UNKNOWN`). */
+	cursorUnknown = false;
 	/** Ids for the cursor's replay, every target's, set aside when the server took the cursor. */
 	replayIds: IdBlock | undefined = undefined;
 	/** This connection goes through ZNC ({@link offersZncCaps}): see history.ts `noteZncLine`. */
@@ -756,9 +758,9 @@ export class IrcClient {
 			channel.autoJoin = true;
 		}
 
-		// The private conversations of the last page come back as windows,
-		// as the autojoin channels do; their lines follow the announce.
-		this.queryLog = new QueryLog(
+		// The windows of the last page come back, channels and private
+		// conversations alike; their lines follow the announce.
+		this.conversations = new ConversationStore(
 			this.uuid,
 			(s) => this.casefold(s),
 			() => getSavedNetwork(this.uuid) !== undefined
@@ -767,20 +769,47 @@ export class IrcClient {
 		this.noticeLog = new NoticeLog(this.uuid, () => getSavedNetwork(this.uuid) !== undefined);
 		this.closed = new ClosedQueries(this.uuid, (s) => this.casefold(s));
 
-		for (const name of this.queryLog.names()) {
-			const newest = this.queryLog.newestAt(name);
+		for (const window of this.conversations.windows()) {
+			const {name} = window;
 
-			// Closed in another tab since this log was written.
-			if (newest !== undefined && this.closed.suppresses(name, new Date(newest))) {
-				this.queryLog.forget(name);
+			if (window.kind === "channel") {
+				// A channel the device has lines for, or was in: its window is
+				// back at once. One we were in is joined again, as a reconnect
+				// joins it (a channel joined by hand is not in the saved list);
+				// one we had left stays as it was, readable and parted.
+				let channel = this.findChannel(name);
+
+				if (!channel) {
+					channel = this.createChannel(name, ChanType.CHANNEL).channel;
+					channel.autoJoin = window.joined;
+				}
+
+				if (channel.type === ChanType.CHANNEL) {
+					this.restoredWindows.push(channel);
+				}
+
+				continue;
+			}
+
+			// Closed in another tab since these lines were written.
+			if (this.closed.suppresses(name, new Date(window.touched))) {
+				this.conversations.forget(name);
 				continue;
 			}
 
 			if (!this.findChannel(name) && !this.isChannelName(name)) {
 				const {channel} = this.createChannel(name, ChanType.QUERY);
 				channel.autoOpened = true;
-				this.restoredQueries.push(channel);
+				this.restoredWindows.push(channel);
 			}
+		}
+
+		// The cursor is never ahead of the lines: a write that did not land
+		// (a page killed inside the throttle) would leave a hole behind it.
+		const kept = this.conversations.newestStamped();
+
+		if (kept && this.cursor && this.cursor.time > kept.time) {
+			this.cursor = {msgid: kept.msgid, time: kept.time};
 		}
 	}
 
@@ -981,7 +1010,7 @@ export class IrcClient {
 		if (!this.announced) {
 			this.announced = true;
 			this.bus.dispatch("network", {network: this.network});
-			this.restoreQueryLines();
+			this.restoreWindows();
 			void this.restoreNotices();
 		}
 
@@ -1518,6 +1547,7 @@ export class IrcClient {
 		this.bouncerAlias = false;
 		this.attachCursor = undefined;
 		this.serverReplay = false;
+		this.cursorUnknown = false;
 		this.replayIds = undefined;
 		this.endSasl();
 
@@ -2120,12 +2150,13 @@ export class IrcClient {
 		cancelCatchup(this);
 		cancelRestoration(this);
 		this.saveCursor(); // the newest one must not die with the connection
-		this.queryLog.flush();
+		void this.conversations.flush();
 		this.noticeLog.flush();
 		resetRequests(this);
 		resetServiceReplies(this);
 		resetOper(this);
 		this.serverReplay = false;
+		this.cursorUnknown = false;
 		this.replayIds = undefined;
 		this.clearPendingEdits();
 		this.clearTyping();
@@ -2150,8 +2181,12 @@ export class IrcClient {
 
 			if (chan.type === ChanType.CHANNEL) {
 				// Dropped, not our QUIT: the re-JOIN is state, not news (Channel.rejoining).
-				chan.rejoining = chan.state === ChanState.JOINED && !this.quitting;
+				// Still so when this dial never got as far as the JOIN (a
+				// refused socket, a page load without a network).
+				chan.rejoining =
+					!this.quitting && (chan.state === ChanState.JOINED || chan.rejoining);
 				chan.state = ChanState.PARTED;
+				chan.replayCovered = false;
 			}
 		}
 
@@ -3735,11 +3770,16 @@ export class IrcClient {
 			// The ATTACH cursor's server-driven replay already covers the gap
 			// of a channel the server restored; asking again per channel is
 			// exactly what the cursor replaces (persistence.ts).
-			if (chan && !serverReplayCovers(this, chan, beforeJoin)) {
+			if (chan) {
+				chan.replayCovered = serverReplayCovers(this, chan, beforeJoin);
+			}
+
+			if (chan && !chan.replayCovered) {
 				// History + read marker, paced (catchup.ts): the active channel
 				// now, the rest one at a time so the server's flood penalty
 				// never queues the user's own lines.
 				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin, heldIds);
+				this.noteFilled(chan);
 			} else if (chan) {
 				// The replay fills the gap, not a `more` page the last
 				// connection died on: that one is asked again here.
@@ -3803,17 +3843,18 @@ export class IrcClient {
 			return false;
 		}
 
-		this.followInQueryLog(event, args[0]);
+		this.followInStore(event, args[0]);
 		return this.bus.dispatch(event, ...args);
 	};
 
 	/**
-	 * An edit, a redaction or a reaction in a query reaches the log the way
+	 * An edit, a redaction or a reaction reaches the device's store the way
 	 * it reaches the UI — through the one dispatch every handler uses — so
-	 * no handler has to know the log exists. Ids are the UI's; the log keys
-	 * by msgid, which `msgRefs` holds for every loaded line.
+	 * the kept line follows what is on screen. A redaction is also sent
+	 * straight from its handler, for a line that is kept but not loaded
+	 * (handlers/redact.ts).
 	 */
-	private followInQueryLog(event: string, payload: unknown): void {
+	private followInStore(event: string, payload: unknown): void {
 		if (event !== "msg:edit" && event !== "msg:redact" && event !== "msg:react") {
 			return;
 		}
@@ -3822,7 +3863,7 @@ export class IrcClient {
 		const chan = this.channelById(data.chan);
 		const msgid = chan?.msgRefs.get(data.id)?.msgid;
 
-		if (!chan || chan.type !== ChanType.QUERY || !msgid) {
+		if (!chan || !this.storeKind(chan) || !msgid) {
 			return;
 		}
 
@@ -3830,13 +3871,111 @@ export class IrcClient {
 			const original = chan.msgRefs.get((payload as {replaces: number}).replaces)?.msgid;
 
 			if (original) {
-				this.queryLog.edit(chan.name, original, msgid);
+				this.conversations.edit(chan.name, original, msgid);
 			}
 		} else if (event === "msg:redact") {
-			this.queryLog.redact(chan.name, msgid);
+			this.conversations.redact(chan.name, msgid);
 		} else {
 			const {text, nick, remove} = payload as {text: string; nick: string; remove: boolean};
-			this.queryLog.react(chan.name, msgid, text, nick, remove);
+			this.conversations.react(chan.name, msgid, text, nick, remove);
+		}
+	}
+
+	/** Keep a line handed to the UI on the device (conversationStore.ts). */
+	keep(chan: Channel, msg: SharedMsg): void {
+		const kind = this.storeKind(chan);
+
+		if (
+			!kind ||
+			(chan.clearedAt !== undefined && new Date(msg.time).getTime() <= chan.clearedAt)
+		) {
+			return;
+		}
+
+		this.conversations.append(chan.name, kind, msg);
+		this.conversations.setFilled(chan.name, kind, chan.historyFilled);
+	}
+
+	/**
+	 * The server's replay does not cover what it was trusted to (its cursor
+	 * was unknown, persistence.ts): the channels whose JOIN left the gap to
+	 * it walk for themselves after all.
+	 */
+	catchUpUncovered(): void {
+		for (const chan of this.channels) {
+			if (!chan.replayCovered) {
+				continue;
+			}
+
+			chan.replayCovered = false;
+
+			if (chan.state === ChanState.JOINED) {
+				enqueueCatchup(
+					this,
+					chan,
+					chan.catchupRef(),
+					chan.historyFilled ? chan.newestServerRef() : undefined,
+					new Set(chan.msgids)
+				);
+				this.noteFilled(chan);
+			}
+		}
+	}
+
+	/** `chan.historyFilled` as it stands now goes with its lines on the device. */
+	noteFilled(chan: Channel): void {
+		const kind = this.storeKind(chan);
+
+		if (kind) {
+			this.conversations.setFilled(chan.name, kind, chan.historyFilled);
+		}
+	}
+
+	/**
+	 * Lines are missing before message `id` of `chan`, or no longer are: the
+	 * model, the UI's divider (`msg:gap`) and the kept line follow. Always
+	 * dispatched, also when nothing changed: the divider's control waits for it.
+	 */
+	setGap(chan: Channel, id: number, on: boolean): void {
+		const ref = chan.msgRefs.get(id);
+
+		if (!ref) {
+			return;
+		}
+
+		if (!!ref.gap !== on) {
+			ref.gap = on || undefined;
+			const key = ref.msgid ?? ref.key;
+
+			if (key !== undefined) {
+				this.conversations.setGap(chan.name, ref.time, key, on);
+			}
+		}
+
+		this.dispatch("msg:gap", {chan: chan.id, id, gap: on});
+	}
+
+	/**
+	 * The user cleared `chan`'s history (client/js/history.ts, which has
+	 * emptied the store's copy): everything shown is forgotten as a trim
+	 * forgets it, the counters start again from nothing, and the lines kept
+	 * on this device go. Nothing at or before the newest of them is kept,
+	 * shown or fetched again here: without that the next page load, or the
+	 * next history page, would bring the cleared lines back.
+	 */
+	clearHistory(chan: Channel): void {
+		const newest = Math.max(
+			chan.newestServerAt ?? 0,
+			...[...chan.msgRefs.values()].map((ref) => ref.time.getTime())
+		);
+		chan.forget([...chan.msgRefs.keys()]);
+		chan.shared.unread = 0;
+		chan.shared.highlight = 0;
+		chan.shared.firstUnread = 0;
+
+		if (newest > 0) {
+			chan.clearedAt = Math.max(chan.clearedAt ?? 0, newest);
+			this.conversations.clear(chan.name, new Date(chan.clearedAt));
 		}
 	}
 
@@ -4127,19 +4266,32 @@ export class IrcClient {
 		return channel;
 	}
 
+	/** What the store calls `chan`'s kind, or undefined for a window it does not keep. */
+	storeKind(chan: Channel): ConvKind | undefined {
+		return chan.type === ChanType.CHANNEL
+			? "channel"
+			: chan.type === ChanType.QUERY
+			? "query"
+			: undefined;
+	}
+
 	/**
-	 * Hand the restored query windows their logged lines, as one history
-	 * page each (`more`, negative ids, no unread): remembered by msgid like
-	 * any page, so the server's own replay of the same lines — the ATTACH
-	 * cursor's, a CHATHISTORY page — is deduplicated against them.
+	 * Hand the restored windows their kept lines, as one history page each
+	 * (`more`, negative ids), before any connection: a page load is then a
+	 * reconnect. The lines are remembered by msgid like any page, so the
+	 * server's own copy of them (the ATTACH cursor's replay, a CHATHISTORY
+	 * page) is deduplicated against them, and a channel's JOIN starts the
+	 * catch-up walk from its newest one instead of a first fill (history.ts).
 	 */
-	private restoreQueryLines(): void {
-		for (const chan of this.restoredQueries.splice(0)) {
+	private restoreWindows(): void {
+		for (const chan of this.restoredWindows.splice(0)) {
 			if (!this.channels.includes(chan)) {
 				continue;
 			}
 
-			const messages = this.queryLog.messages(chan.name);
+			const meta = this.conversations.meta(chan.name);
+			chan.clearedAt = meta?.clearedAt;
+			const messages = this.conversations.restoredMessages(chan.name);
 
 			if (messages.length === 0) {
 				continue;
@@ -4148,8 +4300,8 @@ export class IrcClient {
 			const ids = this.historyIds(messages.length);
 			let lastRef: MsgRef | undefined;
 			// Lines this device had not read when the page went away count
-			// again; in a log from before the read point was kept, nothing does.
-			const read = this.queryLog.readUpTo(chan.name);
+			// again; where no read point was kept, nothing does.
+			const read = meta?.read === undefined ? undefined : new Date(meta.read);
 			const page: Array<[SharedMsg, MsgRef]> = [];
 			let lastRead = 0;
 
@@ -4164,7 +4316,7 @@ export class IrcClient {
 				}
 			});
 
-			for (const [msgid, index] of this.queryLog.aliases(chan.name)) {
+			for (const [msgid, index] of this.conversations.restoredAliases(chan.name)) {
 				if (!chan.idByMsgid.has(msgid)) {
 					chan.idByMsgid.set(msgid, messages[index].id);
 				}
@@ -4172,11 +4324,28 @@ export class IrcClient {
 
 			chan.newestRef ??= lastRef;
 			chan.shared.totalMessages += messages.length;
+
+			if (chan.type === ChanType.CHANNEL) {
+				// As a live page holds them: the JOIN's catch-up walks back
+				// to these lines, and the server's replay may cover the gap
+				// when they were complete (persistence.ts serverReplayCovers).
+				chan.historyRequested = true;
+				chan.historyFilled = !!meta?.filled;
+				// Its JOIN is state, not something that happened.
+				chan.rejoining = chan.autoJoin;
+			}
+
+			// Older lines: the device's first, then the server's. A private
+			// conversation's server may keep none, so it offers only what
+			// the device has.
+			const moreAvailable =
+				chan.type === ChanType.CHANNEL || this.conversations.hasOlder(chan.name);
 			this.bus.dispatch("more", {
 				chan: chan.id,
 				messages,
-				totalMessages: chan.shared.totalMessages,
-				moreAvailable: false,
+				totalMessages: chan.shared.totalMessages + (moreAvailable ? 1 : 0),
+				moreAvailable,
+				device: this.conversations.hasOlder(chan.name),
 			});
 
 			if (read && read.getTime() > 0) {
@@ -4229,8 +4398,8 @@ export class IrcClient {
 
 	/** Drop a channel from the model and the UI (`part` event). */
 	removeChannel(chan: Channel): void {
-		if (chan.type === ChanType.QUERY) {
-			this.queryLog.forget(chan.name); // closed: not brought back
+		if (this.storeKind(chan)) {
+			this.conversations.forget(chan.name); // closed: not brought back
 		}
 
 		const idx = this.channels.indexOf(chan);
@@ -4297,10 +4466,7 @@ export class IrcClient {
 
 		this.noteCursor(msg);
 
-		if (chan.type === ChanType.QUERY) {
-			// Before the counting below, which may move the read point it keeps.
-			this.queryLog.append(chan.name, msg);
-		}
+		this.keep(chan, msg); // before the counting below, which may move the read point it keeps
 
 		// An original its author's edit already replaced on screen counts
 		// for nothing: the edit counted in its place (privmsg.ts counts an

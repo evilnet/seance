@@ -51,6 +51,11 @@ socket.on("more", async (data) => {
 	// (it counts live rows against the history total, see irc/history.ts).
 	channel.moreHistoryAvailable =
 		data.moreAvailable ?? data.totalMessages > channel.messages.length + data.messages.length;
+
+	if (data.device !== undefined) {
+		channel.deviceHistory = data.device;
+	}
+
 	channel.messages = data.messages.concat(channel.messages);
 	release();
 

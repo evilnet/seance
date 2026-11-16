@@ -22,7 +22,7 @@ import {setMuteStatus} from "../mute";
 import {ignoreListFor} from "../ignore";
 import {registerBusHandlers} from "./bus";
 import {IrcClient} from "./client";
-import {flushQueryLogs} from "./querylog";
+import {flushConversationStores} from "./conversationStore";
 import {forgetLogin, typedCredentialsDiffer} from "./saslTrust";
 import {pruneUserAway} from "./userAwayStore";
 import {leavesAwayToWorker, syncPresence} from "./presence";
@@ -487,10 +487,10 @@ export function allClients(): IrcClient[] {
  * more than the deterministic hold. Nothing is sent for those.
  */
 if (typeof window !== "undefined") {
-	// The private conversations' log writes on a trailing throttle: write
-	// it out whenever the page may not come back — a phone kills a hidden
-	// page without a pagehide.
-	window.addEventListener("pagehide", flushQueryLogs);
+	// The conversations kept on the device are written on a trailing
+	// throttle: write them out whenever the page may not come back — a
+	// phone kills a hidden page without a pagehide.
+	window.addEventListener("pagehide", () => void flushConversationStores());
 	// Private conversations no longer kept: every connected network deletes
 	// the account's list of closed ones (a network down meanwhile does so at
 	// its next login read).
@@ -508,7 +508,7 @@ if (typeof window !== "undefined") {
 	});
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "hidden") {
-			flushQueryLogs();
+			void flushConversationStores();
 		}
 	});
 
@@ -653,7 +653,7 @@ registerBusHandlers(socket, {
 	allClients,
 	createNetwork,
 	remove(uuid) {
-		clients.get(uuid)?.queryLog.dispose();
+		clients.get(uuid)?.conversations.dispose();
 		clients.delete(uuid);
 		forgetLogin(uuid);
 	},
