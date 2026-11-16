@@ -3,7 +3,8 @@
  * side. While a logged-in user's session is "held", a dropped connection
  * leaves no channel: the next connection with the same account resumes the
  * session and, right behind the MOTD, the server replays the membership it
- * kept as a `BATCH +ref draft/persistence` of JOIN (with the original
+ * kept as a `BATCH +ref draft/persistence` (or, once nefarious2 moves it,
+ * the vendor name in {@link PERSISTENCE_NAMES}) of JOIN (with the original
  * `@time`/`msgid`), 332/333, MARKREAD and NAMES per channel
  * (`bouncer_session.c` `bounce_send_channel_state`). A client that
  * requested the cap is also told between 005 and the MOTD end whether it is
@@ -403,11 +404,11 @@ export function isRoutineReplayNotice(client: IrcClient, msg: IrcMessage): boole
  * is already on its way. That is the point of the cursor: one server-driven
  * batch instead of `TARGETS` + N × `CHATHISTORY`.
  *
- * Only for the server's own restoration JOINs (inside the `draft/persistence`
- * batch, or while the autojoin is still held for an unbatched burst) and only
- * for a channel we already hold messages for, complete up to its newest line
- * (`Channel.historyFilled`; after a page load that is what the device kept,
- * conversationStore.ts). A channel the autojoin had to
+ * Only for the server's own restoration JOINs (inside the restoration batch,
+ * either name, or while the autojoin is still held for an unbatched burst) and
+ * only for a channel we already hold messages for, complete up to its newest
+ * line (`Channel.historyFilled`; after a page load that is what the device
+ * kept, conversationStore.ts). A channel the autojoin had to
  * JOIN itself was not in the session when the replay ran, and a channel we
  * have nothing for (a fresh page load) still needs its `CHATHISTORY LATEST`
  * fill — the replay only carries the gap since the cursor, which can be

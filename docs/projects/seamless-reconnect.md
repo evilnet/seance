@@ -139,7 +139,10 @@ client does now:
 - **Offer it.** After a _successful_ SASL, in the same flush as `CAP END` and
   before it (`client.ts` `offerAttachCursor` → `persistence.ts`
   `attachCursorLine`): `PERSISTENCE ATTACH default <msgid>`. Only when the
-  `draft/persistence` CAP 302 value carries the `attach-cursor` token and the
+  `draft/persistence` CAP 302 value carries the `attach-cursor` token (or the
+  value of `evilnet.github.io/persistence`, the vendor cap nefarious2 is to
+  move its extras to; either cap must be enabled), and the restoration batch is
+  taken under either name (`persistence.ts` `PERSISTENCE_NAMES`), and the
   msgid fits the server's 64-byte buffer. Never without SASL — the server
   answers `FAIL PERSISTENCE ACCOUNT_REQUIRED` — and never after 001.
 - **Read the answer.** `:server PERSISTENCE ATTACH default` sets

@@ -8,7 +8,8 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import {CURSOR_SAVE_INTERVAL_MS} from "../../client/js/irc/client";
-import type {CapNegotiator} from "../../client/js/irc/caps";
+import {CapNegotiator, SEANCE_CAPS} from "../../client/js/irc/caps";
+import {parseLine} from "../../client/js/irc/message";
 import {supportsAttachCursor} from "../../client/js/irc/persistence";
 import {requestHistory, requestMore} from "../../client/js/irc/history";
 import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
@@ -325,18 +326,20 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 		});
 
 		it("reads the token only from a cap the server enabled", function () {
-			const offered = (enabled: string[]) =>
-				({
-					hasCapability: (cap: string) => enabled.includes(cap),
-					value: (cap: string) =>
-						cap === "evilnet.github.io/persistence" ? "attach-cursor" : "",
-				} as unknown as CapNegotiator);
+			const negotiated = (ack: string) => {
+				const neg = new CapNegotiator(SEANCE_CAPS);
+				neg.handle(
+					parseLine(
+						":irc.test CAP * LS :draft/persistence evilnet.github.io/persistence=attach-cursor"
+					)!
+				);
+				neg.handle(parseLine(`:irc.test CAP * ACK :${ack}`)!);
+				return neg;
+			};
 
-			expect(supportsAttachCursor(offered(["draft/persistence"]))).to.equal(false);
+			expect(supportsAttachCursor(negotiated("draft/persistence"))).to.equal(false);
 			expect(
-				supportsAttachCursor(
-					offered(["draft/persistence", "evilnet.github.io/persistence"])
-				)
+				supportsAttachCursor(negotiated("draft/persistence evilnet.github.io/persistence"))
 			).to.equal(true);
 		});
 
