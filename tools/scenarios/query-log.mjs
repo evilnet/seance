@@ -10,6 +10,8 @@
 // `SEANCE_PORT` at another static server. One browser profile throughout:
 // the profile's storage surviving the reload is the point.
 
+import {KEPT as KEPT_BY_TARGET, coldLoad} from "./lib/kept.mjs";
+
 const IRCD = process.env.SEANCE_IRC_URL ?? "ws://127.0.0.1:8067/";
 const PORT = process.env.SEANCE_PORT ?? "8000";
 const RUN = Date.now().toString(36).slice(-5);
@@ -33,19 +35,7 @@ const ACTIVE = `(document.querySelector("#chat-container")?.dataset.currentChann
 const TEXTS = `JSON.stringify(Array.from(document.querySelectorAll("#chat .msg .content")).map((c) => c.textContent.trim()))`;
 
 /** Texts kept in IndexedDB for the private conversations (irc/conversationStore.ts). */
-const KEPT = `new Promise((resolve) => {
-	const open = indexedDB.open("seance-conversations");
-	open.onerror = () => resolve([]);
-	open.onsuccess = () => {
-		const db = open.result;
-		if (!db.objectStoreNames.contains("lines")) { db.close(); resolve([]); return; }
-		const all = db.transaction("lines").objectStore("lines").getAll();
-		all.onsuccess = () => {
-			db.close();
-			resolve(all.result.filter((l) => !l.c.split("\\n")[1].startsWith("#")).map((l) => l.msg.text));
-		};
-	};
-})`;
+const KEPT = `(${KEPT_BY_TARGET}).then((kept) => Object.entries(kept).filter(([target]) => !target.startsWith("#")).flatMap(([, texts]) => texts))`;
 
 /** A second user who talks to the page in private. */
 function talker(nick) {
@@ -78,31 +68,6 @@ function talker(nick) {
 }
 
 export default async function run(page) {
-	// F5: see reload-on-settings.mjs for why it is replaceState + Page.reload.
-	const coldLoad = async (waitFor) => {
-		await page.evaluate(
-			`(() => { window.__coldLoad = true; history.replaceState(null, "", "/"); })()`
-		);
-		await page.send("Page.reload");
-		const started = Date.now();
-
-		for (;;) {
-			try {
-				if (await page.evaluate(`!window.__coldLoad && !!(${waitFor})`)) {
-					return;
-				}
-			} catch {
-				// the document is being replaced
-			}
-
-			if (Date.now() - started > 30000) {
-				throw new Error(`timed out waiting for ${waitFor} after the reload`);
-			}
-
-			await page.sleep(150);
-		}
-	};
-
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.click('#connect input[name="autoconnect"]');
 	await page.click('#connect button[type="submit"]');
@@ -134,7 +99,7 @@ export default async function run(page) {
 
 	// 1. Reload: the window is back before the server says anything, and so
 	//    are its lines, once each.
-	await coldLoad(`document.querySelector('${item(TALKER)}')`);
+	await coldLoad(page, `document.querySelector('${item(TALKER)}')`);
 	await page.check("the query window is back after the reload", true);
 	// It was the conversation on screen: the page lands on it by itself,
 	// and registration (`init`) does not move the view off it.
@@ -174,7 +139,7 @@ export default async function run(page) {
 	// 3. With nothing remembered, a reload lands on the last channel of the
 	//    join list, not on the restored query that sorts after it.
 	await page.evaluate(`localStorage.removeItem("thelounge.state.lastChannel")`);
-	await coldLoad(`document.querySelector('${item(TALKER)}')`);
+	await coldLoad(page, `document.querySelector('${item(TALKER)}')`);
 	await page.sleep(500);
 	const fresh = await page.evaluate(ACTIVE);
 	await page.check(`no memory: lands on #seance, not the query (${fresh})`, fresh === "#seance");
@@ -192,7 +157,7 @@ export default async function run(page) {
 		label: "the query closed",
 	});
 	await page.sleep(1500);
-	await coldLoad(`document.querySelector('${item("#seance")}')`);
+	await coldLoad(page, `document.querySelector('${item("#seance")}')`);
 	await page.sleep(1500);
 	const state = JSON.stringify({
 		last: await page.evaluate(`localStorage.getItem("thelounge.state.lastChannel")`),
@@ -239,7 +204,7 @@ export default async function run(page) {
 	bob.say("a line after the switch");
 	await page.sleep(2000);
 	await page.check("nothing is kept while it is off", (await page.evaluate(LOGS)) === 0);
-	await coldLoad(`document.querySelector('${item("#seance")}')`);
+	await coldLoad(page, `document.querySelector('${item("#seance")}')`);
 	await page.sleep(1500);
 	await page.check(
 		"with it off, a reload brings no query back",

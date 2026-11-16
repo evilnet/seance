@@ -94,7 +94,8 @@ const join: Handler = (client, msg) => {
 		chan.autoJoin = true;
 		// A page load joins it again, as a reconnect does, also a channel
 		// joined by hand that the saved list does not name (conversationStore.ts).
-		client.conversations.setJoined(chan.name, true);
+		client.conversations.setJoined(chan.name, true, chan.shared.key);
+		chan.fromStore = false; // a membership of this page from here on
 
 		if (!wasJoined) {
 			// The channel modes are asked for lazily, the first time the

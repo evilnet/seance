@@ -740,6 +740,24 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			expect(h.messages(id)[0].id).to.be.below(shown[0].id);
 			expect(h.payloads("msg:gap")).to.deep.equal([{chan: id, id: shown[0].id, gap: false}]);
 
+			// A second cut leg whose one page does not reach: nothing more is
+			// asked by itself, and the marker moves up to the oldest line brought.
+			h.dispatch.resetHistory();
+			bouncerReplay(h, "#seance", [
+				"@time=2026-08-28T13:30:00.000Z;msgid=s8 :bob!bob@host PRIVMSG #seance :later",
+			]);
+			const cut = h.messages(id)[0];
+			const again = chathistory(h.sent());
+			expect(again).to.have.length(1);
+			batch(
+				h,
+				["@time=2026-08-28T13:20:00.000Z;msgid=s7 :bob!bob@host PRIVMSG #seance :between"],
+				{label: labelOf(again), ref: "hist2"}
+			);
+			expect(chathistory(h.sent())).to.deep.equal([]);
+			expect(h.payloads("msg:gap")).to.deep.equal([{chan: id, id: cut.id, gap: false}]);
+			expect(h.messages(id).find((m) => m.text === "between")!.gapBefore).to.equal(true);
+
 			// A leg the server says is whole.
 			h.dispatch.resetHistory();
 			h.transport.lines(

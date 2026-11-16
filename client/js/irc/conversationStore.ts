@@ -1,16 +1,18 @@
 /**
  * The conversations kept on this device: one store for every window, channel
  * or private, in IndexedDB (`seance-conversations`). It is what a page load
- * shows before, or without, a connection (`IrcClient.restoreWindows`), what
+ * shows before, or without, a connection (`IrcClient.restoreWindow`), what
  * "show older" reads first, and the only copy where the server keeps none (a
  * guest, a private chat nobody stores).
  *
  * One record per line, never a conversation written whole: a tab queues what
  * it changed (a line arrived, an edit, a reaction, a deletion, a read point)
- * and flushes it in one transaction. A line both tabs received has one key,
- * and the second write finds the first; a line is added only when absent, so
- * a late copy never undoes an edit or a reaction another tab applied. Two
- * copies of the app cannot overwrite each other.
+ * and flushes it. A line both tabs received has one key, and the second
+ * write finds the first; a line is added only when absent, so a late copy
+ * never undoes an edit or a reaction another tab applied, and a line that
+ * was deleted leaves a short-lived note that keeps a late copy out
+ * ({@link ConvRecord.dead}). Two copies of the app cannot overwrite each
+ * other.
  *
  * Shape: `convs` holds one {@link ConvRecord} per window (the index: which
  * windows existed, without reading a line); `lines` holds the
@@ -19,10 +21,17 @@
  * msgid, or a best-effort identity without one ({@link lineKey}). An index
  * finds a line by msgid, the msgids of the edits folded into it included.
  *
+ * A window the user closed is remembered, not forgotten
+ * ({@link ConvRecord.closed}): it is not shown and never opens by itself,
+ * and when the channel is joined again its lines are there. A closed private
+ * conversation keeps no lines, only the fact and when.
+ *
  * Caps: the newest {@link MAX_LINES} per conversation, oldest out first and
- * never from the middle. No age limit. Closing a window forgets it; removing
- * the network forgets them all; "Clear history" empties one and keeps what
- * was cleared from coming back ({@link ConvRecord.clearedAt}).
+ * never from the middle. No age limit. Removing the network forgets it all;
+ * "Clear history" empties one window and keeps what was cleared from coming
+ * back ({@link ConvRecord.clearedAt}). When the disk is full, deletions are
+ * written by themselves so that they still land, and the oldest half of
+ * every long conversation goes to make room.
  *
  * The user can switch it off (Settings → General, `keepPrivateConversations`,
  * the one switch for both kinds): nothing is kept or restored then, and
@@ -31,13 +40,17 @@
  *
  * Reads at boot are asynchronous, the client is not: {@link preloadConversations}
  * reads every network's newest lines before any client exists, and the
- * client's constructor takes its share synchronously ({@link ConversationStore}).
+ * client's constructor takes its network's share, once ({@link ConversationStore}).
+ * A store that goes away reads its share again for the next one.
  *
  * Kept free of store/DOM imports so it runs under mocha, where nothing is
  * kept unless a test swaps in a {@link MemoryBackend}; tests share one
- * between two stores to stand in for two tabs. docs/projects/conversation-store.md.
+ * between two stores to stand in for two tabs.
+ * docs/projects/conversation-store.md.
  */
 
+import {applyReaction} from "../helpers/messageUpdates";
+import {openDatabase} from "../idb";
 import storage from "../localStorage";
 import {MessageType, type MsgReaction, type SharedMsg} from "../../../shared/types/msg";
 
@@ -48,9 +61,15 @@ const TRIM_SLACK = 100;
 /** Lines put back into each window at page load. */
 export const RESTORE_LINES = 100;
 /** Trailing write throttle. */
-export const FLUSH_DELAY_MS = 250;
+const FLUSH_DELAY_MS = 250;
 /** How long the page waits for the boot read before going on without it. */
-export const PRELOAD_TIMEOUT_MS = 2500;
+export const PRELOAD_TIMEOUT_MS = 1000;
+/** How long a deleted line's msgid keeps a late copy of it out. */
+export const DEAD_FOR_MS = 7 * 24 * 60 * 60 * 1000;
+/** Most deleted msgids remembered per conversation. */
+const DEAD_MAX = 500;
+/** A conversation shorter than this is left alone when the disk is full. */
+const EVICT_FLOOR = 100;
 
 /**
  * Changes a page could not write before it went away, per network and tab
@@ -97,14 +116,32 @@ export interface ConvRecord {
 	read?: number;
 	/** The device held everything up to the newest line when last written (Channel.historyFilled). */
 	filled?: boolean;
-	/** A channel we were in when last written: a page load joins it again, as a reconnect does. */
+	/**
+	 * A channel we were in when last written. Where nothing else holds our
+	 * channels (no bouncer, no held session) a page load joins it again, as
+	 * a reconnect does.
+	 */
 	joined?: boolean;
-	/** "Clear history": nothing at or before this (epoch ms) is kept or shown again. */
+	/** That channel's key, for the join. */
+	key?: string;
+	/**
+	 * The user closed the window: it is not shown and does not open by
+	 * itself. A channel keeps its lines for the day it is joined again; a
+	 * private conversation's are deleted ({@link clearedAt} says up to when).
+	 */
+	closed?: boolean;
+	/** Nothing at or before this (epoch ms) is kept or shown again: "Clear history", a closed private conversation. */
 	clearedAt?: number;
 	/** Lines kept. */
 	n: number;
 	/** The newest line the server stamped (the catch-up cursor's bound). */
 	last?: {msgid: string; time: number};
+	/**
+	 * msgids of lines deleted here (REDACT), with when: a copy of one that
+	 * another tab had queued, or a journal an earlier page left, does not
+	 * bring it back. Forgotten after {@link DEAD_FOR_MS}.
+	 */
+	dead?: Record<string, number>;
 }
 
 /** One line. */
@@ -132,7 +169,7 @@ export type StoreOp =
 	  }
 	| {op: "edit"; target: string; original: string; edit: string}
 	| {op: "react"; target: string; msgid: string; text: string; nick: string; remove: boolean}
-	| {op: "redact"; target: string; msgid: string}
+	| {op: "redact"; target: string; msgid: string; at: number}
 	| {op: "gap"; target: string; t: number; k: string; on: boolean}
 	| {
 			op: "meta";
@@ -144,15 +181,21 @@ export type StoreOp =
 			read?: number;
 			filled?: boolean;
 			joined?: boolean;
+			key?: string;
+			/** The window is open again. */
+			open?: true;
 	  }
 	| {op: "clear"; target: string; at: number}
-	| {op: "forget"; target: string};
+	/** The window was closed; `keep` leaves its lines for when it is opened again. */
+	| {op: "close"; target: string; keep: boolean; at: number};
+
+/** The ops that take something away: written by themselves when the disk is full. */
+const DELETES = new Set<StoreOp["op"]>(["redact", "clear", "close"]);
 
 /** One transaction's view of the database. */
 export interface StoreTx {
 	getConv(c: string): Promise<ConvRecord | undefined>;
 	putConv(rec: ConvRecord): void;
-	deleteConv(c: string): void;
 	allConvs(): Promise<ConvRecord[]>;
 	getLine(c: string, t: number, k: string): Promise<LineRecord | undefined>;
 	/** The line whose msgid, or one of whose folded edits' msgids, is `msgid`. */
@@ -173,6 +216,8 @@ export interface StoreTx {
 
 export interface ConversationBackend {
 	run<T>(mode: "readonly" | "readwrite", fn: (tx: StoreTx) => Promise<T>): Promise<T>;
+	/** What {@link preloadConversations} would read, at once, where the backend can say (tests). */
+	snapshotNow?(): Snapshot;
 }
 
 const convKey = (uuid: string, target: string): string => `${uuid}\n${target}`;
@@ -184,29 +229,43 @@ function timeOf(value: Date | string): number {
 }
 
 /**
- * A line's key: the msgid where the server gave one. Without, a best-effort
- * identity of time, sender, kind and what it says (history.ts builds the same
- * for ZNC): two copies of the app that got the same line make the same key,
- * as long as the server stamped it (`server-time`).
+ * What a line is without its time: sender, kind and what it says. The one
+ * identity for lines the server gave no msgid (this store's keys, a window's
+ * "is this line shown", ZNC's buffer replay in history.ts). `fold` is the
+ * network's casemapping.
  */
-export function lineKey(msg: Pick<SharedMsg, "msgid" | "time" | "from" | "type" | "text">): string {
-	if (msg.msgid) {
-		return msg.msgid;
-	}
-
-	const extra = msg as Partial<SharedMsg>;
+export function lineIdentity(
+	msg: Pick<SharedMsg, "from" | "type" | "text"> &
+		Partial<Pick<SharedMsg, "new_nick" | "target">>,
+	fold: (s: string) => string
+): string {
 	return [
 		"",
-		(msg.from?.nick ?? "").toLowerCase(),
+		fold(msg.from?.nick ?? ""),
 		msg.type ?? "",
 		msg.text ?? "",
-		extra.new_nick ?? "",
-		extra.target?.nick ?? "",
+		msg.new_nick ?? "",
+		msg.target?.nick ?? "",
 	].join("\0");
 }
 
+/**
+ * A line's key: the msgid where the server gave one. Without, a best-effort
+ * {@link lineIdentity}: two copies of the app that got the same line make
+ * the same key, as long as the server stamped it (`server-time`). Two equal
+ * lines from one sender in the same millisecond are one line here, and
+ * without `server-time` each tab stamps its own clock and keeps its own
+ * copy: best effort, as far as it goes without msgids.
+ */
+export function lineKey(
+	msg: Pick<SharedMsg, "msgid" | "from" | "type" | "text">,
+	fold: (s: string) => string
+): string {
+	return msg.msgid ?? lineIdentity(msg, fold);
+}
+
 /** The copy of `msg` that is kept, or undefined for a line that is not. */
-export function toStored(msg: SharedMsg): StoredMsg | undefined {
+function toStored(msg: SharedMsg): StoredMsg | undefined {
 	if (!msg.type || !KEPT_TYPES.has(msg.type) || msg.pending) {
 		return undefined;
 	}
@@ -239,12 +298,49 @@ export function toStored(msg: SharedMsg): StoredMsg | undefined {
 }
 
 /** A kept line as a message without an id. */
-export function fromStored(stored: StoredMsg): SharedMsg {
+function fromStored(stored: StoredMsg): SharedMsg {
 	const msg = structuredClone(stored) as SharedMsg;
 	msg.id = 0;
 	msg.time = new Date(timeOf(stored.time));
 	msg.users ??= [];
 	return msg;
+}
+
+// ------------------------------------------------------------------ snapshot
+
+/** What a page load reads: every window, and the newest lines of each. */
+export interface Snapshot {
+	/** Per network uuid. */
+	convs: Map<string, ConvRecord[]>;
+	/** Per conversation key, oldest first. */
+	lines: Map<string, LineRecord[]>;
+	epochs: Map<string, number>;
+}
+
+function emptySnapshot(): Snapshot {
+	return {convs: new Map(), lines: new Map(), epochs: new Map()};
+}
+
+function addToSnapshot(snapshot: Snapshot, conv: ConvRecord, lines: LineRecord[]): void {
+	const list = snapshot.convs.get(conv.uuid);
+
+	if (list) {
+		list.push(conv);
+	} else {
+		snapshot.convs.set(conv.uuid, [conv]);
+	}
+
+	snapshot.lines.set(conv.c, lines);
+}
+
+/** Read one network's windows and newest lines into `snapshot`. */
+async function readNetwork(tx: StoreTx, convs: ConvRecord[], snapshot: Snapshot): Promise<void> {
+	for (const conv of convs) {
+		// A closed private conversation has no lines to read.
+		const lines = conv.n > 0 ? await tx.newest(conv.c, RESTORE_LINES) : [];
+		addToSnapshot(snapshot, conv, lines.reverse());
+		snapshot.epochs.set(conv.uuid, await tx.getEpoch(conv.uuid));
+	}
 }
 
 // ------------------------------------------------------------ memory backend
@@ -259,16 +355,17 @@ export class MemoryBackend implements ConversationBackend {
 	/** Lines per conversation, oldest first. */
 	readonly lines = new Map<string, LineRecord[]>();
 	readonly epochs = new Map<string, number>();
+	/** Make the next read-write transaction fail as a full disk does (tests). */
+	failNext: "QuotaExceededError" | undefined;
 
-	/** What {@link preloadConversations} would read, now (the tests' reload). */
-	snapshotNow(limit = RESTORE_LINES): Snapshot {
+	snapshotNow(): Snapshot {
 		const snapshot = emptySnapshot();
 
 		for (const conv of this.convs.values()) {
 			addToSnapshot(
 				snapshot,
 				structuredClone(conv),
-				structuredClone((this.lines.get(conv.c) ?? []).slice(-limit))
+				structuredClone((this.lines.get(conv.c) ?? []).slice(-RESTORE_LINES))
 			);
 		}
 
@@ -279,7 +376,13 @@ export class MemoryBackend implements ConversationBackend {
 		return snapshot;
 	}
 
-	run<T>(_mode: "readonly" | "readwrite", fn: (tx: StoreTx) => Promise<T>): Promise<T> {
+	run<T>(mode: "readonly" | "readwrite", fn: (tx: StoreTx) => Promise<T>): Promise<T> {
+		if (mode === "readwrite" && this.failNext) {
+			const name = this.failNext;
+			this.failNext = undefined;
+			return Promise.reject(new DOMException("The quota has been exceeded.", name));
+		}
+
 		return fn(this.tx());
 	}
 
@@ -301,7 +404,6 @@ export class MemoryBackend implements ConversationBackend {
 		return {
 			getConv: (c) => Promise.resolve(structuredClone(this.convs.get(c))),
 			putConv: (rec) => void this.convs.set(rec.c, structuredClone(rec)),
-			deleteConv: (c) => void this.convs.delete(c),
 			allConvs: () => Promise.resolve(structuredClone([...this.convs.values()])),
 			getLine: (c, t, k) => {
 				const list = this.linesOf(c);
@@ -385,140 +487,152 @@ function request<T>(req: IDBRequest<T>): Promise<T> {
 	});
 }
 
-function openDb(): Promise<IDBDatabase> {
-	return new Promise((resolve, reject) => {
-		const req = indexedDB.open(DB_NAME, DB_VERSION);
+/** The one connection, kept open; opened again when the browser closes it. */
+let connection: Promise<IDBDatabase> | undefined;
 
-		req.onupgradeneeded = () => {
-			const db = req.result;
+function database(): Promise<IDBDatabase> {
+	connection ??= openDatabase(DB_NAME, DB_VERSION, (db) => {
+		if (!db.objectStoreNames.contains(CONVS)) {
+			db.createObjectStore(CONVS, {keyPath: "c"});
+		}
 
-			if (!db.objectStoreNames.contains(CONVS)) {
-				db.createObjectStore(CONVS, {keyPath: "c"});
-			}
+		if (!db.objectStoreNames.contains(LINES)) {
+			const lines = db.createObjectStore(LINES, {keyPath: ["c", "t", "k"]});
+			lines.createIndex("ids", "ids", {multiEntry: true});
+		}
 
-			if (!db.objectStoreNames.contains(LINES)) {
-				const lines = db.createObjectStore(LINES, {keyPath: ["c", "t", "k"]});
-				lines.createIndex("ids", "ids", {multiEntry: true});
-			}
+		if (!db.objectStoreNames.contains(EPOCHS)) {
+			db.createObjectStore(EPOCHS);
+		}
+	}).then(
+		(db) => {
+			const drop = () => {
+				connection = undefined;
+			};
 
-			if (!db.objectStoreNames.contains(EPOCHS)) {
-				db.createObjectStore(EPOCHS);
-			}
-		};
+			// WebKit closes the connection of a suspended installed app; a
+			// newer build of the page asks for it with `versionchange`.
+			db.onclose = drop;
 
-		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error ?? new DOMException("Open failed", "UnknownError"));
-		req.onblocked = () => reject(new DOMException("Open blocked", "UnknownError"));
-	});
+			db.onversionchange = () => {
+				drop();
+				db.close();
+			};
+
+			return db;
+		},
+		(err: unknown) => {
+			connection = undefined;
+			throw err;
+		}
+	);
+	return connection;
 }
 
 const linesRange = (c: string, upTo?: number): IDBKeyRange =>
 	IDBKeyRange.bound([c, -Infinity, ""], [c, upTo ?? Infinity, "￿"]);
 
+function view(tx: IDBTransaction): StoreTx {
+	const convs = tx.objectStore(CONVS);
+	const lines = tx.objectStore(LINES);
+	const epochs = tx.objectStore(EPOCHS);
+
+	return {
+		getConv: (c) => request(convs.get(c) as IDBRequest<ConvRecord | undefined>),
+		putConv: (rec) => void convs.put(rec),
+		allConvs: () => request(convs.getAll() as IDBRequest<ConvRecord[]>),
+		getLine: (c, t, k) => request(lines.get([c, t, k]) as IDBRequest<LineRecord | undefined>),
+		lineById: (c, msgid) =>
+			request(lines.index("ids").get(idKey(c, msgid)) as IDBRequest<LineRecord | undefined>),
+		putLine: (rec) => void lines.put(rec),
+		deleteLine: (c, t, k) => void lines.delete([c, t, k]),
+		newest: (c, limit, upTo) =>
+			new Promise<LineRecord[]>((resolve, reject) => {
+				const out: LineRecord[] = [];
+				const req = lines.openCursor(linesRange(c, upTo), "prev");
+
+				req.onsuccess = () => {
+					const cursor = req.result;
+
+					if (!cursor || out.length >= limit) {
+						resolve(out);
+						return;
+					}
+
+					out.push(cursor.value as LineRecord);
+					cursor.continue();
+				};
+
+				req.onerror = () =>
+					reject(req.error ?? new DOMException("Request failed", "UnknownError"));
+			}),
+		async deleteOldest(c, count) {
+			const keys = await request(lines.getAllKeys(linesRange(c), count));
+
+			for (const key of keys) {
+				lines.delete(key);
+			}
+		},
+		deleteLines: (c) => void lines.delete(linesRange(c)),
+		deleteNetwork(uuid) {
+			convs.delete(IDBKeyRange.bound(`${uuid}\n`, `${uuid}\n￿`));
+			lines.delete(
+				IDBKeyRange.bound([`${uuid}\n`, -Infinity, ""], [`${uuid}\n￿`, Infinity, "￿"])
+			);
+		},
+		deleteAll() {
+			convs.clear();
+			lines.clear();
+		},
+		getEpoch: async (key) =>
+			(await request(epochs.get(key) as IDBRequest<number | undefined>)) ?? 0,
+		putEpoch: (key, value) => void epochs.put(value, key),
+	};
+}
+
 /**
- * IndexedDB, a connection per transaction (WebKit drops the connection of a
- * suspended installed app; noticelog.ts does the same). Read-write
- * transactions on the same stores run one after another, across tabs and the
- * installed app, which is what makes a read-modify-write safe.
+ * IndexedDB, one connection for the page. Read-write transactions on the
+ * same stores run one after another, across tabs and the installed app,
+ * which is what makes a read-modify-write safe.
  */
-export const indexedDbBackend: ConversationBackend = {
+const indexedDbBackend: ConversationBackend = {
 	async run<T>(mode: "readonly" | "readwrite", fn: (tx: StoreTx) => Promise<T>): Promise<T> {
-		const db = await openDb();
+		let db = await database();
+		let tx: IDBTransaction;
 
 		try {
-			const tx = db.transaction([CONVS, LINES, EPOCHS], mode);
-			const convs = tx.objectStore(CONVS);
-			const lines = tx.objectStore(LINES);
-			const epochs = tx.objectStore(EPOCHS);
-			const done = new Promise<void>((resolve, reject) => {
-				tx.oncomplete = () => resolve();
-				tx.onerror = () =>
-					reject(tx.error ?? new DOMException("Transaction failed", "AbortError"));
-				tx.onabort = () =>
-					reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
-			});
+			tx = db.transaction([CONVS, LINES, EPOCHS], mode);
+		} catch {
+			// The connection was closed under us: once more, on a new one.
+			connection = undefined;
+			db = await database();
+			tx = db.transaction([CONVS, LINES, EPOCHS], mode);
+		}
 
-			const view: StoreTx = {
-				getConv: (c) => request(convs.get(c) as IDBRequest<ConvRecord | undefined>),
-				putConv: (rec) => void convs.put(rec),
-				deleteConv: (c) => void convs.delete(c),
-				allConvs: () => request(convs.getAll() as IDBRequest<ConvRecord[]>),
-				getLine: (c, t, k) =>
-					request(lines.get([c, t, k]) as IDBRequest<LineRecord | undefined>),
-				lineById: (c, msgid) =>
-					request(
-						lines.index("ids").get(idKey(c, msgid)) as IDBRequest<
-							LineRecord | undefined
-						>
-					),
-				putLine: (rec) => void lines.put(rec),
-				deleteLine: (c, t, k) => void lines.delete([c, t, k]),
-				newest: (c, limit, upTo) =>
-					new Promise<LineRecord[]>((resolve, reject) => {
-						const out: LineRecord[] = [];
-						const req = lines.openCursor(linesRange(c, upTo), "prev");
+		const done = new Promise<void>((resolve, reject) => {
+			tx.oncomplete = () => resolve();
+			tx.onerror = () =>
+				reject(tx.error ?? new DOMException("Transaction failed", "AbortError"));
+			tx.onabort = () =>
+				reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
+		});
+		let result: T;
 
-						req.onsuccess = () => {
-							const cursor = req.result;
-
-							if (!cursor || out.length >= limit) {
-								resolve(out);
-								return;
-							}
-
-							out.push(cursor.value as LineRecord);
-							cursor.continue();
-						};
-
-						req.onerror = () =>
-							reject(req.error ?? new DOMException("Request failed", "UnknownError"));
-					}),
-				async deleteOldest(c, count) {
-					const keys = await request(lines.getAllKeys(linesRange(c), count));
-
-					for (const key of keys) {
-						lines.delete(key);
-					}
-				},
-				deleteLines: (c) => void lines.delete(linesRange(c)),
-				deleteNetwork(uuid) {
-					convs.delete(IDBKeyRange.bound(`${uuid}\n`, `${uuid}\n￿`));
-					lines.delete(
-						IDBKeyRange.bound(
-							[`${uuid}\n`, -Infinity, ""],
-							[`${uuid}\n￿`, Infinity, "￿"]
-						)
-					);
-				},
-				deleteAll() {
-					convs.clear();
-					lines.clear();
-				},
-				getEpoch: async (key) =>
-					(await request(epochs.get(key) as IDBRequest<number | undefined>)) ?? 0,
-				putEpoch: (key, value) => void epochs.put(value, key),
-			};
-
-			let result: T;
-
+		try {
+			result = await fn(view(tx));
+		} catch (err: unknown) {
 			try {
-				result = await fn(view);
-			} catch (err: unknown) {
-				try {
-					tx.abort();
-				} catch {
-					// already finished
-				}
-
-				await done.catch(() => undefined);
-				throw err;
+				tx.abort();
+			} catch {
+				// already finished
 			}
 
-			await done;
-			return result;
-		} finally {
-			db.close();
+			await done.catch(() => undefined);
+			throw err;
 		}
+
+		await done;
+		return result;
 	},
 };
 
@@ -527,8 +641,10 @@ const noBackend: ConversationBackend = {
 	run: (mode, fn) => new MemoryBackend().run(mode, fn),
 };
 
-/** What {@link preloadConversations} read, until a network is deleted from it. */
+/** What {@link preloadConversations} read; a network's share goes to its first store. */
 let preloaded: Snapshot | undefined;
+/** Networks whose share was taken and has not been read again since. */
+const taken = new Set<string>();
 let enabled = true;
 
 function defaultBackend(): ConversationBackend {
@@ -541,127 +657,42 @@ let backend: ConversationBackend = defaultBackend();
 export function useConversationBackend(next: ConversationBackend | null): void {
 	backend = next ?? defaultBackend();
 	preloaded = undefined;
-}
-
-// ------------------------------------------------------------------ snapshot
-
-/** What a page load reads: every window, and the newest lines of each. */
-export interface Snapshot {
-	/** Per network uuid. */
-	convs: Map<string, ConvRecord[]>;
-	/** Per conversation key, oldest first. */
-	lines: Map<string, LineRecord[]>;
-	epochs: Map<string, number>;
-}
-
-function emptySnapshot(): Snapshot {
-	return {convs: new Map(), lines: new Map(), epochs: new Map()};
-}
-
-function addToSnapshot(snapshot: Snapshot, conv: ConvRecord, lines: LineRecord[]): void {
-	const list = snapshot.convs.get(conv.uuid);
-
-	if (list) {
-		list.push(conv);
-	} else {
-		snapshot.convs.set(conv.uuid, [conv]);
-	}
-
-	snapshot.lines.set(conv.c, lines);
-}
-
-/**
- * Read every network's windows and newest lines, once, before any client is
- * made (boot.ts): the client's constructor then takes its share without
- * waiting. Conversations of a network that is no longer saved are deleted on
- * the way (`known`), and the private log this store replaced is moved in.
- * Never rejects; resolves without a snapshot when the read fails or takes
- * longer than {@link PRELOAD_TIMEOUT_MS} (the windows then start empty and
- * the server fills what it can, as before this store).
- */
-export async function preloadConversations(known?: () => string[]): Promise<void> {
-	if (!enabled) {
-		dropLegacyLogs();
-		journalKeys().forEach((key) => storage.remove(key));
-		return;
-	}
-
-	const used = backend;
-	const read = (async () => {
-		await migrateLegacyLogs();
-		await applyJournals();
-
-		return used.run("readwrite", async (tx) => {
-			const snapshot = emptySnapshot();
-			// An empty list is not trusted to mean "none saved": removing a
-			// network deletes its lines there and then.
-			const names = known?.() ?? [];
-			const keep = names.length > 0 ? new Set(names) : undefined;
-			const gone = new Set<string>();
-
-			for (const conv of await tx.allConvs()) {
-				if (keep && !keep.has(conv.uuid)) {
-					gone.add(conv.uuid);
-					continue;
-				}
-
-				const lines = await tx.newest(conv.c, RESTORE_LINES);
-				addToSnapshot(snapshot, conv, lines.reverse());
-				snapshot.epochs.set(conv.uuid, await tx.getEpoch(conv.uuid));
-			}
-
-			gone.forEach((uuid) => tx.deleteNetwork(uuid));
-			snapshot.epochs.set(ALL, await tx.getEpoch(ALL));
-			return snapshot;
-		});
-	})();
-
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	const timeout = new Promise<undefined>((resolve) => {
-		timer = setTimeout(() => resolve(undefined), PRELOAD_TIMEOUT_MS);
-	});
-
-	try {
-		const snapshot = await Promise.race([read, timeout]);
-
-		if (snapshot && used === backend && enabled) {
-			preloaded = snapshot;
-		}
-	} catch {
-		// No snapshot: the windows start empty.
-	} finally {
-		clearTimeout(timer);
-		read.catch(() => undefined);
-	}
-}
-
-/** The boot snapshot, or what a backend that can say at once holds (mocha). */
-function currentSnapshot(): Snapshot | undefined {
-	if (!enabled) {
-		return undefined;
-	}
-
-	if (preloaded) {
-		return preloaded;
-	}
-
-	const now = (backend as Partial<MemoryBackend>).snapshotNow;
-	return typeof now === "function" ? now.call(backend) : undefined;
+	taken.clear();
 }
 
 // ------------------------------------------------------------- the op logic
 
+/** Forget deletions older than {@link DEAD_FOR_MS}, and the oldest beyond {@link DEAD_MAX}. */
+function pruneDead(rec: ConvRecord, now: number): void {
+	if (!rec.dead) {
+		return;
+	}
+
+	let entries = Object.entries(rec.dead).filter(([, at]) => now - at <= DEAD_FOR_MS);
+
+	if (entries.length > DEAD_MAX) {
+		entries = entries.sort((a, b) => a[1] - b[1]).slice(entries.length - DEAD_MAX);
+	}
+
+	if (entries.length > 0) {
+		rec.dead = Object.fromEntries(entries);
+	} else {
+		delete rec.dead;
+	}
+}
+
 /**
  * Apply one tab's queued changes inside a transaction. `epochs` is what the
- * tab last knew: when another tab deleted the network, cleared everything
- * (the setting went off) since, the queue is dropped and the new epochs are
+ * tab last knew: when another tab deleted the network, or everything (the
+ * setting went off), since, the queue is dropped and the new epochs are
  * returned for the tab to carry on with.
  */
 export async function applyOps(
 	tx: StoreTx,
 	uuid: string,
 	epochs: {all: number; net: number},
-	ops: StoreOp[]
+	ops: StoreOp[],
+	now = Date.now()
 ): Promise<{stale: boolean; all: number; net: number}> {
 	const all = await tx.getEpoch(ALL);
 	const net = await tx.getEpoch(uuid);
@@ -704,12 +735,16 @@ export async function applyOps(
 		switch (op.op) {
 			case "put": {
 				const rec = (await conv(op.target)) ?? make(op.target, op.name, op.kind);
+				const msgid = op.msg.msgid;
 
 				if (rec.clearedAt !== undefined && op.t <= rec.clearedAt) {
 					break;
 				}
 
-				const msgid = op.msg.msgid;
+				if (msgid && rec.dead?.[msgid] !== undefined) {
+					break; // deleted here: a late copy does not bring it back
+				}
+
 				const held = msgid ? await tx.lineById(c, msgid) : await tx.getLine(c, op.t, op.k);
 
 				if (held) {
@@ -767,8 +802,17 @@ export async function applyOps(
 			case "react": {
 				const line = await tx.lineById(c, op.msgid);
 
-				if (line && applyReaction(line.msg, op.text, op.nick, op.remove)) {
-					tx.putLine(line);
+				if (line) {
+					const before = JSON.stringify(line.msg.reactions ?? []);
+					applyReaction(line.msg as SharedMsg, op.text, op.nick, op.remove);
+
+					if (JSON.stringify(line.msg.reactions ?? []) !== before) {
+						if (!line.msg.reactions) {
+							delete line.msg.reactions;
+						}
+
+						tx.putLine(line);
+					}
 				}
 
 				break;
@@ -780,11 +824,14 @@ export async function applyOps(
 
 				if (line) {
 					tx.deleteLine(c, line.t, line.k);
+				}
 
-					if (rec) {
-						rec.n = Math.max(0, rec.n - 1);
-						dirty.add(c);
-					}
+				// Remembered whether or not the line is here yet: its copy may
+				// still be on its way from another tab, or in a journal.
+				if (rec) {
+					rec.n = Math.max(0, rec.n - (line ? 1 : 0));
+					rec.dead = {...rec.dead, [op.msgid]: op.at};
+					dirty.add(c);
 				}
 
 				break;
@@ -832,6 +879,22 @@ export async function applyOps(
 					dirty.add(c);
 				}
 
+				if (op.key !== undefined && (rec.key ?? "") !== op.key) {
+					if (op.key) {
+						rec.key = op.key;
+					} else {
+						delete rec.key;
+					}
+
+					dirty.add(c);
+				}
+
+				if (op.open && rec.closed) {
+					delete rec.closed;
+					rec.name = op.name;
+					dirty.add(c);
+				}
+
 				break;
 			}
 
@@ -848,11 +911,26 @@ export async function applyOps(
 				break;
 			}
 
-			case "forget": {
-				tx.deleteLines(c);
-				tx.deleteConv(c);
-				convs.set(c, null);
-				dirty.delete(c);
+			case "close": {
+				const rec = await conv(op.target);
+
+				if (!rec) {
+					break;
+				}
+
+				rec.closed = true;
+				rec.joined = false;
+				delete rec.key;
+
+				if (!op.keep) {
+					tx.deleteLines(c);
+					rec.n = 0;
+					rec.clearedAt = Math.max(rec.clearedAt ?? 0, op.at);
+					delete rec.read;
+					delete rec.dead;
+				}
+
+				dirty.add(c);
 				break;
 			}
 		}
@@ -870,78 +948,68 @@ export async function applyOps(
 			rec.n = MAX_LINES;
 		}
 
+		pruneDead(rec, now);
 		tx.putConv(rec);
 	}
 
 	return {stale: false, all, net};
 }
 
-/** Add or take off one reaction; false when nothing changed. */
-function applyReaction(
-	msg: {reactions?: MsgReaction[]},
-	text: string,
-	nick: string,
-	remove: boolean
-): boolean {
-	const fold = (s: string) => s.toLowerCase();
-	const reactions = msg.reactions ?? [];
-	let reaction = reactions.find((r) => r.text === text);
-
-	if (remove) {
-		if (!reaction) {
-			return false;
+/**
+ * The disk is full: the oldest half of every conversation longer than
+ * {@link EVICT_FLOOR} goes, on every network. The server gives back what it
+ * keeps; what only this device had and was oldest is the price of going on.
+ */
+async function evict(tx: StoreTx): Promise<void> {
+	for (const rec of await tx.allConvs()) {
+		if (rec.n > EVICT_FLOOR) {
+			const drop = Math.floor(rec.n / 2);
+			await tx.deleteOldest(rec.c, drop);
+			rec.n -= drop;
+			tx.putConv(rec);
 		}
-
-		const before = reaction.nicks.length;
-		reaction.nicks = reaction.nicks.filter((n) => fold(n) !== fold(nick));
-
-		if (reaction.nicks.length === before) {
-			return false;
-		}
-
-		if (reaction.nicks.length === 0) {
-			reactions.splice(reactions.indexOf(reaction), 1);
-		}
-	} else {
-		if (!reaction) {
-			reaction = {text, nicks: []};
-			reactions.push(reaction);
-		}
-
-		if (reaction.nicks.some((n) => fold(n) === fold(nick))) {
-			return false;
-		}
-
-		reaction.nicks.push(nick);
 	}
-
-	if (reactions.length > 0) {
-		msg.reactions = reactions;
-	} else {
-		delete msg.reactions;
-	}
-
-	return true;
 }
-
-// ------------------------------------------------------- module-level state
-
-/** Every live store, so a page going away can write them all. */
-const live = new Set<ConversationStore>();
 
 /**
- * Write every pending change now (the page is being hidden or unloaded).
- * What is not written yet goes to the journal first, synchronously: a page
- * that is gone before the database answers loses nothing, and one that
- * lives on takes its journal away again when the write lands.
+ * `ops` without what takes something away, and without the lines those ops
+ * took away: for writing after the deletions went in by themselves, where a
+ * line that arrived and was deleted, cleared or closed in the same batch
+ * would otherwise land after its deletion.
  */
-export function flushConversationStores(): Promise<void> {
-	for (const store of live) {
-		store.journal();
-	}
+function withoutDeleted(ops: StoreOp[]): StoreOp[] {
+	const emptied = new Map<string, number>();
+	const redacted = new Set<string>();
 
-	return Promise.all([...live].map((store) => store.flush())).then(() => undefined);
+	ops.forEach((op, i) => {
+		if (op.op === "clear" || (op.op === "close" && !op.keep)) {
+			emptied.set(op.target, i);
+		} else if (op.op === "redact") {
+			redacted.add(`${op.target}\n${op.msgid}`);
+		}
+	});
+
+	return ops.filter((op, i) => {
+		if (DELETES.has(op.op)) {
+			return false;
+		}
+
+		if (op.op !== "put") {
+			return true;
+		}
+
+		return (
+			i > (emptied.get(op.target) ?? -1) &&
+			!(op.msg.msgid && redacted.has(`${op.target}\n${op.msg.msgid}`))
+		);
+	});
 }
+
+function isQuotaError(err: unknown): boolean {
+	return (err as {name?: string} | null)?.name === "QuotaExceededError";
+}
+
+// ------------------------------------------------------------------- journal
 
 /** Dates survive JSON as `{$d: epoch ms}`. */
 function encodeJournal(value: unknown): string {
@@ -969,7 +1037,12 @@ function journalKeys(): string[] {
 	}
 }
 
-/** Apply what earlier pages left in the journal, then delete it. */
+/**
+ * Apply what earlier pages left in the journal, then delete it. Its lines
+ * are older than whatever happened since: one deleted, cleared or closed
+ * meanwhile stays so (`applyOps` keeps them out), and a network removed or
+ * the setting switched off since drops the journal whole (its epochs).
+ */
 async function applyJournals(): Promise<void> {
 	for (const key of journalKeys()) {
 		try {
@@ -992,83 +1065,6 @@ async function applyJournals(): Promise<void> {
 }
 
 const TAB = Math.random().toString(36).slice(2, 10);
-
-/** Whether conversations are kept (the user's choice). */
-export function conversationsEnabled(): boolean {
-	return enabled;
-}
-
-/**
- * The user's choice (`keepPrivateConversations`). Off: nothing is kept,
- * written or restored from here on, and everything already kept, for every
- * network, open or not, is deleted. Another tab's write that was in flight
- * is dropped by the epoch it carries.
- */
-export function setConversationsEnabled(on: boolean): void {
-	if (on === enabled) {
-		if (!on) {
-			dropLegacyLogs();
-		}
-
-		return;
-	}
-
-	enabled = on;
-
-	if (on) {
-		// Whatever another tab cleared meanwhile: this one starts from now.
-		for (const store of live) {
-			store.resync();
-		}
-
-		return;
-	}
-
-	preloaded = undefined;
-	dropLegacyLogs();
-	journalKeys().forEach((key) => storage.remove(key));
-
-	for (const store of live) {
-		store.reset();
-	}
-
-	void backend
-		.run("readwrite", async (tx) => {
-			tx.deleteAll();
-			tx.putEpoch(ALL, (await tx.getEpoch(ALL)) + 1);
-		})
-		.catch(() => undefined);
-}
-
-/** Drop a network's conversations (the network was removed). */
-export function forgetNetworkConversations(uuid: string): void {
-	for (const store of live) {
-		if (store.uuid === uuid) {
-			store.reset();
-		}
-	}
-
-	if (preloaded) {
-		for (const conv of preloaded.convs.get(uuid) ?? []) {
-			preloaded.lines.delete(conv.c);
-		}
-
-		preloaded.convs.delete(uuid);
-	}
-
-	try {
-		storage.remove(LEGACY_LOG_PREFIX + uuid);
-	} catch {
-		// no storage
-	}
-
-	void backend
-		.run("readwrite", async (tx) => {
-			tx.deleteNetwork(uuid);
-			tx.putEpoch(uuid, (await tx.getEpoch(uuid)) + 1);
-		})
-		.catch(() => undefined);
-}
 
 // ----------------------------------------------------------------- migration
 
@@ -1095,7 +1091,7 @@ interface LegacyQuery {
 }
 
 /** Read one `thelounge.querylog.<uuid>` value; anything malformed is nothing. */
-export function parseLegacyLog(raw: string | null): LegacyQuery[] {
+function parseLegacyLog(raw: string | null): LegacyQuery[] {
 	if (!raw) {
 		return [];
 	}
@@ -1150,13 +1146,15 @@ function dropLegacyLogs(): void {
 	}
 }
 
+const lower = (s: string): string => s.toLowerCase();
+
 /**
  * Move the private log of before this store (`thelounge.querylog.<uuid>`)
  * in, then delete it. Lines are keyed, so two tabs migrating at once write
  * the same records. The nick is folded the plain way (the network's
  * casemapping is not known yet); the first line that arrives finds the
  * window by its own folding and, where that differs, starts a record of its
- * own beside it, which only costs the older lines their place in that window.
+ * own beside it, which the store reads as one window.
  */
 async function migrateLegacyLogs(): Promise<void> {
 	for (const key of legacyKeys()) {
@@ -1165,7 +1163,7 @@ async function migrateLegacyLogs(): Promise<void> {
 		const ops: StoreOp[] = [];
 
 		for (const query of queries) {
-			const target = query.name.toLowerCase();
+			const target = lower(query.name);
 
 			for (const entry of query.messages) {
 				const msg: StoredMsg = {
@@ -1182,14 +1180,13 @@ async function migrateLegacyLogs(): Promise<void> {
 					...(entry.fromAccount ? {fromAccount: entry.fromAccount} : {}),
 					...(entry.reactions?.length ? {reactions: entry.reactions} : {}),
 				};
-				const t = msg.time.getTime();
 				ops.push({
 					op: "put",
 					target,
 					name: query.name,
 					kind: "query",
-					t,
-					k: lineKey(msg),
+					t: msg.time.getTime(),
+					k: lineKey(msg, lower),
 					msg,
 				});
 			}
@@ -1212,7 +1209,7 @@ async function migrateLegacyLogs(): Promise<void> {
 			// The msgids of edits the old log had folded in: found again as
 			// the line they became (history dedupe).
 			for (const query of queries) {
-				const c = convKey(uuid, query.name.toLowerCase());
+				const c = convKey(uuid, lower(query.name));
 
 				for (const entry of query.messages) {
 					if (!entry.msgid || !entry.aka?.length) {
@@ -1237,6 +1234,130 @@ async function migrateLegacyLogs(): Promise<void> {
 	}
 }
 
+// ---------------------------------------------------------------- the boot
+
+/**
+ * Read every network's windows and newest lines, once, before any client is
+ * made (boot.ts): the client's constructor then takes its share without
+ * waiting. Conversations of a network that is no longer saved are deleted on
+ * the way (`known`), what earlier pages left in the journal is applied, and
+ * the private log this store replaced is moved in. Never rejects; resolves
+ * without a snapshot when the read fails or takes longer than
+ * {@link PRELOAD_TIMEOUT_MS}: a store made without one says so
+ * ({@link ConversationStore.blind}) and nothing it shows is taken for whole.
+ */
+export async function preloadConversations(known?: () => string[]): Promise<void> {
+	if (!enabled) {
+		dropLegacyLogs();
+		journalKeys().forEach((key) => storage.remove(key));
+		return;
+	}
+
+	const used = backend;
+	const read = (async () => {
+		await migrateLegacyLogs();
+		await applyJournals();
+
+		return used.run("readwrite", async (tx) => {
+			const snapshot = emptySnapshot();
+			// An empty list is not trusted to mean "none saved": removing a
+			// network deletes its lines there and then.
+			const names = known?.() ?? [];
+			const keep = names.length > 0 ? new Set(names) : undefined;
+			const gone = new Set<string>();
+			const convs = (await tx.allConvs()).filter((conv) => {
+				if (keep && !keep.has(conv.uuid)) {
+					gone.add(conv.uuid);
+					return false;
+				}
+
+				return true;
+			});
+
+			await readNetwork(tx, convs, snapshot);
+			gone.forEach((uuid) => tx.deleteNetwork(uuid));
+			snapshot.epochs.set(ALL, await tx.getEpoch(ALL));
+			return snapshot;
+		});
+	})();
+
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<undefined>((resolve) => {
+		timer = setTimeout(() => resolve(undefined), PRELOAD_TIMEOUT_MS);
+	});
+
+	try {
+		const snapshot = await Promise.race([read, timeout]);
+
+		if (snapshot && used === backend && enabled) {
+			preloaded = snapshot;
+			taken.clear();
+		}
+	} catch {
+		// No snapshot: the windows start empty.
+	} finally {
+		clearTimeout(timer);
+		read.catch(() => undefined);
+	}
+}
+
+/**
+ * Network `uuid`'s share of the snapshot, for the one store that takes it:
+ * a second store of the same network (a client made again after `/quit`)
+ * must not start from what the page loaded with. Undefined when there is
+ * none to give: never read, or taken and not read again yet.
+ */
+function takeSnapshot(uuid: string): Snapshot | undefined {
+	if (!enabled || taken.has(uuid)) {
+		return undefined;
+	}
+
+	if (preloaded) {
+		taken.add(uuid);
+		return preloaded;
+	}
+
+	// A backend that can say at once is always current (tests).
+	return backend.snapshotNow?.();
+}
+
+/** Read network `uuid` again into the snapshot (its store went away). */
+async function rereadNetwork(uuid: string): Promise<void> {
+	if (!preloaded || !enabled) {
+		taken.delete(uuid);
+		return;
+	}
+
+	const used = backend;
+	const into = preloaded;
+
+	try {
+		const fresh = await used.run("readonly", async (tx) => {
+			const snapshot = emptySnapshot();
+			const convs = (await tx.allConvs()).filter((conv) => conv.uuid === uuid);
+			await readNetwork(tx, convs, snapshot);
+			snapshot.epochs.set(uuid, await tx.getEpoch(uuid));
+			snapshot.epochs.set(ALL, await tx.getEpoch(ALL));
+			return snapshot;
+		});
+
+		if (preloaded !== into || used !== backend) {
+			return;
+		}
+
+		for (const conv of into.convs.get(uuid) ?? []) {
+			into.lines.delete(conv.c);
+		}
+
+		into.convs.set(uuid, fresh.convs.get(uuid) ?? []);
+		fresh.lines.forEach((lines, c) => into.lines.set(c, lines));
+		fresh.epochs.forEach((value, key) => into.epochs.set(key, value));
+		taken.delete(uuid);
+	} catch {
+		// Not read: the next store of this network starts blind.
+	}
+}
+
 // ------------------------------------------------------------ the instance
 
 /** What a client knows of one of its windows without reading a line. */
@@ -1247,11 +1368,16 @@ export interface ConvMeta {
 	read?: number;
 	filled: boolean;
 	joined: boolean;
+	key?: string;
+	closed: boolean;
 	clearedAt?: number;
 	/** Lines kept, as far as this page knows. */
 	n: number;
 	last?: {msgid: string; time: number};
 }
+
+/** Every live store, so a page going away can write them all. */
+const live = new Set<ConversationStore>();
 
 /**
  * One network's conversations, for its client. Built synchronously from the
@@ -1260,8 +1386,15 @@ export interface ConvMeta {
  * `persist` says whether the network is saved.
  */
 export class ConversationStore {
+	/**
+	 * Made without a snapshot of what the device holds (the boot read was
+	 * slow or failed, or another store of this network had taken it and it
+	 * was not read again in time): windows start empty though lines may be
+	 * kept, so nothing shown is taken for whole (history.ts marks the gap).
+	 */
+	readonly blind: boolean;
 	private readonly metas = new Map<string, ConvMeta>();
-	/** The snapshot's lines per folded target, oldest first, until taken. */
+	/** The snapshot's lines per folded target, oldest first. */
 	private readonly restored = new Map<string, LineRecord[]>();
 	private queue: StoreOp[] = [];
 	/** Handed to the database, not confirmed yet. */
@@ -1278,9 +1411,11 @@ export class ConversationStore {
 		private readonly persist: () => boolean = () => true
 	) {
 		this.used = backend;
-		const snapshot = currentSnapshot();
+		const kept = enabled && this.persist();
+		const snapshot = kept ? takeSnapshot(uuid) : undefined;
+		this.blind = kept && !snapshot;
 
-		if (snapshot && this.persist()) {
+		if (snapshot) {
 			this.epochs = {
 				all: snapshot.epochs.get(ALL) ?? 0,
 				net: snapshot.epochs.get(uuid) ?? 0,
@@ -1296,6 +1431,7 @@ export class ConversationStore {
 				if (meta) {
 					meta.touched = Math.max(meta.touched, conv.touched);
 					meta.n += conv.n;
+					meta.closed = meta.closed && !!conv.closed;
 					const merged = [...(this.restored.get(folded) ?? []), ...lines].sort(
 						(a, b) => a.t - b.t
 					);
@@ -1310,12 +1446,16 @@ export class ConversationStore {
 					read: conv.read,
 					filled: !!conv.filled,
 					joined: !!conv.joined,
+					key: conv.key,
+					closed: !!conv.closed,
 					clearedAt: conv.clearedAt,
 					n: conv.n,
 					last: conv.last,
 				});
 				this.restored.set(folded, lines);
 			}
+		} else if (this.blind) {
+			this.resync();
 		}
 
 		live.add(this);
@@ -1325,10 +1465,13 @@ export class ConversationStore {
 		return enabled && this.persist() && this.used === backend;
 	}
 
-	/** Stop tracking (the client is gone); pending changes are written first. */
+	/**
+	 * Stop tracking (the client is gone): pending changes are written, and
+	 * the network is read again for the store that comes after this one.
+	 */
 	dispose(): void {
-		void this.flush();
 		live.delete(this);
+		void this.flush().then(() => rereadNetwork(this.uuid));
 	}
 
 	/** Forget everything in memory and drop the queue (the data is being deleted). */
@@ -1341,7 +1484,7 @@ export class ConversationStore {
 		this.restored.clear();
 	}
 
-	/** Take the database's epochs as they are now (the setting came back on). */
+	/** Take the database's epochs as they are now. */
 	resync(): void {
 		void this.used
 			.run("readonly", async (tx) => {
@@ -1350,20 +1493,29 @@ export class ConversationStore {
 			.catch(() => undefined);
 	}
 
-	/** The windows the last page left, most recently active first. */
+	/** The windows the last page left open, most recently active first. */
 	windows(): ConvMeta[] {
-		return this.on ? [...this.metas.values()].sort((a, b) => b.touched - a.touched) : [];
+		return this.on
+			? [...this.metas.values()]
+					.filter((meta) => !meta.closed)
+					.sort((a, b) => b.touched - a.touched)
+			: [];
 	}
 
+	/** What is kept of `name`, a closed window's too. */
 	meta(name: string): ConvMeta | undefined {
 		return this.on ? this.metas.get(this.fold(name)) : undefined;
 	}
 
-	/** The newest msgid line kept on this network, over every window. */
+	/**
+	 * The newest msgid line kept on this network, over every window, the
+	 * closed ones too (closing the busiest window must not pull the cursor
+	 * back).
+	 */
 	newestStamped(): {msgid: string; time: number} | undefined {
 		let best: {msgid: string; time: number} | undefined;
 
-		for (const meta of this.windows()) {
+		for (const meta of this.on ? this.metas.values() : []) {
 			if (meta.last && (!best || meta.last.time > best.time)) {
 				best = meta.last;
 			}
@@ -1411,11 +1563,10 @@ export class ConversationStore {
 		}
 
 		await this.flush();
-		const c = convKey(this.uuid, this.fold(name));
 
 		try {
 			const lines = await this.used.run("readonly", (tx) =>
-				tx.newest(c, limit, upTo.getTime())
+				tx.newest(convKey(this.uuid, this.fold(name)), limit, upTo.getTime())
 			);
 			return lines.reverse().map((line) => fromStored(line.msg));
 		} catch {
@@ -1438,6 +1589,7 @@ export class ConversationStore {
 			return;
 		}
 
+		this.opened(name, kind, meta);
 		meta.touched = Math.max(meta.touched, t);
 		meta.n++;
 
@@ -1451,7 +1603,7 @@ export class ConversationStore {
 			name,
 			kind,
 			t,
-			k: lineKey(stored),
+			k: lineKey(stored, this.fold),
 			msg: stored,
 		});
 	}
@@ -1466,7 +1618,7 @@ export class ConversationStore {
 	/** A deletion: the line is not kept (best effort: a device that never hears of it keeps it). */
 	redact(name: string, msgid: string): void {
 		if (this.on) {
-			this.push({op: "redact", target: this.fold(name), msgid});
+			this.push({op: "redact", target: this.fold(name), msgid, at: Date.now()});
 		}
 	}
 
@@ -1477,7 +1629,7 @@ export class ConversationStore {
 		}
 	}
 
-	/** The line `msg` has, or no longer has, lines missing before it. */
+	/** The line at `time` with `key` has, or no longer has, lines missing before it. */
 	setGap(name: string, time: Date, key: string, on: boolean): void {
 		if (this.on) {
 			this.push({op: "gap", target: this.fold(name), t: time.getTime(), k: key, on});
@@ -1497,23 +1649,37 @@ export class ConversationStore {
 	/** Whether `name` holds everything up to its newest line (Channel.historyFilled). */
 	setFilled(name: string, kind: ConvKind, filled: boolean): void {
 		const meta = this.meta(name);
+		// A store made blind cannot vouch for what it never saw.
+		const value = filled && !this.blind;
 
-		if (meta && meta.filled !== filled) {
-			meta.filled = filled;
-			this.push({op: "meta", target: this.fold(name), name, kind, filled});
+		if (meta && meta.filled !== value) {
+			meta.filled = value;
+			this.push({op: "meta", target: this.fold(name), name, kind, filled: value});
 		}
 	}
 
-	/** We are in channel `name`, or no longer: a page load joins what it was in. */
-	setJoined(name: string, joined: boolean): void {
+	/**
+	 * We are in channel `name` (with `key`), or no longer: where nothing
+	 * else holds our channels, a page load joins what it was in.
+	 */
+	setJoined(name: string, joined: boolean, key = ""): void {
 		if (!this.on) {
 			return;
 		}
 
 		const meta = joined ? this.touch(name, "channel") : this.meta(name);
 
-		if (meta && meta.joined !== joined) {
+		if (!meta) {
+			return;
+		}
+
+		if (joined) {
+			this.opened(name, "channel", meta);
+		}
+
+		if (meta.joined !== joined || (joined && (meta.key ?? "") !== key)) {
 			meta.joined = joined;
+			meta.key = joined && key ? key : undefined;
 			this.push({
 				op: "meta",
 				target: this.fold(name),
@@ -1521,6 +1687,7 @@ export class ConversationStore {
 				kind: "channel",
 				create: joined,
 				joined,
+				key: meta.key ?? "",
 			});
 		}
 	}
@@ -1539,14 +1706,37 @@ export class ConversationStore {
 		this.push({op: "clear", target: this.fold(name), at: meta.clearedAt});
 	}
 
-	/** The window was closed: forget it. */
-	forget(name: string): void {
+	/**
+	 * The window was closed. `keep` (a channel): its lines stay for the day
+	 * it is joined again, and it is not shown or opened until then. Without
+	 * (a private conversation): the lines go, and none from before `at`
+	 * comes back.
+	 */
+	close(name: string, keep: boolean, at = new Date()): void {
 		const folded = this.fold(name);
-		const had = this.metas.delete(folded);
-		this.restored.delete(folded);
+		const meta = this.meta(name);
 
-		if (this.on && had) {
-			this.push({op: "forget", target: folded});
+		if (!meta) {
+			return;
+		}
+
+		meta.closed = true;
+		meta.joined = false;
+		meta.key = undefined;
+
+		if (!keep) {
+			meta.n = 0;
+			meta.read = undefined;
+			meta.clearedAt = Math.max(meta.clearedAt ?? 0, at.getTime());
+			this.restored.delete(folded);
+		}
+
+		this.push({op: "close", target: folded, keep, at: meta.clearedAt ?? at.getTime()});
+
+		if (keep) {
+			// What the window showed since the snapshot is read again, for a
+			// join later on this page.
+			void this.flush().then(() => this.reread(folded));
 		}
 	}
 
@@ -1597,16 +1787,40 @@ export class ConversationStore {
 		}
 	}
 
+	/** The newest kept lines of one closed window, read again. */
+	private async reread(folded: string): Promise<void> {
+		try {
+			const lines = await this.used.run("readonly", (tx) =>
+				tx.newest(convKey(this.uuid, folded), RESTORE_LINES)
+			);
+
+			if (this.metas.get(folded)?.closed) {
+				this.restored.set(folded, lines.reverse());
+			}
+		} catch {
+			// the snapshot's lines stand
+		}
+	}
+
 	private touch(name: string, kind: ConvKind): ConvMeta {
 		const folded = this.fold(name);
 		let meta = this.metas.get(folded);
 
 		if (!meta) {
-			meta = {name, kind, touched: 0, filled: false, joined: false, n: 0};
+			meta = {name, kind, touched: 0, filled: false, joined: false, closed: false, n: 0};
 			this.metas.set(folded, meta);
 		}
 
 		return meta;
+	}
+
+	/** A window that was closed is open again. */
+	private opened(name: string, kind: ConvKind, meta: ConvMeta): void {
+		if (meta.closed) {
+			meta.closed = false;
+			meta.name = name;
+			this.push({op: "meta", target: this.fold(name), name, kind, open: true});
+		}
 	}
 
 	private push(op: StoreOp): void {
@@ -1639,22 +1853,137 @@ export class ConversationStore {
 		}
 	}
 
+	/**
+	 * One transaction, in the order things happened. When it fails because
+	 * the disk is full, what takes something away is written by itself (a
+	 * deletion, a clear or a close must land all the same), room is made,
+	 * and the rest is tried once more.
+	 */
 	private async commit(ops: StoreOp[]): Promise<void> {
 		if (!this.on) {
 			return;
 		}
 
-		try {
-			const result = await this.used.run("readwrite", (tx) =>
-				applyOps(tx, this.uuid, this.epochs, ops)
-			);
+		const apply = async (batch: StoreOp[]): Promise<boolean> => {
+			if (batch.length === 0) {
+				return false;
+			}
 
-			// Stale: another tab deleted this network's lines or everything
-			// since. What was queued is dropped; later lines are kept again.
+			const result = await this.used.run("readwrite", (tx) =>
+				applyOps(tx, this.uuid, this.epochs, batch)
+			);
+			// Stale: another tab deleted this network's lines, or everything.
+			// What was queued is dropped; later lines are kept again.
 			this.epochs = {all: result.all, net: result.net};
+			return result.stale;
+		};
+
+		try {
+			try {
+				await apply(ops);
+			} catch (err: unknown) {
+				if (!isQuotaError(err)) {
+					throw err;
+				}
+
+				if (!(await apply(ops.filter((op) => DELETES.has(op.op))))) {
+					await this.used.run("readwrite", evict);
+					await apply(withoutDeleted(ops));
+				}
+			}
 		} catch {
-			// A failed write (quota, a dropped connection) loses these lines
-			// on the device; the server's history brings back what it has.
+			// A failed write (a dropped connection, a disk still full) loses
+			// these lines on the device; the server's history brings back
+			// what it has.
 		}
 	}
+}
+
+// ------------------------------------------------------- module-level calls
+
+/**
+ * Write every pending change now (the page is being hidden or unloaded).
+ * What is not written yet goes to the journal first, synchronously: a page
+ * that is gone before the database answers loses nothing, and one that
+ * lives on takes its journal away again when the write lands.
+ */
+export function flushConversationStores(): Promise<void> {
+	for (const store of live) {
+		store.journal();
+	}
+
+	return Promise.all([...live].map((store) => store.flush())).then(() => undefined);
+}
+
+/**
+ * The user's choice (`keepPrivateConversations`). Off: nothing is kept,
+ * written or restored from here on, and everything already kept, for every
+ * network, open or not, is deleted. Another tab's write that was in flight
+ * is dropped by the epoch it carries.
+ */
+export function setConversationsEnabled(on: boolean): void {
+	if (on === enabled) {
+		if (!on) {
+			dropLegacyLogs();
+		}
+
+		return;
+	}
+
+	enabled = on;
+
+	if (on) {
+		// Whatever another tab cleared meanwhile: this one starts from now.
+		for (const store of live) {
+			store.resync();
+		}
+
+		return;
+	}
+
+	preloaded = undefined;
+	taken.clear();
+	dropLegacyLogs();
+	journalKeys().forEach((key) => storage.remove(key));
+
+	for (const store of live) {
+		store.reset();
+	}
+
+	void backend
+		.run("readwrite", async (tx) => {
+			tx.deleteAll();
+			tx.putEpoch(ALL, (await tx.getEpoch(ALL)) + 1);
+		})
+		.catch(() => undefined);
+}
+
+/** Drop a network's conversations (the network was removed). */
+export function forgetNetworkConversations(uuid: string): void {
+	for (const store of live) {
+		if (store.uuid === uuid) {
+			store.reset();
+		}
+	}
+
+	if (preloaded) {
+		for (const conv of preloaded.convs.get(uuid) ?? []) {
+			preloaded.lines.delete(conv.c);
+		}
+
+		preloaded.convs.delete(uuid);
+	}
+
+	try {
+		storage.remove(LEGACY_LOG_PREFIX + uuid);
+	} catch {
+		// no storage
+	}
+
+	void backend
+		.run("readwrite", async (tx) => {
+			tx.deleteNetwork(uuid);
+			tx.putEpoch(uuid, (await tx.getEpoch(uuid)) + 1);
+		})
+		.catch(() => undefined);
 }

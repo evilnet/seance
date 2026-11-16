@@ -5,7 +5,7 @@
  * the important ones shown in a channel — is gone on the way back. So every
  * routed notice (not the ones routed `off`) is appended here, written to
  * IndexedDB per network, and on the next page load put back into the lobby
- * as one history page (`IrcClient.restoreNotices`, the way querylog.ts brings
+ * as one history page (`IrcClient.restoreNotices`, the way conversationStore.ts brings
  * private conversations back). The oper panel's Notices tab searches the
  * same ring. docs/projects/oper-tools.md.
  *

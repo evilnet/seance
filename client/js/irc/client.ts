@@ -773,15 +773,19 @@ export class IrcClient {
 			const {name} = window;
 
 			if (window.kind === "channel") {
-				// A channel the device has lines for, or was in: its window is
-				// back at once. One we were in is joined again, as a reconnect
-				// joins it (a channel joined by hand is not in the saved list);
-				// one we had left stays as it was, readable and parted.
+				// A channel whose window was open: it is back at once. Whether
+				// we are in it is the server's to say where something holds
+				// our channels (a held session, a bouncer); where nothing
+				// does, one we were in is joined again, as a reconnect joins
+				// it (`autojoin`). One the user closed is not here at all:
+				// it stays remembered, and its lines come back with the
+				// window the day it is joined again (`announceChannel`).
 				let channel = this.findChannel(name);
 
 				if (!channel) {
-					channel = this.createChannel(name, ChanType.CHANNEL).channel;
+					channel = this.createChannel(name, ChanType.CHANNEL, {key: window.key}).channel;
 					channel.autoJoin = window.joined;
+					channel.fromStore = true;
 				}
 
 				if (channel.type === ChanType.CHANNEL) {
@@ -793,7 +797,7 @@ export class IrcClient {
 
 			// Closed in another tab since these lines were written.
 			if (this.closed.suppresses(name, new Date(window.touched))) {
-				this.conversations.forget(name);
+				this.conversations.close(name, false, new Date(window.touched));
 				continue;
 			}
 
@@ -2417,7 +2421,11 @@ export class IrcClient {
 					(chan) =>
 						chan.type === ChanType.CHANNEL &&
 						chan.autoJoin &&
-						chan.state === ChanState.PARTED
+						chan.state === ChanState.PARTED &&
+						// A held session gave back the channels it holds: one
+						// only this device remembers was left on another, and
+						// stays parted here.
+						!(chan.fromStore && (this.persistenceHold || this.serverReplay))
 			  );
 
 		if (joining.length > 0) {
@@ -3746,7 +3754,8 @@ export class IrcClient {
 		// What a reconnect's catch-up walk may stop on: only what we held at
 		// this JOIN. A line relayed while the walk runs is in its pages too,
 		// with the gap below it still unfilled (history.ts).
-		const heldIds = joined && !alreadyJoined ? new Set(joined.msgids) : undefined;
+		let heldIds = joined && !alreadyJoined ? new Set(joined.msgids) : undefined;
+		let before = beforeJoin;
 
 		// An upgrade policy read on a plain connection is acted on before the
 		// CAP handler answers the line: that socket gets nothing but the
@@ -3770,15 +3779,27 @@ export class IrcClient {
 			// The ATTACH cursor's server-driven replay already covers the gap
 			// of a channel the server restored; asking again per channel is
 			// exactly what the cursor replaces (persistence.ts).
+			// A window this JOIN opened with lines the device kept (a channel
+			// the user had closed): they are what the catch-up walks back to.
+			if (chan && !joined && chan.historyRequested) {
+				const own = chan.msgRefs.get(chan.idOf(msg.tags.get("msgid") ?? "") ?? NaN);
+				before = chan.newestServerRefBefore(Infinity, own) ?? chan.newestRef;
+				heldIds = new Set(chan.msgids);
+
+				if (own?.msgid) {
+					heldIds.delete(own.msgid);
+				}
+			}
+
 			if (chan) {
-				chan.replayCovered = serverReplayCovers(this, chan, beforeJoin);
+				chan.replayCovered = serverReplayCovers(this, chan, before);
 			}
 
 			if (chan && !chan.replayCovered) {
 				// History + read marker, paced (catchup.ts): the active channel
 				// now, the rest one at a time so the server's flood penalty
 				// never queues the user's own lines.
-				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin, heldIds);
+				enqueueCatchup(this, chan, before, heldBeforeJoin, heldIds);
 				this.noteFilled(chan);
 			} else if (chan) {
 				// The replay fills the gap, not a `more` page the last
@@ -4263,6 +4284,12 @@ export class IrcClient {
 			index,
 			shouldOpen: options.shouldOpen ?? false,
 		});
+
+		// A channel the user had closed, opened again: what was kept of it.
+		if (type === ChanType.CHANNEL && this.announced) {
+			this.restoreWindow(channel);
+		}
+
 		return channel;
 	}
 
@@ -4285,16 +4312,25 @@ export class IrcClient {
 	 */
 	private restoreWindows(): void {
 		for (const chan of this.restoredWindows.splice(0)) {
-			if (!this.channels.includes(chan)) {
-				continue;
+			if (this.channels.includes(chan)) {
+				this.restoreWindow(chan);
 			}
+		}
+	}
 
+	/**
+	 * Hand `chan` the lines this device kept of it, if it kept any: at the
+	 * first announce for the windows the last page left open, and when a
+	 * window the user had closed is opened again (a channel joined anew).
+	 */
+	private restoreWindow(chan: Channel): void {
+		{
 			const meta = this.conversations.meta(chan.name);
 			chan.clearedAt = meta?.clearedAt;
 			const messages = this.conversations.restoredMessages(chan.name);
 
 			if (messages.length === 0) {
-				continue;
+				return;
 			}
 
 			const ids = this.historyIds(messages.length);
@@ -4398,8 +4434,10 @@ export class IrcClient {
 
 	/** Drop a channel from the model and the UI (`part` event). */
 	removeChannel(chan: Channel): void {
+		// Closed: not brought back. A channel's lines stay for the day it is
+		// joined again; a private conversation's go.
 		if (this.storeKind(chan)) {
-			this.conversations.forget(chan.name); // closed: not brought back
+			this.conversations.close(chan.name, chan.type === ChanType.CHANNEL);
 		}
 
 		const idx = this.channels.indexOf(chan);

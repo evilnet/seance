@@ -168,7 +168,8 @@ describe("closed queries (irc/closedQueries.ts)", function () {
 			try {
 				const second = setup({uuid});
 				expect(second.client.findChannel("bob")).to.equal(undefined);
-				expect(second.client.conversations.meta("bob")).to.equal(undefined);
+				expect(second.client.conversations.meta("bob")?.closed).to.equal(true);
+				expect(second.client.conversations.restoredMessages("bob")).to.deep.equal([]);
 			} finally {
 				useConversationBackend(null);
 			}

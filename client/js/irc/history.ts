@@ -43,7 +43,7 @@
  */
 
 import {ChanState, ChanType} from "../../../shared/types/chan";
-import type {SharedMsg} from "../../../shared/types/msg";
+import type {MessageType, SharedMsg} from "../../../shared/types/msg";
 import type {Channel, MsgRef} from "./channel";
 import type {IdBlock} from "./ids";
 import type {IrcClient, ReplayCollection} from "./client";
@@ -53,6 +53,7 @@ import {enqueueMarkerFetch} from "./catchup";
 import {formatLine, IrcMessage} from "./message";
 import {searchAck, searchContextBatch} from "./historysearch";
 import {settlePendingLabel} from "./pending";
+import {lineIdentity} from "./conversationStore";
 import {inBouncerReplay, inServerCatchup} from "./persistence";
 import type {Handler} from "./types";
 
@@ -361,7 +362,12 @@ function requestServerMore(client: IrcClient, chan: Channel, lastId: number): bo
  * to the oldest line brought when the walk stopped short again. False when
  * nothing could be asked.
  */
-export function requestFill(client: IrcClient, chan: Channel, id: number): boolean {
+export function requestFill(
+	client: IrcClient,
+	chan: Channel,
+	id: number,
+	pages = MAX_CATCHUP_PAGES
+): boolean {
 	const ref = chan.msgRefs.get(id);
 
 	if (!ref?.gap || !canRequest(client, chan)) {
@@ -373,18 +379,7 @@ export function requestFill(client: IrcClient, chan: Channel, id: number): boole
 	}
 
 	// The floor: the newest line the server stamped below the marker.
-	let floor: MsgRef | undefined;
-
-	for (const other of chan.msgRefs.values()) {
-		if (
-			other !== ref &&
-			other.msgid &&
-			other.time.getTime() <= ref.time.getTime() &&
-			(!floor || other.time.getTime() > floor.time.getTime())
-		) {
-			floor = other;
-		}
-	}
+	const floor = chan.newestServerRefBefore(ref.time.getTime(), ref);
 
 	return (
 		requestHistory(client, chan, {
@@ -392,7 +387,7 @@ export function requestFill(client: IrcClient, chan: Channel, id: number): boole
 			ref,
 			limit: MORE_PAGE_SIZE,
 			mode: "append",
-			pagesLeft: MAX_CATCHUP_PAGES - 1,
+			pagesLeft: pages - 1,
 			floor,
 			held: new Set(chan.msgids),
 			fill: id,
@@ -1038,6 +1033,14 @@ function resolve(
 	// empty page, which still closes the button.
 	if (answered && request.mode === "prepend" && request.subcommand === "LATEST") {
 		chan.historyFilled = true;
+
+		// This page could not see what the device keeps of the window (the
+		// boot read was slow or failed): older lines may be there with a
+		// hole below this page. Marked, so that it is found and can be
+		// loaded; a marker over nothing goes at the first try.
+		if (client.conversations.blind && messages.length > 0 && !end) {
+			messages[0].gapBefore = true;
+		}
 	}
 
 	client.noteFilled(chan);
@@ -1114,9 +1117,11 @@ const zncSeen = new WeakMap<IrcClient, Map<string, Map<string, number>>>();
 const zncSeeded = new WeakMap<IrcClient, Set<string>>();
 const ZNC_SEEN_MAX = 2000;
 
-/** A line's identity: epoch ms, sender, kind, text. */
-function identity(ms: number, nick: string, kind: string, text: string): string {
-	return [ms, nick, kind, text].join("\0");
+/** A line's identity: epoch ms, then what the line is (conversationStore.ts lineIdentity). */
+function identity(client: IrcClient, ms: number, nick: string, kind: string, text: string): string {
+	return `${ms}${lineIdentity({from: {nick, mode: ""}, type: kind as MessageType, text}, (s) =>
+		client.casefold(s)
+	)}`;
 }
 
 /** A PRIVMSG or NOTICE's identity, from the bouncer's own time tag; none without one. */
@@ -1135,7 +1140,7 @@ function zncKey(client: IrcClient, line: IrcMessage): string | undefined {
 		text = text.slice("\x01ACTION ".length).replace(/\x01$/, "");
 	}
 
-	return identity(ms, client.casefold(line.source?.name ?? ""), kind, text);
+	return identity(client, ms, line.source?.name ?? "", kind, text);
 }
 
 function zncSeenFor(client: IrcClient, target: string): Map<string, number> {
@@ -1197,7 +1202,7 @@ function seedFromStore(client: IrcClient, target: string, seen: Map<string, numb
 			continue;
 		}
 
-		const key = identity(ms, client.casefold(msg.from?.nick ?? ""), msg.type, msg.text);
+		const key = identity(client, ms, msg.from?.nick ?? "", msg.type, msg.text);
 		logged.set(key, (logged.get(key) ?? 0) + 1);
 	}
 
@@ -1317,7 +1322,9 @@ function deliverCatchup(client: IrcClient, target: string, lines: IrcMessage[], 
 				key: `fill:${window.id}`,
 				cost: PAGE_COST_MS,
 				run() {
-					requestFill(client, window, id);
+					// One page: the rest waits for whoever wants it (the
+					// marker's control), not for every busy channel's turn.
+					requestFill(client, window, id, 1);
 				},
 			},
 			{front: window.id === client.activeChannelId}

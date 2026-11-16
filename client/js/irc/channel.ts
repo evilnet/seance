@@ -8,7 +8,7 @@ import {ChanState, ChanType} from "../../../shared/types/chan";
 import type {SharedNetworkChan} from "../../../shared/types/network";
 import type {SharedUser} from "../../../shared/types/user";
 import {MessageType, type SharedMsg, type UserInMessage} from "../../../shared/types/msg";
-import {lineKey} from "./conversationStore";
+import {lineIdentity} from "./conversationStore";
 import type {HistorySpec} from "./history";
 
 export type Casefold = (s: string) => string;
@@ -53,7 +53,7 @@ export interface MsgRef {
 	editOf?: string;
 	/** Lines may be missing before this one (SharedMsg.gapBefore). */
 	gap?: boolean;
-	/** What the store keys a line without a msgid by (conversationStore.ts lineKey). */
+	/** What a line without a msgid is known by (conversationStore.ts lineIdentity). */
 	key?: string;
 }
 
@@ -173,6 +173,8 @@ export class Channel {
 	 * edit references (bus-contract §1.4: the IRC layer owns this map).
 	 */
 	readonly idByMsgid = new Map<string, number>();
+	/** The shown lines without a msgid, by time and identity, with how many of each ({@link shows}). */
+	private readonly unstamped = new Map<string, number>();
 	/**
 	 * Edits shown before their original was (the original arrives later in
 	 * an older page): the original's msgid → every such edit, and who sent
@@ -226,6 +228,12 @@ export class Channel {
 	 * offered again on this device (IrcClient.clearHistory).
 	 */
 	clearedAt: number | undefined = undefined;
+	/**
+	 * Its window and its `autoJoin` come from what this device kept, not
+	 * from the saved list or a JOIN on this page: joined only where nothing
+	 * else holds our channels (IrcClient.autojoin).
+	 */
+	fromStore = false;
 	/** This connection's JOIN left the gap to the server's cursor replay (persistence.ts). */
 	replayCovered = false;
 	/** A page of older lines is being read from the device (history.ts requestMore). */
@@ -324,7 +332,9 @@ export class Channel {
 		}
 
 		if (!msg.msgid) {
-			ref.key = lineKey(msg);
+			ref.key = lineIdentity(msg, this.fold);
+			const at = `${ref.time.getTime()}\0${ref.key}`;
+			this.unstamped.set(at, (this.unstamped.get(at) ?? 0) + 1);
 		}
 
 		this.msgRefs.set(msg.id, ref);
@@ -350,6 +360,17 @@ export class Channel {
 
 			if (ref.msgid && this.idByMsgid.get(ref.msgid) === id) {
 				this.idByMsgid.delete(ref.msgid);
+			}
+
+			if (ref.key !== undefined) {
+				const at = `${ref.time.getTime()}\0${ref.key}`;
+				const left = (this.unstamped.get(at) ?? 1) - 1;
+
+				if (left > 0) {
+					this.unstamped.set(at, left);
+				} else {
+					this.unstamped.delete(at);
+				}
 			}
 
 			if (this.shared.totalMessages > 0) {
@@ -390,16 +411,9 @@ export class Channel {
 			return this.idByMsgid.has(msg.msgid);
 		}
 
-		const time = new Date(msg.time).getTime();
-		const key = lineKey(msg);
-
-		for (const ref of this.msgRefs.values()) {
-			if (ref.key === key && ref.time.getTime() === time) {
-				return true;
-			}
-		}
-
-		return false;
+		return this.unstamped.has(
+			`${new Date(msg.time).getTime()}\0${lineIdentity(msg, this.fold)}`
+		);
 	}
 
 	/** msgids already shown (history deduplication). */
@@ -418,10 +432,20 @@ export class Channel {
 			return this.newestRef;
 		}
 
+		return this.newestServerRefBefore();
+	}
+
+	/** The newest server-stamped line at or before `upTo` (epoch ms), `skip` aside. */
+	newestServerRefBefore(upTo = Infinity, skip?: MsgRef): MsgRef | undefined {
 		let best: MsgRef | undefined;
 
 		for (const ref of this.msgRefs.values()) {
-			if (ref.msgid && (!best || ref.time.getTime() > best.time.getTime())) {
+			if (
+				ref !== skip &&
+				ref.msgid &&
+				ref.time.getTime() <= upTo &&
+				(!best || ref.time.getTime() > best.time.getTime())
+			) {
 				best = ref;
 			}
 		}

@@ -25,6 +25,7 @@
 //   7. the setting off empties IndexedDB, and a reload restores nothing;
 //   8. no console errors.
 
+import {KEPT, chathistory, coldLoad} from "./lib/kept.mjs";
 import {startTinyIrcd} from "./lib/tiny-ircd.mjs";
 
 const PORT = process.env.SEANCE_PORT ?? "8000";
@@ -49,16 +50,6 @@ const walked = new Promise((resolve) => {
 	caughtUp = resolve;
 });
 
-function chathistory(send, lines, end = false) {
-	send(`${end ? "@draft/chathistory-end " : ""}:tiny.test BATCH +h chathistory ${CHAN}`);
-
-	for (const line of lines) {
-		send(`@batch=h;${line.slice(1)}`);
-	}
-
-	send(":tiny.test BATCH -h");
-}
-
 function script(line, {send, nick}) {
 	const [cmd, ...args] = line.replace(/^@\S+ /, "").split(" ");
 
@@ -73,10 +64,10 @@ function script(line, {send, nick}) {
 
 	if (cmd === "CHATHISTORY" && args[0] === "LATEST") {
 		if (joins === 1) {
-			chathistory(send, [], true);
+			chathistory(send, CHAN, [], true);
 		} else {
 			// Newer than everything kept, and not reaching it.
-			chathistory(send, [say(2002, "n2", "new two"), say(2003, "n3", "new three")]);
+			chathistory(send, CHAN, [say(2002, "n2", "new two"), say(2003, "n3", "new three")]);
 		}
 
 		return true;
@@ -86,13 +77,13 @@ function script(line, {send, nick}) {
 		if (args[2] === "msgid=n2" && args[3] !== undefined && !script.filling) {
 			// The walk's next page: the server's scan cut it to nothing.
 			script.filling = true;
-			chathistory(send, []);
+			chathistory(send, CHAN, []);
 			caughtUp();
 		} else if (args[2] === "msgid=n2") {
 			// The divider's control: the missing line, and one the page holds.
-			chathistory(send, [say(130, "m130", "line 130"), say(2001, "n1", "new one")]);
+			chathistory(send, CHAN, [say(130, "m130", "line 130"), say(2001, "n1", "new one")]);
 		} else {
-			chathistory(send, [], true);
+			chathistory(send, CHAN, [], true);
 		}
 
 		return true;
@@ -103,26 +94,6 @@ function script(line, {send, nick}) {
 
 const item = (name) => `.channel-list-item[data-name="${name}"]`;
 const TEXTS = `[...document.querySelectorAll("#chat .messages .msg[data-type=message] .content")].map((el) => el.textContent.trim())`;
-/** Lines kept in IndexedDB, by conversation key. */
-const KEPT = `new Promise((resolve) => {
-	const open = indexedDB.open("seance-conversations");
-	open.onerror = () => resolve({});
-	open.onsuccess = () => {
-		const db = open.result;
-		if (!db.objectStoreNames.contains("lines")) { db.close(); resolve({}); return; }
-		const all = db.transaction("lines").objectStore("lines").getAll();
-		all.onsuccess = () => {
-			const out = {};
-			for (const line of all.result) {
-				const target = line.c.split("\\n")[1];
-				(out[target] ??= []).push(line.msg.text);
-			}
-			db.close();
-			resolve(out);
-		};
-	};
-})`;
-
 export default async function run(page) {
 	const start = () =>
 		startTinyIrcd({
@@ -132,31 +103,6 @@ export default async function run(page) {
 			onLine: script,
 		});
 	let ircd = start();
-
-	// F5: see reload-on-settings.mjs for why it is replaceState + Page.reload.
-	const coldLoad = async (waitFor) => {
-		await page.evaluate(
-			`(() => { window.__coldLoad = true; history.replaceState(null, "", "/"); })()`
-		);
-		await page.send("Page.reload");
-		const started = Date.now();
-
-		for (;;) {
-			try {
-				if (await page.evaluate(`!window.__coldLoad && !!(${waitFor})`)) {
-					return;
-				}
-			} catch {
-				// the document is being replaced
-			}
-
-			if (Date.now() - started > 30000) {
-				throw new Error(`timed out waiting for ${waitFor} after the reload`);
-			}
-
-			await page.sleep(100);
-		}
-	};
 
 	try {
 		await page.goto(page.url, {waitForSelector: "#connect form"});
@@ -190,7 +136,7 @@ export default async function run(page) {
 
 		// 2: the server is gone when the page comes back.
 		await ircd.close();
-		await coldLoad(`document.querySelector('${item(CHAN)}')`);
+		await coldLoad(page, `document.querySelector('${item(CHAN)}')`);
 		await page.click(item(CHAN));
 		await page.waitFor(`${TEXTS}.includes("line 131")`, {
 			timeout: 5000,
@@ -288,7 +234,7 @@ export default async function run(page) {
 
 		// 6
 		await ircd.close();
-		await coldLoad(`document.querySelector('${item(CHAN)}')`);
+		await coldLoad(page, `document.querySelector('${item(CHAN)}')`);
 		await page.click(item(CHAN));
 		await page.waitFor(`${TEXTS}.includes("new three")`, {
 			timeout: 5000,
@@ -328,7 +274,7 @@ export default async function run(page) {
 			Object.keys(after ?? {}).length === 0
 		);
 		await page.click(".settings-modal-done");
-		await coldLoad(`document.querySelector('${item(CHAN)}')`);
+		await coldLoad(page, `document.querySelector('${item(CHAN)}')`);
 		await page.click(item(CHAN));
 		await page.sleep(800);
 		page.check(

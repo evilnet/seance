@@ -136,7 +136,7 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			store.append("#seance", "channel", bare(2, "hi")); // the same words, later
 			await store.flush();
 			expect(reloaded("#seance").texts).to.deep.equal(["hi", "ho", "hi"]);
-			expect(lineKey(bare(1, "hi"))).to.equal(lineKey(bare(7, "hi")));
+			expect(lineKey(bare(1, "hi"), fold)).to.equal(lineKey(bare(7, "hi"), fold));
 		});
 
 		it("keeps the newest lines only, oldest out first", async function () {
@@ -221,15 +221,39 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			expect(new ConversationStore(UUID, fold).meta("bob")!.read).to.equal(5000);
 		});
 
-		it("forgets a closed window, and a network", async function () {
+		it("a closed private chat keeps no lines; a closed channel keeps them, hidden, until it is opened again", async function () {
 			const store = new ConversationStore(UUID, fold);
 			store.append("bob", "query", line(1));
 			store.append("#seance", "channel", line(2));
-			store.forget("bob");
+			store.append("#gone", "channel", line(3));
+			store.setJoined("#gone", true, "sesame");
+			store.close("bob", false, line(1).time);
+			store.close("#gone", true);
 			await store.flush();
-			expect(new ConversationStore(UUID, fold).windows().map((w) => w.name)).to.deep.equal([
-				"#seance",
-			]);
+
+			const again = new ConversationStore(UUID, fold);
+			expect(again.windows().map((w) => w.name)).to.deep.equal(["#seance"]);
+			expect(again.restoredMessages("bob")).to.deep.equal([]);
+			expect(backend.lines.get(`${UUID}\nbob`) ?? []).to.have.length(0);
+			// Remembered, not shown, not joined by itself.
+			expect(again.meta("#gone")).to.include({closed: true, joined: false});
+			expect(again.meta("#gone")!.key).to.equal(undefined);
+			expect(again.restoredMessages("#gone").map((m) => m.text)).to.deep.equal(["line 3"]);
+
+			// A line from before the close does not bring the private chat back.
+			again.append("bob", "query", line(1));
+			// Joined again: the window is open, with what was kept.
+			again.setJoined("#gone", true);
+			await again.flush();
+			const third = new ConversationStore(UUID, fold);
+			expect(
+				third
+					.windows()
+					.map((w) => w.name)
+					.sort()
+			).to.deep.equal(["#gone", "#seance"]);
+			expect(third.restoredMessages("#gone").map((m) => m.text)).to.deep.equal(["line 3"]);
+			await flushConversationStores();
 
 			forgetNetworkConversations(UUID);
 			await backend.run("readonly", () => Promise.resolve());
@@ -248,6 +272,32 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			const again = new ConversationStore(UUID, fold);
 			expect(again.restoredMessages("#seance").map((m) => m.text)).to.deep.equal(["line 3"]);
 			expect(again.meta("#seance")!.clearedAt).to.equal(line(2).time.getTime());
+		});
+
+		it("a full disk: deletions still land, the oldest lines make room, the rest is written", async function () {
+			const store = new ConversationStore(UUID, fold);
+
+			for (let i = 0; i < 300; i++) {
+				store.append("#seance", "channel", {
+					...line(0, `n${i}`),
+					msgid: `x${i}`,
+					time: new Date(Date.UTC(2026, 10, 1) + i * 1000),
+				});
+			}
+
+			await store.flush();
+			store.redact("#seance", "x299");
+			store.append("#seance", "channel", line(50, "after the squeeze"));
+			store.append("bob", "query", line(60, "arrives and is cleared"));
+			store.clear("bob", line(60).time);
+			backend.failNext = "QuotaExceededError";
+			await store.flush();
+
+			const kept = backend.lines.get(`${UUID}\n#seance`)!.map((l) => l.msg.text);
+			expect(kept).to.not.include("n299");
+			expect(kept).to.include("after the squeeze");
+			expect(kept[0]).to.equal("n149"); // the oldest half went
+			expect(backend.lines.get(`${UUID}\nbob`) ?? []).to.have.length(0);
 		});
 
 		it("keeps nothing for a network that is not saved", async function () {
@@ -327,6 +377,41 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			expect(messages[0].reactions).to.deep.equal([{text: "👍", nicks: ["carol"]}]);
 		});
 
+		it("a line one deleted does not come back with the other's late copy, or from a journal", async function () {
+			const a = new ConversationStore(UUID, fold);
+			const b = new ConversationStore(UUID, fold);
+			a.append("#seance", "channel", line(1));
+			a.append("#seance", "channel", line(2, "delete me"));
+			await a.flush();
+			b.append("#seance", "channel", line(2, "delete me")); // queued in B
+			a.redact("#seance", "m2");
+			await a.flush();
+			await b.flush();
+			expect(reloaded("#seance").texts).to.deep.equal(["line 1"]);
+
+			// A deletion that arrives before its line (another tab's history page).
+			a.redact("#seance", "m9");
+			await a.flush();
+			b.append("#seance", "channel", line(9));
+			await b.flush();
+			expect(reloaded("#seance").texts).to.deep.equal(["line 1"]);
+		});
+
+		it("what one cleared stays cleared when the other, unaware, writes older lines", async function () {
+			const a = new ConversationStore(UUID, fold);
+			const b = new ConversationStore(UUID, fold);
+			a.append("#seance", "channel", line(1));
+			a.append("#seance", "channel", line(2));
+			await a.flush();
+			a.clear("#seance", line(2).time);
+			await a.flush();
+			// B never heard of the clear: only the transaction can refuse these.
+			b.append("#seance", "channel", line(1));
+			b.append("#seance", "channel", line(3));
+			await b.flush();
+			expect(reloaded("#seance").texts).to.deep.equal(["line 3"]);
+		});
+
 		it("a write that was queued when the other removed the network is dropped", async function () {
 			const a = new ConversationStore(UUID, fold);
 			const b = new ConversationStore(UUID, fold);
@@ -381,6 +466,61 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			await done;
 			expect(data.size).to.equal(0);
 			expect(reloaded("bob").texts).to.deep.equal(["line 1"]);
+		});
+	});
+
+	describe("the boot snapshot", function () {
+		it("goes to a network's first store only, and is read again when that store goes away", async function () {
+			const first = new ConversationStore(UUID, fold);
+			first.append("#seance", "channel", line(1));
+			await first.flush();
+			first.dispose();
+			await preloadConversations();
+
+			// The page's client for this network.
+			const client = new ConversationStore(UUID, fold);
+			expect(client.blind).to.equal(false);
+			expect(client.restoredMessages("#seance").map((m) => m.text)).to.deep.equal(["line 1"]);
+			client.append("#seance", "channel", line(2));
+			client.append("bob", "query", line(3));
+			client.close("bob", false, line(3).time);
+
+			// A second one while the first lives must not start from page-load state.
+			const early = new ConversationStore(UUID, fold);
+			expect(early.blind).to.equal(true);
+			expect(early.windows()).to.deep.equal([]);
+			early.dispose();
+
+			// `/quit`, then the network is connected again: a new client.
+			client.dispose();
+			await client.flush();
+			await backend.run("readonly", () => Promise.resolve());
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			const next = new ConversationStore(UUID, fold);
+			expect(next.blind).to.equal(false);
+			expect(next.windows().map((w) => w.name)).to.deep.equal(["#seance"]);
+			expect(next.restoredMessages("#seance").map((m) => m.text)).to.deep.equal([
+				"line 1",
+				"line 2",
+			]);
+			// And its writes land: the epochs are current.
+			next.append("#seance", "channel", line(4));
+			await next.flush();
+			expect(backend.lines.get(`${UUID}\n#seance`)).to.have.length(3);
+		});
+
+		it("a store made without it vouches for nothing", async function () {
+			const first = new ConversationStore(UUID, fold);
+			first.append("#seance", "channel", line(1));
+			await first.flush();
+			await preloadConversations();
+			new ConversationStore(UUID, fold).dispose(); // takes the snapshot
+			const blind = new ConversationStore(UUID, fold);
+			expect(blind.blind).to.equal(true);
+			blind.append("#seance", "channel", line(5));
+			blind.setFilled("#seance", "channel", true);
+			await blind.flush();
+			expect(backend.convs.get(`${UUID}\n#seance`)!.filled ?? false).to.equal(false);
 		});
 	});
 
@@ -636,14 +776,120 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			expect(join).to.not.include("#rough");
 		});
 
-		it("closing a channel's window forgets its lines", async function () {
-			const uuid = savedNet();
-			const first = await firstPage(uuid, [said(1)]);
-			void first;
-			const h = setup({uuid});
-			h.client.removeChannel(h.client.findChannel("#seance")!);
+		it("a closed channel is hidden and not joined; joined again, its lines are back and the walk starts from them", async function () {
+			const uuid = savedNet("");
+			const first = setup({uuid, join: ""});
+			register(first, ALL_CAPS);
+			first.transport.lines(
+				"@time=2026-08-25T12:00:30.000Z;msgid=j1 :alice!alice@host JOIN #seance",
+				":irc.test 366 alice #seance :End of /NAMES list.",
+				said(1),
+				said(2)
+			);
+			first.client.removeChannel(first.client.findChannel("#seance")!);
 			await flushConversationStores();
-			expect(new ConversationStore(uuid, (s) => s.toLowerCase()).windows()).to.deep.equal([]);
+			first.client.conversations.dispose();
+
+			const h = setup({uuid, join: ""});
+			expect(h.client.findChannel("#seance")).to.equal(undefined);
+			register(h, ALL_CAPS);
+			expect(h.transport.sent.filter((l) => l.startsWith("JOIN")).join()).to.not.include(
+				"#seance"
+			);
+			h.sent();
+			h.dispatch.resetHistory();
+
+			// The user joins it again.
+			h.transport.lines(
+				"@time=2026-08-25T12:30:00.000Z;msgid=j2 :alice!alice@host JOIN #seance",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const chan = h.client.findChannel("#seance")!;
+			const page = h
+				.payloads<{chan: number; messages: SharedMsg[]}>("more")
+				.find((p) => p.chan === chan.id)!;
+			expect(page.messages.map((m) => m.text).filter(Boolean)).to.deep.equal([
+				"line 1",
+				"line 2",
+			]);
+			const asked = h.sent();
+			expect(asked.find((l) => l.includes("CHATHISTORY"))).to.match(
+				/CHATHISTORY LATEST #seance \* 100$/
+			);
+			batch(h, [said(2), said(3)], {label: labelOf(asked)});
+			expect(
+				h
+					.messages(chan.id)
+					.map((m) => m.text)
+					.filter(Boolean)
+			).to.deep.equal(["line 3"]);
+			await flushConversationStores();
+			expect(
+				new ConversationStore(uuid, (s) => s.toLowerCase()).windows().map((w) => w.name)
+			).to.include("#seance");
+		});
+
+		it("a channel only this device remembers is left to a held session, and dropped after a refusal", async function () {
+			const uuid = savedNet("#lobby");
+			const first = setup({uuid, join: "#lobby"});
+			register(first, ALL_CAPS);
+			first.transport.lines(
+				"@time=2026-08-25T12:00:30.000Z;msgid=j1 :alice!alice@host JOIN #byhand",
+				":irc.test 366 alice #byhand :End of /NAMES list.",
+				"@time=2026-08-25T12:00:40.000Z;msgid=j2 :alice!alice@host JOIN #locked",
+				":irc.test 366 alice #locked :End of /NAMES list."
+			);
+			await flushConversationStores();
+			first.client.conversations.dispose();
+
+			// Nothing holds our channels: both are joined, and a refusal
+			// ends it for the next load.
+			const h = setup({uuid, join: "#lobby"});
+			expect(h.client.findChannel("#byhand")!.fromStore).to.equal(true);
+			register(h, ALL_CAPS);
+			const joins = h.transport.sent.filter((l) => l.startsWith("JOIN")).join();
+			expect(joins).to.include("#byhand");
+			expect(joins).to.include("#locked");
+			h.transport.line(":irc.test 475 alice #locked :Cannot join channel (+k)");
+			await flushConversationStores();
+			h.client.conversations.dispose();
+			const again = new ConversationStore(uuid, (s) => s.toLowerCase());
+			expect(again.meta("#locked")!.joined).to.equal(false);
+			expect(again.meta("#byhand")!.joined).to.equal(true);
+			again.dispose();
+
+			// A held session: what it does not give back stays parted.
+			const held = setup({uuid, join: "#lobby"});
+			register(held, ALL_CAPS);
+			held.sent();
+			held.client.persistenceHold = true;
+			held.client.autojoin();
+			const later = held.sent().join();
+			expect(later).to.include("#lobby");
+			expect(later).to.not.include("#byhand");
+		});
+
+		it("a page that could not read the device marks the gap above its first page", async function () {
+			const uuid = savedNet();
+			await firstPage(uuid, [said(1), said(2)]);
+			await preloadConversations();
+			new ConversationStore(uuid, (s) => s.toLowerCase()).dispose(); // the share is gone
+
+			const h = setup({uuid});
+			expect(h.client.conversations.blind).to.equal(true);
+			register(h, ALL_CAPS);
+			h.transport.lines(
+				"@time=2026-08-25T12:50:00.000Z;msgid=join-9 :alice!alice@host JOIN #seance",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const asked = h.sent();
+			h.dispatch.resetHistory();
+			batch(h, [said(40), said(41)], {label: labelOf(asked)});
+			const page = h.payloads<{messages: SharedMsg[]}>("more")[0];
+			expect(page.messages.map((m) => [m.text, m.gapBefore])).to.deep.equal([
+				["line 40", true],
+				["line 41", undefined],
+			]);
 		});
 
 		it("Clear history is not undone by a page load or a history page", async function () {

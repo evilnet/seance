@@ -219,6 +219,9 @@ const badNick: Handler = (client, msg) => {
 };
 
 /** Any other 4xx/5xx: an ERROR message with the code error.vue understands. */
+/** The numerics that refuse a JOIN. */
+const JOIN_REFUSALS = new Set(["471", "473", "474", "475", "477"]);
+
 export const numericError: Handler = (client, msg) => {
 	const spec = errorSpec(msg.command);
 
@@ -250,6 +253,13 @@ export const numericError: Handler = (client, msg) => {
 
 	if (spec.channel !== undefined && params[spec.channel]) {
 		error.channel = params[spec.channel];
+
+		// A JOIN the server refused (full, invite only, banned, a wrong key,
+		// registered nicks only): the device stops joining it at page load,
+		// until the user gets in by hand (conversationStore.ts `joined`).
+		if (JOIN_REFUSALS.has(msg.command)) {
+			client.conversations.setJoined(params[spec.channel], false);
+		}
 	}
 
 	if (spec.nick !== undefined && params[spec.nick]) {
