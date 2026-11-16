@@ -8,6 +8,8 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import {CURSOR_SAVE_INTERVAL_MS} from "../../client/js/irc/client";
+import type {CapNegotiator} from "../../client/js/irc/caps";
+import {supportsAttachCursor} from "../../client/js/irc/persistence";
 import {requestHistory, requestMore} from "../../client/js/irc/history";
 import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
 import * as saved from "../../client/js/irc/saved-networks";
@@ -320,6 +322,22 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			const attach = sent.indexOf("PERSISTENCE ATTACH default m9");
 			expect(attach, "ATTACH sent").to.be.greaterThan(-1);
 			expect(sent[attach + 1]).to.equal("CAP END");
+		});
+
+		it("reads the token only from a cap the server enabled", function () {
+			const offered = (enabled: string[]) =>
+				({
+					hasCapability: (cap: string) => enabled.includes(cap),
+					value: (cap: string) =>
+						cap === "evilnet.github.io/persistence" ? "attach-cursor" : "",
+				} as unknown as CapNegotiator);
+
+			expect(supportsAttachCursor(offered(["draft/persistence"]))).to.equal(false);
+			expect(
+				supportsAttachCursor(
+					offered(["draft/persistence", "evilnet.github.io/persistence"])
+				)
+			).to.equal(true);
 		});
 
 		it("does not send it without a stored cursor", function () {
