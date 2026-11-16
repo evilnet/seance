@@ -53,7 +53,9 @@ export interface CapResult {
  * Caps Seance requests when offered. Everything is "wanted" for v1 so that a
  * plain ircd (nefarious2 master, which has no CAP 302 and only seven caps)
  * still registers. `draft/persistence` only buys the `PERSISTENCE STATUS`
- * line at registration (see persistence.ts). `draft/multiline` is only
+ * line at registration (see persistence.ts); `evilnet.github.io/persistence`
+ * is where nefarious2 is to move the extras it carries today (the
+ * `attach-cursor` token among them). `draft/multiline` is only
  * requested when its CAP 302 value parses (the `accept` hook in client.ts,
  * see multiline.ts); `draft/webpush` is requested bare too, its key read
  * from the `vapid=` value (nefarious2) or the `VAPID` 005 token (the spec),
@@ -96,6 +98,7 @@ export const SEANCE_CAPS: CapNegotiatorOptions = {
 		"draft/authtoken",
 		"draft/metadata-2",
 		"draft/persistence",
+		"evilnet.github.io/persistence",
 		"draft/pre-away",
 		"soju.im/search",
 		"soju.im/bouncer-networks",

@@ -308,6 +308,20 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			expect(h.client.attachCursor).to.equal(undefined);
 		});
 
+		it("reads the attach-cursor token from the vendor persistence cap as well", function () {
+			store({msgid: "m9", time: 123});
+			const h = saslClient();
+			authenticate(
+				h,
+				`${ALL_CAPS} sasl=PLAIN draft/persistence evilnet.github.io/persistence=attach,detach,list,attach-cursor`
+			);
+
+			const sent = h.transport.sent;
+			const attach = sent.indexOf("PERSISTENCE ATTACH default m9");
+			expect(attach, "ATTACH sent").to.be.greaterThan(-1);
+			expect(sent[attach + 1]).to.equal("CAP END");
+		});
+
 		it("does not send it without a stored cursor", function () {
 			store();
 			const h = saslClient();
