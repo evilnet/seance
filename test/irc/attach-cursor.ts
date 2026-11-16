@@ -8,6 +8,9 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import {CURSOR_SAVE_INTERVAL_MS} from "../../client/js/irc/client";
+import {CapNegotiator, SEANCE_CAPS} from "../../client/js/irc/caps";
+import {parseLine} from "../../client/js/irc/message";
+import {supportsAttachCursor} from "../../client/js/irc/persistence";
 import {requestHistory, requestMore} from "../../client/js/irc/history";
 import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
 import * as saved from "../../client/js/irc/saved-networks";
@@ -303,6 +306,38 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			expect(h.transport.sent).to.include("PERSISTENCE SET ON");
 			expect(h.transport.sent).to.include("CAP END");
 			expect(h.client.attachCursor).to.equal(undefined);
+		});
+
+		it("reads the attach-cursor token from the vendor persistence cap as well", function () {
+			store({msgid: "m9", time: 123});
+			const h = saslClient();
+			authenticate(
+				h,
+				`${ALL_CAPS} sasl=PLAIN draft/persistence evilnet.github.io/persistence=attach,detach,list,attach-cursor`
+			);
+
+			const sent = h.transport.sent;
+			const attach = sent.indexOf("PERSISTENCE ATTACH default m9");
+			expect(attach, "ATTACH sent").to.be.greaterThan(-1);
+			expect(sent[attach + 1]).to.equal("CAP END");
+		});
+
+		it("reads the token only from a cap the server enabled", function () {
+			const negotiated = (ack: string) => {
+				const neg = new CapNegotiator(SEANCE_CAPS);
+				neg.handle(
+					parseLine(
+						":irc.test CAP * LS :draft/persistence evilnet.github.io/persistence=attach-cursor"
+					)!
+				);
+				neg.handle(parseLine(`:irc.test CAP * ACK :${ack}`)!);
+				return neg;
+			};
+
+			expect(supportsAttachCursor(negotiated("draft/persistence"))).to.equal(false);
+			expect(
+				supportsAttachCursor(negotiated("draft/persistence evilnet.github.io/persistence"))
+			).to.equal(true);
 		});
 
 		it("does not send it without a stored cursor", function () {

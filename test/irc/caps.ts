@@ -60,14 +60,16 @@ describe("irc/caps", function () {
 			expect(neg.available.has("tls")).to.equal(true);
 
 			const requested = reqCaps(second.send[0]);
-			// Everything wanted that nefarious2 offers: all but soju's own names.
-			const sojuOnly = [
+			// Everything wanted that nefarious2 offers: all but soju's own names
+			// and the vendor persistence cap no server offers yet.
+			const notOffered = [
 				"soju.im/webpush",
 				"soju.im/bouncer-networks",
 				"soju.im/bouncer-networks-notify",
+				"evilnet.github.io/persistence",
 			];
 			expect(requested).to.deep.equal(
-				SEANCE_CAPS.wanted.filter((cap) => !sojuOnly.includes(cap))
+				SEANCE_CAPS.wanted.filter((cap) => !notOffered.includes(cap))
 			);
 			expect(requested).to.not.include("tls");
 			expect(requested).to.include("draft/multiline");
