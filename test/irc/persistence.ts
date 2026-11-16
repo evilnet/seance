@@ -30,7 +30,7 @@ function joinBurst(topic: string, tag = ""): string[] {
 	];
 }
 
-/** The `draft/persistence` batch restoring #seance (and optionally more channels). */
+/** The restoration batch (`type`: `draft/persistence` or its vendor name) restoring #seance (and optionally more channels). */
 function restore(
 	h: Harness,
 	topic: string,
@@ -434,26 +434,28 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
 		});
 
-		it("holds the autojoin through a pause inside an open restoration batch", function () {
-			// A retransmit on a phone: the batch is open, nothing arrives for
-			// longer than the quiet period, then the rest comes.
-			const h = setup({join: "#seance,#other"});
-			register(h, CAPS, HOLD);
-			clock.tick(RESTORE_WAIT_MS - RESTORE_QUIET_MS);
-			h.transport.lines(
-				":irc.test BATCH +p1 draft/persistence",
-				"@batch=p1 :alice!alice@host JOIN #seance alice :Alice"
-			);
-			clock.tick(RESTORE_QUIET_MS * 3);
-			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
-			expect(awaitingRestoration(h.client)).to.equal(true);
+		for (const type of ["draft/persistence", "evilnet.github.io/persistence"]) {
+			it(`holds the autojoin through a pause inside an open restoration batch (${type})`, function () {
+				// A retransmit on a phone: the batch is open, nothing arrives for
+				// longer than the quiet period, then the rest comes.
+				const h = setup({join: "#seance,#other"});
+				register(h, CAPS, HOLD);
+				clock.tick(RESTORE_WAIT_MS - RESTORE_QUIET_MS);
+				h.transport.lines(
+					`:irc.test BATCH +p1 ${type}`,
+					"@batch=p1 :alice!alice@host JOIN #seance alice :Alice"
+				);
+				clock.tick(RESTORE_QUIET_MS * 3);
+				expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+				expect(awaitingRestoration(h.client)).to.equal(true);
 
-			h.transport.lines(
-				"@batch=p1 :irc.test 366 alice #seance :End of /NAMES list.",
-				":irc.test BATCH -p1"
-			);
-			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
-		});
+				h.transport.lines(
+					"@batch=p1 :irc.test 366 alice #seance :End of /NAMES list.",
+					":irc.test BATCH -p1"
+				);
+				expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
+			});
+		}
 
 		it("keeps holding the autojoin while another restoration batch is still open", function () {
 			const h = setup({join: "#seance,#other"});

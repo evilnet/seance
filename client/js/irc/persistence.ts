@@ -45,6 +45,7 @@ import {presenceResumed} from "./presence";
 
 /** The persistence cap, and the profile every account has implicitly. */
 export const PERSISTENCE_CAP = "draft/persistence";
+export const PERSISTENCE_PROFILE = "default";
 /**
  * The vendor capability nefarious2 is to move its extras to (ATTACH, DETACH,
  * LIST, PROFILE, REPLAY, the `attach-cursor` token and the session's
@@ -54,15 +55,19 @@ export const PERSISTENCE_CAP = "draft/persistence";
  * Provisional: the name is not settled upstream yet.
  */
 export const PERSISTENCE_EXT_CAP = "evilnet.github.io/persistence";
-/** Batch types a server opens to restore a held session, old name first. */
-export const RESTORATION_BATCH_TYPES: readonly string[] = [PERSISTENCE_CAP, PERSISTENCE_EXT_CAP];
-export const PERSISTENCE_PROFILE = "default";
+/**
+ * Both persistence names, old first: the caps whose value may carry the
+ * `attach-cursor` token, and the batch types a server opens to restore a
+ * held session.
+ */
+export const PERSISTENCE_NAMES: readonly string[] = [PERSISTENCE_CAP, PERSISTENCE_EXT_CAP];
 /** CAP 302 token that says `PERSISTENCE ATTACH` takes a catch-up cursor. */
 export const ATTACH_CURSOR_TOKEN = "attach-cursor";
 /** nefarious2 stores the cursor in `con_attach_cursor[64]`, so 63 bytes fit. */
 export const MAX_CURSOR_BYTES = 63;
 /** Outer batch type wrapping the server-driven catch-up (`ircd/replay.c`). */
 export const BOUNCER_REPLAY_BATCH = "evilnet.github.io/bouncer-replay";
+const BOUNCER_REPLAY_TYPES: readonly string[] = [BOUNCER_REPLAY_BATCH];
 /** The NOTICE `replay_send_summary` closes that replay with. */
 const REPLAY_SUMMARY = /^Session resumed\. (?:Replayed \d+ message|You are in \d+ channel)/;
 
@@ -160,7 +165,7 @@ export function noteRestorationActivity(client: IrcClient): void {
  */
 function restorationBatchOpen(client: IrcClient): boolean {
 	for (const open of openBatchesOf(client).values()) {
-		if (RESTORATION_BATCH_TYPES.includes(open.type)) {
+		if (PERSISTENCE_NAMES.includes(open.type)) {
 			return true;
 		}
 	}
@@ -203,7 +208,7 @@ function clearWait(state: RestoreState): void {
 
 /**
  * The session's restoration batch (`draft/persistence`, or its vendor name,
- * {@link RESTORATION_BATCH_TYPES}): run its lines through the normal handlers
+ * {@link PERSISTENCE_NAMES}): run its lines through the normal handlers
  * in restoring mode (state only, no lines), then JOIN whatever the server
  * did not give back — if the autojoin was waiting for this.
  */
@@ -235,18 +240,16 @@ export const persistenceBatch: BatchHandler = (client, batch) => {
 /**
  * True when the server takes a catch-up cursor on `PERSISTENCE ATTACH`
  * (`draft/persistence=attach,detach,list,attach-cursor`, `ircd.c`; later the
- * same token on {@link PERSISTENCE_EXT_CAP}). The value is a comma-separated
- * token list and unknown tokens are expected, so only the exact token counts.
+ * same token on {@link PERSISTENCE_EXT_CAP}), on a cap the server enabled.
+ * The value is a comma-separated token list and unknown tokens are expected,
+ * so only the exact token counts.
  */
 export function supportsAttachCursor(caps: CapNegotiator): boolean {
-	return [PERSISTENCE_EXT_CAP, PERSISTENCE_CAP].some((cap) => {
-		return (
-			caps
-				.value(cap)
-				?.split(",")
-				.some((token) => token.trim() === ATTACH_CURSOR_TOKEN) ?? false
-		);
-	});
+	return PERSISTENCE_NAMES.some(
+		(cap) =>
+			caps.hasCapability(cap) &&
+			(caps.value(cap) ?? "").split(",").some((token) => token.trim() === ATTACH_CURSOR_TOKEN)
+	);
 }
 
 /**
@@ -323,15 +326,15 @@ export function persistenceFailed(client: IrcClient, msg: IrcMessage): boolean {
 
 /** True when `batch` is, or is nested in, the server's bouncer-replay wrapper. */
 export function inBouncerReplay(batch: OpenBatch): boolean {
-	return within(batch, BOUNCER_REPLAY_BATCH);
+	return within(batch, BOUNCER_REPLAY_TYPES);
 }
 
 /** True when `batch` is, or is nested in, the server's session restoration. */
 export function inRestoration(batch: OpenBatch): boolean {
-	return within(batch, ...RESTORATION_BATCH_TYPES);
+	return within(batch, PERSISTENCE_NAMES);
 }
 
-function within(batch: OpenBatch, ...types: string[]): boolean {
+function within(batch: OpenBatch, types: readonly string[]): boolean {
 	for (let b: OpenBatch | undefined = batch; b; b = b.parent) {
 		if (types.includes(b.type)) {
 			return true;

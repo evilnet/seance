@@ -18,7 +18,7 @@ import {AUTHTOKEN_BATCH} from "../authtoken";
 import {MULTILINE_CAP, multilineBatch} from "../multiline";
 import {
 	BOUNCER_REPLAY_BATCH,
-	RESTORATION_BATCH_TYPES,
+	PERSISTENCE_NAMES,
 	bouncerReplayBatch,
 	persistenceBatch,
 } from "../persistence";
@@ -107,7 +107,7 @@ registerBatchHandler("soju.im/search", searchBatch);
 registerBatchHandler("draft/chathistory-targets", targetsBatch);
 registerBatchHandler(MULTILINE_CAP, multilineBatch);
 registerBatchHandler(AUTHTOKEN_BATCH, authtokenBatch);
-for (const type of RESTORATION_BATCH_TYPES) {
+for (const type of PERSISTENCE_NAMES) {
 	registerBatchHandler(type, persistenceBatch);
 }
 registerBatchHandler(BOUNCER_REPLAY_BATCH, bouncerReplayBatch);
