@@ -137,6 +137,7 @@ import {liveLlmName, pairVerdict, readingLanguage} from "../js/translate/reader"
 import {cancelOutgoing, translateOutgoing} from "../js/translate/writer";
 import {draftGate} from "../js/translate/outgoing";
 import {loadNote} from "../js/translate/service";
+import {isImeComposing} from "../js/helpers/ime";
 import {loadNoteText} from "../js/helpers/modelLabel";
 import {translateErrorText} from "../js/helpers/translateErrors";
 import {translateWhyText} from "../js/helpers/translateWhy";
@@ -361,7 +362,7 @@ export default defineComponent({
 		// as the button does. Shift+Return is a new line in the panel.
 		const onEnter = (event: KeyboardEvent) => {
 			// The Return that ends an IME composition is the composition's.
-			if (event.isComposing || event.keyCode === 229) {
+			if (isImeComposing(event)) {
 				return;
 			}
 

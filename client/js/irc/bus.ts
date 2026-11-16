@@ -362,6 +362,15 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		registry.clientForChannel(target)?.channelById(target)?.forget(ids);
 	});
 
+	bus.handle("history:clear", ({target}) => {
+		const client = registry.clientForChannel(target);
+		const chan = client?.channelById(target);
+
+		if (client && chan) {
+			client.clearHistory(chan);
+		}
+	});
+
 	bus.handle("network:get", (uuid) => {
 		const info = networkInfo(registry, uuid);
 

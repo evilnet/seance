@@ -6,6 +6,7 @@ import {toClientChan} from "../chan";
 import {matchesPendingTarget, takePendingTarget} from "../helpers/pendingTarget";
 import {matchesLanding, takeLanding} from "../helpers/lastChannel";
 import {applyStoredChannelOrder} from "../sort";
+import {applyStoredMute} from "../mute";
 
 socket.on("join", function (data) {
 	const network = store.getters.findNetwork(data.network);
@@ -15,6 +16,9 @@ socket.on("join", function (data) {
 	}
 
 	const clientChan: ClientChan = toClientChan(data.chan);
+	// Muted before it went (or before the page did): muted again, before
+	// any message in it can alert or reach the inbox.
+	applyStoredMute(data.network, clientChan);
 	// The index is the IRC layer's, whose array never sees a drag: snap the
 	// remembered names to place (a stable sort keeps the rest where they are).
 	network.channels.splice(data.index || -1, 0, clientChan);

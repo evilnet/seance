@@ -83,7 +83,9 @@ batch has to hold it too: one the server sends back to cool down is sent
 again, and a plain line sent meanwhile would reach the channel first. The
 cost is the echo's round trip; without `echo-message` it is the 1.5 s settle
 period (`MULTILINE_SETTLE_MS`), and a lost echo holds it for the 30 s verdict
-wait (`MULTILINE_VERDICT_MS`). A batch the server rejects outright takes its
+wait (`MULTILINE_VERDICT_MS`). With `labeled-response` the answer is the echo
+whose opener carries the batch's label (`multilineAccepted`): a batch from our
+nick without it is the account speaking on another device. A batch the server rejects outright takes its
 own message down but sends the plain ones typed after it; a close reports
 every copy still waiting as not sent.
 

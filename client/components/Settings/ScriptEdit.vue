@@ -724,9 +724,14 @@ export default defineComponent({
 			flash(t("settings.scriptEdit.checking"));
 			// Compiled, never run: running it would fire its top-level code
 			// and register its handlers a second time.
-			const error = await scriptManager.checkSyntax(script.value.code);
+			const code = script.value.code;
+			const error = await scriptManager.checkSyntax(code);
 
-			if (!script.value) {
+			// The first check waits for the interpreter to load. If the editor
+			// closed meanwhile, writing this snapshot back would undo whatever
+			// changed the script since (the list's switch, a reopened editor);
+			// if the code changed, the answer is about code that is gone.
+			if (unmounted || !script.value || script.value.code !== code) {
 				return;
 			}
 

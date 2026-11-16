@@ -923,6 +923,29 @@ describe("oper tools: commands (irc/commands/oper.ts)", function () {
 		expect(msg.report!.error).to.be.a("string").and.not.equal("");
 	});
 
+	it("/check on another server shows no empty card; its unlabeled answer shows raw", async function () {
+		const {client, transport} = setup();
+		const chan = client.findChannel("#seance")!;
+
+		dispatchInput(client, chan, "/check leaf.test bob");
+		expect(transport.sent).to.deep.equal(["@label=r1 CHECK leaf.test bob"]);
+
+		// The label is not forwarded: ACKed at once, the answer comes later.
+		transport.line(`@label=r1 :irc.test ACK`);
+		await flush();
+		expect(messages(chan.id)).to.deep.equal([]);
+
+		transport.lines(
+			":leaf.test 286 opr :Information for user bob",
+			":leaf.test 291 opr :End of CHECK"
+		);
+		await flush();
+		expect(messages(client.lobby.id).map((m) => m.text)).to.deep.equal([
+			"286 Information for user bob",
+			"291 End of CHECK",
+		]);
+	});
+
 	it("/privs shows the privileges as chips and keeps our own", async function () {
 		const {client, transport} = setup();
 		const chan = client.findChannel("#seance")!;

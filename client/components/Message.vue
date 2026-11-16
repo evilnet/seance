@@ -315,6 +315,19 @@ const LONG_PRESS_MS = 500;
 /** A finger that travels further than this is scrolling, not pressing. */
 const LONG_PRESS_SLOP_PX = 10;
 
+/**
+ * Cancels the long press pending on whichever message it began on. A second
+ * finger's touchstart goes to the row under that finger, usually another
+ * message, so that row cannot reach the press through its own state.
+ */
+let cancelPendingPress: (() => void) | null = null;
+
+/**
+ * Where a press is the element's own, never the toolbar's: a link's long
+ * press is its preview or its native menu, a button's (a nick) its own.
+ */
+const OWN_PRESS = "a, button, [role='button'], .msg-actions, .reaction-picker";
+
 // The moment a selection exists in the scrollback the toolbar stands down:
 // the selection was made from it (a second long press on the open message)
 // and now covers the text it floated over. Selectability survives the close
@@ -386,12 +399,23 @@ export default defineComponent({
 			}
 
 			pressStart = null;
+
+			if (cancelPendingPress === cancelPress) {
+				cancelPendingPress = null;
+			}
 		};
 
 		const onTouchStart = (e: TouchEvent) => {
+			// A second finger (a pinch) is no long press: the one pending
+			// on the first finger stands down, wherever it began.
+			if (e.touches.length !== 1) {
+				cancelPendingPress?.();
+				return;
+			}
+
 			// A finger, on any device: a touchscreen laptop's trackpad has
 			// the hover toolbar (helpers/inputModality.ts), its screen this.
-			if (e.touches.length !== 1 || !canAct.value) {
+			if (!canAct.value) {
 				return;
 			}
 
@@ -411,15 +435,17 @@ export default defineComponent({
 
 			const target = e.target as HTMLElement | null;
 
-			if (target?.closest("a, button, [role='button'], .msg-actions, .reaction-picker")) {
+			if (target?.closest(OWN_PRESS)) {
 				return;
 			}
 
 			const touch = e.touches[0];
 			pressStart = {x: touch.clientX, y: touch.clientY};
+			cancelPendingPress = cancelPress;
 			pressTimer = setTimeout(() => {
 				pressTimer = undefined;
 				pressStart = null;
+				cancelPendingPress = null;
 				swallowClick = true;
 				openActions.value = props.message.id;
 
@@ -430,6 +456,12 @@ export default defineComponent({
 
 		const onTouchMove = (e: TouchEvent) => {
 			if (!pressStart) {
+				return;
+			}
+
+			// Another finger joined, on this row or another (a pinch).
+			if (e.touches.length !== 1) {
+				cancelPress();
 				return;
 			}
 
@@ -464,6 +496,12 @@ export default defineComponent({
 			}
 
 			if (selectionActive.value || (actionsOpen.value && !swallowClick)) {
+				return;
+			}
+
+			// A long press on a link or a button was never ours (onTouchStart
+			// leaves it alone): its native menu, to open or copy the link, stays.
+			if ((e.target as HTMLElement | null)?.closest(OWN_PRESS)) {
 				return;
 			}
 

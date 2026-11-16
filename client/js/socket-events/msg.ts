@@ -360,6 +360,8 @@ function notifyMessage(
 							timestamp: timestamp,
 							silent: sound.silentNotification,
 						});
+						// Reading the conversation closes it (webpush.ts readOnWorker).
+						webpush.keepPageNotification(targetId, notify);
 						notify.addEventListener("click", function () {
 							this.close();
 							window.focus();

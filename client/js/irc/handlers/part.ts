@@ -7,6 +7,7 @@ import {MessageType} from "../../../../shared/types/msg";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {fromIgnored} from "../../ignore";
 
 const part: Handler = (client, msg) => {
 	const [name, reason = ""] = msg.params;
@@ -17,7 +18,7 @@ const part: Handler = (client, msg) => {
 		return;
 	}
 
-	if (!client.replaying) {
+	if (!client.replaying && !fromIgnored(client.uuid, msg.source, client.isSelf(nick))) {
 		scriptManager.dispatchPart({
 			network: client.name,
 			networkUuid: client.uuid,

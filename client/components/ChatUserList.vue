@@ -15,7 +15,7 @@
 				@keydown.down="navigateUserList($event, 1)"
 				@keydown.page-up="navigateUserList($event, -10)"
 				@keydown.page-down="navigateUserList($event, 10)"
-				@keydown.enter="selectUser"
+				@keydown.enter="onSearchEnter"
 			/>
 		</div>
 		<div class="names">
@@ -50,10 +50,11 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, nextTick, PropType, ref} from "vue";
+import {computed, defineComponent, nextTick, PropType, ref, watch} from "vue";
 import type {UserInMessage} from "../../shared/types/msg";
 import type {ClientChan, ClientUser} from "../js/types";
 import {fuzzyHtml} from "../js/helpers/fuzzyHtml";
+import {isImeComposing} from "../js/helpers/ime";
 import Username from "./Username.vue";
 import {useI18n} from "../js/i18n";
 
@@ -133,6 +134,17 @@ export default defineComponent({
 			};
 		});
 
+		// The list is not remounted when another channel opens in the same
+		// chat window, so the filter and the highlighted user belong to the
+		// channel they were typed in and go with it.
+		watch(
+			() => props.channel.id,
+			() => {
+				userSearchInput.value = "";
+				activeUser.value = null;
+			}
+		);
+
 		const setUserSearchInput = (e: Event) => {
 			userSearchInput.value = (e.target as HTMLInputElement).value;
 		};
@@ -179,6 +191,13 @@ export default defineComponent({
 			el.dispatchEvent(ev);
 		};
 
+		// The Return that commits an IME candidate is the composition's.
+		const onSearchEnter = (event: KeyboardEvent) => {
+			if (!isImeComposing(event)) {
+				selectUser();
+			}
+		};
+
 		const hoverUser = (user: UserInMessage) => {
 			activeUser.value = user;
 		};
@@ -214,8 +233,9 @@ export default defineComponent({
 				return;
 			}
 
+			// Down starts from the top, up (a negative step) from the bottom.
 			const abort = () => {
-				activeUser.value = direction ? users[0] : users[users.length - 1];
+				activeUser.value = direction > 0 ? users[0] : users[users.length - 1];
 				scrollToActiveUser();
 			};
 
@@ -262,6 +282,7 @@ export default defineComponent({
 			getModeClass,
 			modeLabel,
 			selectUser,
+			onSearchEnter,
 			hoverUser,
 			removeHoverUser,
 			navigateUserList,

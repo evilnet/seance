@@ -5,7 +5,8 @@
  * The file is the localStorage entries that hold preferences — the settings
  * object, the saved networks, sort orders, mutes, ignore lists, trusted media
  * hosts, recent reactions, command aliases, the per-channel translation state,
- * oper notice routing and snomask — wrapped in a small envelope and
+ * oper notice routing and snomask, do not disturb, the Lua scripts (restored
+ * switched off) and their data — wrapped in a small envelope and
  * gzipped with the
  * browser's own `CompressionStream` (no dependency; a plain-JSON file is
  * accepted too, the loader sniffs the gzip magic). Extension:
@@ -359,16 +360,82 @@ export function fileName(app: string, now: Date = new Date()): string {
 	return `${stem}-${now.toISOString().slice(0, 10)}${FILE_EXTENSION}`;
 }
 
+/**
+ * Why a backup file was refused. Stable identifiers on purpose: this module
+ * is Vue-free and carries no English copy — the render site
+ * (Settings/General.vue) translates the code into reader-visible wording.
+ */
+export type BackupFormatErrorCode =
+	| "not-settings"
+	| "newer-version"
+	| "damaged"
+	| "no-decompression"
+	/** Over {@link MAX_BACKUP_BYTES}, as a file or inflated. */
+	| "too-large";
+
+export class BackupFormatError extends Error {
+	readonly code: BackupFormatErrorCode;
+
+	constructor(code: BackupFormatErrorCode) {
+		super(code);
+		this.code = code;
+	}
+}
+
 const GZIP_MAGIC = [0x1f, 0x8b];
+
+/**
+ * The most a backup may weigh, both as the file chosen and as the JSON a
+ * gzipped one inflates to. Every entry comes from localStorage, which holds
+ * about 5M characters per origin (some 15 MB of UTF-8 if every character
+ * took three bytes), and a real file is a few kilobytes; a plain-JSON file
+ * is as big as its JSON. 32 MiB is far beyond any of that, while a small
+ * crafted gzip that inflates to gigabytes is stopped here, as it streams,
+ * before it fills the tab's memory.
+ */
+export const MAX_BACKUP_BYTES = 32 * 1024 * 1024;
 
 function isGzip(bytes: Uint8Array): boolean {
 	return bytes.length > 2 && bytes[0] === GZIP_MAGIC[0] && bytes[1] === GZIP_MAGIC[1];
 }
 
-async function pipe(bytes: Uint8Array, stream: GenericTransformStream): Promise<Uint8Array> {
-	const blob = new Blob([bytes as BlobPart]);
-	const out = await new Response(blob.stream().pipeThrough(stream)).arrayBuffer();
-	return new Uint8Array(out);
+/** Run `bytes` through `stream`; past `limit` bytes of output it stops and
+ * throws a {@link BackupFormatError} `too-large`. */
+async function pipe(
+	bytes: Uint8Array,
+	stream: GenericTransformStream,
+	limit: number = Infinity
+): Promise<Uint8Array> {
+	const reader = new Blob([bytes as BlobPart]).stream().pipeThrough(stream).getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+
+	for (;;) {
+		const {done, value} = await reader.read();
+
+		if (done) {
+			break;
+		}
+
+		total += value.byteLength;
+
+		if (total > limit) {
+			await reader.cancel().catch(() => undefined);
+			throw new BackupFormatError("too-large");
+		}
+
+		chunks.push(value);
+	}
+
+	const out = new Uint8Array(total);
+	let at = 0;
+
+	for (const chunk of chunks) {
+		out.set(chunk, at);
+		at += chunk.byteLength;
+	}
+
+	return out;
 }
 
 /** Serialise the envelope: gzipped JSON, or plain JSON where the browser cannot gzip. */
@@ -380,26 +447,6 @@ export async function encodeBackup(backup: SettingsBackup): Promise<Uint8Array> 
 	}
 
 	return pipe(json, new CompressionStream("gzip"));
-}
-
-/**
- * Why a backup file was refused. Stable identifiers on purpose: this module
- * is Vue-free and carries no English copy — the render site
- * (Settings/General.vue) translates the code into reader-visible wording.
- */
-export type BackupFormatErrorCode =
-	| "not-settings"
-	| "newer-version"
-	| "damaged"
-	| "no-decompression";
-
-export class BackupFormatError extends Error {
-	readonly code: BackupFormatErrorCode;
-
-	constructor(code: BackupFormatErrorCode) {
-		super(code);
-		this.code = code;
-	}
 }
 
 function validate(value: unknown): SettingsBackup {
@@ -431,9 +478,17 @@ function validate(value: unknown): SettingsBackup {
 	};
 }
 
-/** Parse a file made by {@link encodeBackup}; throws {@link BackupFormatError}. */
-export async function decodeBackup(bytes: Uint8Array): Promise<SettingsBackup> {
+/** Parse a file made by {@link encodeBackup}; throws {@link BackupFormatError}.
+ * `limit` is {@link MAX_BACKUP_BYTES} but for tests. */
+export async function decodeBackup(
+	bytes: Uint8Array,
+	limit: number = MAX_BACKUP_BYTES
+): Promise<SettingsBackup> {
 	let json = bytes;
+
+	if (bytes.byteLength > limit) {
+		throw new BackupFormatError("too-large");
+	}
 
 	if (isGzip(bytes)) {
 		if (typeof DecompressionStream === "undefined") {
@@ -441,9 +496,9 @@ export async function decodeBackup(bytes: Uint8Array): Promise<SettingsBackup> {
 		}
 
 		try {
-			json = await pipe(bytes, new DecompressionStream("gzip"));
+			json = await pipe(bytes, new DecompressionStream("gzip"), limit);
 		} catch (e) {
-			throw new BackupFormatError("damaged");
+			throw e instanceof BackupFormatError ? e : new BackupFormatError("damaged");
 		}
 	}
 

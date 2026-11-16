@@ -18,6 +18,7 @@ import {AUTHTOKEN_BATCH} from "../authtoken";
 import {MULTILINE_CAP, multilineBatch} from "../multiline";
 import {BOUNCER_REPLAY_BATCH, bouncerReplayBatch, persistenceBatch} from "../persistence";
 import {labeledBatch} from "../request";
+import {isErrorNumeric} from "../errors";
 import type {Handler} from "../types";
 import account from "./account";
 import away from "./away";
@@ -117,7 +118,9 @@ for (const mod of modules) {
 
 /** Fallback for anything without a handler. */
 export const unhandled: Handler = (client, msg) => {
-	if (/^[45]\d\d$/.test(msg.command)) {
+	// Not every 4xx/5xx is an error: ircu puts some lists there (the oper
+	// MOTD, STATS rows), which show as any other unhandled reply.
+	if (isErrorNumeric(msg.command)) {
 		numericError(client, msg);
 		return;
 	}

@@ -126,6 +126,14 @@ function drain(kind: ListKind, client: IrcClient, channel: string): RawEntry[] {
 	return entries;
 }
 
+/**
+ * The socket closed: a list it cut off before its end numeric never ends, and
+ * its rows would show again in the next list asked for that channel.
+ */
+export function resetModeLists(client: IrcClient): void {
+	buffers.delete(client);
+}
+
 /** End numeric `<me> <channel> :End of ...`: publish the buffered list. */
 function finish(kind: ListKind, client: IrcClient, msg: IrcMessage): void {
 	const channel = msg.params[1];

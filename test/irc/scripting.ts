@@ -10,6 +10,7 @@ import {
 	MAX_DATA_LENGTH,
 	MAX_LIBRARY_LENGTH,
 	MAX_TOTAL_DATA_LENGTH,
+	MAX_SCRIPTS,
 	deleteScript,
 	isValidScriptName,
 	loadScriptData,
@@ -37,7 +38,8 @@ import {
 	scriptingDisabledError,
 } from "../../client/js/irc/scripting/manager";
 import {IRCU_FAKE_LAG} from "../../client/js/irc/fakelag";
-import {register, setup} from "./support";
+import {joined, register, setup} from "./support";
+import {ignoreListFor} from "../../client/js/ignore";
 import {isScriptingEnabled, setScriptingEnabled} from "../../client/js/irc/scripting/enabled";
 import {
 	importedScriptName,
@@ -188,6 +190,28 @@ describe("Lua scripting subsystem", function () {
 
 			expect(() => saveScripts(list)).to.throw(ScriptStorageError, /together/);
 			expect(store.has(STORAGE_KEY)).to.be.false;
+		});
+
+		it("refuses a script past the cap instead of storing one the next load drops", function () {
+			const script = (i: number): Script => ({
+				id: `s${i}`,
+				name: `s${i}`,
+				folder: "Unsorted",
+				code: "",
+				enabled: true,
+			});
+			saveScripts(Array.from({length: MAX_SCRIPTS}, (_, i) => script(i)));
+			const stored = store.get(STORAGE_KEY);
+
+			expect(() => saveScript(script(MAX_SCRIPTS))).to.throw(
+				ScriptStorageError,
+				/at most 50 scripts/
+			);
+			expect(store.get(STORAGE_KEY)).to.equal(stored);
+			// One already there is still saved.
+			saveScript({...script(0), code: "-- edited"});
+			expect(loadScripts()).to.have.lengthOf(MAX_SCRIPTS);
+			expect(loadScripts()[0].code).to.equal("-- edited");
 		});
 
 		it("still loads a script saved under the old, larger limit", function () {
@@ -375,6 +399,24 @@ describe("Lua scripting subsystem", function () {
 			expect(sandbox.eval(`return #("ab"):rep(3, ",")`).result).to.equal("8");
 		});
 
+		it("caps string.rep's count when the string and separator are empty", function () {
+			const started = Date.now();
+
+			for (const call of [
+				`string.rep, "", math.maxinteger`,
+				`string.rep, "", ${MAX_REP_LENGTH + 1}, ""`,
+				`string.rep, "", 1e300`,
+			]) {
+				const res = sandbox.eval(`return pcall(${call})`);
+				expect(res.result, call).to.include("false").and.include("too large");
+			}
+
+			expect(Date.now() - started).to.be.lessThan(500);
+			expect(
+				sandbox.eval(`return #string.rep("", 1000), #string.rep("x", 0)`).result
+			).to.equal("0  0");
+		});
+
 		it("aborts infinite loops with instruction count hook", function () {
 			this.timeout(5000);
 			const res = sandbox.eval("while true do end");
@@ -482,6 +524,39 @@ describe("Lua scripting subsystem", function () {
 			expect(sandbox.eval(`return table.concat({"a", "b"}, ",")`, "B").result).to.equal(
 				"a,b"
 			);
+		});
+
+		it("hands no script the shared library tables, through pairs or a string's metatable", function () {
+			const res = sandbox.eval(
+				`
+				-- pairs walks the library, and the view holds nothing itself.
+				local count = 0
+				for k, v in pairs(math) do
+					count = count + 1
+					assert(math[k] == v, k)
+				end
+				assert(count > 10 and rawget(string, "upper") == nil)
+				-- Whatever pairs hands out as its state is written to.
+				local function evil() return "evil" end
+				for name, lib in next, {string = string, table = table, math = math} do
+					local _, state = pairs(lib)
+					if type(state) == "table" then
+						rawset(state, name == "table" and "concat" or "upper", evil)
+						rawset(state, "abs", evil)
+					end
+				end
+				assert(getmetatable("") == false)
+				assert(not pcall(function() getmetatable("").__index.upper = evil end))
+				return ("a"):upper()
+			`,
+				"A"
+			);
+			expect(res.result, res.error).to.equal("A");
+			const other = sandbox.eval(
+				`return string.upper("a"), ("a"):upper(), table.concat({"a", "b"}, ","), math.abs(-1)`,
+				"B"
+			);
+			expect(other.result, other.error).to.equal("A  A  a,b  1");
 		});
 
 		it("hands every handler its own copy of the event", function () {
@@ -636,6 +711,27 @@ describe("Lua scripting subsystem", function () {
 			expect(handled).to.be.true;
 			expect(sentLines).to.have.lengthOf(1);
 			expect(sentLines[0].line).to.equal("PRIVMSG #seance :*waves at bob*");
+		});
+
+		it("keeps the /slap example from messaging a network's lobby", async function () {
+			// In a lobby the open conversation is called after the network.
+			let context = {channel: "SeanceDev", network: "SeanceDev", nick: "tester"};
+			sandbox.close();
+			sandbox = await LuaSandbox.create({...mockHost, getCurrentContext: () => context});
+			const res = sandbox.eval(scriptTemplate("slap", []).code, "slap");
+			expect(res.success, res.error).to.be.true;
+
+			expect(sandbox.runCommand("slap", ["bob"], "bob")).to.be.true;
+			expect(sentLines).to.deep.equal([]);
+			expect(printedLines).to.deep.equal([
+				"/slap works in a channel or a private conversation.",
+			]);
+
+			context = {...context, channel: "#seance"};
+			sandbox.runCommand("slap", ["bob"], "bob");
+			expect(sentLines.map((s) => s.line)).to.deep.equal([
+				"PRIVMSG #seance :\x01ACTION slaps bob with a large trout\x01",
+			]);
 		});
 
 		it("provides read-only context properties", function () {
@@ -838,6 +934,7 @@ describe("Lua scripting subsystem", function () {
 				print: (text) => void printed.push(text),
 				clientFor: (uuid) =>
 					uuid === undefined || uuid === h.client.uuid ? h.client : undefined,
+				clients: () => [h.client],
 			});
 			return h;
 		}
@@ -902,6 +999,44 @@ describe("Lua scripting subsystem", function () {
 			expect(h.sent()).to.deep.equal(["PRIVMSG bob :pong"]);
 		});
 
+		it("answers a table that names only its network on that network", function () {
+			const h = connected();
+			const other = setup();
+			register(other);
+			other.client.setNetworkName("OtherNet");
+			setContextProvider({
+				getContext: () => ({channel: "#seance", network: h.client.name, nick: "alice"}),
+				print: (text) => void printed.push(text),
+				clientFor: (uuid) =>
+					uuid === undefined || uuid === h.client.uuid
+						? h.client
+						: uuid === other.client.uuid
+						? other.client
+						: undefined,
+				clients: () => [h.client, other.client],
+			});
+			const msg: ScriptMessageEvent = {
+				network: "othernet",
+				networkUuid: "",
+				target: "#elsewhere",
+				from: "bob",
+				text: "",
+				type: "message",
+				self: false,
+			};
+
+			scriptManager.reply(msg, "hi");
+			scriptManager.reply({...msg, network: "NoSuchNet"}, "lost");
+			clock.tick(30_000);
+			expect(other.sent()).to.deep.equal(["PRIVMSG #elsewhere :hi"]);
+			expect(h.sent()).to.deep.equal([]);
+
+			// Neither field: the open network, as before.
+			scriptManager.reply({...msg, network: ""}, "here");
+			clock.tick(30_000);
+			expect(h.sent()).to.deep.equal(["PRIVMSG #elsewhere :here"]);
+		});
+
 		it("drops a line for a network that is not there", function () {
 			const h = connected();
 			scriptManager.send("PRIVMSG #seance :hi", "no-such-network");
@@ -935,6 +1070,100 @@ describe("Lua scripting subsystem", function () {
 			const sent = h.sent().filter((l) => l === "PRIVMSG #seance :pong");
 			expect(sent.length).to.be.at.most(MAX_QUEUED_LINES + 3);
 			expect(sent.length).to.be.lessThan(MAX_QUEUED_LINES + 5);
+		});
+	});
+
+	describe("what reaches scripts (irc/handlers → manager.ts)", function () {
+		const kinds = ["Join", "Part", "Quit", "Kick", "Nick", "Topic", "Mode"] as const;
+		let spies: Record<(typeof kinds)[number], sinon.SinonSpy>;
+
+		beforeEach(function () {
+			spies = Object.fromEntries(
+				kinds.map((kind) => [kind, sinon.spy(scriptManager, `dispatch${kind}`)])
+			) as typeof spies;
+		});
+
+		afterEach(function () {
+			for (const spy of Object.values(spies)) {
+				spy.restore();
+			}
+		});
+
+		const counts = () => kinds.map((kind) => `${kind} ${spies[kind].callCount}`);
+
+		/** Connected and in #seance (alice, bob, carol), our own JOIN forgotten. */
+		const inChannel = () => {
+			const h = setup();
+			joined(h);
+			Object.values(spies).forEach((spy) => spy.resetHistory());
+			return h;
+		};
+
+		it("hears nothing from a user on the ignore list, and the rest as before", function () {
+			const h = inChannel();
+			const ignored = ignoreListFor(h.client.uuid);
+			ignored.add("bob!*@*");
+			ignored.add("dave!*@*");
+			// A mask that covers our own host too: our lines still count.
+			ignored.add("*!*@host.example");
+			h.transport.lines(
+				":bob!b@host TOPIC #seance :spam",
+				":bob!b@host MODE #seance +v carol",
+				":bob!b@host KICK #seance carol :bye",
+				":dave!d@host JOIN #seance",
+				":dave!d@host PART #seance",
+				":dave!d@host JOIN #seance",
+				":dave!d@host NICK dave2",
+				":dave2!d@host QUIT :gone",
+				":bob!b@host NICK bobby"
+			);
+			// The nick changes: "dave2" and "bobby" are no longer on the list.
+			expect(counts()).to.deep.equal([
+				"Join 0",
+				"Part 0",
+				"Quit 1",
+				"Kick 0",
+				"Nick 0",
+				"Topic 0",
+				"Mode 0",
+			]);
+
+			h.transport.lines(
+				":alice!alice@host.example TOPIC #seance :mine",
+				":erin!e@host JOIN #seance",
+				":erin!e@host MODE #seance +v erin",
+				":erin!e@host KICK #seance bobby :x",
+				":erin!e@host NICK erin2",
+				":erin2!e@host PART #seance"
+			);
+			expect(counts()).to.deep.equal([
+				"Join 1",
+				"Part 1",
+				"Quit 1",
+				"Kick 1",
+				"Nick 1",
+				"Topic 1",
+				"Mode 1",
+			]);
+		});
+
+		it("fires join and mode only for a channel we are in, or for us", function () {
+			const h = inChannel();
+			h.transport.lines(
+				":bob!b@host JOIN #elsewhere",
+				":bob!b@host MODE #elsewhere +o carol"
+			);
+			expect(spies.Join.called).to.be.false;
+			expect(spies.Mode.called).to.be.false;
+
+			h.transport.lines(
+				":bob!b@host MODE #seance +o carol",
+				":alice MODE alice :+i",
+				":alice!alice@host.example JOIN #new"
+			);
+			expect(spies.Mode.callCount).to.equal(2);
+			expect(spies.Join.callCount).to.equal(1);
+			expect(spies.Join.firstCall.args[0]).to.include({channel: "#new", self: true});
 		});
 	});
 

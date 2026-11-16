@@ -36,7 +36,8 @@ export type Style = Pick<
 // (VNodes, plain text) walks this, so the rendering decision is made once and
 // can be asserted without a browser.
 export type LayoutNode =
-	| {kind: "text"; text: string; style: Style}
+	// `cellPipe`: a pipe a table cell holds (typed `\|`), not a cell boundary
+	| {kind: "text"; text: string; style: Style; cellPipe?: true}
 	| {kind: "link"; link: string; children: LayoutNode[]}
 	| {kind: "channel"; channel: string; children: LayoutNode[]}
 	| {kind: "emoji"; emoji: string; children: LayoutNode[]}
@@ -76,6 +77,9 @@ type WrapKey = (typeof WRAP_KEYS)[number];
 // `verdict` rides along on an href: the whole link's, judged once.
 type Wrap = Partial<Record<WrapKey, boolean | string | number>> & {
 	codeId?: number;
+	// Which TeX span: the wrap's value is the TeX, so two identical spans
+	// side by side would otherwise read as one formula
+	mathId?: number;
 	lang?: string;
 	file?: string;
 	verdict?: LinkVerdict;
@@ -475,7 +479,9 @@ function textNode(fragment: ParsedStyle): LayoutNode {
 		style.hexBgColor = fragment.hexBgColor;
 	}
 
-	return {kind: "text", text: fragment.text, style};
+	return fragment.cellPipe
+		? {kind: "text", text: fragment.text, style, cellPipe: true}
+		: {kind: "text", text: fragment.text, style};
 }
 
 function wrapOf(fragment: ParsedStyle | undefined): Wrap {
@@ -495,6 +501,10 @@ function wrapOf(fragment: ParsedStyle | undefined): Wrap {
 		wrap.codeId = fragment.codeId;
 	}
 
+	if ((fragment.math || fragment.mathBlock) && fragment.mathId !== undefined) {
+		wrap.mathId = fragment.mathId;
+	}
+
 	if (fragment.codeBlock && fragment.lang) {
 		wrap.lang = fragment.lang;
 	}
@@ -510,6 +520,7 @@ function sameWrap(a: Wrap, b: Wrap) {
 	return (
 		WRAP_KEYS.every((key) => a[key] === b[key]) &&
 		a.codeId === b.codeId &&
+		a.mathId === b.mathId &&
 		a.lang === b.lang &&
 		a.file === b.file
 	);
@@ -575,6 +586,8 @@ function groupNodes(nodes: WrappedNodes[], level = 0): LayoutNode[] {
 		const codeId = key === "codeBlock" ? wrap.codeId : undefined;
 		const lang = key === "codeBlock" ? wrap.lang : undefined;
 		const file = key === "codeBlock" ? wrap.file : undefined;
+		// Nor a TeX span past its own markers: the same formula twice is two
+		const math = key === "math" || key === "mathBlock";
 		let j = i + 1;
 
 		while (
@@ -583,7 +596,8 @@ function groupNodes(nodes: WrappedNodes[], level = 0): LayoutNode[] {
 			(key !== "codeBlock" ||
 				(nodes[j].wrap.codeId === codeId &&
 					nodes[j].wrap.lang === lang &&
-					nodes[j].wrap.file === file))
+					nodes[j].wrap.file === file)) &&
+			(!math || nodes[j].wrap.mathId === wrap.mathId)
 		) {
 			j += 1;
 		}

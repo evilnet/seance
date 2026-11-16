@@ -596,6 +596,20 @@ describe("irc commands", function () {
 			expect(lastMessage(1).showInActive).to.equal(true);
 		});
 
+		it("shows a reply in the error range as a reply, not an error", function () {
+			const h = setup();
+			joined(h);
+			// ircu's oper MOTD (536 RPL_OMOTD), unlabelled.
+			h.transport.line(":irc.test 536 alice :- Be nice");
+			expect(lastMessage(1).type).to.equal(MessageType.UNHANDLED);
+			expect(lastMessage(1).text).to.equal("536 - Be nice");
+			expect(lastMessage(1).error).to.equal(undefined);
+
+			h.transport.line(":irc.test 599 alice :Something went wrong");
+			expect(lastMessage(1).type).to.equal(MessageType.ERROR);
+			expect(lastMessage(1).error).to.equal("err_599");
+		});
+
 		it("confirms /away and /back where the user is", function () {
 			const h = setup();
 			const id = joined(h);
@@ -1006,6 +1020,63 @@ describe("irc commands", function () {
 		});
 	});
 
+	describe("/query and /say", function () {
+		it("shows an open window again instead of doing nothing", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/query bob");
+			const [join] = payloads<{chan: SharedNetworkChan}>("join");
+
+			h.client.input(id, "/query BOB");
+			expect(payloads("join")).to.have.length(1);
+			expect(payloads("msg:special")).to.deep.equal([{chan: join.chan.id, data: undefined}]);
+
+			// The lobby is named after the network: its name shows it too.
+			h.client.input(id, `/query ${h.client.lobby.name}`);
+			expect(payloads<{chan: number}>("msg:special")[1].chan).to.equal(h.client.lobby.id);
+			expect(h.sentAfter()).to.deep.equal([]);
+		});
+
+		it("refuses an open channel's name and sends it nothing", function () {
+			const h = setup();
+			joined(h);
+			h.client.input(1, "/query #seance hi");
+			expect(h.sentAfter()).to.deep.equal([]);
+			expect(payloads("msg:special")).to.have.length(0);
+			expect(lastMessage(1).text).to.equal(
+				"You can not open query windows for channels, use /join instead."
+			);
+		});
+
+		it("refuses /say in the lobby", function () {
+			const h = setup();
+			joined(h);
+			h.client.input(1, "/say hi");
+			expect(h.sentAfter()).to.deep.equal([]);
+			expect(lastMessage(1).type).to.equal(MessageType.ERROR);
+			expect(lastMessage(1).text).to.equal("Messages can not be sent to lobbies.");
+		});
+
+		it("refuses /say and plain text in a special window", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/ignore troll");
+			h.client.input(id, "/ignorelist");
+			const special = h.client.findChannel("Ignored users")!;
+			expect(special.type).to.equal(ChanType.SPECIAL);
+			h.sentAfter();
+
+			h.client.input(special.id, "hi");
+			h.client.input(special.id, "/say hi");
+			expect(h.sentAfter()).to.deep.equal([]);
+			const errors = messages(special.id).filter((m) => m.type === MessageType.ERROR);
+			expect(errors.map((m) => m.text)).to.deep.equal([
+				"say command can only be used in channels and queries.",
+				"say command can only be used in channels and queries.",
+			]);
+		});
+	});
+
 	describe("/mute and /unmute", function () {
 		it("flags the current or named channels through the mute hook", function () {
 			const setMuteStatus = sinon.spy();
@@ -1070,6 +1141,15 @@ describe("irc commands", function () {
 			expect(h2.transport.closeCalls).to.have.length(1);
 		});
 
+		it("keeps a long reason that starts with spaces instead of quitting with none", function () {
+			const h = setup();
+			joined(h);
+			h.client.disconnect("  " + "a".repeat(600));
+			const [quit] = h.sentAfter();
+			expect(quit).to.match(/^QUIT : {2}a+$/);
+			expect(new TextEncoder().encode(quit).length).to.equal(500);
+		});
+
 		it("reconnects the current network with no arguments", function () {
 			const h = setup();
 			const id = joined(h);
@@ -1092,37 +1172,15 @@ describe("irc commands", function () {
 			h.client.input(id, "/connect irc.other +7443");
 			h.client.input(id, "/server irc.plain 8067");
 			h.client.input(id, "/server irc.default");
+			h.client.input(id, "/server irc.secure +");
+			// No join or SASL fields: the manager lays the options over a
+			// saved entry for the same server and nick, which keeps its own.
 			expect(created).to.deep.equal([
-				{
-					host: "irc.other",
-					port: 7443,
-					tls: true,
-					nick: "alice",
-					join: "",
-					sasl: "",
-					saslAccount: "",
-					saslPassword: "",
-				},
-				{
-					host: "irc.plain",
-					port: 8067,
-					tls: false,
-					nick: "alice",
-					join: "",
-					sasl: "",
-					saslAccount: "",
-					saslPassword: "",
-				},
-				{
-					host: "irc.default",
-					port: 8067,
-					tls: false,
-					nick: "alice",
-					join: "",
-					sasl: "",
-					saslAccount: "",
-					saslPassword: "",
-				},
+				{host: "irc.other", port: 7443, tls: true, nick: "alice"},
+				{host: "irc.plain", port: 8067, tls: false, nick: "alice"},
+				{host: "irc.default", port: 8067, tls: false, nick: "alice"},
+				// The connect screen's suggested wss:// port (saved-networks defaultPort).
+				{host: "irc.secure", port: 9998, tls: true, nick: "alice"},
 			]);
 			expect(h.sentAfter()).to.deep.equal([]);
 		});

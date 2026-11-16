@@ -19,6 +19,7 @@ import type {ChannelTranslation} from "./translate/channelStore";
 import type {Device, EngineName} from "./translate/engine";
 import type {JumpTarget} from "./helpers/jumpToMessage";
 import {conversationKey} from "./helpers/inbox";
+import {channelByName} from "./helpers/channelByName";
 
 enum DesktopNotificationState {
 	Unsupported = "unsupported",
@@ -253,10 +254,8 @@ export type CallableGetters = {
 };
 
 const getters: Getters = {
-	findChannelOnCurrentNetwork: (state) => (name: string) => {
-		name = name.toLowerCase();
-		return state.activeChannel?.network.channels.find((c) => c.name.toLowerCase() === name);
-	},
+	findChannelOnCurrentNetwork: (state) => (name: string) =>
+		state.activeChannel ? channelByName(state.activeChannel.network, name) : undefined,
 	findChannelOnNetwork: (state) => (networkUuid: string, channelName: string) => {
 		for (const network of state.networks) {
 			if (network.uuid !== networkUuid) {
@@ -404,10 +403,12 @@ const mutations: Mutations = {
 	},
 	removeNetwork(state, networkId) {
 		state.mentions = state.mentions.filter((e) => e.network !== networkId);
-		state.networks.splice(
-			state.networks.findIndex((n) => n.uuid === networkId),
-			1
-		);
+		const index = state.networks.findIndex((n) => n.uuid === networkId);
+
+		// `splice(-1, 1)` would take the last network instead.
+		if (index !== -1) {
+			state.networks.splice(index, 1);
+		}
 	},
 	sortNetworks(state, sortFn) {
 		state.networks.sort(sortFn);

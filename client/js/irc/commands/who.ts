@@ -10,7 +10,7 @@
 
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
-import {beginWho, WHOX_FIELDS} from "../handlers/who";
+import {beginWho, dropWho, WHOX_FIELDS} from "../handlers/who";
 import {formatLine} from "../message";
 import {t} from "../../i18n/core";
 import type {Command} from "../types";
@@ -59,13 +59,17 @@ const who: Command = {
 			}
 		}
 
-		beginWho(client, {
+		const query = beginWho(client, {
 			target,
 			chan: client.findChannel(target) ?? chan,
 			token,
 			custom: custom || undefined,
 		});
-		client.send(formatLine({command: "WHO", params}));
+
+		// Refused (not connected, and said so): nothing will answer it.
+		if (!client.send(formatLine({command: "WHO", params}))) {
+			dropWho(client, query);
+		}
 	},
 };
 

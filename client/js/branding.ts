@@ -368,11 +368,14 @@ export function expandNick(nick: string, random: () => number = Math.random): st
 /**
  * The nick a signed-in user gets: their account name with everything a nick
  * may not contain removed (services allow spaces and dots that IRC does
- * not). Falls back to `fallback` — the deploy's guest pattern — when nothing
- * usable is left, so a connection is never attempted with an empty nick.
+ * not), and the digits and `-` a nick may not start with dropped from its
+ * front: the server refuses `1alice` (432) and the saved nick would be
+ * refused at every connect. Falls back to `fallback` — the deploy's guest
+ * pattern — when nothing usable is left, so a connection is never attempted
+ * with an empty nick.
  */
 export function nickFromAccount(account: string, fallback: string): string {
-	const nick = account.replace(/[^A-Za-z0-9[\]\\`_^{|}-]/g, "");
+	const nick = account.replace(/[^A-Za-z0-9[\]\\`_^{|}-]/g, "").replace(/^[0-9-]+/, "");
 	return nick.length > 0 ? nick : fallback;
 }
 

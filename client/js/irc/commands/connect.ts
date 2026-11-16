@@ -8,12 +8,8 @@
 import {MessageType} from "../../../../shared/types/msg";
 import socket from "../../socket";
 import {t} from "../../i18n/core";
+import {defaultPort} from "../saved-networks";
 import type {Command, ConnectOptions} from "../types";
-
-/** nefarious2's WebSocket ports: 8443 for wss://, 8067 for ws://. */
-function defaultPort(tls: boolean): number {
-	return tls ? 8443 : 8067;
-}
 
 const connect: Command = {
 	commands: ["connect", "server"],
@@ -40,15 +36,15 @@ const connect: Command = {
 		}
 
 		const port = /^\d+$/.test(portArg) ? parseInt(portArg, 10) : defaultPort(tls);
-		const options: ConnectOptions = {
+		// Only what the command says. The manager lays these over a saved
+		// entry for the same server and nick (saved-networks mergeOptions),
+		// where an empty join or SASL field would wipe the entry's channels
+		// and login; a network never saved gets them empty (normalize).
+		const options: Pick<ConnectOptions, "host" | "port" | "tls" | "nick"> = {
 			host: args[0],
 			port,
 			tls,
 			nick: client.nick,
-			join: "",
-			sasl: "",
-			saslAccount: "",
-			saslPassword: "",
 		};
 
 		socket.emit("network:new", options);

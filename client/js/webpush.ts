@@ -1858,6 +1858,8 @@ function readOnWorker(uuid: string, channel: ClientChan, echo = false): void {
 		return;
 	}
 
+	closePageNotifications(uuid, channel);
+
 	const send = (ts?: string) =>
 		void pushWorkerFor(uuid).then((worker) => worker?.postMessage({type: "read", target, ts}));
 
@@ -1876,6 +1878,56 @@ function readOnWorker(uuid: string, channel: ClientChan, echo = false): void {
 		const ts = new Date(time).toISOString();
 		again(`read ${uuid} ${target}`, AGAIN_AFTER_MS, () => send(ts));
 	}
+}
+
+/** The `new Notification`s this page showed where no worker serves it
+ * (socket-events/msg.ts), by channel id. */
+const pageNotifications = new Map<number, Notification>();
+
+/** Keep a `new Notification` the page showed for a channel, so that reading
+ * the channel closes it. */
+function keepPageNotification(chanId: number, notification: Notification): void {
+	pageNotifications.set(chanId, notification);
+	notification.addEventListener("close", () => {
+		if (pageNotifications.get(chanId) === notification) {
+			pageNotifications.delete(chanId);
+		}
+	});
+}
+
+/** The page's notifications for a conversation that no push worker holds —
+ * a network this device takes no push on, an INVITE, a line without a
+ * msgid: the root worker's `chan-<id>` ones (service-worker.js
+ * `showPageNotification`, which names the network and target in `data`),
+ * or the page's own `new Notification` where there is no worker. No read
+ * push ever follows them, so reading the conversation is what closes them. */
+function closePageNotifications(uuid: string, channel: ClientChan): void {
+	pageNotifications.get(channel.id)?.close();
+	pageNotifications.delete(channel.id);
+
+	if (!store.state.hasServiceWorker) {
+		return;
+	}
+
+	const target = channel.name.toLowerCase();
+
+	void navigator.serviceWorker.ready
+		.then((registration) => registration.getNotifications())
+		.then((notifications) => {
+			for (const n of notifications) {
+				const data = n.data as {network?: unknown; target?: unknown} | null;
+
+				if (
+					n.tag.startsWith("chan-") &&
+					data?.network === uuid &&
+					typeof data.target === "string" &&
+					data.target.toLowerCase() === target
+				) {
+					n.close();
+				}
+			}
+		})
+		.catch(() => undefined);
 }
 
 /** A push for a message the page took on `uuid` is showing quietly on its
@@ -2238,6 +2290,7 @@ export default {
 	networkPushInfo,
 	notifyOn,
 	pushWorkerFor,
+	keepPageNotification,
 	recordSeenOnShell,
 	tidySoon,
 	pushPrompt,

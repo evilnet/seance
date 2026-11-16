@@ -36,15 +36,32 @@ describe("showNativeAlert", function () {
 	};
 
 	// Set and removed inside the test: mocha's leak check runs between hooks.
-	async function onAndroid(permission: string) {
+	// A shown alert resolves as the shells do: null on Android (Tauri's
+	// `invoke.resolve()`), `{}` from LocalNotifications.
+	async function onShell(platform: string, permission: string, refuse?: string) {
 		const calls: string[] = [];
 		g.window = {
 			seanceShell: {
-				platform: "android",
+				platform,
 				listen() {},
 				call(plugin: string, method: string) {
 					calls.push(`${plugin}.${method}`);
-					return Promise.resolve(method === "askPermission" ? {permission} : {});
+
+					if (method === refuse) {
+						return Promise.reject(
+							Object.assign(new Error("refused"), {code: "failed"})
+						);
+					}
+
+					if (method === "askPermission") {
+						return Promise.resolve({permission});
+					}
+
+					if (method === "checkPermissions") {
+						return Promise.resolve({display: permission});
+					}
+
+					return Promise.resolve(platform === "android" ? null : {});
 				},
 			},
 		};
@@ -55,6 +72,9 @@ describe("showNativeAlert", function () {
 			delete g.window;
 		}
 	}
+
+	const onAndroid = (permission: string, refuse?: string) =>
+		onShell("android", permission, refuse);
 
 	it("says it showed the alert when the permission is granted", async function () {
 		expect(await onAndroid("granted")).to.deep.equal({
@@ -68,6 +88,26 @@ describe("showNativeAlert", function () {
 			expect(await onAndroid(permission)).to.deep.equal({
 				shown: false,
 				calls: ["NativePush.askPermission"],
+			});
+		}
+	});
+
+	it("says it did not when the push service refuses the alert, so the page can ping", async function () {
+		expect(await onAndroid("granted", "show")).to.deep.equal({
+			shown: false,
+			calls: ["NativePush.askPermission", "NativePush.show"],
+		});
+	});
+
+	it("tells a scheduled alert from a refused one on iOS and macOS", async function () {
+		for (const platform of ["ios", "macos"]) {
+			expect(await onShell(platform, "granted")).to.deep.equal({
+				shown: true,
+				calls: ["LocalNotifications.checkPermissions", "LocalNotifications.schedule"],
+			});
+			expect(await onShell(platform, "granted", "schedule")).to.deep.equal({
+				shown: false,
+				calls: ["LocalNotifications.checkPermissions", "LocalNotifications.schedule"],
 			});
 		}
 	});

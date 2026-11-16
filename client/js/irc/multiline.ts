@@ -28,7 +28,14 @@ import {
 	MAX_LINE_BYTES,
 	utf8ByteLength,
 } from "./message";
-import {armPending, pendingLabel, PendingMessage, settlePending, showPending} from "./pending";
+import {
+	armPending,
+	disarmPending,
+	pendingLabel,
+	PendingMessage,
+	settlePending,
+	showPending,
+} from "./pending";
 import {ClientTags, editTagOf, REPLY_TAG, trailingLine} from "./wire";
 
 /** The capability name, whose CAP 302 value carries the limits. */
@@ -236,11 +243,11 @@ export const multilineBatch: BatchHandler = (client, batch) => {
 
 	// Our own batch coming back live is the server saying it took it, so the
 	// next one of the message may go out (a nested batch is history, not an
-	// echo).
+	// echo). The opener's label says which batch of ours it is.
 	const from = batch.messages[0].source;
 
 	if (!batch.parent && from && client.isSelf(from.name)) {
-		multilineAccepted(client);
+		multilineAccepted(client, batch.tags.get("label"));
 	}
 
 	const prefix = joined.source ? `:${joined.source} ` : "";
@@ -789,9 +796,21 @@ function settle(client: IrcClient): SentBatch | null {
 /**
  * Our own batch came back, so the server took it: the next one may go out.
  * Called from {@link multilineBatch} for a live echo of ours — a nested batch
- * is history, not an echo.
+ * is history, not an echo — with the `label` on its opener.
  */
-export function multilineAccepted(client: IrcClient): void {
+export function multilineAccepted(client: IrcClient, label?: string): void {
+	const expected = queueOf(client).inFlight?.label;
+
+	// A batch that went out labelled (`labeled-response`) is answered by the
+	// echo carrying that label. A batch from our nick without it is the same
+	// account speaking on another device, and taking it for ours would turn
+	// the server's cooldown for ours into a failure. A server that drops the
+	// label leaves ours to the verdict timeout. Without the cap, the nick is
+	// all there is to go on.
+	if (expected !== undefined && label !== expected) {
+		return;
+	}
+
 	const batch = settle(client);
 
 	if (batch) {
@@ -854,6 +873,13 @@ export function multilineCooldown(client: IrcClient, seconds: number): boolean {
 		// not going out.
 		dropBatches(client);
 		return false;
+	}
+
+	// The copy's wait for the server starts again when the batch goes out:
+	// a cooldown can outlast it, and the batch would be reported not sent
+	// while it is still waiting its turn.
+	if (batch.pending) {
+		disarmPending(batch.pending);
 	}
 
 	queue.waiting.unshift(batch);

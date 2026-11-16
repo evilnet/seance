@@ -286,6 +286,9 @@ export default defineComponent({
 
 		// A new script opens in the editor: that is where it gets written.
 		const create = (script: Script) => {
+			// A refusal from an earlier try (too many scripts, say) may no longer hold.
+			importError.value = "";
+
 			try {
 				saveScript(script);
 			} catch (err) {

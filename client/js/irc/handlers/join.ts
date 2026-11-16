@@ -10,6 +10,7 @@ import {msgidOf} from "../message";
 import {noteRestorationActivity} from "../persistence";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {fromIgnored} from "../../ignore";
 
 const join: Handler = (client, msg) => {
 	const [name, account, gecos] = msg.params;
@@ -22,7 +23,10 @@ const join: Handler = (client, msg) => {
 	const self = client.isSelf(nick);
 	let chan = client.findChannel(name);
 
-	if (!client.replaying) {
+	// Only for a channel we are in or are joining: a JOIN for any other
+	// (our list and the server's disagreeing) is dropped below. Scripts
+	// hear nothing from anyone on the ignore list.
+	if (!client.replaying && (self || chan) && !fromIgnored(client.uuid, msg.source, self)) {
 		scriptManager.dispatchJoin({
 			network: client.name,
 			networkUuid: client.uuid,

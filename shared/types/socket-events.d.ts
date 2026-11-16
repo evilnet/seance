@@ -502,5 +502,6 @@ interface ClientToServerEvents {
 
 	"sign-out": (token?: string) => void;
 
+	/** The user cleared a channel's or query's history (client/js/history.ts, see bus-contract § 2): the IRC layer forgets what was shown, zeroes the counters and drops a query's log on this device. */
 	"history:clear": EventHandler<{target: number}>;
 }

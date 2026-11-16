@@ -405,8 +405,31 @@ export function dropFromCatchup(client: IrcClient, chan: Channel): void {
 	client.background.take(`page:${chan.id}`);
 }
 
+/**
+ * An error numeric named `name` (its first parameter) while the JOIN sent
+ * with its catch-up ({@link prefetchCatchup}) has not echoed: the server
+ * reads our lines in order and the JOIN was that flush's first line about
+ * the channel, so this is the JOIN refused (471, 473, 474, 475, …). The
+ * history sent behind it was refused too, and the channel's next JOIN (a
+ * `/join` after an invite, or the next connection's autojoin once it is
+ * no longer the open channel) must fetch it as any JOIN does.
+ */
+export function joinRefused(client: IrcClient, name: string): void {
+	const chan = name ? client.findChannel(name) : undefined;
+
+	if (chan?.catchupPrefetched && chan.state !== ChanState.JOINED) {
+		chan.catchupPrefetched = false;
+	}
+}
+
 /** Transport closed: nothing queued survives (the reconnect re-JOINs). */
 export function cancelCatchup(client: IrcClient): void {
+	// A JOIN sent with its catch-up whose echo never came: the next one is
+	// fetched for again (autojoin prefetches only the channel open then).
+	for (const chan of client.channels) {
+		chan.catchupPrefetched = false;
+	}
+
 	pendingMap(client).clear();
 	askedOf(client).clear();
 	clearTimeout(heldMarkers.get(client)?.timer);

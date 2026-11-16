@@ -12,6 +12,7 @@ import {msgidOf} from "../message";
 import {noteUserModes, setUserModes as setOwnModes} from "../oper";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {fromIgnored} from "../../ignore";
 
 interface ModeChange {
 	add: boolean;
@@ -94,7 +95,14 @@ const mode: Handler = (client, msg) => {
 		return;
 	}
 
-	if (!client.replaying) {
+	// Only a mode on us or on a channel we are in: one for any other channel
+	// (our list and the server's disagreeing) is dropped below. Scripts hear
+	// nothing from anyone on the ignore list.
+	if (
+		!client.replaying &&
+		(client.isSelf(target) || client.findChannel(target)) &&
+		!fromIgnored(client.uuid, msg.source, self)
+	) {
 		scriptManager.dispatchMode({
 			network: client.name,
 			networkUuid: client.uuid,

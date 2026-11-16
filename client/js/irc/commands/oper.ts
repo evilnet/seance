@@ -52,6 +52,16 @@ export async function runStats(client: IrcClient, chan: Channel, args: string[])
 export async function runCheck(client: IrcClient, chan: Channel, args: string[]): Promise<void> {
 	const line = formatLine({command: "CHECK", params: args});
 	const reply = await request(client, line, {end: ["291", "292"]});
+
+	// Done with nothing in it: a remote CHECK (`CHECK <server> <target>`).
+	// nefarious2 does not carry the label to the other server, so it is
+	// ACKed at once and the answer comes later unlabeled, shown raw as any
+	// unlabeled reply is (docs/resources/nefarious2-oper.md). A card here
+	// could only be empty.
+	if (reply.lines.length === 0 && (reply.outcome === "ack" || reply.outcome === "batch")) {
+		return;
+	}
+
 	const note = emptyNote(reply.lines, reply.outcome);
 	const report =
 		client.profile.checkReport(reply.lines, line) ??

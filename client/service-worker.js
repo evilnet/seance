@@ -1637,8 +1637,16 @@ function push() {
 		lineIndexOf: () => null,
 		CONCAT_TAG: "draft/multiline-concat",
 		stripFormatting: stripFormattingInline,
-		notificationText: (text) =>
-			stripFormattingInline(text.replace(/\x01ACTION /, "*").replace(/\x01$/, "*")),
+		// strip.ts splitAction's rule: an empty action (`\x01ACTION\x01`)
+		// has no space after the word, and the closing byte is gone by now
+		// (cleanPayload drops trailing control bytes).
+		notificationText(text) {
+			const action = /^\x01ACTION(?: ([\s\S]*?))?\x01?$/.exec(text);
+
+			return action
+				? "*" + stripFormattingInline(action[1] || "") + "*"
+				: stripFormattingInline(text);
+		},
 		addMessage: (entries, incoming, keep = MERGE_KEEP_FALLBACK) =>
 			incoming.msgid && entries.some((m) => m.msgid === incoming.msgid)
 				? {entries: entries.slice(-keep), isNew: false}

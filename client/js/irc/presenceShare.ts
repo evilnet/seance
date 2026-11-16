@@ -155,11 +155,12 @@ export function onPresenceValue(client: IrcClient, value: string): void {
 			mode: server.value as NetworkMode,
 			at: server.at,
 		});
-		return;
+	} else {
+		syncShared(client);
 	}
 
-	syncShared(client);
-	// The read may end presence.ts's shareUnread hold.
+	// The read may end presence.ts's shareUnread hold: adopting only a newer
+	// time for the mode already in force syncs nothing by itself.
 	syncPresence(client);
 }
 
@@ -174,10 +175,11 @@ export function onGlobalModeValue(client: IrcClient, value: string): void {
 		const mode: GlobalModeState = {value: server.value as GlobalMode, at: server.at};
 		client.setGlobalMode(mode);
 		client.dispatchBus("mode:shared", {network: client.uuid, mode: mode.value, at: server.at});
-		return;
+	} else {
+		syncShared(client);
 	}
 
-	syncShared(client);
-	// The read may end presence.ts's shareUnread hold.
+	// The read may end presence.ts's shareUnread hold: adopting only a newer
+	// time for the switch already in force syncs nothing by itself.
 	syncPresence(client);
 }

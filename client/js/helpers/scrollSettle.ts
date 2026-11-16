@@ -14,15 +14,28 @@ export const SETTLE_IDLE_MS = 150;
 /** A page is never held longer than this, whatever the finger does. */
 export const SETTLE_MAX_MS = 2000;
 
+const realNow = (): number => Date.now();
+const realAfter = (ms: number, fn: () => void): void => void setTimeout(fn, ms);
+
 let lastScrollAt = 0;
 let touching = false;
-let now: () => number = () => Date.now();
-let after: (ms: number, fn: () => void) => void = (ms, fn) => void setTimeout(fn, ms);
+let now: () => number = realNow;
+let after: (ms: number, fn: () => void) => void = realAfter;
 
 /** Tests: drive the clock and the timers. */
 export function useSettleClock(clock: typeof now, schedule: typeof after): void {
 	now = clock;
 	after = schedule;
+}
+
+/** Tests: the real clock and timers again, and nothing in motion, so a later
+ * file that imports this module does not inherit a fake clock or a finger
+ * left down (settled() would then wait on timers nobody runs). */
+export function resetSettle(): void {
+	now = realNow;
+	after = realAfter;
+	lastScrollAt = 0;
+	touching = false;
 }
 
 export function noteScroll(): void {

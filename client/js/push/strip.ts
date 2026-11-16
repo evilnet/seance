@@ -55,9 +55,11 @@ export function stripMarkdown(text: string): string {
 
 /** A CTCP ACTION split from its text; `action` is false for a plain message. */
 export function splitAction(text: string): {action: boolean; body: string} {
-	const match = /^\x01ACTION ([\s\S]*?)\x01?$/.exec(text);
+	// An empty `/me` comes as `\x01ACTION\x01`, without the space: an action
+	// with no text, as the page reads it, not a message reading "ACTION".
+	const match = /^\x01ACTION(?: ([\s\S]*?))?\x01?$/.exec(text);
 
-	return match ? {action: true, body: match[1]} : {action: false, body: text};
+	return match ? {action: true, body: match[1] ?? ""} : {action: false, body: text};
 }
 
 /** The notification body for one message (a joined batch counts as one). */

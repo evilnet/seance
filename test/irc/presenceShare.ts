@@ -1,7 +1,5 @@
 import {expect} from "chai";
 import sinon from "sinon";
-// First: support loads client.ts, which pushMute.ts needs initialised (the
-// pushMute ↔ presence ↔ client import cycle).
 import {register, setup, type Harness} from "./support";
 import {
 	MODE_KEY,
@@ -707,6 +705,30 @@ describe("away until the shared state is read (presence.ts shareUnread)", functi
 		h.sent();
 		clock.tick(MUTE_READ_FALLBACK_MS);
 		expect(aways(h.sent())).to.deep.equal(["AWAY"]);
+	});
+
+	it("with no burst, a read that only confirms what is in force ends the hold at once", function () {
+		// A device that never chose: `auto` is in force already, and the
+		// server's `auto` is newer only by its time.
+		for (const last of [MODE_KEY, PRESENCE_KEY]) {
+			const h = login();
+			welcome(h);
+			h.sent();
+			clock.tick(MUTE_READ_DELAY_MS);
+			const other = last === MODE_KEY ? PRESENCE_KEY : MODE_KEY;
+			h.transport.lines(
+				":irc.test 766 alice alice draft/webpush/mute :key not set",
+				`:irc.test 766 alice alice ${other} :key not set`
+			);
+			expect(aways(h.sent()), last).to.deep.equal([]);
+			h.transport.line(
+				`:irc.test 761 alice alice ${last} private :${
+					last === MODE_KEY ? "auto" : "global"
+				} ${T0 - 1000}`
+			);
+			expect(aways(h.sent()), last).to.deep.equal(["AWAY"]);
+			h.transport.closed();
+		}
 	});
 
 	it("a login without draft/metadata-2 shares nothing and declares nothing", function () {

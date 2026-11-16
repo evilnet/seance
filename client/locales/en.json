@@ -1186,6 +1186,7 @@
   "oper.alerts.o3.expiresAt": "expires {when}",
   "oper.alerts.o3.expiresDays": "expires in {days} d",
   "oper.alerts.o3.expiresHours": "expires in {hours} h",
+  "oper.alerts.o3.expiresUnderHour": "expires in < 1 h",
   "oper.alerts.o3.heading": "{bot} alerts",
   "oper.alerts.o3.keep": "Keep",
   "oper.alerts.o3.lastFired": "last fired {when} ago",
@@ -1246,6 +1247,7 @@
   "oper.badge.whereLabel": "{badge} — where these show",
   "oper.badge.whereTitle": "Where these show…",
   "oper.ban.check.channelGlineOnly": "Only a G-line can ban a channel name.",
+  "oper.ban.check.cidrAddress": "A CIDR needs the whole address, without wildcards (e.g. 192.0.2.0/24).",
   "oper.ban.check.cidrTooLong": "That CIDR has more bits than an address.",
   "oper.ban.check.empty": "Enter a mask.",
   "oper.ban.check.emptyHost": "The host part is empty.",
@@ -2268,6 +2270,10 @@
   "scripting.storage.dataTooLong": "seance.storage is over {max} characters for this script.",
   "scripting.storage.libraryTooLong": "Your scripts are over {max} characters together.",
   "scripting.storage.noRoom": "There isn't room on this device to save that.",
+  "scripting.storage.tooMany": {
+    "one": "You can keep at most {count} script. Delete one to make room.",
+    "other": "You can keep at most {count} scripts. Delete one to make room."
+  },
   "scripting.storage.totalDataTooLong": "seance.storage is over {max} characters for all scripts together.",
   "scripting.template.responderDescription": "Replies pong! to !ping",
   "scripting.template.responderFolder": "Automation",

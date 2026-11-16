@@ -132,6 +132,7 @@ import {
 import {translateWhyText} from "../js/helpers/translateWhy";
 import {quickReactions, RECENTS_CHANGED, rememberReaction} from "../js/helpers/reactionRecents";
 import {isTouchInput, onInputKindChange} from "../js/helpers/inputModality";
+import {matchFormatting} from "../../shared/irc";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
@@ -290,7 +291,10 @@ export default defineComponent({
 		// A blocked Translate stays tappable under a finger (and says why);
 		// under a mouse it is disabled with the reason as its tooltip.
 		const explainOnTap = computed(() => sharedTouch().value);
-		const copyText = () => copy(props.message.text ?? "");
+		// The text as read: IRC's colour and style codes are how it looks, not
+		// what it says. Not cleanIrcMessage, which trims as well: a copied
+		// line keeps its indentation, and a multiline message its line breaks.
+		const copyText = () => copy((props.message.text ?? "").replace(matchFormatting, ""));
 
 		// Only plain text can be edited (the IRC layer resends it tagged).
 		// The same rule ArrowUp steps by (helpers/compose.ts): an own message

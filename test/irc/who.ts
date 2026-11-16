@@ -48,6 +48,19 @@ class FakeTransport implements Transport {
 		lines.forEach((line) => this.line(line));
 	}
 
+	/** The socket drops; the transport will dial again. */
+	closed(): void {
+		this.state = "reconnect-wait";
+		this.emit({
+			type: "close",
+			code: 1006,
+			reason: "",
+			wasClean: false,
+			willReconnect: true,
+			delayMs: 1000,
+		});
+	}
+
 	private emit(ev: TransportEvent): void {
 		for (const listener of [...this.listeners]) {
 			listener(ev);
@@ -107,6 +120,13 @@ function setup(whox = true): {client: IrcClient; transport: FakeTransport} {
 	});
 
 	client.connect();
+	register(transport, whox);
+
+	return {client, transport};
+}
+
+/** Open the socket and register, joining #seance. */
+function register(transport: FakeTransport, whox = true): void {
 	transport.open();
 	transport.lines(
 		":irc.test CAP * LS :multi-prefix",
@@ -122,8 +142,6 @@ function setup(whox = true): {client: IrcClient; transport: FakeTransport} {
 	);
 	transport.sent = [];
 	dispatch.resetHistory();
-
-	return {client, transport};
 }
 
 describe("WHO (handlers/who.ts, commands/who.ts)", function () {
@@ -329,6 +347,48 @@ describe("WHO (handlers/who.ts, commands/who.ts)", function () {
 		expect(msgs.map((m) => m.text)).to.deep.equal(["bob 0", "alice alice"]);
 		expect(msgs.every((m) => m.type === undefined || m.type === MessageType.MESSAGE)).to.be
 			.true;
+	});
+
+	it("forgets the queries a dropped connection never answered", function () {
+		const {client, transport} = setup();
+		const chan = client.findChannel("#seance")!;
+
+		dispatchInput(client, chan, "/who #seance");
+		transport.closed();
+		register(transport);
+
+		dispatchInput(client, chan, "/who #seance");
+		expect(transport.sent).to.deep.equal(["WHO #seance %tcuhsnfdar,2"]);
+
+		transport.lines(
+			":irc.test 354 alice 2 #seance alice host irc.test alice H@ 0 0 :Alice",
+			":irc.test 315 alice #seance :End of /WHO list."
+		);
+
+		const msgs = messages(chan.id);
+		expect(msgs.map((m) => m.type)).to.deep.equal([MessageType.WHO]);
+		expect(msgs[0].who!.entries.map((e) => e.nick)).to.deep.equal(["alice"]);
+	});
+
+	it("does not wait for the reply to a WHO that could not be sent", function () {
+		const {client, transport} = setup();
+		const chan = client.findChannel("#seance")!;
+
+		// The socket died and its close event has not come yet.
+		transport.state = "closed";
+		dispatchInput(client, chan, "/who #seance");
+		expect(transport.sent).to.deep.equal([]);
+		transport.state = "open";
+
+		dispatchInput(client, chan, "/who #seance");
+		transport.lines(
+			":irc.test 354 alice 2 #seance alice host irc.test alice H@ 0 0 :Alice",
+			":irc.test 315 alice #seance :End of /WHO list."
+		);
+
+		const msgs = messages(chan.id);
+		expect(msgs.map((m) => m.type)).to.deep.equal([MessageType.WHO]);
+		expect(msgs[0].who!.entries.map((e) => e.nick)).to.deep.equal(["alice"]);
 	});
 
 	it("replies nobody asked for are plain text in the lobby", function () {

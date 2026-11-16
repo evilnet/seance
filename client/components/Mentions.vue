@@ -118,13 +118,17 @@
 							     an op's @ would read like a mention. -->
 							<span v-if="!group.query" class="from" @click.stop>
 								<!-- A stored entry whose network is gone: plain text, since
-								     its menus could only act on another network. -->
+								     its menus could only act on another network. Its
+								     conversation closed, the menu acts from the network's
+								     lobby, never from whatever channel is open. -->
 								<span v-if="!group.network">{{ message.from.nick }}</span>
 								<Username
 									v-else
 									:user="(message.from as any)"
 									:network="group.network"
-									:channel="group.conversation?.channel"
+									:channel="
+										group.conversation?.channel ?? group.network.channels[0]
+									"
 									>{{ message.from.nick }}</Username
 								>
 							</span>

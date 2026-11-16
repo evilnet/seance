@@ -54,6 +54,17 @@ describe("nefarious2 bans (profiles/nefarious/bans.ts)", function () {
 		expect(checkMask("gline", "*@cafe.bad.de")).to.deep.equal({needsForce: false});
 		expect(checkMask("zline", "cafe.de").error).to.match(/IP address or CIDR/);
 		expect(checkMask("gline", "*@1.2.0.0/8").error).to.match(/16/);
+		// A /bits needs a whole dotted address, and no wildcard before it
+		// (gline_checkmask, zline_checkmask): refused even forced.
+		for (const mask of ["*@1.2.3/24", "*@1.2/16", "*@1.2.3.4.5/24", "*@1.2.*/16"]) {
+			expect(checkMask("gline", mask), mask).to.deep.equal({
+				error: "A CIDR needs the whole address, without wildcards (e.g. 192.0.2.0/24).",
+				needsForce: false,
+			});
+		}
+
+		expect(checkMask("zline", "1.2.3/24").error).to.match(/whole address/);
+		expect(checkMask("zline", "1.2.3.*/24").error).to.match(/whole address/);
 		expect(checkMask("gline", "*@*.com").error).to.match(/two dots/);
 		expect(checkMask("gline", "*@foo.*.com").error).to.match(/last two labels/);
 		expect(checkMask("gline", "$Rspam bot").error).to.match(/spaces/);

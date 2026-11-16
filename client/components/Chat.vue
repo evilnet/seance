@@ -35,7 +35,7 @@
 							class="topic-input"
 							:placeholder="topicPlaceholder"
 							enterkeyhint="done"
-							@keyup.enter="saveTopic"
+							@keydown.enter="onTopicEnter"
 							@keyup.esc="channel.editTopic = false"
 						/>
 						<span :aria-label="saveTopicLabel" class="save-topic" @click="saveTopic">
@@ -179,6 +179,7 @@ import {watchUserlistOverlay} from "../js/userlistOverlay";
 import {macDragRegion} from "../js/helpers/shell";
 import {channelOpened} from "../js/helpers/lastChannel";
 import {prefetchEmojiCatalog} from "../js/helpers/emoji";
+import {isImeComposing} from "../js/helpers/ime";
 import type {ClientNetwork, ClientChan} from "../js/types";
 import {useStore} from "../js/store";
 import {SpecialChanType, ChanType} from "../../shared/types/chan";
@@ -377,6 +378,15 @@ export default defineComponent({
 			}
 		};
 
+		// At keydown, not keyup: the keyup of the Return that commits an IME
+		// candidate comes after the composition ended and looks like any
+		// other Return (helpers/ime.ts).
+		const onTopicEnter = (event: KeyboardEvent) => {
+			if (!isImeComposing(event)) {
+				saveTopic();
+			}
+		};
+
 		const openContextMenu = (event: any) => {
 			eventbus.emit("contextmenu:channel", {
 				event: event,
@@ -471,6 +481,7 @@ export default defineComponent({
 			hideUserVisibleError,
 			editTopic,
 			saveTopic,
+			onTopicEnter,
 			openContextMenu,
 			openMentions,
 			mentionCount,

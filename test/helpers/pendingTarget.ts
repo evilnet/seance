@@ -4,6 +4,7 @@ import {
 	clearPendingTarget,
 	getPendingTarget,
 	isChannelTarget,
+	isValidTarget,
 	matchesPendingTarget,
 	setPendingTarget,
 	takePendingTarget,
@@ -52,5 +53,39 @@ describe("pendingTarget", function () {
 		expect(isChannelTarget("#seance")).to.equal(true);
 		expect(isChannelTarget("&local")).to.equal(true);
 		expect(isChannelTarget("alice")).to.equal(false);
+	});
+
+	it("takes one nick or channel name as a target, nothing a command line would parse", function () {
+		for (const target of ["alice", "#seance", "&local", "[bob]", "nick-1", "élodie"]) {
+			expect(isValidTarget(target), target).to.equal(true);
+		}
+
+		for (const target of [
+			"",
+			"NickServ DROP alice", // `/query` sends the rest as a message
+			"alice\n/quit", // a second line is a second command
+			"alice\r\nQUIT",
+			"alice\u2028x",
+			"alice\tx",
+			"alice\u0000",
+			"alice\u007f",
+			"alice\u0085",
+			"/quit",
+			":alice",
+			"alice,bob",
+			"#a,#b",
+		]) {
+			expect(isValidTarget(target), JSON.stringify(target)).to.equal(false);
+		}
+	});
+
+	it("drops a deep link's target that is not one name, and whatever was pending before it", function () {
+		setPendingTarget("net-1", "#seance", 1000);
+		setPendingTarget("net-1", "NickServ DROP alice", 1000);
+
+		expect(getPendingTarget(1000)).to.equal(null);
+
+		setPendingTarget("net-1", "alice\n/quit", 1000);
+		expect(getPendingTarget(1000)).to.equal(null);
 	});
 });

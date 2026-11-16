@@ -65,6 +65,9 @@ import {scriptManager} from "./scripting/manager";
 import {FILEHOST_SERVICE, TokenRequests, filehostUrlOf} from "./authtoken";
 import {interceptBatchLine, resetBatches} from "./handlers/batch";
 import {PAYLOAD_KEY} from "./handlers/metadata";
+import {resetModeLists} from "./handlers/lists";
+import {resetWho} from "./handlers/who";
+import {resetWhois} from "./handlers/whois";
 import {CLOSED_KEY, ClosedQueries, closedQueriesKept, encodeClosed} from "./closedQueries";
 import {
 	CONCAT_LINE_TAG_BYTES,
@@ -584,8 +587,8 @@ export class IrcClient {
 	private batchRefs = 0;
 	/** The SASL exchange in progress during registration, if any. */
 	sasl: SaslAuth | null = null;
-	/** The last SASL exchange ended successfully (903); a configured login
-	 * that was asked for and succeeded. Drives the push-subscribe prompt. */
+	/** This connection's SASL exchange ended successfully (903); a configured
+	 * login that was asked for and succeeded. Drives the push-subscribe prompt. */
 	saslOk = false;
 	/** Unexplained 904s in a row on a login that has worked (`SASL_TRUSTED_RETRIES`). */
 	private saslUnexplainedRun = 0;
@@ -901,6 +904,7 @@ export class IrcClient {
 			PREFIX: {prefix, modeToSymbol, symbols: symbols.split("")},
 			NETWORK: this.isupport.network ?? this.networkName,
 			FILEHOST: this.filehostUrl(),
+			CASEMAPPING: this.isupport.casemapping,
 		};
 	}
 
@@ -1513,6 +1517,10 @@ export class IrcClient {
 		// ("~rdrake" when unverified), and Ergo refuses it in USER (468).
 		this.ident = this.registrationIdent;
 		this.account = "";
+		// Only this connection's SASL exchange says we logged in: a network
+		// edited to "No authentication", or left without credentials, runs
+		// none, and must not count as logged in on the last connection's word.
+		this.saslOk = false;
 		this.persistenceHold = false;
 		this.persistenceSetting = undefined;
 		this.bouncerAlias = false;
@@ -2115,6 +2123,10 @@ export class IrcClient {
 		// the reason, where it was typed.
 		resetPending(this, t("pending.connectionLost"));
 		resetMultiline(this);
+		// Replies the close cut off before their end numeric never end.
+		resetWhois(this);
+		resetWho(this);
+		resetModeLists(this);
 		abortHistory(this);
 		resetSearches(this);
 		cancelCatchup(this);
@@ -4227,6 +4239,25 @@ export class IrcClient {
 		});
 	}
 
+	/**
+	 * The user cleared `chan`'s history (client/js/history.ts, which has
+	 * emptied the store's copy): everything shown is forgotten as a trim
+	 * forgets it, the counters start again from nothing, and a private
+	 * conversation's log on this device loses its lines, which the next page
+	 * load would otherwise bring back. The window stays open; like any query
+	 * with nothing logged, a page load brings it back only once a line is.
+	 */
+	clearHistory(chan: Channel): void {
+		chan.forget([...chan.msgRefs.keys()]);
+		chan.shared.unread = 0;
+		chan.shared.highlight = 0;
+		chan.shared.firstUnread = 0;
+
+		if (chan.type === ChanType.QUERY) {
+			this.queryLog.forget(chan.name);
+		}
+	}
+
 	/** Drop a channel from the model and the UI (`part` event). */
 	removeChannel(chan: Channel): void {
 		if (chan.type === ChanType.QUERY) {
@@ -4290,8 +4321,16 @@ export class IrcClient {
 		const placed = old;
 		msg.id = id ?? (ids && ids.next < ids.end ? ids.next++ : this.ids.msgId());
 		const ref = chan.remember(msg);
+		const newest = chan.newestRef;
 
-		if (!placed || !chan.newestRef) {
+		// A catch-up line is delivered after the lines relayed while it was
+		// fetched: one older than a line the server stamped since is not the
+		// newest, or the read marker would stop short of that line. Judged
+		// against a server-stamped line only: a local one is on our clock.
+		if (
+			!newest ||
+			(!placed && (!replay || !newest.msgid || ref.time.getTime() >= newest.time.getTime()))
+		) {
 			chan.newestRef = ref;
 		}
 

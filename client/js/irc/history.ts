@@ -348,18 +348,30 @@ export function requestChannelHistory(
  * request goes into that socket).
  */
 export function abortHistory(client: IrcClient): void {
-	for (const request of [...pendingOf(client)]) {
+	const pending = pendingOf(client);
+
+	for (const request of [...pending]) {
+		// A catch-up walk, its next page in flight, is dropped whole (below):
+		// resolving it would deliver the pages gathered so far.
+		if (request.mode === "append") {
+			pending.splice(pending.indexOf(request), 1);
+			clearTimeout(request.timer);
+			continue;
+		}
+
 		if (request.retry) {
 			request.chan.lostMore = request.retry;
 		}
 
 		resolve(client, request, null, "timeout");
 	}
-	// A walk waiting for its next page in the background queue (which the
-	// close empties) is dropped whole, its pages undelivered: what the
-	// channel holds has not moved, so the next connection walks the same gap
-	// from the same floor. Landing its newest pages would have moved it, and
-	// that walk would stop at them with the older part never fetched.
+	// A walk, whether its next page is in flight or waits in the background
+	// queue (which the close empties), is dropped whole, its pages
+	// undelivered: what the channel holds has not moved (nor its newest
+	// line, nor the cursor saved with the close), so the next connection
+	// walks the same gap from the same floor. Landing its newest pages would
+	// have moved it, and that walk would stop at them with the older part
+	// never fetched.
 }
 
 /**

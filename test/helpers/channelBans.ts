@@ -15,7 +15,9 @@ import {
 	sortBans,
 	wideHost,
 } from "../../client/js/helpers/channelBans";
-import {holdsChannelPower} from "../../client/js/helpers/banMenu";
+import {canSetBans, holdsChannelPower} from "../../client/js/helpers/banMenu";
+import {ChanType} from "../../shared/types/chan";
+import type {ClientNetwork} from "../../client/js/types";
 import {describeBan} from "../../client/js/irc/profiles/nefarious/extbans";
 import {parseLine, type IrcMessage} from "../../client/js/irc/message";
 
@@ -272,6 +274,36 @@ describe("channel ban masks", function () {
 			expect(holdsChannelPower(["@", "+"], ["@"])).to.equal(true);
 			expect(holdsChannelPower(["@", "+"], ["+"])).to.equal(false);
 			expect(holdsChannelPower(["~", "&", "@", "+"], ["&"])).to.equal(true);
+		});
+	});
+
+	describe("canSetBans", function () {
+		// Just what canSetBans reads: our nick, the channel's members, PREFIX
+		const network = (
+			nick: string,
+			listed: string,
+			casemapping?: "rfc1459" | "ascii"
+		): ClientNetwork =>
+			({
+				nick,
+				serverOptions: {
+					PREFIX: {symbols: ["@", "+"]},
+					...(casemapping ? {CASEMAPPING: casemapping} : {}),
+				},
+				channels: [
+					{type: ChanType.CHANNEL, name: "#c", users: [{nick: listed, modes: ["@"]}]},
+				],
+			} as unknown as ClientNetwork);
+
+		it("finds us in the channel whatever case the list has our nick in", function () {
+			expect(canSetBans(network("Alice", "alice"), "#c")).to.equal(true);
+			expect(canSetBans(network("[a]", "{A}"), "#c")).to.equal(true);
+			expect(canSetBans(network("bob", "alice"), "#c")).to.equal(false);
+		});
+
+		it("folds as the network says", function () {
+			expect(canSetBans(network("[a]", "{a}", "ascii"), "#c")).to.equal(false);
+			expect(canSetBans(network("A", "a", "ascii"), "#c")).to.equal(true);
 		});
 	});
 

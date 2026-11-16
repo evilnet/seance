@@ -526,22 +526,23 @@ export async function servicesBan(
 		return banRefusal(bot, notReady);
 	}
 
+	// Watched only once the line is out: lines come in from socket events,
+	// never inside a send, so no reply can be missed. A ban that could not
+	// be sent (a NUL in the reason) then leaves no watcher, and the lookups
+	// waiting on this connection keep theirs.
+	if (!sendQuiet(client, profile.banCommand(bot, ban))) {
+		return {outcome: "closed"};
+	}
+
 	// A reply that names a mask must name this one: a dialog closed while
 	// its ban was out leaves that watcher waiting, and O3's answer to it
 	// would otherwise confirm the next ban too.
-	const reply = awaitServiceReply(client, bot, (text) => {
+	const answer = await awaitServiceReply(client, bot, (text) => {
 		const verdict = profile.parseBanReply(text);
 		return verdict && (!verdict.mask || verdict.mask.toLowerCase() === ban.mask.toLowerCase())
 			? verdict
 			: undefined;
 	});
-
-	if (!sendQuiet(client, profile.banCommand(bot, ban))) {
-		resetServiceReplies(client);
-		return {outcome: "closed"};
-	}
-
-	const answer = await reply;
 
 	return answer.kind === "reply"
 		? {outcome: answer.value.ok ? "ok" : "refused", text: answer.value.text}

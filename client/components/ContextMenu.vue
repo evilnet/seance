@@ -63,6 +63,7 @@ import {
 	inertMenuItem,
 } from "../js/helpers/contextMenu";
 import eventbus from "../js/eventbus";
+import {namesEqual} from "../js/irc/casemap";
 import {defineComponent, nextTick, onMounted, onUnmounted, PropType, ref} from "vue";
 import {ClientChan, ClientMessage, ClientNetwork, ClientUser} from "../js/types";
 import {useStore} from "../js/store";
@@ -280,11 +281,16 @@ export default defineComponent({
 				data.channel ??
 				(active?.network.uuid === network.uuid ? active.channel : network.channels[0]);
 
+			// The nick as the server folds it: a stored or replayed row, or one
+			// from before a case-only nick change, still finds the user's modes
+			const user = channel.users.find((u) =>
+				namesEqual(u.nick, data.user.nick, network.serverOptions.CASEMAPPING)
+			);
 			const newItems = generateUserContextMenu(
 				store,
 				channel,
 				network,
-				channel.users.find((u) => u.nick === data.user.nick) || {
+				user || {
 					nick: data.user.nick,
 					modes: [],
 				},

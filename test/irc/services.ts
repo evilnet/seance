@@ -419,6 +419,41 @@ describe("services support: a bot's reply (irc/services.ts awaitServiceReply)", 
 		).to.deep.equal({outcome: "closed", text: "No oper service is set up for this network."});
 		expect(transport.sent).to.have.length(5);
 	});
+
+	it("a ban that could not be sent ends only itself, not the lookups waiting beside it", async function () {
+		const {client, transport} = setup();
+		client.setServices(X3);
+		const lookup = collectServiceReply(client, "O3", {
+			accept: (text) =>
+				/^Nick\s*:/.test(text) ? "start" : /^Server\s*:/.test(text) ? "end" : "take",
+		});
+		let settled = false;
+		void lookup.then(() => (settled = true));
+
+		// The socket is open but refuses the line, as WsTransport does a NUL.
+		const send = sinon
+			.stub(transport, "send")
+			.throws(new RangeError("WsTransport: line must not contain CR, LF or NUL"));
+		const ban = await servicesBan(client, {
+			type: "gline",
+			mask: "*@h",
+			seconds: 60,
+			reason: "r\0",
+		});
+		send.restore();
+		expect(ban).to.deep.equal({outcome: "closed"});
+		await flush();
+		expect(settled, "the lookup still waits for its own answer").to.equal(false);
+
+		transport.lines(
+			":O3!O3@services.test NOTICE opr :Nick         : alice",
+			":O3!O3@services.test NOTICE opr :Server       : leaf1"
+		);
+		expect(await lookup).to.deep.equal({
+			kind: "reply",
+			value: ["Nick         : alice", "Server       : leaf1"],
+		});
+	});
 });
 
 describe("services support: quiet lookups (irc/quiet.ts)", function () {

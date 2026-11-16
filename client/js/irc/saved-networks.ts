@@ -27,6 +27,7 @@ import {forgetMuteMemory} from "./muteMemory";
 import {forgetPresenceSync} from "./presenceSync";
 import {forgetUserAway} from "./userAwayStore";
 import {forgetLogin} from "./saslTrust";
+import {forgetIgnoreList} from "../ignore";
 import type {ConnectOptions} from "./types";
 import {accountRequired} from "../branding";
 import {PRESENCE_MODES, type NetworkMode, type PresenceMode} from "../helpers/dnd";
@@ -130,6 +131,20 @@ export function defaultPort(tls: boolean, transport?: ConnectOptions["transport"
 	return tls ? 9998 : 8067;
 }
 
+/**
+ * Whether `port` is one we suggest for this kind of connection, which the
+ * edit form swaps for the new suggestion when its TLS box or connection type
+ * changes; any other port is the user's own and stays. 8443, nefarious2's
+ * wss:// port and the suggestion before 9998, counts for wss:// too.
+ */
+export function isSuggestedPort(
+	port: number,
+	tls: boolean,
+	transport?: ConnectOptions["transport"]
+): boolean {
+	return port === defaultPort(tls, transport) || (tls && transport !== "tcp" && port === 8443);
+}
+
 /** `wss://host:port/path` / `host/path` → bare host name, for display. */
 export function hostnameOf(host: string): string {
 	const stripped = host.trim().replace(/^(?:wss?|https?|ircs?):\/\//i, "");
@@ -175,6 +190,15 @@ function asString(value: unknown): string {
 	return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
 		? String(value).trim()
 		: "";
+}
+
+/**
+ * A password as typed: a space at either end is part of it, so it is not
+ * trimmed. One with nothing but whitespace counts as none, which the edit
+ * form reads as "keep the stored one" (fromForm), as it does a blank field.
+ */
+function asSecret(value: unknown): string {
+	return asString(value) === "" ? "" : String(value);
 }
 
 /** A hand-edited backup may list its channels: `"join": ["#a", "#b"]`. */
@@ -290,7 +314,7 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		join: asJoin(raw.join),
 		sasl,
 		saslAccount: sasl ? asString(raw.saslAccount) : "",
-		saslPassword: sasl ? asString(raw.saslPassword) : "",
+		saslPassword: sasl ? asSecret(raw.saslPassword) : "",
 		autoconnect: asBoolean(raw.autoconnect),
 		rememberPassword,
 		pushEnabled: raw.pushEnabled === undefined ? true : asBoolean(raw.pushEnabled),
@@ -299,7 +323,7 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 	};
 
 	// A line break or NUL would end the PASS line early (wire.ts refuses it).
-	const serverPassword = asString(raw.serverPassword).replace(/[\r\n\0]/g, "");
+	const serverPassword = asSecret(raw.serverPassword).replace(/[\r\n\0]/g, "");
 
 	if (serverPassword) {
 		net.serverPassword = serverPassword;
@@ -396,19 +420,24 @@ export function migrateGlobalNotify(): void {
 		return;
 	}
 
-	let stored: {desktopNotifications?: unknown};
+	let stored: Record<string, unknown> | null;
 
 	try {
-		stored = raw ? (JSON.parse(raw) as {desktopNotifications?: unknown}) : {};
+		stored = raw ? (JSON.parse(raw) as Record<string, unknown> | null) : {};
 	} catch {
 		return; // garbage settings blob: leave the networks alone
 	}
 
-	if (stored.desktopNotifications !== false) {
+	if (stored?.desktopNotifications !== false) {
 		return;
 	}
 
 	write(list().map((net) => ({...net, notifyEnabled: false})));
+	// Once: the old key goes now, as migrateReadingToLocale's does. Left in
+	// place it switched notifications off again at every boot, on networks
+	// the user had switched back on since, until some setting was changed.
+	delete stored.desktopNotifications;
+	backend.set("settings", JSON.stringify(stored));
 }
 
 /**
@@ -710,6 +739,10 @@ export function remove(uuid: string): void {
 	forgetPresenceSync(uuid); // and when it was last in sync with the shared presence
 	forgetUserAway(uuid); // and the /away it would declare at the next registration
 	forgetLogin(uuid); // and the SASL login that worked on it
+	// Its channel order and ignore list too: keyed by a random uuid, nothing
+	// would ever read them again, yet both travel in every settings backup.
+	forgetChannelOrder(uuid);
+	forgetIgnoreList(uuid);
 }
 
 /** Mark an entry as the most recently used one. */
@@ -763,6 +796,16 @@ export function channelOrder(uuid: string): string[] {
 
 export function setChannelOrder(uuid: string, names: string[]): void {
 	backend.set(CHANNEL_ORDER_KEY, JSON.stringify({...readOrders(), [uuid]: names}));
+}
+
+/** Drop a removed network's channel order. */
+function forgetChannelOrder(uuid: string): void {
+	const orders = readOrders();
+
+	if (Object.hasOwn(orders, uuid)) {
+		delete orders[uuid];
+		backend.set(CHANNEL_ORDER_KEY, JSON.stringify(orders));
+	}
 }
 
 function readOrders(): Record<string, unknown> {

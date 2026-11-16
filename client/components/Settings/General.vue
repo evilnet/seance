@@ -227,6 +227,7 @@ import {
 	FILE_EXTENSION,
 	fileName,
 	hasPasswords,
+	MAX_BACKUP_BYTES,
 	networkCount,
 	SettingsBackup,
 } from "../../js/helpers/settingsBackup";
@@ -483,6 +484,10 @@ export default defineComponent({
 					return t("settings.general.importDamaged");
 				case "no-decompression":
 					return t("settings.general.importNoDecompression");
+				case "too-large":
+					// No settings file comes near the cap: one that does is read
+					// no further, as any file that cannot be read.
+					return t("settings.general.importFailed");
 				default:
 					return t("settings.general.importNotSettings");
 			}
@@ -500,6 +505,12 @@ export default defineComponent({
 			busy.value = true;
 
 			try {
+				// Before it is read into memory (decodeBackup checks again, and
+				// caps what a gzipped file inflates to).
+				if (file.size > MAX_BACKUP_BYTES) {
+					throw new BackupFormatError("too-large");
+				}
+
 				const backup = await decodeBackup(new Uint8Array(await file.arrayBuffer()));
 				restore(backup, file.name);
 			} catch (e) {

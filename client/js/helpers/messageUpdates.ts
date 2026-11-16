@@ -160,17 +160,36 @@ export function applyEdit<T extends SharedMsg>(
  * renders it through `QuotePreview.vue` (`quoteLayout`), which does the
  * styling and the cut. Returns `undefined` when the parent is not loaded
  * (the UI shows "(unknown message)").
+ *
+ * An edited parent is quoted as its newest edit, the row the list shows: a
+ * reply names the original's msgid, and each edit has a msgid of its own,
+ * so the chain is followed by `supersededBy` as far as the list holds it.
  */
 export function replyQuote(
 	messages: SharedMsg[],
 	msgid: string
 ): {nick: string; text: string; id: number} | undefined {
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const m = messages[i];
+		let m = messages[i];
 
-		if (m.msgid === msgid && m.supersededBy === undefined) {
-			return {id: m.id, nick: m.from?.nick ?? "", text: m.text ?? ""};
+		if (m.msgid !== msgid) {
+			continue;
 		}
+
+		const seen = new Set<number>([m.id]);
+
+		while (m.supersededBy !== undefined && !seen.has(m.supersededBy)) {
+			const next = findMessageById(messages, m.supersededBy);
+
+			if (!next) {
+				break;
+			}
+
+			seen.add(next.id);
+			m = next;
+		}
+
+		return {id: m.id, nick: m.from?.nick ?? "", text: m.text ?? ""};
 	}
 
 	return undefined;

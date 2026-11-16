@@ -3,6 +3,7 @@ import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
+import {registerBusHandlers} from "../../client/js/irc/bus";
 import {CATCHUP_STEP_COST_MS, MARKER_HOLD_MS} from "../../client/js/irc/catchup";
 import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
 import * as saved from "../../client/js/irc/saved-networks";
@@ -764,6 +765,67 @@ describe("Query log (irc/querylog.ts)", function () {
 			log.dispose();
 
 			first.client.removeChannel(first.client.findChannel("bob")!);
+			clock.tick(SAVE_DELAY_MS);
+			expect(stored()).to.equal(null);
+		});
+
+		it("forgets a cleared query's lines and counts (history:clear), and keeps only what comes after", function () {
+			const first = page();
+			registerBusHandlers(socket, {
+				clientForChannel: (id) => (first.client.channelById(id) ? first.client : undefined),
+				clientForNetwork: (uuid) => (uuid === UUID ? first.client : undefined),
+				allClients: () => [first.client],
+				createNetwork: () => first.client,
+				remove: () => undefined,
+			});
+			first.transport.line(
+				"@time=2026-09-26T11:00:00.000Z;msgid=p1 :bob!b@h PRIVMSG alice :are you there?"
+			);
+			first.transport.line(
+				"@time=2026-09-26T11:01:00.000Z;msgid=p2 :bob!b@h PRIVMSG alice :hello?"
+			);
+			clock.tick(SAVE_DELAY_MS);
+			const query = first.client.findChannel("bob")!;
+			expect(query.shared.unread).to.equal(2);
+			const total = query.shared.totalMessages;
+
+			// "Clear history" in the query's menu: the store is emptied
+			// (client/js/history.ts) and the IRC layer told.
+			socket.emit("history:clear", {target: query.id});
+			expect(query.shared.unread).to.equal(0);
+			expect(query.shared.highlight).to.equal(0);
+			expect(query.shared.firstUnread).to.equal(0);
+			expect(query.msgRefs.size).to.equal(0);
+			expect(query.idOf("p1")).to.equal(undefined);
+			expect(query.shared.totalMessages).to.equal(total - 2);
+
+			// The next line counts from nothing, not from the old count.
+			dispatch.resetHistory();
+			first.transport.line(
+				"@time=2026-09-26T11:02:00.000Z;msgid=p3 :bob!b@h PRIVMSG alice :still there?"
+			);
+			expect(payloads<{unread: number}>("msg").pop()!.unread).to.equal(1);
+			clock.tick(SAVE_DELAY_MS);
+			first.client.queryLog.dispose();
+
+			// A page load brings back only the line after the clear.
+			dispatch.resetHistory();
+			const second = page();
+			const more = payloads<{messages: SharedMsg[]}>("more");
+			expect(more).to.have.length(1);
+			expect(more[0].messages.map((m) => m.text)).to.deep.equal(["still there?"]);
+			expect(second.client.findChannel("bob")!.shared.unread).to.equal(1);
+		});
+
+		it("drops a cleared query's log when nothing comes after", function () {
+			const first = page();
+			first.transport.line(
+				"@time=2026-09-26T11:00:00.000Z;msgid=p1 :bob!b@h PRIVMSG alice :are you there?"
+			);
+			clock.tick(SAVE_DELAY_MS);
+			expect(stored()).to.not.equal(null);
+
+			first.client.clearHistory(first.client.findChannel("bob")!);
 			clock.tick(SAVE_DELAY_MS);
 			expect(stored()).to.equal(null);
 		});

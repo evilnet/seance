@@ -4,12 +4,14 @@
 // PRIVMSG/NOTICE handler. Here each network's list lives under
 // `thelounge.ignore.<networkUuid>`; `/ignore`, `/unignore` and `/ignorelist`
 // (client/js/irc/commands/) edit it and `client/js/irc/handlers/privmsg.ts`
-// drops messages from anyone it matches. Each list is mirrored for the
-// service worker (push-prefs.ts), which drops their pushes too.
+// drops messages from anyone it matches; no script hears from them either
+// (`fromIgnored`). Each list is mirrored for the service worker
+// (push-prefs.ts), which drops their pushes too.
 
 import storage from "./localStorage";
 import {mirrorIgnoreList} from "./push-prefs";
 import {compareHostmask, Hostmask, parseHostmask} from "./irc/hostmask";
+import type {IrcSource} from "./irc/message";
 
 export interface IgnoreEntry extends Hostmask {
 	/** Epoch milliseconds the entry was added. */
@@ -157,4 +159,29 @@ export function ignoreListFor(networkUuid: string): IgnoreList {
 	}
 
 	return list;
+}
+
+/** Drop a network's ignore list (the network was removed): the stored copy,
+ * the cached one and the service worker's mirror. */
+export function forgetIgnoreList(networkUuid: string): void {
+	lists.delete(networkUuid);
+	storage.remove(ignoreStorageKey(networkUuid));
+	void mirrorIgnoreList(networkUuid, []);
+}
+
+/**
+ * Whether a line came from someone on the network's ignore list, as
+ * handlers/privmsg.ts reads it: a server's line (a source with no user
+ * part) and our own never do, whatever a mask covers.
+ */
+export function fromIgnored(
+	networkUuid: string,
+	source: IrcSource | undefined,
+	self: boolean
+): boolean {
+	return (
+		source?.user !== undefined &&
+		!self &&
+		ignoreListFor(networkUuid).matches(source.name, source.user, source.host)
+	);
 }

@@ -1,12 +1,20 @@
 /**
  * Service-worker push tests (docs/projects/push-subscription.md).
  *
- * Loads `client/service-worker.js` — the exact artifact the browser
- * registers — into a Node `vm` sandbox with a scripted IRC server and an
- * in-memory notification store, then drives the real handlers: push
- * rendering and per-target merging, the `t:"read"` cross-device relay,
- * notification reply (throwaway-connection PRIVMSG) and Mark read (the
- * page's connection, else a throwaway-connection MARKREAD, else the outbox).
+ * Loads the worker's source, `client/service-worker.js`, into a Node `vm`
+ * sandbox with a scripted IRC server and an in-memory notification store,
+ * then drives the real handlers: push rendering and per-target merging, the
+ * `t:"read"` cross-device relay, notification reply (throwaway-connection
+ * PRIVMSG) and Mark read (the page's connection, else a throwaway-connection
+ * MARKREAD, else the outbox).
+ *
+ * The browser registers `public/service-worker.js` instead, which the build
+ * (vite.config.mts `copies`) makes from this source: `__HASH__` becomes the
+ * build token (the tests below see `build=__HASH__`), the shell list gets
+ * the hashed bundle entry, `__APP_NAME__` the branded app name, and a
+ * production build minifies it. None of those steps runs here;
+ * test/tests/build.ts checks the built file's token and shell list, but
+ * nothing runs the built worker's handlers.
  */
 import {expect} from "chai";
 import {existsSync, readFileSync} from "node:fs";
@@ -1967,6 +1975,21 @@ describe("service worker push notifications (inline fallback, js/push.js not loa
 		expect(live[0].data.count).to.equal(2);
 	});
 
+	it("renders an action, an empty one too, between action marks", async function () {
+		const sw = makeSW({noPushModule: true});
+
+		await firePush(
+			sw,
+			"@msgid=fb4;time=2026-09-04T10:20:30.123Z :alice!u@h PRIVMSG me :\x01ACTION waves\x01"
+		);
+		await firePush(
+			sw,
+			"@msgid=fb5;time=2026-09-04T10:20:31.123Z :bob!u@h PRIVMSG me :\x01ACTION\x01"
+		);
+
+		expect(sw.shown.map((n) => n.body)).to.deep.equal(["*waves*", "**"]);
+	});
+
 	it("still shows the English actions when the chunk (and with it the catalog) is gone", async function () {
 		const sw = makeSW({noPushModule: true});
 
@@ -3758,6 +3781,16 @@ describe("service worker page notifications on a push worker", function () {
 		const open = sw.records.filter((n) => !n.closed);
 		expect(open).to.have.lengthOf(1);
 		expect(open[0].body, "both the push's shape").to.equal("*waves*\n*nods*");
+	});
+
+	it("an empty action push reads as an action, not as the word ACTION", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await firePush(sw, "@msgid=pm-8a :alice!u@h PRIVMSG me :\x01ACTION\x01");
+
+		const open = sw.records.filter((n) => !n.closed);
+		expect(open).to.have.lengthOf(1);
+		expect(open[0].body).to.equal("**");
 	});
 
 	it("the page reading a conversation closes it, so a later push does not bring it back", async function () {

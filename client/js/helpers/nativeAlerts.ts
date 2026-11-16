@@ -10,7 +10,14 @@
 //   and a push are the same notification: merged per conversation, cleared
 //   on read (webpush.ts readOnWorker), tapped through helpers/nativePush.ts.
 
-import {isAndroidShell, isDesktopShell, nativeCall, nativeListen, nativePlatform} from "./shell";
+import {
+	isAndroidShell,
+	isDesktopShell,
+	nativeCall,
+	nativeInvoke,
+	nativeListen,
+	nativePlatform,
+} from "./shell";
 
 /** The ping, as a path in the app bundle, which goes to `UNNotificationSound`
  * as is: the iOS bundle's copy of the web build (`App/public/`), and on macOS
@@ -91,23 +98,23 @@ export function alertId(network: string, target: string): number {
 	return hash >>> 1 || 1;
 }
 
-/** Hand `alert` to the OS; false when it was not shown (the permission refused or undecided). */
+/** Hand `alert` to the OS; false when it was not shown (the permission
+ * refused or undecided, or the plugin refused the call). */
 export async function showNativeAlert(alert: NativeAlert): Promise<boolean> {
 	if ((await askNativeAlertPermission()) !== true) {
 		return false;
 	}
 
 	if (isAndroidShell()) {
-		await nativeCall("NativePush", "show", {
+		return handedOver("NativePush", "show", {
 			network: alert.network,
 			conversation: alert.target,
 			...alert.message,
 			silent: !alert.sound,
 		});
-		return true;
 	}
 
-	await nativeCall("LocalNotifications", "schedule", {
+	return handedOver("LocalNotifications", "schedule", {
 		notifications: [
 			{
 				id: alertId(alert.network, alert.target),
@@ -118,7 +125,19 @@ export async function showNativeAlert(alert: NativeAlert): Promise<boolean> {
 			},
 		],
 	});
-	return true;
+}
+
+/** Whether the plugin took the call: a rejection (a failed schedule, the
+ * push service refusing) means nothing was shown, and the page pings
+ * instead. Not nativeCall's null, which a success can be too: Android's
+ * plugins answer `invoke.resolve()` with null. */
+async function handedOver(plugin: string, method: string, options: unknown): Promise<boolean> {
+	try {
+		await nativeInvoke(plugin, method, options);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** The conversation was read: its alert goes (iOS, macOS, Linux; Windows

@@ -1,5 +1,5 @@
 import {h as createElement, VNode} from "vue";
-import {layout, LayoutNode, toPlainText} from "./ircmessageparser/layout";
+import {layout, LayoutNode, Style, toPlainText} from "./ircmessageparser/layout";
 import {createFragment} from "./fragment";
 import {confirmMismatch} from "./openLink";
 import emojiMap from "./fullnamemap.json";
@@ -91,7 +91,7 @@ function wrapNode(
 				createElement(
 					tag,
 					{style: {textAlign: alignOf(column)}},
-					toVNodes(nodes, message, network)
+					toVNodes(joinText(nodes), message, network)
 				);
 			const [head, ...body] = splitNodes(node.children, "\n").filter((row) => row.length > 0);
 			const tableChildren: VNode[] = [];
@@ -253,7 +253,8 @@ function toVNodes(
 // the newlines between a list's items, the pipes between a table row's cells —
 // so the adapter can make an element of each. A wrap spanning a split is
 // cloned around each side (a spoiler across two cells blacks both out); the
-// finder-made parts (links, channels, emoji, nicks) never contain a separator.
+// finder-made parts (links, channels, emoji, nicks) never contain a separator,
+// and a pipe the cell holds (typed `\|`) is text.
 function splitNodes(nodes: LayoutNode[], sep: string): LayoutNode[][] {
 	const out: LayoutNode[][] = [];
 	let run: LayoutNode[] = [];
@@ -264,7 +265,7 @@ function splitNodes(nodes: LayoutNode[], sep: string): LayoutNode[][] {
 	};
 
 	for (const node of nodes) {
-		if (node.kind === "text") {
+		if (node.kind === "text" && !node.cellPipe) {
 			const pieces = node.text.split(sep);
 
 			run.push({kind: "text", text: pieces[0], style: node.style});
@@ -302,6 +303,32 @@ function splitNodes(nodes: LayoutNode[], sep: string): LayoutNode[][] {
 	flush();
 
 	return out;
+}
+
+// Neighbouring text nodes in one style, as one: a pipe a cell holds stood
+// apart only so that the split passed it by, and inline code drawn as three
+// boxes would read as three.
+function joinText(nodes: LayoutNode[]): LayoutNode[] {
+	const out: LayoutNode[] = [];
+
+	for (const node of nodes) {
+		const last = out[out.length - 1];
+
+		if (node.kind === "text" && last?.kind === "text" && sameStyle(last.style, node.style)) {
+			out[out.length - 1] = {kind: "text", text: last.text + node.text, style: last.style};
+		} else {
+			out.push(node);
+		}
+	}
+
+	return out;
+}
+
+// A text node's style sets only the keys that apply, so compare both sets.
+function sameStyle(a: Style, b: Style): boolean {
+	const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof Style>;
+
+	return [...keys].every((key) => a[key] === b[key]);
 }
 
 // Wrap potentially styled fragments with links, channel buttons, emoji, nicks

@@ -21,16 +21,23 @@ function openQuery({client, chan}: CommandContext, targetName: string): boolean 
 		return false;
 	}
 
-	if (client.findChannel(targetName)) {
-		return true;
-	}
-
+	// Before the open-window lookup: an open channel is still no query, and
+	// `/query #chan hi` must not quietly message it.
 	if (client.isChannelName(targetName)) {
 		client.pushMessage(chan, {
 			type: MessageType.ERROR,
 			text: t("cmd.query.channel"),
 		});
 		return false;
+	}
+
+	const existing = client.findChannel(targetName);
+
+	if (existing) {
+		// Already open: show it, as a list window run again is shown
+		// (handlers/list.ts `showSpecial`); its data goes back unchanged.
+		client.dispatch("msg:special", {chan: existing.id, data: existing.shared.data});
+		return true;
 	}
 
 	if (client.isupport.prefix.symbols.includes(targetName[0])) {
@@ -55,6 +62,22 @@ const msg: Command = {
 	commands: ["query", "msg", "say"],
 	input(ctx) {
 		const {client, chan, cmd, rest} = ctx;
+
+		// `/say` (and plain text) goes to the window's own name, which only a
+		// channel or a query has: a lobby is named after the network and a
+		// special window after its (translated) title. Plain text in a lobby
+		// was refused before it got here (commands/index.ts).
+		if (cmd === "say" && chan.type !== ChanType.CHANNEL && chan.type !== ChanType.QUERY) {
+			client.pushMessage(chan, {
+				type: MessageType.ERROR,
+				text:
+					chan.type === ChanType.LOBBY
+						? t("cmd.lobbySend")
+						: t("cmd.channelsAndQueriesOnly", {cmd}),
+			});
+			return;
+		}
+
 		// `/say` (and plain text) is all body; `/msg` and `/query` take the
 		// target off the front — at a space or, under `draft/multiline`, at
 		// the line feed that starts the message's second line.

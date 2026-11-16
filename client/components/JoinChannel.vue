@@ -44,7 +44,7 @@
 import {computed, defineComponent, PropType, ref} from "vue";
 import {navigate, switchToChannel} from "../js/router";
 import socket from "../js/socket";
-import {useStore} from "../js/store";
+import {channelByName} from "../js/helpers/channelByName";
 import {useI18n} from "../js/i18n";
 import {ClientNetwork, ClientChan} from "../js/types";
 
@@ -61,7 +61,6 @@ export default defineComponent({
 	},
 	emits: ["toggle-join-channel"],
 	setup(props, {emit}) {
-		const store = useStore();
 		const {t} = useI18n();
 		// Bound attribute labels: computeds, so a locale change re-renders.
 		const channelPlaceholder = computed(() => t("join.channelPlaceholder"));
@@ -72,18 +71,20 @@ export default defineComponent({
 		const inputPassword = ref("");
 
 		const onSubmit = () => {
-			const existingChannel = store.getters.findChannelOnCurrentNetwork(inputChannel.value);
+			const chanTypes = props.network.serverOptions.CHANTYPES;
+			let channel = inputChannel.value;
+
+			if (chanTypes && chanTypes.length > 0 && !chanTypes.includes(channel[0])) {
+				channel = chanTypes[0] + channel;
+			}
+
+			// This form's network, which need not be the one on screen: the
+			// same name on another network is another channel.
+			const existingChannel = channelByName(props.network, channel);
 
 			if (existingChannel) {
 				switchToChannel(existingChannel);
 			} else {
-				const chanTypes = props.network.serverOptions.CHANTYPES;
-				let channel = inputChannel.value;
-
-				if (chanTypes && chanTypes.length > 0 && !chanTypes.includes(channel[0])) {
-					channel = chanTypes[0] + channel;
-				}
-
 				socket.emit("input", {
 					text: `/join ${channel} ${inputPassword.value}`,
 					target: props.channel.id,
