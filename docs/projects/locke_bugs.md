@@ -1,9 +1,9 @@
 # Locke's bug report: work list
 
-Status, 2026-11-15: of the 87 entries, 82 are fixed in the
-`seance_locke_bugs` worktree (not committed yet) and 1 is won't-fix (13a).
-5g and 10c/10d are under discussion, and 10e is deferred to the native-shell
-review. Section 14 lists what the fixing turned up.
+Status, 2026-11-15: of the 87 entries, 84 are fixed on the
+`seance_locke_bugs` branch, 13a is won't-fix, 5g is superseded by the
+conversation store, and 10e is deferred to the native-shell review. Section 14
+lists what the fixing turned up.
 
 Another developer did a read-only review and reported 148 findings
 (`BUG-001` to `BUG-148`). The review read an older checkout, from before
@@ -226,7 +226,7 @@ with a fake transport.
       (`forget`, never called here). Only the store is emptied. The lines come
       back on the next page load, and new lines are appended to the old log
       in the meantime. The dialog says "This cannot be undone."
-- [ ] **5g. BUG-120: query logs are cached per tab and overwritten blindly**
+- [x] **5g. BUG-120: query logs are cached per tab and overwritten blindly**
       (Medium, privacy)
       `client/js/irc/querylog.ts:484-490` (`load` caches once), `:524-560`
       (`save` writes the whole cache), `:108-125`;
@@ -234,7 +234,7 @@ with a fake transport.
       closed queries). Two tabs overwrite each other's history and read
       markers. Turning "keep private conversations" off in one tab is undone
       by another tab's next save.
-      _Under discussion in its own tab (BUG-120 brief)._
+      _Not patched (rubin, 2026-11-15): superseded by a conversation store that retires `querylog.ts` (branch `seance_conversation_store`, `docs/projects/conversation-store.md`)._
 - [x] **5h. BUG-060: malformed collapsed-networks storage throws** (Medium)
       `client/js/helpers/collapseNetwork.ts:4-5`,
       `client/js/socket-events/init.ts:39-41`; written verbatim by
@@ -469,14 +469,14 @@ with a fake transport.
       network without a push subscription on this device, INVITEs, lines
       without a msgid, and the no-worker `new Notification` fallback) stay
       until clicked.
-- [ ] **10c. BUG-104: service-worker activation deletes every other deploy's
+- [x] **10c. BUG-104: service-worker activation deletes every other deploy's
       cache** (Medium)
       `client/service-worker.js:113-138`. Release (`/seance/`), `/develop/`
       and every `/prN/` share the `evilnet.github.io` origin
       (`.github/workflows/pages.yml`), and each worker deletes every cache but
       its own build's. Visiting one breaks the others' offline cold start.
-      _Under discussion in its own tab (BUG-104 brief, covers 10d too)._
-- [ ] **10d. BUG-105: workers broadcast builds and notification clicks to
+      _Fixed in b638e20c7: caches are named per deploy scope._
+- [x] **10d. BUG-105: workers broadcast builds and notification clicks to
       every window on the origin** (Medium)
       `client/service-worker.js:144-150` (`announceBuild`), `:2842`
       (resubscribe), `:3130-3170` (`openApp`), `:1253-1256` (`appWindows`);
@@ -486,7 +486,7 @@ with a fake transport.
       app. `appWindows()` alone does not fix it, because the release URL is a
       prefix of the previews' URLs. Exclude nested deploy directories, or have
       the page ignore messages from a worker outside its own registration.
-      _Under discussion with 10c._
+      _Fixed in b638e20c7: workers address only their own deploy's windows, and pages ignore other deploys' workers._
 - [ ] **10e. BUG-127: the Android shell's native push ignores the ignore list
       and mutes** (Low-Medium, privacy)
       `shells/tauri/src-tauri/gen/android/app/src/main/java/chat/seance/app/PushService.java:107-123`,
