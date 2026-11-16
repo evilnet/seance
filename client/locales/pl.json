@@ -76,7 +76,7 @@
   "cmd.alias.missing": "Brak aliasu /{name}. Polecenie /alias {name} <polecenia> go utworzy.",
   "cmd.alias.none": "Brak zdefiniowanych aliasów. Polecenie /alias <nazwa> <polecenia> tworzy nowy.",
   "cmd.alias.tooLong": "Ten alias jest zbyt długi ({length} z maksymalnie {max} znaków).",
-  "cmd.alias.tooMany": "Masz już {max} aliasów; najpierw usuń jeden w Ustawieniach → Aliasy.",
+  "cmd.alias.tooMany": "Masz już {max} aliasów; najpierw usuń jeden w Ustawieniach → Skrypty → Aliasy.",
   "cmd.alias.updated": "Alias /{name} zaktualizowany.",
   "cmd.alreadyConnected": "Jesteś już połączony.",
   "cmd.channelsAndQueriesOnly": "Polecenia {cmd} można użyć tylko w kanałach i rozmowach.",
@@ -2532,9 +2532,10 @@
   "settings.scriptEdit.syntaxError": "Błąd składni",
   "settings.scriptEdit.syntaxOk": "Składnia poprawna",
   "settings.scriptEdit.title": "Edytuj skrypt",
+  "settings.scripts.aliases": "Aliasy",
   "settings.scripts.defaultFolder": "Bez folderu",
   "settings.scripts.empty": "Brak skryptów.",
-  "settings.scripts.enable": "Włącz skrypty",
+  "settings.scripts.enable": "Włącz Lua",
   "settings.scripts.exampleResponder": "Automatyczna odpowiedź",
   "settings.scripts.exampleSlap": "Polecenie /slap",
   "settings.scripts.examples": "Albo wypróbuj przykład:",
@@ -2553,7 +2554,6 @@
   "settings.scripts.stateOff": "Wyłączony",
   "settings.scripts.stateRunning": "Działa",
   "settings.tabs.account": "Konto",
-  "settings.tabs.aliases": "Aliasy",
   "settings.tabs.appearance": "Wygląd",
   "settings.tabs.aria": "Karty ustawień",
   "settings.tabs.general": "Ogólne",
@@ -2960,5 +2960,6 @@
   "windows.settings.close": "Zamknij ustawienia",
   "windows.settings.done": "Gotowe",
   "windows.settings.note": "Zmiany są zapisywane na bieżąco.",
-  "windows.settings.title": "Ustawienia"
+  "windows.settings.title": "Ustawienia",
+  "windows.settings.titleIn": "Ustawienia › {section}"
 }

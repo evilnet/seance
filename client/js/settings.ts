@@ -421,7 +421,7 @@ const defaultConfig = {
 	searchEnabled: {
 		default: true,
 	},
-	// Lua scripting (Settings → Scripts → Enable scripting). Off by
+	// Lua scripting (Settings → Scripts → Enable Lua). Off by
 	// default: while off the script manager never creates its sandbox, so
 	// the Fengari chunk — the Lua parser/interpreter — is never fetched,
 	// no script handler or /lua command can run, and the Scripts tab shows

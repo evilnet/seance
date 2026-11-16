@@ -3,7 +3,7 @@
 		<div
 			id="script-editor-overlay"
 			v-backdrop="close"
-			class="screen-overlay"
+			class="screen-overlay settings-layer"
 			data-escape-close="script-editor"
 		>
 			<div
@@ -251,26 +251,9 @@
 
 <style>
 /* The script editor: one more layer over the settings modal, in its frame
- * (a header, a body that scrolls by itself, a footer with Done) but as wide
- * as the window allows, since code wants the room. Absolute in #viewport
- * like #settings, one step above it (20) and below the confirm dialog and
- * the menus (999 and up), so Delete's question shows over it. */
-#script-editor-overlay {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	z-index: 30;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 1.5rem;
-	background: var(--overlay-bg-color);
-	overflow: hidden;
-	overflow: clip;
-}
-
+ * (a header, a body that scrolls by itself, a footer with Done; the layer
+ * itself is .settings-layer, Windows/Settings.vue) but as wide as the
+ * window allows, since code wants the room. */
 .script-editor.settings-modal {
 	width: min(80rem, 100%);
 	height: 100%;
@@ -467,10 +450,6 @@
 
 /* On a phone it is the whole screen, as the settings are. */
 @media (max-width: 768px) {
-	#script-editor-overlay {
-		padding: 0;
-	}
-
 	.script-editor.settings-modal {
 		width: 100%;
 		border-radius: 0;

@@ -81,7 +81,7 @@
   "cmd.alias.missing": "Alias /{name} neexistuje. Vytvoříte ho příkazem /alias {name} <příkazy>.",
   "cmd.alias.none": "Nejsou definovány žádné aliasy. Vytvoříte ho příkazem /alias <název> <příkazy>.",
   "cmd.alias.tooLong": "Tento alias je příliš dlouhý ({length} z nejvýše {max} znaků).",
-  "cmd.alias.tooMany": "Už máte {max} aliasů; nejprve jeden smažte v Nastavení → Aliasy.",
+  "cmd.alias.tooMany": "Už máte {max} aliasů; nejprve jeden smažte v Nastavení → Skripty → Aliasy.",
   "cmd.alias.updated": "Alias /{name} byl aktualizován.",
   "cmd.alreadyConnected": "Již jste připojeni.",
   "cmd.channelsAndQueriesOnly": "Příkaz {cmd} lze použít pouze v kanálech a konverzacích.",
@@ -2476,9 +2476,10 @@
   "settings.scriptEdit.syntaxError": "Chyba syntaxe",
   "settings.scriptEdit.syntaxOk": "Syntaxe v pořádku",
   "settings.scriptEdit.title": "Upravit skript",
+  "settings.scripts.aliases": "Aliasy",
   "settings.scripts.defaultFolder": "Nezařazené",
   "settings.scripts.empty": "Zatím žádné skripty.",
-  "settings.scripts.enable": "Zapnout skriptování",
+  "settings.scripts.enable": "Zapnout Lua",
   "settings.scripts.exampleResponder": "Automatická odpověď",
   "settings.scripts.exampleSlap": "Příkaz /slap",
   "settings.scripts.examples": "Nebo zkuste příklad:",
@@ -2497,7 +2498,6 @@
   "settings.scripts.stateOff": "Vypnuto",
   "settings.scripts.stateRunning": "Běží",
   "settings.tabs.account": "Účet",
-  "settings.tabs.aliases": "Aliasy",
   "settings.tabs.appearance": "Vzhled",
   "settings.tabs.aria": "Karty nastavení",
   "settings.tabs.general": "Obecné",
@@ -2899,5 +2899,6 @@
   "windows.settings.close": "Zavřít nastavení",
   "windows.settings.done": "Hotovo",
   "windows.settings.note": "Změny se ukládají průběžně.",
-  "windows.settings.title": "Nastavení"
+  "windows.settings.title": "Nastavení",
+  "windows.settings.titleIn": "Nastavení › {section}"
 }

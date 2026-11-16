@@ -1,6 +1,18 @@
 <template>
 	<div class="settings-scripts" role="group" :aria-label="t('settings.scripts.heading')">
 		<h2>{{ t("settings.scripts.heading") }}</h2>
+
+		<!-- Aliases are no script, and work with Lua off: their row sits
+		     above the switch, which reads as governing only what is under it. -->
+		<router-link class="scripts-aliases" to="/settings/scripts/aliases">
+			<span class="scripts-aliases-icon" aria-hidden="true" />
+			<span class="scripts-aliases-text">
+				<span class="scripts-aliases-name">{{ t("settings.scripts.aliases") }}</span>
+				<span class="scripts-aliases-list" dir="auto">{{ aliasSummary }}</span>
+			</span>
+			<span class="scripts-aliases-chevron" aria-hidden="true" />
+		</router-link>
+
 		<p class="scripts-intro">{{ t("settings.scripts.intro") }}</p>
 		<label class="opt">
 			<input
@@ -17,7 +29,13 @@
 			>
 		</p>
 
-		<template v-else>
+		<!-- With Lua off the library stays in sight, greyed out and inert: no
+		     script runs, opens or is added until the switch is on. -->
+		<div
+			class="scripts-library"
+			:class="{'scripts-library-off': !store.state.settings.enableScripting}"
+			:inert="!store.state.settings.enableScripting"
+		>
 			<div class="scripts-actions">
 				<button class="btn btn-small" type="button" @click="addNew">
 					{{ t("settings.scripts.new") }}
@@ -93,10 +111,11 @@
 					</li>
 				</ul>
 			</template>
-		</template>
+		</div>
 
-		<!-- The editor (ScriptEdit.vue), an overlay above the settings. Keyed
-		     by the script, so Duplicate's jump to the copy mounts a fresh one. -->
+		<!-- The editor (ScriptEdit.vue) or the aliases (AliasesOverlay.vue),
+		     an overlay above the settings. Keyed by the script, so Duplicate's
+		     jump to the copy mounts a fresh one. -->
 		<router-view v-slot:default="{Component, route: shown}">
 			<component :is="Component" :key="shown.params.id" />
 		</router-view>
@@ -104,6 +123,70 @@
 </template>
 
 <style>
+/* The aliases' row: one link, set apart from the scripts below it, that
+ * opens the aliases over the list (AliasesOverlay.vue). */
+.settings-scripts .scripts-aliases {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0.25rem 0 1rem;
+	padding: 0.6rem 0.75rem;
+	border-radius: 4px;
+	background: rgb(128 128 128 / 10%);
+	color: inherit;
+	text-decoration: none;
+}
+
+.settings-scripts .scripts-aliases-icon,
+.settings-scripts .scripts-aliases-chevron {
+	color: var(--body-color-muted);
+}
+
+.settings-scripts .scripts-aliases-icon::before {
+	font: normal normal normal 1em/1 FontAwesome;
+	content: "\f120"; /* https://fontawesome.com/icons/terminal */
+}
+
+.settings-scripts .scripts-aliases-chevron::before {
+	font: normal normal normal 0.875em/1 FontAwesome;
+	content: "\f054"; /* https://fontawesome.com/icons/chevron-right */
+}
+
+[dir="rtl"] .settings-scripts .scripts-aliases-chevron::before {
+	content: "\f053"; /* chevron-left: onward points the other way */
+}
+
+.settings-scripts .scripts-aliases-text {
+	display: grid;
+	min-width: 0;
+}
+
+.settings-scripts .scripts-aliases-name {
+	font-weight: bold;
+}
+
+.settings-scripts .scripts-aliases:hover .scripts-aliases-name,
+.settings-scripts .scripts-aliases:focus-visible .scripts-aliases-name {
+	color: var(--link-color);
+	text-decoration: underline;
+}
+
+.settings-scripts .scripts-aliases-list {
+	color: var(--body-color-muted);
+	font-family: Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New",
+		monospace;
+	font-size: 0.875em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Lua off: the library is still shown, greyed out (and inert). */
+.settings-scripts .scripts-library-off {
+	opacity: 0.45;
+}
+
 .settings-scripts .scripts-intro,
 .settings-scripts .scripts-examples,
 .settings-scripts .scripts-empty {
@@ -215,6 +298,7 @@ import {
 	ScriptStorageError,
 } from "../../js/irc/scripting/storage";
 import type {Script} from "../../js/irc/scripting/types";
+import {loadAliases, type Alias} from "../../js/helpers/aliases";
 import {scriptManager} from "../../js/irc/scripting/manager";
 import {
 	importedScriptName,
@@ -236,16 +320,25 @@ export default defineComponent({
 		const {t} = useI18n();
 		const route = useRoute();
 		const scripts = ref<Script[]>(loadScripts().sort(compareScripts));
+		const aliases = ref<Alias[]>(loadAliases());
 
-		// The editor saves straight to storage: read the library again as it
-		// closes (Done, ✕, Escape, Delete).
+		// The editor and the aliases save straight to storage: read both
+		// again as they close (Done, ✕, Escape, Delete).
 		watch(
 			() => route.name,
 			(name) => {
 				if (name === "Scripts") {
 					scripts.value = loadScripts().sort(compareScripts);
+					aliases.value = loadAliases();
 				}
 			}
+		);
+
+		// The row's second line: the aliases by name, as they are typed.
+		const aliasSummary = computed(() =>
+			aliases.value.length > 0
+				? aliases.value.map((alias) => `/${alias.name}`).join(" ")
+				: t("settings.aliases.empty")
 		);
 		const query = ref("");
 		const importError = ref("");
@@ -270,10 +363,11 @@ export default defineComponent({
 			}));
 		});
 
+		// With Lua off nothing runs, whatever a script's own switch says.
 		const stateLabel = (script: Script) =>
 			script.lastError
 				? t("settings.scripts.stateError")
-				: script.enabled
+				: script.enabled && store.state.settings.enableScripting
 				? t("settings.scripts.stateRunning")
 				: t("settings.scripts.stateOff");
 
@@ -372,6 +466,7 @@ export default defineComponent({
 
 		return {
 			store,
+			aliasSummary,
 			scripts,
 			query,
 			grouped,

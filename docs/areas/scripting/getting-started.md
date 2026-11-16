@@ -2,8 +2,9 @@
 
 ## Turn scripting on
 
-Open **Settings → Scripts** and switch on **Enable scripting**. The library
-appears under the switch.
+Open **Settings → Scripts** and switch on **Enable Lua**. The library
+under the switch, greyed out until now, comes to life. (The Aliases row
+above the switch is not Lua: aliases work with the switch on or off.)
 
 While the switch is off no script runs, `/lua` says scripting is disabled,
 and the Lua interpreter is never downloaded. Your scripts are kept; turning

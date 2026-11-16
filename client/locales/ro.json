@@ -91,7 +91,7 @@
   "cmd.alias.missing": "Niciun alias /{name}. Comanda /alias {name} <comenzi> creează un alias.",
   "cmd.alias.none": "Niciun alias definit. Comanda /alias <nume> <comenzi> creează un alias.",
   "cmd.alias.tooLong": "Acest alias e prea lung ({length} din cel mult {max} caractere).",
-  "cmd.alias.tooMany": "Ai deja {max} aliasuri; șterge mai întâi unul în Setări → Aliasuri.",
+  "cmd.alias.tooMany": "Ai deja {max} aliasuri; șterge mai întâi unul în Setări → Scripturi → Aliasuri.",
   "cmd.alias.updated": "Alias /{name} actualizat.",
   "cmd.alreadyConnected": "Ești deja conectat.",
   "cmd.channelsAndQueriesOnly": "Comanda {cmd} poate fi folosită doar în canale și conversații private.",
@@ -2437,9 +2437,10 @@
   "settings.scriptEdit.syntaxError": "Eroare de sintaxă",
   "settings.scriptEdit.syntaxOk": "Sintaxa e în regulă",
   "settings.scriptEdit.title": "Editează scriptul",
+  "settings.scripts.aliases": "Aliasuri",
   "settings.scripts.defaultFolder": "Nesortate",
   "settings.scripts.empty": "Încă nu există scripturi.",
-  "settings.scripts.enable": "Activează scripturile",
+  "settings.scripts.enable": "Activează Lua",
   "settings.scripts.exampleResponder": "Răspuns automat",
   "settings.scripts.exampleSlap": "Comanda /slap",
   "settings.scripts.examples": "Sau încearcă un exemplu:",
@@ -2458,7 +2459,6 @@
   "settings.scripts.stateOff": "Oprit",
   "settings.scripts.stateRunning": "Rulează",
   "settings.tabs.account": "Cont",
-  "settings.tabs.aliases": "Aliasuri",
   "settings.tabs.appearance": "Aspect",
   "settings.tabs.aria": "File de setări",
   "settings.tabs.general": "Generale",
@@ -2856,5 +2856,6 @@
   "windows.settings.close": "Închide setările",
   "windows.settings.done": "Gata",
   "windows.settings.note": "Modificările se salvează pe măsură ce le faci.",
-  "windows.settings.title": "Setări"
+  "windows.settings.title": "Setări",
+  "windows.settings.titleIn": "Setări › {section}"
 }

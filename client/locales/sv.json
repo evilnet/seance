@@ -90,7 +90,7 @@
   "cmd.alias.missing": "Inget alias /{name}. /alias {name} <commands> skapar det.",
   "cmd.alias.none": "Inga alias definierade. /alias <name> <commands> skapar ett.",
   "cmd.alias.tooLong": "Det aliaset är för långt ({length} av högst {max} tecken).",
-  "cmd.alias.tooMany": "Du har redan {max} alias; ta bort ett i Inställningar → Alias först.",
+  "cmd.alias.tooMany": "Du har redan {max} alias; ta bort ett i Inställningar → Skript → Alias först.",
   "cmd.alias.updated": "Aliaset /{name} har uppdaterats.",
   "cmd.alreadyConnected": "Du är redan ansluten.",
   "cmd.channelsAndQueriesOnly": "Kommandot {cmd} kan endast användas i kanaler och privata konversationer.",
@@ -2378,9 +2378,10 @@
   "settings.scriptEdit.syntaxError": "Syntaxfel",
   "settings.scriptEdit.syntaxOk": "Syntaxen är OK",
   "settings.scriptEdit.title": "Redigera skript",
+  "settings.scripts.aliases": "Alias",
   "settings.scripts.defaultFolder": "Osorterat",
   "settings.scripts.empty": "Inga skript än.",
-  "settings.scripts.enable": "Aktivera skript",
+  "settings.scripts.enable": "Aktivera Lua",
   "settings.scripts.exampleResponder": "Autosvar",
   "settings.scripts.exampleSlap": "/slap-kommando",
   "settings.scripts.examples": "Eller prova ett exempel:",
@@ -2399,7 +2400,6 @@
   "settings.scripts.stateOff": "Av",
   "settings.scripts.stateRunning": "Körs",
   "settings.tabs.account": "Konto",
-  "settings.tabs.aliases": "Alias",
   "settings.tabs.appearance": "Utseende",
   "settings.tabs.aria": "Inställningsflikar",
   "settings.tabs.general": "Allmänt",
@@ -2793,5 +2793,6 @@
   "windows.settings.close": "Stäng inställningar",
   "windows.settings.done": "Klar",
   "windows.settings.note": "Ändringar sparas direkt.",
-  "windows.settings.title": "Inställningar"
+  "windows.settings.title": "Inställningar",
+  "windows.settings.titleIn": "Inställningar › {section}"
 }

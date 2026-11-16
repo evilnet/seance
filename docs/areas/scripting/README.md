@@ -23,7 +23,7 @@ writing them.
   device has them only if you export and import them, or restore a settings
   backup — and they arrive switched off.
 - **Scripting is off until you turn it on** (Settings → Scripts → Enable
-  scripting). While it is off the Lua interpreter is not even downloaded.
+  Lua). While it is off the Lua interpreter is not even downloaded.
 - **It is Lua 5.3** ([Fengari](https://fengari.io/), Lua in JavaScript),
   with the `string`, `table`, `math`, `utf8` and `coroutine` libraries and
   one more table, `seance`, which is the script's only way to touch IRC.

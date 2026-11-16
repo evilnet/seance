@@ -86,7 +86,7 @@
   "cmd.alias.missing": "Geen alias /{name}. /alias {name} <commands> maakt deze aan.",
   "cmd.alias.none": "Geen aliassen gedefinieerd. /alias <name> <commands> maakt er een aan.",
   "cmd.alias.tooLong": "Die alias is te lang ({length} van maximaal {max} tekens).",
-  "cmd.alias.tooMany": "U heeft al {max} aliassen; verwijder er eerst een in Instellingen → Aliassen.",
+  "cmd.alias.tooMany": "U heeft al {max} aliassen; verwijder er eerst een in Instellingen → Scripts → Aliassen.",
   "cmd.alias.updated": "Alias /{name} bijgewerkt.",
   "cmd.alreadyConnected": "U bent al verbonden.",
   "cmd.channelsAndQueriesOnly": "Het commando {cmd} kan alleen in kanalen en privégesprekken worden gebruikt.",
@@ -2340,9 +2340,10 @@
   "settings.scriptEdit.syntaxError": "Syntaxisfout",
   "settings.scriptEdit.syntaxOk": "Syntaxis in orde",
   "settings.scriptEdit.title": "Script bewerken",
+  "settings.scripts.aliases": "Aliassen",
   "settings.scripts.defaultFolder": "Ongesorteerd",
   "settings.scripts.empty": "Nog geen scripts.",
-  "settings.scripts.enable": "Scripting inschakelen",
+  "settings.scripts.enable": "Lua inschakelen",
   "settings.scripts.exampleResponder": "Automatisch antwoord",
   "settings.scripts.exampleSlap": "/slap-commando",
   "settings.scripts.examples": "Of probeer een voorbeeld:",
@@ -2360,7 +2361,6 @@
   "settings.scripts.stateOff": "Uit",
   "settings.scripts.stateRunning": "Actief",
   "settings.tabs.account": "Accountnaam",
-  "settings.tabs.aliases": "Aliassen",
   "settings.tabs.appearance": "Weergave",
   "settings.tabs.aria": "Tabbladen van instellingen",
   "settings.tabs.general": "Algemeen",
@@ -2749,5 +2749,6 @@
   "windows.settings.close": "Instellingen sluiten",
   "windows.settings.done": "Klaar",
   "windows.settings.note": "Wijzigingen worden meteen opgeslagen.",
-  "windows.settings.title": "Instellingen"
+  "windows.settings.title": "Instellingen",
+  "windows.settings.titleIn": "Instellingen › {section}"
 }

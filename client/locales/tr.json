@@ -76,7 +76,7 @@
   "cmd.alias.missing": "/{name} adlı kısaltma yok. /alias {name} <komutlar> ile oluşturabilirsin.",
   "cmd.alias.none": "Tanımlı kısaltma yok. /alias <isim> <komutlar> ile oluşturabilirsin.",
   "cmd.alias.tooLong": "Bu kısaltma çok uzun ({length} karakter, en fazla {max} olabilir).",
-  "cmd.alias.tooMany": "Zaten {max} kısaltman var; önce Ayarlar → Kısaltmalar'dan birini sil.",
+  "cmd.alias.tooMany": "Zaten {max} kısaltman var; önce Ayarlar → Betikler → Kısaltmalar'dan birini sil.",
   "cmd.alias.updated": "Kısaltma /{name} güncellendi.",
   "cmd.alreadyConnected": "Zaten bağlısın.",
   "cmd.channelsAndQueriesOnly": "{cmd} komutu yalnızca kanallarda ve özel konuşmalarda kullanılabilir.",
@@ -2409,9 +2409,10 @@
   "settings.scriptEdit.syntaxError": "Söz dizimi hatası",
   "settings.scriptEdit.syntaxOk": "Söz dizimi doğru",
   "settings.scriptEdit.title": "Betiği düzenle",
+  "settings.scripts.aliases": "Kısaltmalar",
   "settings.scripts.defaultFolder": "Sınıflandırılmamış",
   "settings.scripts.empty": "Henüz betik yok.",
-  "settings.scripts.enable": "Betikleri etkinleştir",
+  "settings.scripts.enable": "Lua'yı etkinleştir",
   "settings.scripts.exampleResponder": "Otomatik yanıtlayıcı",
   "settings.scripts.exampleSlap": "/slap komutu",
   "settings.scripts.examples": "Ya da bir örnek dene:",
@@ -2430,7 +2431,6 @@
   "settings.scripts.stateOff": "Kapalı",
   "settings.scripts.stateRunning": "Çalışıyor",
   "settings.tabs.account": "Hesap",
-  "settings.tabs.aliases": "Kısaltmalar",
   "settings.tabs.appearance": "Görünüm",
   "settings.tabs.aria": "Ayar sekmeleri",
   "settings.tabs.general": "Genel",
@@ -2818,5 +2818,6 @@
   "windows.settings.close": "Ayarları kapat",
   "windows.settings.done": "Bitti",
   "windows.settings.note": "Değişiklikler sen yaptıkça kaydedilir.",
-  "windows.settings.title": "Ayarlar"
+  "windows.settings.title": "Ayarlar",
+  "windows.settings.titleIn": "Ayarlar › {section}"
 }

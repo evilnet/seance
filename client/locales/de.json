@@ -89,7 +89,7 @@
   "cmd.alias.missing": "Kein Alias /{name}. /alias {name} <commands> erstellt ihn.",
   "cmd.alias.none": "Keine Aliase definiert. /alias <name> <commands> erzeugt einen.",
   "cmd.alias.tooLong": "Der Alias ist zu lang ({length} von höchstens {max} Zeichen).",
-  "cmd.alias.tooMany": "Sie haben bereits {max} Aliase; löschen Sie zuerst einen unter Einstellungen → Aliase.",
+  "cmd.alias.tooMany": "Sie haben bereits {max} Aliase; löschen Sie zuerst einen unter Einstellungen → Skripte → Aliase.",
   "cmd.alias.updated": "Alias /{name} aktualisiert.",
   "cmd.alreadyConnected": "Sie sind bereits verbunden.",
   "cmd.channelsAndQueriesOnly": "Der Befehl {cmd} kann nur in Kanälen und Privatgesprächen verwendet werden.",
@@ -2360,9 +2360,10 @@
   "settings.scriptEdit.syntaxError": "Syntaxfehler",
   "settings.scriptEdit.syntaxOk": "Syntax in Ordnung",
   "settings.scriptEdit.title": "Skript bearbeiten",
+  "settings.scripts.aliases": "Aliase",
   "settings.scripts.defaultFolder": "Unsortiert",
   "settings.scripts.empty": "Noch keine Skripte.",
-  "settings.scripts.enable": "Skripte aktivieren",
+  "settings.scripts.enable": "Lua aktivieren",
   "settings.scripts.exampleResponder": "Auto-Antwort",
   "settings.scripts.exampleSlap": "/slap-Befehl",
   "settings.scripts.examples": "Oder probieren Sie ein Beispiel:",
@@ -2381,7 +2382,6 @@
   "settings.scripts.stateOff": "Aus",
   "settings.scripts.stateRunning": "Läuft",
   "settings.tabs.account": "Konto",
-  "settings.tabs.aliases": "Aliase",
   "settings.tabs.appearance": "Darstellung",
   "settings.tabs.aria": "Einstellungs-Tabs",
   "settings.tabs.general": "Allgemein",
@@ -2752,5 +2752,6 @@
   "windows.settings.close": "Einstellungen schließen",
   "windows.settings.done": "Fertig",
   "windows.settings.note": "Änderungen werden sofort gespeichert.",
-  "windows.settings.title": "Einstellungen"
+  "windows.settings.title": "Einstellungen",
+  "windows.settings.titleIn": "Einstellungen › {section}"
 }

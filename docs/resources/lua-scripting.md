@@ -11,7 +11,7 @@ limits and pitfalls, for users — is [`docs/areas/scripting/`](../areas/scripti
 
 ### Off Unless Enabled (the master switch)
 
-Scripting is gated by **Settings → Scripts → Enable scripting** (setting
+Scripting is gated by **Settings → Scripts → Enable Lua** (setting
 `enableScripting`, default off). The flag lives in
 `client/js/irc/scripting/enabled.ts`; `settings.ts` writes it and the script
 manager subscribes to it.
@@ -285,8 +285,12 @@ seance.storage.set("last_seen", seance.current_channel)
 1. **Settings → Scripts** (`Settings/Scripts.vue` at `/settings/scripts`,
    one tab of the settings modal like the others; nothing in the sidebar):
 
-   - The tab always holds the Enable scripting switch; the library shows
-     only while it is on.
+   - The tab opens with the Aliases row (command aliases, which are not
+     Lua and work either way; `docs/resources/aliases.md` § The editor),
+     then the Enable Lua switch. The library under the switch is always
+     listed; while the switch is off it is greyed out and `inert` (no
+     script opens, runs, switches or is added), and every script's state
+     reads Off.
    - **The library**: every script is filed under a _folder_ (free text,
      `Unsorted` when unset; scripts written before folders land there) with
      an optional one-line description, listed by folder, then name, each

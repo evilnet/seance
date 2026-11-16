@@ -69,7 +69,7 @@
   "cmd.alias.missing": "エイリアス /{name} はありません。/alias {name} <commands> で作成できます。",
   "cmd.alias.none": "エイリアスは定義されていません。/alias <name> <commands> で作成できます。",
   "cmd.alias.tooLong": "エイリアスが長すぎます（{length} 文字、上限は {max} 文字）。",
-  "cmd.alias.tooMany": "エイリアスはすでに {max} 個あります。先に 設定 → エイリアス で 1 つ削除してください。",
+  "cmd.alias.tooMany": "エイリアスはすでに {max} 個あります。先に 設定 → スクリプト → エイリアス で 1 つ削除してください。",
   "cmd.alias.updated": "エイリアス /{name} を更新しました。",
   "cmd.alreadyConnected": "既に接続しています。",
   "cmd.channelsAndQueriesOnly": "{cmd}コマンドはチャンネルやクエリでしか使用できません。",
@@ -2342,9 +2342,10 @@
   "settings.scriptEdit.syntaxError": "構文エラー",
   "settings.scriptEdit.syntaxOk": "構文は正常です",
   "settings.scriptEdit.title": "スクリプトを編集",
+  "settings.scripts.aliases": "エイリアス",
   "settings.scripts.defaultFolder": "未分類",
   "settings.scripts.empty": "スクリプトはまだありません。",
-  "settings.scripts.enable": "スクリプトを有効にする",
+  "settings.scripts.enable": "Lua を有効にする",
   "settings.scripts.exampleResponder": "自動応答",
   "settings.scripts.exampleSlap": "/slap コマンド",
   "settings.scripts.examples": "または例を試す:",
@@ -2363,7 +2364,6 @@
   "settings.scripts.stateOff": "オフ",
   "settings.scripts.stateRunning": "実行中",
   "settings.tabs.account": "アカウント",
-  "settings.tabs.aliases": "エイリアス",
   "settings.tabs.appearance": "外観",
   "settings.tabs.aria": "設定タブ",
   "settings.tabs.general": "一般",
@@ -2732,5 +2732,6 @@
   "windows.settings.close": "設定を閉じる",
   "windows.settings.done": "完了",
   "windows.settings.note": "変更はすぐに保存されます。",
-  "windows.settings.title": "設定"
+  "windows.settings.title": "設定",
+  "windows.settings.titleIn": "設定 › {section}"
 }

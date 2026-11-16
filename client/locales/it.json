@@ -106,7 +106,7 @@
   "cmd.alias.missing": "Nessun alias /{name}. /alias {name} <comandi> lo crea.",
   "cmd.alias.none": "Nessun alias definito. /alias <nome> <comandi> ne crea uno.",
   "cmd.alias.tooLong": "Quell'alias è troppo lungo ({length} caratteri su un massimo di {max}).",
-  "cmd.alias.tooMany": "Hai già {max} alias; eliminane prima uno in Impostazioni → Alias.",
+  "cmd.alias.tooMany": "Hai già {max} alias; eliminane prima uno in Impostazioni → Script → Alias.",
   "cmd.alias.updated": "Alias /{name} aggiornato.",
   "cmd.alreadyConnected": "Sei già connesso.",
   "cmd.channelsAndQueriesOnly": "Il comando {cmd} può essere usato solo nei canali e nelle conversazioni private.",
@@ -2362,9 +2362,10 @@
   "settings.scriptEdit.syntaxError": "Errore di sintassi",
   "settings.scriptEdit.syntaxOk": "Sintassi corretta",
   "settings.scriptEdit.title": "Modifica script",
+  "settings.scripts.aliases": "Alias",
   "settings.scripts.defaultFolder": "Senza categoria",
   "settings.scripts.empty": "Ancora nessuno script.",
-  "settings.scripts.enable": "Attiva gli script",
+  "settings.scripts.enable": "Attiva Lua",
   "settings.scripts.exampleResponder": "Risposta automatica",
   "settings.scripts.exampleSlap": "Comando /slap",
   "settings.scripts.examples": "Oppure prova un esempio:",
@@ -2383,7 +2384,6 @@
   "settings.scripts.stateOff": "Disattivato",
   "settings.scripts.stateRunning": "In esecuzione",
   "settings.tabs.account": "Nome account",
-  "settings.tabs.aliases": "Alias",
   "settings.tabs.appearance": "Aspetto",
   "settings.tabs.aria": "Schede delle impostazioni",
   "settings.tabs.general": "Generale",
@@ -2784,5 +2784,6 @@
   "windows.settings.close": "Chiudi impostazioni",
   "windows.settings.done": "Fatto",
   "windows.settings.note": "Le modifiche vengono salvate man mano che le fai.",
-  "windows.settings.title": "Impostazioni"
+  "windows.settings.title": "Impostazioni",
+  "windows.settings.titleIn": "Impostazioni › {section}"
 }

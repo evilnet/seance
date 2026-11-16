@@ -79,7 +79,7 @@
   "cmd.alias.missing": "Nincs ilyen alias: /{name}. A /alias {name} <parancsok> létrehozza.",
   "cmd.alias.none": "Nincs megadott alias. A /alias <név> <parancsok> létrehoz egyet.",
   "cmd.alias.tooLong": "Ez az alias túl hosszú ({length}, legfeljebb {max} karakter lehet).",
-  "cmd.alias.tooMany": "Már {max} aliasod van; előbb törölj egyet a Beállítások → Aliasok alatt.",
+  "cmd.alias.tooMany": "Már {max} aliasod van; előbb törölj egyet a Beállítások → Szkriptek → Aliasok alatt.",
   "cmd.alias.updated": "Alias frissítve: /{name}.",
   "cmd.alreadyConnected": "Már kapcsolódtál.",
   "cmd.channelsAndQueriesOnly": "{cmd}: ez a parancs csak csatornákban és beszélgetésekben használható.",
@@ -2412,9 +2412,10 @@
   "settings.scriptEdit.syntaxError": "Szintaktikai hiba",
   "settings.scriptEdit.syntaxOk": "A szintaxis rendben",
   "settings.scriptEdit.title": "Szkript szerkesztése",
+  "settings.scripts.aliases": "Aliasok",
   "settings.scripts.defaultFolder": "Rendezetlen",
   "settings.scripts.empty": "Még nincs szkript.",
-  "settings.scripts.enable": "Szkriptek engedélyezése",
+  "settings.scripts.enable": "Lua engedélyezése",
   "settings.scripts.exampleResponder": "Automatikus válasz",
   "settings.scripts.exampleSlap": "/slap parancs",
   "settings.scripts.examples": "Vagy próbálj ki egy példát:",
@@ -2433,7 +2434,6 @@
   "settings.scripts.stateOff": "Ki",
   "settings.scripts.stateRunning": "Fut",
   "settings.tabs.account": "Fiók",
-  "settings.tabs.aliases": "Aliasok",
   "settings.tabs.appearance": "Megjelenés",
   "settings.tabs.aria": "Beállítások lapjai",
   "settings.tabs.general": "Általános",
@@ -2813,5 +2813,6 @@
   "windows.settings.close": "Beállítások bezárása",
   "windows.settings.done": "Kész",
   "windows.settings.note": "A módosítások azonnal mentésre kerülnek.",
-  "windows.settings.title": "Beállítások"
+  "windows.settings.title": "Beállítások",
+  "windows.settings.titleIn": "Beállítások › {section}"
 }

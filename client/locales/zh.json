@@ -66,7 +66,7 @@
   "cmd.alias.missing": "没有别名/{name}。/alias {name} <命令> 可创建它。",
   "cmd.alias.none": "没有定义别名。/alias <名称> <命令> 可创建一个。",
   "cmd.alias.tooLong": "该别名太长（{length} 个字符，最多 {max} 个字符）。",
-  "cmd.alias.tooMany": "你已经有 {max} 个别名；请先在“设置 → 别名”中删除一个。",
+  "cmd.alias.tooMany": "你已经有 {max} 个别名；请先在“设置 → 脚本 → 别名”中删除一个。",
   "cmd.alias.updated": "别名 /{name} 已更新。",
   "cmd.alreadyConnected": "你已经连接了。",
   "cmd.channelsAndQueriesOnly": "{cmd} 命令只能在频道和私聊中使用。",
@@ -2336,9 +2336,10 @@
   "settings.scriptEdit.syntaxError": "语法错误",
   "settings.scriptEdit.syntaxOk": "语法正确",
   "settings.scriptEdit.title": "编辑脚本",
+  "settings.scripts.aliases": "别名",
   "settings.scripts.defaultFolder": "未分类",
   "settings.scripts.empty": "还没有脚本。",
-  "settings.scripts.enable": "启用脚本",
+  "settings.scripts.enable": "启用 Lua",
   "settings.scripts.exampleResponder": "自动回复",
   "settings.scripts.exampleSlap": "/slap 命令",
   "settings.scripts.examples": "或者试试示例：",
@@ -2356,7 +2357,6 @@
   "settings.scripts.stateError": "错误",
   "settings.scripts.stateOff": "关闭",
   "settings.scripts.stateRunning": "运行中",
-  "settings.tabs.aliases": "别名",
   "settings.tabs.appearance": "外观",
   "settings.tabs.aria": "设置标签页",
   "settings.tabs.general": "通用",
@@ -2726,5 +2726,6 @@
   "windows.settings.close": "关闭设置",
   "windows.settings.done": "完成",
   "windows.settings.note": "更改会即时保存。",
-  "windows.settings.title": "设置"
+  "windows.settings.title": "设置",
+  "windows.settings.titleIn": "设置 › {section}"
 }

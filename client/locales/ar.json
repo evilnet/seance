@@ -93,7 +93,7 @@
   "cmd.alias.missing": "لا يوجد اسم بديل /{name}. الأمر /alias {name} <commands> ينشئه.",
   "cmd.alias.none": "لا توجد أسماء بديلة. الأمر /alias <name> <commands> ينشئ واحدًا.",
   "cmd.alias.tooLong": "هذا الاسم البديل طويل جدًا ({length} من {max} حرفًا كحد أقصى).",
-  "cmd.alias.tooMany": "لديك بالفعل {max} من الأسماء البديلة؛ احذف واحدًا أولًا في الإعدادات ← الأسماء البديلة.",
+  "cmd.alias.tooMany": "لديك بالفعل {max} من الأسماء البديلة؛ احذف واحدًا أولًا في الإعدادات ← النصوص البرمجية ← الأسماء البديلة.",
   "cmd.alias.updated": "تم تحديث الاسم البديل /{name}.",
   "cmd.alreadyConnected": "أنت مُتصل بالفعل.",
   "cmd.channelsAndQueriesOnly": "لا يمكن استخدام الأمر {cmd} إلا في القنوات والمحادثات الخاصة.",
@@ -2713,9 +2713,10 @@
   "settings.scriptEdit.syntaxError": "خطأ في الصياغة",
   "settings.scriptEdit.syntaxOk": "الصياغة سليمة",
   "settings.scriptEdit.title": "تحرير النص البرمجي",
+  "settings.scripts.aliases": "الأسماء البديلة",
   "settings.scripts.defaultFolder": "غير مصنّف",
   "settings.scripts.empty": "لا توجد نصوص برمجية بعد.",
-  "settings.scripts.enable": "تفعيل النصوص البرمجية",
+  "settings.scripts.enable": "تفعيل Lua",
   "settings.scripts.exampleResponder": "الرد التلقائي",
   "settings.scripts.exampleSlap": "الأمر /slap",
   "settings.scripts.examples": "أو جرّب مثالًا:",
@@ -2734,7 +2735,6 @@
   "settings.scripts.stateOff": "متوقف",
   "settings.scripts.stateRunning": "يعمل",
   "settings.tabs.account": "الحساب",
-  "settings.tabs.aliases": "الأسماء البديلة",
   "settings.tabs.appearance": "المظهر",
   "settings.tabs.aria": "علامات تبويب الإعدادات",
   "settings.tabs.general": "عام",
@@ -3168,5 +3168,6 @@
   "windows.settings.close": "إغلاق الإعدادات",
   "windows.settings.done": "تم",
   "windows.settings.note": "تُحفظ التغييرات فور إجرائها.",
-  "windows.settings.title": "الإعدادات"
+  "windows.settings.title": "الإعدادات",
+  "windows.settings.titleIn": "الإعدادات ← {section}"
 }

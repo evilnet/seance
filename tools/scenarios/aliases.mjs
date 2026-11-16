@@ -5,9 +5,13 @@
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/aliases.mjs
+//   (also --mobile --width=390 --height=844)
 //
-// The claims under test are what `pnpm test` cannot see: the Aliases tab
-// renders and edits, a row persists to localStorage as soon as it is valid,
+// The claims under test are what `pnpm test` cannot see: the Aliases row
+// heads Settings → Scripts and works with Lua off (the library under the
+// switch greyed out and inert), it opens the aliases as a layer over the
+// settings that Escape and Done close back to the list, the page renders
+// and edits, a row persists to localStorage as soon as it is valid,
 // an invalid row shows its error and is *not* saved, the "Try it" box
 // previews the expansion, and a typed `/alias` in a real channel goes out
 // expanded (nested alias included, `$chan`/`$1` filled in) while `//` still
@@ -23,6 +27,7 @@ export const url = `${BASE}?host=127.0.0.1&port=8067&tls=false&nick=${NICK}&join
 const PAGE = ".settings-aliases";
 const ADD = `${PAGE} .alias-actions .btn`;
 const STATUS = `${PAGE} .alias-status`;
+const ROW = ".settings-scripts .scripts-aliases";
 const TRY = `${PAGE} .alias-try`;
 
 /** The name/body inputs of row `n` (0-based; .alias-head is nth-child(1)). */
@@ -35,6 +40,9 @@ const MESSAGES = `Array.from(document.querySelectorAll("#chat .msg[data-type='me
 	.map((el) => ({type: el.dataset.type, text: el.querySelector(".content")?.textContent.trim() ?? ""}))`;
 
 export default async function run(page) {
+	const rowList = () =>
+		page.evaluate(`document.querySelector("${ROW} .scripts-aliases-list")?.textContent.trim()`);
+
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
 	await page.waitFor(`document.querySelector('.channel-list-item[data-name="${CHANNEL}"]')`, {
@@ -42,15 +50,53 @@ export default async function run(page) {
 		label: `${CHANNEL} in the sidebar`,
 	});
 
-	// --- The settings tab ---------------------------------------------------
-	await page.click("#footer button.settings");
-	await page.waitFor(`!!document.querySelector(".settings-menu .aliases")`, {
-		label: "the Aliases tab in the settings menu",
+	// --- Settings → Scripts → Aliases ------------------------------------------
+	// By URL: on the phone layout the sidebar, and its cog, start closed.
+	await page.evaluate(`location.hash = "#/settings"`);
+	await page.waitFor(`!!document.querySelector(".settings-menu .scripts")`, {
+		label: "the Scripts tab in the settings menu",
 	});
-	await page.click(".settings-menu .aliases");
+	await page.check(
+		"no Aliases tab of its own",
+		(await page.count(".settings-menu .aliases")) === 0
+	);
+	await page.click(".settings-menu .scripts");
+	await page.waitFor(`!!document.querySelector(${JSON.stringify(ROW)})`, {
+		label: "the Aliases row on the Scripts tab",
+	});
+	await page.check(
+		"Lua is off, and the library under its switch is greyed out and inert",
+		(await page.evaluate(
+			`!document.querySelector('input[name="enableScripting"]').checked &&
+			document.querySelector(".scripts-library").inert &&
+			document.querySelector(".scripts-library").classList.contains("scripts-library-off")`
+		)) === true
+	);
+	await page.check(
+		"the Aliases row sits above the switch, outside the greyed library",
+		(await page.evaluate(
+			`(() => {
+				const row = document.querySelector(${JSON.stringify(ROW)});
+				const toggle = document.querySelector('input[name="enableScripting"]');
+				return !row.closest(".scripts-library") &&
+					!!(row.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING);
+			})()`
+		)) === true
+	);
+	await page.check("the row says there are none yet", (await rowList()) === "No aliases yet.");
+	await page.screenshot("0-scripts-tab");
+	await page.click(ROW);
 	await page.waitFor(`!!document.querySelector(${JSON.stringify(PAGE)})`, {
 		label: "the aliases page",
 	});
+	await page.check(
+		"the aliases open as a layer at /settings/scripts/aliases, Scripts still lit",
+		(await page.evaluate(
+			`location.hash === "#/settings/scripts/aliases" &&
+			!!document.querySelector("#aliases-overlay.settings-layer ${PAGE}") &&
+			document.querySelector(".settings-menu button.active")?.classList.contains("scripts")`
+		)) === true
+	);
 	await page.check(
 		"starts empty",
 		(await page.evaluate(`document.querySelector("${PAGE} .alias-empty")?.textContent`)) != null
@@ -117,10 +163,46 @@ export default async function run(page) {
 	await page.fill(`${row(1)} .alias-body`, "/wave $1\nwelcome to $chan, $1!");
 	await page.waitFor(`(${STORED})?.length === 2`, {label: "both aliases saved"});
 
+	// Escape closes the layer alone, back to the list, which lists the
+	// aliases now; the settings stay open under it.
+	await page.evaluate(`document.activeElement?.blur()`);
+	for (const type of ["keyDown", "keyUp"]) {
+		await page.send("Input.dispatchKeyEvent", {
+			type,
+			key: "Escape",
+			code: "Escape",
+			windowsVirtualKeyCode: 27,
+		});
+	}
+	await page.waitFor(`!document.querySelector("#aliases-overlay")`, {
+		label: "the aliases layer closed",
+	});
+	await page.check(
+		"Escape went back to the Scripts list, settings still open",
+		(await page.evaluate(
+			`location.hash === "#/settings/scripts" && !!document.querySelector("#settings")`
+		)) === true
+	);
+	await page.check(
+		`the row lists the aliases (${JSON.stringify(await rowList())})`,
+		(await rowList()) === "/wave /greet"
+	);
+	await page.screenshot("3b-row-lists-them");
+
+	// The old tab's address still finds them.
+	await page.evaluate(`location.hash = "#/settings/aliases"`);
+	await page.waitFor(`!!document.querySelector("#aliases-overlay ${PAGE}")`, {
+		label: "/settings/aliases redirected to the layer",
+	});
+	await page.click("#aliases-overlay .settings-modal-done");
+	await page.waitFor(`!document.querySelector("#aliases-overlay")`, {
+		label: "Done closed the layer",
+	});
+
 	// --- In a real channel ----------------------------------------------------
 	// Settings is a modal over the whole app: leave through Done before
 	// reaching for the sidebar.
-	await page.click(".settings-modal-done");
+	await page.click("#settings .settings-modal-done");
 	await page.waitFor(`!document.querySelector(".settings-modal")`, {label: "settings closed"});
 	await page.click(`.channel-list-item[data-name="${CHANNEL}"]`);
 	await page.waitFor(`!!document.querySelector("#input")`, {label: "the input box"});

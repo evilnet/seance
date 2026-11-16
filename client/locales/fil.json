@@ -77,7 +77,7 @@
   "cmd.alias.missing": "Walang alias na /{name}. Ginagawa ito ng /alias {name} <commands>.",
   "cmd.alias.none": "Walang naka-define na alias. Gumagawa ng isa ang /alias <name> <commands>.",
   "cmd.alias.tooLong": "Masyadong mahaba ang alias na iyan ({length} sa hanggang {max} karakter).",
-  "cmd.alias.tooMany": "Mayroon ka nang {max} na alias; mag-delete muna ng isa sa Mga setting → Mga alias.",
+  "cmd.alias.tooMany": "Mayroon ka nang {max} na alias; mag-delete muna ng isa sa Mga setting → Mga script → Mga alias.",
   "cmd.alias.updated": "Na-update ang alias na /{name}.",
   "cmd.alreadyConnected": "Nakaconnect ka na.",
   "cmd.channelsAndQueriesOnly": "Magagamit lang ang command na {cmd} sa mga channel at pribadong usapan.",
@@ -2332,9 +2332,10 @@
   "settings.scriptEdit.syntaxError": "Error sa syntax",
   "settings.scriptEdit.syntaxOk": "Ayos ang syntax",
   "settings.scriptEdit.title": "I-edit ang script",
+  "settings.scripts.aliases": "Mga alias",
   "settings.scripts.defaultFolder": "Hindi nakaayos",
   "settings.scripts.empty": "Wala pang script.",
-  "settings.scripts.enable": "I-enable ang pag-script",
+  "settings.scripts.enable": "I-enable ang Lua",
   "settings.scripts.exampleResponder": "Awtomatikong sagot",
   "settings.scripts.exampleSlap": "/slap na command",
   "settings.scripts.examples": "O subukan ang isang halimbawa:",
@@ -2352,7 +2353,6 @@
   "settings.scripts.stateError": "May error",
   "settings.scripts.stateOff": "Naka-off",
   "settings.scripts.stateRunning": "Tumatakbo",
-  "settings.tabs.aliases": "Mga alias",
   "settings.tabs.appearance": "Hitsura",
   "settings.tabs.aria": "Mga tab ng mga setting",
   "settings.tabs.general": "Pangkalahatan",
@@ -2734,5 +2734,6 @@
   "windows.settings.close": "Isara ang mga setting",
   "windows.settings.done": "Tapos na",
   "windows.settings.note": "Sine-save ang mga pagbabago habang ginagawa mo ang mga ito.",
-  "windows.settings.title": "Mga setting"
+  "windows.settings.title": "Mga setting",
+  "windows.settings.titleIn": "Mga setting › {section}"
 }

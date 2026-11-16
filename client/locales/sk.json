@@ -82,7 +82,7 @@
   "cmd.alias.missing": "Alias /{name} neexistuje. Vytvoríte ho príkazom /alias {name} <príkazy>.",
   "cmd.alias.none": "Nie sú definované žiadne aliasy. Vytvoríte ho príkazom /alias <názov> <príkazy>.",
   "cmd.alias.tooLong": "Tento alias je príliš dlhý ({length} z najviac {max} znakov).",
-  "cmd.alias.tooMany": "Už máte {max} aliasov; najprv jeden odstráňte v Nastavenia → Aliasy.",
+  "cmd.alias.tooMany": "Už máte {max} aliasov; najprv jeden odstráňte v Nastavenia → Skripty → Aliasy.",
   "cmd.alias.updated": "Alias /{name} bol aktualizovaný.",
   "cmd.alreadyConnected": "Už ste pripojený.",
   "cmd.channelsAndQueriesOnly": "Príkaz {cmd} sa dá použiť len v kanáloch a konverzáciách.",
@@ -2473,9 +2473,10 @@
   "settings.scriptEdit.syntaxError": "Chyba syntaxe",
   "settings.scriptEdit.syntaxOk": "Syntax je v poriadku",
   "settings.scriptEdit.title": "Upraviť skript",
+  "settings.scripts.aliases": "Aliasy",
   "settings.scripts.defaultFolder": "Nezaradené",
   "settings.scripts.empty": "Zatiaľ žiadne skripty.",
-  "settings.scripts.enable": "Zapnúť skriptovanie",
+  "settings.scripts.enable": "Zapnúť Lua",
   "settings.scripts.exampleResponder": "Automatická odpoveď",
   "settings.scripts.exampleSlap": "Príkaz /slap",
   "settings.scripts.examples": "Alebo skúste príklad:",
@@ -2494,7 +2495,6 @@
   "settings.scripts.stateOff": "Vypnutý",
   "settings.scripts.stateRunning": "Beží",
   "settings.tabs.account": "Účet",
-  "settings.tabs.aliases": "Aliasy",
   "settings.tabs.appearance": "Vzhľad",
   "settings.tabs.aria": "Karty nastavení",
   "settings.tabs.general": "Všeobecné",
@@ -2891,5 +2891,6 @@
   "windows.settings.close": "Zavrieť nastavenia",
   "windows.settings.done": "Hotovo",
   "windows.settings.note": "Zmeny sa ukladajú priebežne.",
-  "windows.settings.title": "Nastavenia"
+  "windows.settings.title": "Nastavenia",
+  "windows.settings.titleIn": "Nastavenia › {section}"
 }

@@ -79,7 +79,7 @@
   "cmd.alias.missing": "Псевдоніма /{name} немає. Команда /alias {name} <commands> створює його.",
   "cmd.alias.none": "Псевдоніми не задано. Команда /alias <name> <commands> створює новий.",
   "cmd.alias.tooLong": "Цей псевдонім задовгий ({length} із максимальних {max} символів).",
-  "cmd.alias.tooMany": "У вас уже {max} псевдонімів; спершу видаліть один у Налаштування → Псевдоніми.",
+  "cmd.alias.tooMany": "У вас уже {max} псевдонімів; спершу видаліть один у Налаштування → Скрипти → Псевдоніми.",
   "cmd.alias.updated": "Псевдонім /{name} оновлено.",
   "cmd.alreadyConnected": "Ви вже підключені.",
   "cmd.channelsAndQueriesOnly": "Команду {cmd} можна використовувати лише в каналах і розмовах.",
@@ -2560,9 +2560,10 @@
   "settings.scriptEdit.syntaxError": "Синтаксична помилка",
   "settings.scriptEdit.syntaxOk": "Синтаксис гаразд",
   "settings.scriptEdit.title": "Редагувати скрипт",
+  "settings.scripts.aliases": "Псевдоніми",
   "settings.scripts.defaultFolder": "Без теки",
   "settings.scripts.empty": "Скриптів ще немає.",
-  "settings.scripts.enable": "Увімкнути скрипти",
+  "settings.scripts.enable": "Увімкнути Lua",
   "settings.scripts.exampleResponder": "Автовідповідач",
   "settings.scripts.exampleSlap": "Команда /slap",
   "settings.scripts.examples": "Або спробуйте приклад:",
@@ -2581,7 +2582,6 @@
   "settings.scripts.stateOff": "Вимк.",
   "settings.scripts.stateRunning": "Працює",
   "settings.tabs.account": "Обліковий запис",
-  "settings.tabs.aliases": "Псевдоніми",
   "settings.tabs.appearance": "Вигляд",
   "settings.tabs.aria": "Вкладки налаштувань",
   "settings.tabs.general": "Загальні",
@@ -2994,5 +2994,6 @@
   "windows.settings.close": "Закрити налаштування",
   "windows.settings.done": "Готово",
   "windows.settings.note": "Зміни зберігаються одразу.",
-  "windows.settings.title": "Налаштування"
+  "windows.settings.title": "Налаштування",
+  "windows.settings.titleIn": "Налаштування › {section}"
 }

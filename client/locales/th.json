@@ -71,7 +71,7 @@
   "cmd.alias.missing": "ไม่มีนามแฝง /{name} ใช้ /alias {name} <commands> เพื่อสร้าง",
   "cmd.alias.none": "ยังไม่ได้กำหนดนามแฝง ใช้ /alias <name> <commands> เพื่อสร้าง",
   "cmd.alias.tooLong": "นามแฝงนี้ยาวเกินไป ({length} จากสูงสุด {max} ตัวอักษร)",
-  "cmd.alias.tooMany": "คุณมีนามแฝง {max} รายการแล้ว โปรดลบหนึ่งรายการใน การตั้งค่า → นามแฝง ก่อน",
+  "cmd.alias.tooMany": "คุณมีนามแฝง {max} รายการแล้ว โปรดลบหนึ่งรายการใน การตั้งค่า → สคริปต์ → นามแฝง ก่อน",
   "cmd.alias.updated": "อัปเดตนามแฝง /{name} แล้ว",
   "cmd.alreadyConnected": "คุณเชื่อมต่ออยู่แล้ว",
   "cmd.channelsAndQueriesOnly": "คำสั่ง {cmd} ใช้ได้เฉพาะในช่องและบทสนทนาส่วนตัว",
@@ -2340,9 +2340,10 @@
   "settings.scriptEdit.syntaxError": "ไวยากรณ์ผิดพลาด",
   "settings.scriptEdit.syntaxOk": "ไวยากรณ์ถูกต้อง",
   "settings.scriptEdit.title": "แก้ไขสคริปต์",
+  "settings.scripts.aliases": "นามแฝง",
   "settings.scripts.defaultFolder": "ไม่ได้จัดหมวด",
   "settings.scripts.empty": "ยังไม่มีสคริปต์",
-  "settings.scripts.enable": "เปิดใช้สคริปต์",
+  "settings.scripts.enable": "เปิดใช้ Lua",
   "settings.scripts.exampleResponder": "ตอบกลับอัตโนมัติ",
   "settings.scripts.exampleSlap": "คำสั่ง /slap",
   "settings.scripts.examples": "หรือลองตัวอย่าง:",
@@ -2361,7 +2362,6 @@
   "settings.scripts.stateOff": "ปิด",
   "settings.scripts.stateRunning": "กำลังทำงาน",
   "settings.tabs.account": "บัญชี",
-  "settings.tabs.aliases": "นามแฝง",
   "settings.tabs.appearance": "รูปลักษณ์",
   "settings.tabs.aria": "แท็บการตั้งค่า",
   "settings.tabs.general": "ทั่วไป",
@@ -2742,5 +2742,6 @@
   "windows.settings.close": "ปิดการตั้งค่า",
   "windows.settings.done": "เสร็จสิ้น",
   "windows.settings.note": "การเปลี่ยนแปลงจะถูกบันทึกทันที",
-  "windows.settings.title": "การตั้งค่า"
+  "windows.settings.title": "การตั้งค่า",
+  "windows.settings.titleIn": "การตั้งค่า › {section}"
 }

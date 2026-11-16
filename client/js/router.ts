@@ -23,7 +23,7 @@ import AppearanceSettings from "../components/Settings/Appearance.vue";
 import GeneralSettings from "../components/Settings/General.vue";
 import NotificationSettings from "../components/Settings/Notifications.vue";
 import TranslationSettings from "../components/Settings/Translation.vue";
-import AliasSettings from "../components/Settings/Aliases.vue";
+import AliasesOverlay from "../components/Settings/AliasesOverlay.vue";
 import ScriptSettings from "../components/Settings/Scripts.vue";
 import ScriptEdit from "../components/Settings/ScriptEdit.vue";
 import NetworkSettings from "../components/Settings/Networks.vue";
@@ -95,15 +95,24 @@ const router = createRouter({
 					component: TranslationSettings,
 				},
 				{
-					name: "Aliases",
+					// Aliases were a tab of their own before they became the
+					// first row of the Scripts list.
 					path: "aliases",
-					component: AliasSettings,
+					redirect: {name: "Aliases"},
 				},
 				{
 					name: "Scripts",
 					path: "scripts",
 					component: ScriptSettings,
 					children: [
+						{
+							// An overlay over the list, as a script's editor is,
+							// and open whether Lua is on or not: aliases are not
+							// scripts.
+							name: "Aliases",
+							path: "aliases",
+							component: AliasesOverlay,
+						},
 						{
 							// An overlay over the settings, the list still under it.
 							name: "ScriptEdit",

@@ -1,5 +1,6 @@
-// Settings → Scripts, no IRC needed: the tab holds the Enable scripting
-// switch and, while it is on, the library; a script opens in the editor at
+// Settings → Scripts, no IRC needed: the tab holds the Aliases row, the
+// Enable Lua switch and the library, greyed out and inert while the switch
+// is off; a script opens in the editor at
 // /settings/scripts/<id>, an overlay one layer above the settings modal and
 // wider than it, closed by Done, ✕ or Escape back to the list (Escape
 // closes the editor alone, not the settings under it); its code is a
@@ -56,8 +57,9 @@ export default async function run(page) {
 	page.check("no scripting icon in the footer", (await page.count("#footer .scripts")) === 0);
 	page.check("fengari not loaded while disabled", (await page.evaluate(FENGARI_RESOURCES)) === 0);
 
-	// The tab is there with scripting off, and holds only the switch. (By
-	// URL: on the phone layout the sidebar, and its cog, start closed.)
+	// The tab is there with scripting off: the switch, and the library under
+	// it greyed out and inert. (By URL: on the phone layout the sidebar, and
+	// its cog, start closed.)
 	await page.evaluate(`location.hash = "#/settings"`);
 	await page.waitFor(`!!document.querySelector(".settings-menu button.scripts")`, {
 		label: "Scripts tab",
@@ -71,11 +73,17 @@ export default async function run(page) {
 		(await page.evaluate("location.hash")) === "#/settings/scripts"
 	);
 	page.check(
-		"Enable scripting starts off",
+		"Enable Lua starts off",
 		(await page.evaluate(`document.querySelector('input[name="enableScripting"]').checked`)) ===
 			false
 	);
-	page.check("no library while off", (await page.count(".scripts-actions")) === 0);
+	page.check(
+		"the library is inert while off",
+		(await page.evaluate(
+			`document.querySelector(".scripts-library")?.inert === true &&
+			document.querySelector(".scripts-actions .btn")?.closest("[inert]") !== null`
+		)) === true
+	);
 	await page.screenshot("scripts-off");
 
 	await page.click(".settings-menu button.general");
@@ -90,7 +98,9 @@ export default async function run(page) {
 	});
 
 	await page.click('input[name="enableScripting"]');
-	await page.waitFor(`!!document.querySelector(".scripts-actions")`, {label: "library shown"});
+	await page.waitFor(`document.querySelector(".scripts-library")?.inert === false`, {
+		label: "library live",
+	});
 	page.check(
 		"stored setting is on",
 		(await page.evaluate(
@@ -283,7 +293,9 @@ export default async function run(page) {
 	await page.sleep(300); // its fade
 	await page.screenshot("script-delete-confirm");
 	await page.click("#confirm-dialog .btn-danger");
-	await page.waitFor(`!!document.querySelector(".scripts-actions")`, {label: "back on list"});
+	await page.waitFor(`!document.querySelector("#script-editor-overlay")`, {
+		label: "back on list",
+	});
 	page.check("the copy is deleted", (await page.evaluate(`${STORED}.length`)) === 1);
 	await page.waitFor(`!document.querySelector("#confirm-dialog-overlay.opened")`, {
 		label: "confirm closed",
@@ -307,9 +319,20 @@ export default async function run(page) {
 				"Answers !ping"
 	);
 
-	// Off again: the library hides, and the editor's URL leads to the tab.
+	// Off again: the library greys out, nothing in it reads Running (a
+	// script's last error still shows), and the
+	// editor's URL leads to the tab.
 	await page.click('input[name="enableScripting"]');
-	await page.waitFor(`!document.querySelector(".scripts-actions")`, {label: "library hidden"});
+	await page.waitFor(`document.querySelector(".scripts-library")?.inert === true`, {
+		label: "library inert",
+	});
+	const states = await page.evaluate(
+		`[...document.querySelectorAll(".scripts-state")].map((el) => el.textContent.trim())`
+	);
+	page.check(
+		`with Lua off no script reads Running (${states.join(", ")})`,
+		states.length > 0 && !states.includes("Running")
+	);
 	await page.evaluate(`location.hash = "#/settings/scripts/${id}"`);
 	await page.sleep(300);
 	page.check(

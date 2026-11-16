@@ -78,7 +78,7 @@
   "cmd.alias.missing": "Алиаса /{name} нет. Команда /alias {name} <commands> создаёт его.",
   "cmd.alias.none": "Алиасы не заданы. Команда /alias <name> <commands> создаёт новый.",
   "cmd.alias.tooLong": "Этот алиас слишком длинный ({length} символов при максимуме {max}).",
-  "cmd.alias.tooMany": "У вас уже есть {max} алиасов; сначала удалите один в Настройках → Алиасы.",
+  "cmd.alias.tooMany": "У вас уже есть {max} алиасов; сначала удалите один в Настройках → Скрипты → Алиасы.",
   "cmd.alias.updated": "Алиас /{name} обновлён.",
   "cmd.alreadyConnected": "Вы уже подключены.",
   "cmd.channelsAndQueriesOnly": "Команду {cmd} можно использовать только в каналах и беседах.",
@@ -2555,9 +2555,10 @@
   "settings.scriptEdit.syntaxError": "Синтаксическая ошибка",
   "settings.scriptEdit.syntaxOk": "Синтаксис в порядке",
   "settings.scriptEdit.title": "Изменить скрипт",
+  "settings.scripts.aliases": "Алиасы",
   "settings.scripts.defaultFolder": "Без папки",
   "settings.scripts.empty": "Скриптов пока нет.",
-  "settings.scripts.enable": "Включить скрипты",
+  "settings.scripts.enable": "Включить Lua",
   "settings.scripts.exampleResponder": "Автоответчик",
   "settings.scripts.exampleSlap": "Команда /slap",
   "settings.scripts.examples": "Или попробуйте пример:",
@@ -2575,7 +2576,6 @@
   "settings.scripts.stateError": "Ошибка",
   "settings.scripts.stateOff": "Выкл.",
   "settings.scripts.stateRunning": "Работает",
-  "settings.tabs.aliases": "Алиасы",
   "settings.tabs.appearance": "Внешний вид",
   "settings.tabs.aria": "Вкладки настроек",
   "settings.tabs.general": "Общие",
@@ -2998,5 +2998,6 @@
   "windows.settings.close": "Закрыть настройки",
   "windows.settings.done": "Готово",
   "windows.settings.note": "Изменения сохраняются сразу.",
-  "windows.settings.title": "Настройки"
+  "windows.settings.title": "Настройки",
+  "windows.settings.titleIn": "Настройки › {section}"
 }

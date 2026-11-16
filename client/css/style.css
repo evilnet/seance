@@ -2255,6 +2255,9 @@ so the toolbar has one weight; green is what marks a subscribed bell. */
 .window li,
 .window p,
 .window label,
+.settings-layer li,
+.settings-layer p,
+.settings-layer label,
 #settings .error {
 	font-size: 1rem;
 }
@@ -2397,7 +2400,10 @@ textarea.input {
 	font-size: 2.25rem;
 }
 
-.window h2 {
+/* A layer over the settings (.settings-layer, Windows/Settings.vue) is
+ * teleported out of #settings: its pages' headings read as the settings'. */
+.window h2,
+.settings-layer h2 {
 	border-bottom: 1px solid currentcolor;
 	color: var(--window-heading-color);
 	font-size: 1.375rem;
@@ -2410,7 +2416,8 @@ textarea.input {
 	line-height: 30px;
 }
 
-.window h3 {
+.window h3,
+.settings-layer h3 {
 	color: var(--window-heading-color);
 	font-size: 1.125rem;
 	margin: 20px 0 10px;
