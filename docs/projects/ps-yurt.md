@@ -25,6 +25,7 @@ It replaces the frosted, still plains that private conversations show today (ps-
 | 2026-11-14 | Contrast: the room's darkest colours lighten     | "Lighten the darkest room colours": the iron greyer, the dark wood and the rug's blue lighter, until every floor holds at today's caps; a small departure from the approved mockup, accepted                                                                                            |
 | 2026-11-14 | The room moves like the plains                   | "Moves like the plains": the same tiers, freezing and reduced-motion rules as a channel; a query no longer forces still                                                                                                                                                                 |
 | 2026-11-14 | The stove in the middle                          | "In the middle": the stove centred under the crown                                                                                                                                                                                                                                      |
+| 2026-11-16 | In calm the flames flicker                       | "in calm, make the flames flicker instead of dance" (after §11.3): the tongues and the core fade on the mockup's flickers, each on its own beat                                                                                                                                         |
 
 ## 3. Goals, non-goals, anti-goals
 
@@ -171,7 +172,7 @@ A query is now just another view to `tierFor`.
 
 One length, `--ps-ym-s`, places the HTML in the design frame as the svg's `slice` does. `psng/room-motion.ts` (`ROOM_MOTION_CSS`, adopted with the room's sheet) hangs the motion on NG's groups, in phase:
 
-- `hearth`, a new group: the glow on the mockup's `flick` and the lamp's flame on its `flick-b`; since plan 3 (§16), the fire's three tongues licking on their own beats (`psng-yt-lick-a`, `-b`, `-c`), its core breathing (`psng-yt-core`) and four sparks rising (`psng-yt-rise`, not in calm), in the door's box clipped to its opening;
+- `hearth`, a new group: the glow on the mockup's `flick` and the lamp's flame on its `flick-b`; since plan 3 (§16), the fire's three tongues licking on their own beats (`psng-yt-lick-a`, `-b`, `-c`), its core breathing (`psng-yt-core`) and four sparks rising (`psng-yt-rise`), in the door's box clipped to its opening; in calm the tongues and the core flicker on the mockup's `flick` and `flick-b` instead, each on its own beat, and no spark rises (the user, 2026-11-16, after §11.3);
 - `steam`, a new group: the smoke's keyframes;
 - `clouds`;
 - `weather`: the plains' own rain tiles, snow and flash, run by NG's rules;
@@ -335,6 +336,8 @@ The candidates are the user's call:
 - find out what a tick costs in the room (the trace's restyled elements and paint per frame, a calm query against a calm channel): a room-side cause could keep the dance in calm and narrow the full tier's breach too;
 - decide after the iPhone sitting.
 
+**The user's call (2026-11-16): in calm the flames flicker.** "in calm, make the flames flicker instead of dance". The tongues and the core now fade on the mockup's two flickers, each on its own beat and offset, and dance only at full. Measured the same way, a calm query at a clear 21:00, three runs each at a load of 3–4: 0.18 % (0.17–0.18) on the desktop and 1.05 % (1.05–1.13) on the phone profile, with 2 recalculations a second. That is back under the plains' calm (2.2 % and 4.5 %) and level with plan 2 (0.16 % and 0.95 %). Full keeps the dance, and its open breach (above).
+
 Scripts: `tmp/yurt-check/perf3-run.sh`, `perf3-iso.sh`, `probe-anc.mjs` and `trace-fire.mjs` (scratch).
 
 ## 12. Tests and checks
@@ -440,7 +443,7 @@ The flames' size and strength follow the fire's level: small at dusk, full by ni
 **Tiers:**
 
 - Full: the flames, the core, the sparks and the glow.
-- Calm: the flames, the core and the glow, without the sparks. Phones on Auto are calm, so they see the fire dance.
+- Calm: the flames, the core and the glow, without the sparks. Phones on Auto are calm. As built, the flames and the core flicker in calm rather than dance (the user, 2026-11-16, after §11.3's cost).
 - Still, reduced motion, a frozen rest or the drawer open: plan 1's still fire while it burns, the embers while it is out.
 
 ### Approaches

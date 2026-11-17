@@ -29,9 +29,9 @@
 //       stove's lower third is the same in two frames 300 ms apart;
 //    b. rain runs psng-rain-fall, snow ps-flake, a storm ps-flash, a clear 21:00
 //       ps-twinkle;
-//    c. calm (psAnimation; a phone's auto) at a clear 21:00: the licks, the core and the
-//       two flickers run, and no spark rises and no window cloud drifts (ps-yurt.md
-//       §11.2, §16);
+//    c. calm (psAnimation; a phone's auto) at a clear 21:00: only the two flickers run,
+//       four of them on the fire's tongues and core (the user, 2026-11-16), and nothing
+//       dances, no spark rises and no window cloud drifts (ps-yurt.md §11.2, §11.3, §16);
 //    d. still (reduced motion emulated): nothing runs, and plan 1's still fire and
 //       clouds show while the moving ones are out; the still fire burns at 21:00
 //       (opacity at least 0.95) and is out at noon (0), the embers showing;
@@ -150,7 +150,7 @@ const CENSUS = `(() => {
 	return s.getAnimations({subtree: true}).filter((a) => "animationName" in a && a.playState === "running").map((a) => {
 		const t = a.effect.target;
 		const props = [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k)).filter((k) => !["offset", "computedOffset", "easing", "composite"].includes(k)))];
-		return {name: a.animationName, room: !!t.closest(".ps-indoor"), plains: !!t.closest(".ps-frost"), svg: !!t.closest("svg"), props};
+		return {name: a.animationName, room: !!t.closest(".ps-indoor"), plains: !!t.closest(".ps-frost"), svg: !!t.closest("svg"), fire: !!t.closest(".ps-ym-fire"), props};
 	});
 })()`;
 
@@ -170,11 +170,8 @@ const ROOM_ANIMATIONS = [
 	...FIRE,
 ];
 
-/** Calm's hearth at night (§16): the licks, the core and both flickers, no sparks. */
-const CALM_NIGHT = FIRE.filter((n) => n !== "psng-yt-rise").concat([
-	"psng-yt-flick",
-	"psng-yt-flick-b",
-]);
+/** Calm's hearth at night (the user, 2026-11-16): the fire's tongues and core, the glow and the lamp flicker; nothing dances, no spark rises. */
+const CALM_NIGHT = ["psng-yt-flick", "psng-yt-flick-b"];
 
 /** The moving boxes against what they sit on, and the scene's width. */
 const BOXES = `(() => {
@@ -242,10 +239,14 @@ async function checks(page) {
 		const auto = await page.evaluate(CENSUS);
 		const ran = [...new Set(auto.map((a) => a.name))].sort();
 		page.check(
-			`4c: a phone's auto is calm at 21:00 — the fire's dance and the flickers, no sparks, the window clouds resting (${ran.join(
+			`4c: a phone's auto is calm at 21:00 — the flames flicker (${
+				auto.filter((a) => a.fire).length
+			} in the fire), nothing dances, no sparks, the window clouds resting (${ran.join(
 				" "
 			)})`,
-			CALM_NIGHT.every((n) => ran.includes(n)) && ran.every((n) => CALM_NIGHT.includes(n))
+			CALM_NIGHT.every((n) => ran.includes(n)) &&
+				ran.every((n) => CALM_NIGHT.includes(n)) &&
+				auto.filter((a) => a.fire).length === 4
 		);
 	}
 
@@ -439,12 +440,16 @@ async function checks(page) {
 	// 4c, 4g: calm, at night.
 	await visit(page, at(WEATHER_DAYS.clear, 21), "&yurtMotion=calm");
 	await page.sleep(800);
-	const calm = names(await page.evaluate(CENSUS));
+	const calmRuns = await page.evaluate(CENSUS);
+	const calm = names(calmRuns);
+	const flames = calmRuns.filter((a) => a.fire).length;
 	page.check(
-		`4c: calm at 21:00 — the licks, the core and the flickers run, no spark rises, no window cloud drifts (${calm.join(
+		`4c: calm at 21:00 — the tongues and the core flicker (${flames} in the fire) with the glow and the lamp; nothing dances, no spark rises, no window cloud drifts (${calm.join(
 			" "
 		)})`,
-		CALM_NIGHT.every((n) => calm.includes(n)) && calm.every((n) => CALM_NIGHT.includes(n))
+		CALM_NIGHT.every((n) => calm.includes(n)) &&
+			calm.every((n) => CALM_NIGHT.includes(n)) &&
+			flames === 4
 	);
 	page.check(
 		"4g: the stove's door changes between two frames 300 ms apart (calm, 21:00)",

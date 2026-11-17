@@ -77,18 +77,48 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 		expect(rule(".psng-m-hearth ", "ps-yt-still-hearth", NONE), "swapped").to.equal(true);
 	});
 
-	it("hearth: the tongues and the core dance in phase with psng-m-hearth (§16)", function () {
+	it("hearth: the tongues and the core dance in phase with psng-m-hearth, at full only (§16)", function () {
 		const beats: Array<[string, RegExp]> = [
 			["ps-ym-t1", /animation:\s*psng-yt-lick-a 0\.95s ease-in-out infinite/],
 			["ps-ym-t2", /animation:\s*psng-yt-lick-b 1\.2s ease-in-out infinite/],
 			["ps-ym-t3", /animation:\s*psng-yt-lick-c 0\.8s ease-in-out infinite/],
 			["ps-ym-core", /animation:\s*psng-yt-core 0\.45s ease-in-out infinite alternate/],
 		];
+		const FULL = ".psng-m-hearth:not(.psng-calm) ";
 
 		for (const [c, beat] of beats) {
-			expect(rule(".psng-m-hearth ", c, PHASED), `${c} in phase`).to.equal(true);
-			expect(rule(".psng-m-hearth ", c, beat), `${c} on its beat`).to.equal(true);
+			expect(rule(FULL, c, PHASED), `${c} in phase`).to.equal(true);
+			expect(rule(FULL, c, beat), `${c} on its beat`).to.equal(true);
+			// No dance outside full: every rule that licks or breathes is scoped away from calm.
+			expect(
+				rules.some(
+					([sel, b]) =>
+						/psng-yt-(lick-[abc]|core)\b/.test(b) &&
+						sel
+							.split(",")
+							.some((x) => x.includes(`.${c}`) && !x.includes(":not(.psng-calm)"))
+				),
+				`${c} dances in calm`
+			).to.equal(false);
 		}
+	});
+
+	it("calm: the tongues and the core flicker by opacity instead, each on its own beat (the user, 2026-11-16)", function () {
+		const CALM = ".psng-m-hearth.psng-calm ";
+		const beats = new Set<string>();
+
+		for (const c of ["ps-ym-t1", "ps-ym-t2", "ps-ym-t3", "ps-ym-core"]) {
+			expect(rule(CALM, c, PHASED), `${c} in phase`).to.equal(true);
+			const body = rules.find(
+				([sel, b]) =>
+					sel.includes(CALM.trim()) && sel.includes(`.${c}`) && /animation:/.test(b)
+			)?.[1];
+			const m = /animation:\s*(psng-yt-flick(?:-b)?) ([0-9.]+s)/.exec(body ?? "");
+			expect(m, `${c} flickers`).to.not.equal(null);
+			beats.add(`${m?.[2]} ${/animation-delay:\s*([^;]+)/.exec(body ?? "")?.[1]}`);
+		}
+
+		expect(beats.size, "four beats, not one pulse").to.equal(4);
 	});
 
 	it("the sparks rise at full and rest in calm (§16)", function () {
@@ -189,7 +219,12 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 				sel
 					.split(",")
 					.map((x) =>
-						x.trim().replace(/^#theme-scene\.psng\.psng-m-[a-z]+(:not\([^)]*\))? /, "")
+						x
+							.trim()
+							.replace(
+								/^#theme-scene\.psng\.psng-m-[a-z]+(:not\([^)]*\)|\.psng-calm)? /,
+								""
+							)
 					)
 			);
 		expect(animated).to.not.be.empty;
