@@ -2177,6 +2177,7 @@
   "settings.aliases.add": "Adaugă alias",
   "settings.aliases.bodyAria": "Comenzi pentru alias {name}",
   "settings.aliases.bodyPlaceholder": "/me salută $1",
+  "settings.aliases.close": "Închide aliasurile",
   "settings.aliases.empty": "Încă nu există aliasuri.",
   "settings.aliases.errorBody": "Spune ce face aliasul.",
   "settings.aliases.errorDuplicate": "Există deja /{name}.",

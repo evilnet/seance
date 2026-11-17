@@ -288,9 +288,10 @@ seance.storage.set("last_seen", seance.current_channel)
    - The tab opens with the Aliases row (command aliases, which are not
      Lua and work either way; `docs/resources/aliases.md` § The editor),
      then the Enable Lua switch. The library under the switch is always
-     listed; while the switch is off it is greyed out and `inert` (no
-     script opens, runs, switches or is added), and every script's state
-     reads Off.
+     listed; while the switch is off it is greyed out (0.45, 0.8 under
+     Increase Contrast) and `inert` (no script opens, runs, switches or is
+     added), each row keeps its own switch, as it will be once Lua is on,
+     and says nothing of running: only a script's error still shows.
    - **The library**: one list by name, each script with an optional
      one-line description, its state (Running / Off / Error) and an on/off
      switch. There are no folders (the library once filed scripts under
@@ -308,10 +309,12 @@ seance.storage.set("last_seen", seance.current_channel)
      the whole screen on a phone, in the settings' frame — a header with
      ✕, a body that scrolls, a footer with Done — with the list still
      under it. Done, ✕, Escape and the backdrop close it back to the list,
-     which reads the library again. It holds name, description,
-     Run this script, the code filling the height the fields leave, and Check
-     syntax (compiles without running), Duplicate (the copy arrives off),
-     Export .lua and Delete.
+     which reads the library again. Like the aliases' layer it takes the
+     focus as it opens, keeps Tab inside it while it is up and gives the
+     focus back to what opened it as it closes (`hooks/use-layer-focus.ts`).
+     It holds name, description, Run this script, the code filling the
+     height the fields leave, and Check syntax (compiles without running),
+     Duplicate (the copy arrives off), Export .lua and Delete.
    - **The code field** is CodeMirror 6 (`helpers/luaEditor.ts`): the Lua
      mode from `@codemirror/legacy-modes`, line numbers, undo history,
      bracket matching. Its tokens carry the same `tok-*` classes Prism gives

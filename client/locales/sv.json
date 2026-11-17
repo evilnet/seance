@@ -2124,6 +2124,7 @@
   "settings.aliases.add": "Lägg till alias",
   "settings.aliases.bodyAria": "Kommandon för alias {name}",
   "settings.aliases.bodyPlaceholder": "/me vinkar åt $1",
+  "settings.aliases.close": "Stäng alias",
   "settings.aliases.empty": "Inga alias än.",
   "settings.aliases.errorBody": "Ange vad aliaset ska köra.",
   "settings.aliases.errorDuplicate": "Det finns redan en /{name}.",

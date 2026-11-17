@@ -2078,6 +2078,7 @@
   "settings.aliases.add": "Ajouter un alias",
   "settings.aliases.bodyAria": "Commandes pour l'alias {name}",
   "settings.aliases.bodyPlaceholder": "/me salue $1",
+  "settings.aliases.close": "Fermer les alias",
   "settings.aliases.empty": "Aucun alias pour l'instant.",
   "settings.aliases.errorBody": "Indiquez ce qu'exécute l'alias.",
   "settings.aliases.errorDuplicate": "Il y a déjà un /{name}.",

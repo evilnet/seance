@@ -2437,6 +2437,7 @@
   "settings.aliases.add": "إضافة اسم بديل",
   "settings.aliases.bodyAria": "أوامر الاسم البديل {name}",
   "settings.aliases.bodyPlaceholder": "/me يلوّح لـ $1",
+  "settings.aliases.close": "إغلاق الأسماء البديلة",
   "settings.aliases.empty": "لا أسماء بديلة بعد.",
   "settings.aliases.errorBody": "حدّد ما ينفّذه الاسم البديل.",
   "settings.aliases.errorDuplicate": "يوجد بالفعل /{name}.",

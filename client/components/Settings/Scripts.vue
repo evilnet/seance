@@ -92,18 +92,16 @@
 						<span v-if="script.description" class="scripts-desc">{{
 							script.description
 						}}</span>
-						<span class="scripts-state">{{ stateLabel(script) }}</span>
+						<span v-if="stateLabel(script)" class="scripts-state">{{
+							stateLabel(script)
+						}}</span>
 					</router-link>
 					<input
 						v-switch
 						:checked="script.enabled"
 						type="checkbox"
 						:aria-label="t('settings.scripts.runAria', {name: script.name})"
-						:title="
-							script.enabled
-								? t('settings.scripts.stateRunning')
-								: t('settings.scripts.stateOff')
-						"
+						:title="stateLabel(script)"
 						@change="toggle(script, $event)"
 					/>
 				</li>
@@ -182,6 +180,10 @@
 /* Lua off: the library is still shown, greyed out (and inert). */
 .settings-scripts .scripts-library-off {
 	opacity: 0.45;
+}
+
+html[data-contrast="more"] .settings-scripts .scripts-library-off {
+	opacity: 0.8;
 }
 
 .settings-scripts .scripts-intro,
@@ -284,7 +286,7 @@ import {
 	ScriptStorageError,
 } from "../../js/irc/scripting/storage";
 import type {Script} from "../../js/irc/scripting/types";
-import {loadAliases, type Alias} from "../../js/helpers/aliases";
+import {aliasNames} from "../../js/helpers/aliases";
 import {scriptManager} from "../../js/irc/scripting/manager";
 import {
 	importedScriptName,
@@ -306,7 +308,7 @@ export default defineComponent({
 		const {t} = useI18n();
 		const route = useRoute();
 		const scripts = ref<Script[]>(loadScripts().sort(compareScripts));
-		const aliases = ref<Alias[]>(loadAliases());
+		const aliases = ref<string[]>(aliasNames());
 
 		// The editor and the aliases save straight to storage: read both
 		// again as they close (Done, ✕, Escape, Delete).
@@ -315,7 +317,7 @@ export default defineComponent({
 			(name) => {
 				if (name === "Scripts") {
 					scripts.value = loadScripts().sort(compareScripts);
-					aliases.value = loadAliases();
+					aliases.value = aliasNames();
 				}
 			}
 		);
@@ -323,7 +325,7 @@ export default defineComponent({
 		// The row's second line: the aliases by name, as they are typed.
 		const aliasSummary = computed(() =>
 			aliases.value.length > 0
-				? aliases.value.map((alias) => `/${alias.name}`).join(" ")
+				? aliases.value.map((name) => `/${name}`).join(" ")
 				: t("settings.aliases.empty")
 		);
 		const query = ref("");
@@ -342,11 +344,15 @@ export default defineComponent({
 				: scripts.value;
 		});
 
-		// With Lua off nothing runs, whatever a script's own switch says.
-		const stateLabel = (script: Script) =>
+		// With Lua off nothing runs: a row keeps its own switch (greyed, as
+		// it will be once Lua is on) and says nothing of running, which its
+		// switch would contradict; only an error stays.
+		const stateLabel = (script: Script): string | undefined =>
 			script.lastError
 				? t("settings.scripts.stateError")
-				: script.enabled && store.state.settings.enableScripting
+				: !store.state.settings.enableScripting
+				? undefined
+				: script.enabled
 				? t("settings.scripts.stateRunning")
 				: t("settings.scripts.stateOff");
 

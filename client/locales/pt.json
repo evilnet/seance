@@ -2150,6 +2150,7 @@
   "settings.aliases.add": "Adicionar alias",
   "settings.aliases.bodyAria": "Comandos para alias {name}",
   "settings.aliases.bodyPlaceholder": "/me acena para $1",
+  "settings.aliases.close": "Fechar alias",
   "settings.aliases.empty": "Nenhum alias ainda.",
   "settings.aliases.errorBody": "Diga o que o alias faz.",
   "settings.aliases.errorDuplicate": "Já existe um /{name}.",

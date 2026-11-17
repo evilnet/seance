@@ -2289,6 +2289,7 @@
   "settings.aliases.add": "Добавить алиас",
   "settings.aliases.bodyAria": "Команды алиаса {name}",
   "settings.aliases.bodyPlaceholder": "/me машет $1",
+  "settings.aliases.close": "Закрыть алиасы",
   "settings.aliases.empty": "Нет алиасов.",
   "settings.aliases.errorBody": "Укажите, что выполняет алиас.",
   "settings.aliases.errorDuplicate": "Уже есть /{name}.",

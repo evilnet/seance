@@ -2153,6 +2153,7 @@
   "settings.aliases.add": "Kısaltma ekle",
   "settings.aliases.bodyAria": "{name} kısaltmasının komutları",
   "settings.aliases.bodyPlaceholder": "/me $1 kişisine el sallar",
+  "settings.aliases.close": "Kısaltmaları kapat",
   "settings.aliases.empty": "Henüz kısaltma yok.",
   "settings.aliases.errorBody": "Kısaltmanın ne çalıştıracağını yaz.",
   "settings.aliases.errorDuplicate": "Zaten bir /{name} var.",

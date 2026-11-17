@@ -2131,6 +2131,7 @@
   "settings.aliases.add": "Tilføj alias",
   "settings.aliases.bodyAria": "Kommandoer for alias {name}",
   "settings.aliases.bodyPlaceholder": "/me vinker til $1",
+  "settings.aliases.close": "Luk aliasser",
   "settings.aliases.empty": "Ingen aliasser endnu.",
   "settings.aliases.errorBody": "Angiv, hvad aliasset kører.",
   "settings.aliases.errorDuplicate": "Der er allerede et /{name}.",

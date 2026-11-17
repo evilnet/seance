@@ -2091,6 +2091,7 @@
   "settings.aliases.add": "エイリアスを追加",
   "settings.aliases.bodyAria": "エイリアス {name} のコマンド",
   "settings.aliases.bodyPlaceholder": "/me が $1 に手を振る",
+  "settings.aliases.close": "エイリアスを閉じる",
   "settings.aliases.empty": "エイリアスはまだありません。",
   "settings.aliases.errorBody": "このエイリアスで実行する内容を入力してください。",
   "settings.aliases.errorDuplicate": "すでに /{name} があります。",

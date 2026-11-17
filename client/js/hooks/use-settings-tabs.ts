@@ -100,7 +100,7 @@ export function useSettingsTabs(): {
 	});
 
 	const active = computed(() => {
-		const name = settingsTabFor(route.name);
+		const name = settingsTabFor(route);
 		return tabs.value.find((tab) => tab.name === name);
 	});
 

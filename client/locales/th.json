@@ -2089,6 +2089,7 @@
   "settings.aliases.add": "เพิ่มนามแฝง",
   "settings.aliases.bodyAria": "คำสั่งของนามแฝง {name}",
   "settings.aliases.bodyPlaceholder": "/me โบกมือให้ $1",
+  "settings.aliases.close": "ปิดนามแฝง",
   "settings.aliases.empty": "ยังไม่มีนามแฝง",
   "settings.aliases.errorBody": "ระบุคำสั่งที่นามแฝงจะเรียกใช้",
   "settings.aliases.errorDuplicate": "มี /{name} อยู่แล้ว",

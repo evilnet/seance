@@ -60,12 +60,10 @@
 #oper.window,
 #help.window,
 #changelog.window,
-#bouncer.window {
+#bouncer.window,
+.settings-layer {
 	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
+	inset: 0;
 	z-index: 20;
 	background: var(--overlay-bg-color);
 	display: flex;
@@ -84,24 +82,12 @@
 
 /* A layer over the settings modal, for a page opened from one of its tabs
  * (the script editor, Settings/ScriptEdit.vue; the aliases,
- * Settings/AliasesOverlay.vue): its own .settings-modal pane over a backdrop
- * that dims the settings under it. Absolute in #viewport like #settings,
- * one step above it (20) and below the confirm dialog and the menus (999
- * and up), so a question asked from it shows over it. */
+ * Settings/AliasesOverlay.vue): the same frame, its own .settings-modal
+ * pane over a backdrop that dims the settings under it, one step above
+ * them (20) and below the confirm dialog and the menus (999 and up), so a
+ * question asked from it shows over it. */
 .settings-layer {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
 	z-index: 30;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 1.5rem;
-	background: var(--overlay-bg-color);
-	overflow: hidden;
-	overflow: clip;
 }
 
 /* A fixed height, not content-driven: the footer holds still when tabs of

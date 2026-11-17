@@ -2267,6 +2267,7 @@
   "settings.aliases.add": "Dodaj alias",
   "settings.aliases.bodyAria": "Komendy dla aliasu {name}",
   "settings.aliases.bodyPlaceholder": "/me macha do $1",
+  "settings.aliases.close": "Zamknij aliasy",
   "settings.aliases.empty": "Brak aliasów.",
   "settings.aliases.errorBody": "Podaj, co ma wykonywać alias.",
   "settings.aliases.errorDuplicate": "Istnieje już /{name}.",

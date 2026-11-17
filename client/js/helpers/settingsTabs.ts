@@ -1,4 +1,4 @@
-import type {RouteRecordName} from "vue-router";
+import type {RouteLocationNormalizedLoaded} from "vue-router";
 import {store} from "../store";
 
 export function shouldShowGeneralSettings() {
@@ -6,19 +6,12 @@ export function shouldShowGeneralSettings() {
 	return !config?.public || !!config?.fileUpload;
 }
 
-/** Routes that open inside a tab, by the tab they belong to: the tab stays
- * lit while they are up. */
-const PARENT_TAB: Record<string, string> = {
-	NetworkEdit: "Networks",
-	ScriptEdit: "Scripts",
-	Aliases: "Scripts",
-};
-
-/** The settings tab a route name belongs to (its own name for a tab). */
-export function settingsTabFor(name: RouteRecordName | null | undefined): string | undefined {
-	if (typeof name !== "string") {
-		return undefined;
+/** The settings tab a route belongs to: the one its `meta.tab` names (a
+ * page opened inside a tab, router.ts), else its own name. */
+export function settingsTabFor(route: RouteLocationNormalizedLoaded): string | undefined {
+	if (route.meta.tab) {
+		return route.meta.tab;
 	}
 
-	return PARENT_TAB[name] ?? name;
+	return typeof route.name === "string" ? route.name : undefined;
 }

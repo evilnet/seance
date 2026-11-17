@@ -2294,6 +2294,7 @@
   "settings.aliases.add": "Додати псевдонім",
   "settings.aliases.bodyAria": "Команди псевдоніма {name}",
   "settings.aliases.bodyPlaceholder": "/me махає $1",
+  "settings.aliases.close": "Закрити псевдоніми",
   "settings.aliases.empty": "Псевдонімів ще немає.",
   "settings.aliases.errorBody": "Вкажіть, що виконує псевдонім.",
   "settings.aliases.errorDuplicate": "/{name} уже існує.",

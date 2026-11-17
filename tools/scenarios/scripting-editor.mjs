@@ -22,13 +22,14 @@ const KEYS = {
 	Tab: {key: "Tab", keyCode: 9},
 	Escape: {key: "Escape", keyCode: 27},
 	End: {key: "End", keyCode: 35},
+	Enter: {key: "Enter", keyCode: 13, text: "\r"},
 	KeyA: {key: "a", keyCode: 65},
 };
 const CTRL = 2;
 const SHIFT = 8;
 
 async function key(page, code, modifiers = 0) {
-	const {key: name, keyCode} = KEYS[code];
+	const {key: name, keyCode, text} = KEYS[code];
 
 	for (const type of ["keyDown", "keyUp"]) {
 		await page.send("Input.dispatchKeyEvent", {
@@ -37,11 +38,28 @@ async function key(page, code, modifiers = 0) {
 			code,
 			windowsVirtualKeyCode: keyCode,
 			modifiers,
+			// A key that types (Enter) activates a link through its text.
+			...(text && type === "keyDown" ? {text} : {}),
 		});
 	}
 
 	await page.sleep(50);
 }
+
+/** Shift+Tab round a layer `n` times: true when the focus never left `layer`. */
+async function staysInside(page, layer, n) {
+	for (let i = 0; i < n; i++) {
+		await key(page, "Tab", SHIFT);
+
+		if (!(await page.evaluate(`!!document.activeElement?.closest(${JSON.stringify(layer)})`))) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+const FOCUSED = (selector) => `!!document.activeElement?.matches(${JSON.stringify(selector)})`;
 
 /** Replace the editor's code the way typing would: select all, insert. */
 async function setCode(page, text) {
@@ -231,6 +249,10 @@ export default async function run(page) {
 		(await page.count("#settings")) === 1 &&
 			(await page.evaluate("location.hash")) === "#/settings/scripts"
 	);
+	page.check(
+		"the focus goes back to what opened the editor (the example's button)",
+		await page.evaluate(FOCUSED(".scripts-examples .btn"))
+	);
 
 	// Back in the list: one flat list, no folder headings, and switched off
 	// from the row.
@@ -294,6 +316,10 @@ export default async function run(page) {
 		label: "back on list",
 	});
 	page.check("the copy is deleted", (await page.evaluate(`${STORED}.length`)) === 1);
+	page.check(
+		"with its row gone, the focus lands on New script",
+		await page.evaluate(FOCUSED(".scripts-actions .btn"))
+	);
 	await page.waitFor(`!document.querySelector("#confirm-dialog-overlay.opened")`, {
 		label: "confirm closed",
 	});
@@ -304,11 +330,19 @@ export default async function run(page) {
 	await page.waitFor(`!!document.querySelector(".script-editor .cm-content")`, {
 		label: "editor for Done",
 	});
+	page.check(
+		"Shift+Tab comes round inside the editor, never under it",
+		await staysInside(page, "#script-editor-overlay", 20)
+	);
 	await page.fill(".script-desc-field .input", "Answers !ping");
 	await page.click(".script-editor .settings-modal-done");
 	await page.waitFor(`!document.querySelector("#script-editor-overlay")`, {
 		label: "Done closed the editor",
 	});
+	page.check(
+		"the focus goes back to the script's row",
+		await page.evaluate(FOCUSED(".scripts-summary"))
+	);
 	page.check(
 		"Done saves and the list shows it",
 		(await page.evaluate(`${STORED}[0].description`)) === "Answers !ping" &&
@@ -316,19 +350,19 @@ export default async function run(page) {
 				"Answers !ping"
 	);
 
-	// Off again: the library greys out, nothing in it reads Running (a
-	// script's last error still shows), and the
+	// Off again: the library greys out, each row keeps its own switch and
+	// says nothing of running (a script's last error still shows), and the
 	// editor's URL leads to the tab.
 	await page.click('input[name="enableScripting"]');
 	await page.waitFor(`document.querySelector(".scripts-library")?.inert === true`, {
 		label: "library inert",
 	});
 	const states = await page.evaluate(
-		`[...document.querySelectorAll(".scripts-state")].map((el) => el.textContent.trim())`
+		`[...document.querySelectorAll(".scripts-item")].map((li) => (li.querySelector(".scripts-state")?.textContent.trim() ?? "") + "/" + (li.querySelector("input").title ?? ""))`
 	);
 	page.check(
-		`with Lua off no script reads Running (${states.join(", ")})`,
-		states.length > 0 && !states.includes("Running")
+		`with Lua off a row shows no state but an error (${states.join(", ")})`,
+		states.length > 0 && states.every((s) => s === "/" || s === "Error/Error")
 	);
 	await page.evaluate(`location.hash = "#/settings/scripts/${id}"`);
 	await page.sleep(300);
@@ -338,6 +372,23 @@ export default async function run(page) {
 			(await page.count("#script-editor-overlay")) === 0
 	);
 	await page.screenshot("scripts-off-again");
+
+	// The aliases' layer, from the keyboard: Enter on its row opens it, Tab
+	// stays inside it, and closing it puts the focus back on the row.
+	await page.evaluate(`document.querySelector(".scripts-aliases").focus()`);
+	await key(page, "Enter");
+	await page.waitFor(`!!document.querySelector("#aliases-overlay")`, {label: "aliases open"});
+	page.check("the aliases open into their pane", await page.evaluate(FOCUSED(".aliases-layer")));
+	page.check(
+		"Shift+Tab comes round inside the aliases, never under them",
+		await staysInside(page, "#aliases-overlay", 20)
+	);
+	await page.click("#aliases-overlay .settings-modal-close");
+	await page.waitFor(`!document.querySelector("#aliases-overlay")`, {label: "aliases closed"});
+	page.check(
+		"closing the aliases puts the focus back on their row",
+		await page.evaluate(FOCUSED(".scripts-aliases"))
+	);
 
 	await page.click("#settings .settings-modal-done");
 	await page.waitFor(`!document.querySelector("#settings")`, {label: "settings closed"});

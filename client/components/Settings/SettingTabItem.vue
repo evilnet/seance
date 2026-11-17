@@ -43,7 +43,7 @@ export default defineComponent({
 	},
 	setup(props) {
 		const route = useRoute();
-		const isActiveRoute = computed(() => settingsTabFor(route.name) === props.name);
+		const isActiveRoute = computed(() => settingsTabFor(route) === props.name);
 		const label = computed(() => props.label ?? props.name);
 
 		return {

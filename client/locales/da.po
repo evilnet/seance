@@ -13343,7 +13343,7 @@ msgstr "/me vinker til $1"
 #: client/components/Settings/AliasesOverlay.vue
 msgctxt "settings.aliases.close"
 msgid "Close aliases"
-msgstr ""
+msgstr "Luk aliasser"
 
 #. Shown in place of the alias table when no aliases are defined, and as the second line of the Aliases row in Settings > Scripts.
 #: client/components/Settings/Aliases.vue

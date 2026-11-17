@@ -2212,6 +2212,7 @@
   "settings.aliases.add": "Pridať alias",
   "settings.aliases.bodyAria": "Príkazy pre alias {name}",
   "settings.aliases.bodyPlaceholder": "/me máva na $1",
+  "settings.aliases.close": "Zavrieť aliasy",
   "settings.aliases.empty": "Zatiaľ žiadne aliasy.",
   "settings.aliases.errorBody": "Zadajte, čo alias spúšťa.",
   "settings.aliases.errorDuplicate": "/{name} už existuje.",

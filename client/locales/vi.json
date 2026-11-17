@@ -2094,6 +2094,7 @@
   "settings.aliases.add": "Thêm bí danh",
   "settings.aliases.bodyAria": "Lệnh cho bí danh {name}",
   "settings.aliases.bodyPlaceholder": "/me vẫy tay chào $1",
+  "settings.aliases.close": "Đóng bí danh",
   "settings.aliases.empty": "Chưa có bí danh nào.",
   "settings.aliases.errorBody": "Hãy nhập lệnh mà bí danh sẽ chạy.",
   "settings.aliases.errorDuplicate": "Đã có /{name}.",

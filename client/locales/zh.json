@@ -2085,6 +2085,7 @@
   "settings.aliases.add": "添加别名",
   "settings.aliases.bodyAria": "别名 {name} 的命令",
   "settings.aliases.bodyPlaceholder": "/me 向 $1 问好",
+  "settings.aliases.close": "关闭别名",
   "settings.aliases.empty": "暂无别名。",
   "settings.aliases.errorBody": "请填写别名要运行的内容。",
   "settings.aliases.errorDuplicate": "已经存在 /{name}。",

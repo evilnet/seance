@@ -2105,6 +2105,7 @@
   "settings.aliases.add": "Alias hinzufügen",
   "settings.aliases.bodyAria": "Befehle für Alias {name}",
   "settings.aliases.bodyPlaceholder": "/me winkt $1 zu",
+  "settings.aliases.close": "Aliase schließen",
   "settings.aliases.empty": "Noch keine Aliase.",
   "settings.aliases.errorBody": "Geben Sie an, was der Alias ausführt.",
   "settings.aliases.errorDuplicate": "Es gibt bereits einen /{name}.",

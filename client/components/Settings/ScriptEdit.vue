@@ -17,6 +17,7 @@
 						: t('settings.scriptEdit.title')
 				"
 				tabindex="-1"
+				@keydown.tab="onTab"
 			>
 				<div class="settings-modal-header">
 					<h1>
@@ -453,6 +454,7 @@ import {newScriptId, scriptNameError, uniqueScriptName} from "../../js/irc/scrip
 import type {Script} from "../../js/irc/scripting/types";
 import {scriptManager} from "../../js/irc/scripting/manager";
 import type {LuaEditor} from "../../js/helpers/luaEditor";
+import {useLayerFocus} from "../../js/hooks/use-layer-focus";
 
 const loadLuaEditor = () => import("../../js/helpers/luaEditor");
 
@@ -479,6 +481,14 @@ export default defineComponent({
 		const statusMsg = ref("");
 		const saveError = ref("");
 		const pane = ref<HTMLElement>();
+		// Back to the script's row; to New script when it was deleted.
+		const {onTab} = useLayerFocus(
+			pane,
+			() =>
+				document.querySelector<HTMLElement>(
+					`.settings-scripts a[href$="/scripts/${CSS.escape(id)}"]`
+				) ?? document.querySelector<HTMLElement>(".settings-scripts .scripts-actions .btn")
+		);
 		const codeHost = ref<HTMLElement>();
 		const editorReady = ref(false);
 		let editor: LuaEditor | undefined;
@@ -646,8 +656,6 @@ export default defineComponent({
 
 		onMounted(() => {
 			eventbus.on("escapekey", onEscape);
-			// Into the dialog, not a field: a phone would raise its keyboard.
-			pane.value?.focus();
 			void mountEditor();
 		});
 
@@ -776,6 +784,7 @@ export default defineComponent({
 			remove,
 			exportScript,
 			close,
+			onTab,
 		};
 	},
 });

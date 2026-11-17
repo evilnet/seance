@@ -2156,6 +2156,7 @@
   "settings.aliases.add": "Alias hozzáadása",
   "settings.aliases.bodyAria": "Parancsok ehhez az aliashoz: {name}",
   "settings.aliases.bodyPlaceholder": "/me integet neki: $1",
+  "settings.aliases.close": "Aliasok bezárása",
   "settings.aliases.empty": "Még nincs alias.",
   "settings.aliases.errorBody": "Add meg, mit futtasson az alias.",
   "settings.aliases.errorDuplicate": "Már létezik /{name}.",

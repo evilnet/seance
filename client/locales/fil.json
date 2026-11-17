@@ -2078,6 +2078,7 @@
   "settings.aliases.add": "Magdagdag ng alias",
   "settings.aliases.bodyAria": "Mga command para sa alias na {name}",
   "settings.aliases.bodyPlaceholder": "/me kumakaway kay $1",
+  "settings.aliases.close": "Isara ang mga alias",
   "settings.aliases.empty": "Wala pang alias.",
   "settings.aliases.errorBody": "Sabihin kung ano ang pinapatakbo ng alias.",
   "settings.aliases.errorDuplicate": "Mayroon nang /{name}.",

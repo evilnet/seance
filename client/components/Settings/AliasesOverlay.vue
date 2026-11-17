@@ -13,6 +13,7 @@
 				aria-modal="true"
 				:aria-label="t('settings.aliases.paneAria')"
 				tabindex="-1"
+				@keydown.tab="onTab"
 			>
 				<div class="settings-modal-header">
 					<h1>{{ t("settings.aliases.titleHeading") }}</h1>
@@ -52,6 +53,7 @@ import {defineComponent, onMounted, onUnmounted, ref} from "vue";
 import eventbus from "../../js/eventbus";
 import {navigate} from "../../js/router";
 import {useI18n} from "../../js/i18n";
+import {useLayerFocus} from "../../js/hooks/use-layer-focus";
 import AliasSettings from "./Aliases.vue";
 
 /**
@@ -68,6 +70,9 @@ export default defineComponent({
 	setup() {
 		const {t} = useI18n();
 		const pane = ref<HTMLElement>();
+		const {onTab} = useLayerFocus(pane, () =>
+			document.querySelector<HTMLElement>(".settings-scripts .scripts-aliases")
+		);
 
 		const close = () => {
 			void navigate("Scripts");
@@ -81,8 +86,6 @@ export default defineComponent({
 
 		onMounted(() => {
 			eventbus.on("escapekey", onEscape);
-			// Into the dialog, not a field: a phone would raise its keyboard.
-			pane.value?.focus();
 		});
 
 		onUnmounted(() => {
@@ -92,6 +95,7 @@ export default defineComponent({
 		return {
 			t,
 			pane,
+			onTab,
 			close,
 		};
 	},

@@ -2099,6 +2099,7 @@
   "settings.aliases.add": "별칭 추가",
   "settings.aliases.bodyAria": "별칭 {name}의 명령",
   "settings.aliases.bodyPlaceholder": "/me $1에게 인사합니다",
+  "settings.aliases.close": "별칭 닫기",
   "settings.aliases.empty": "아직 별칭이 없습니다.",
   "settings.aliases.errorBody": "별칭이 실행할 명령을 입력하세요.",
   "settings.aliases.errorDuplicate": "이미 /{name}이(가) 있습니다.",

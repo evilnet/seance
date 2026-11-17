@@ -2086,6 +2086,7 @@
   "settings.aliases.add": "Alias toevoegen",
   "settings.aliases.bodyAria": "Commando's voor alias {name}",
   "settings.aliases.bodyPlaceholder": "/me zwaait naar $1",
+  "settings.aliases.close": "Aliassen sluiten",
   "settings.aliases.empty": "Nog geen aliassen.",
   "settings.aliases.errorBody": "Geef aan wat de alias uitvoert.",
   "settings.aliases.errorDuplicate": "Er is al een /{name}.",
