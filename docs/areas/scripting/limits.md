@@ -38,7 +38,7 @@
 | Scripts                                   | 50                                      | —                                                                                                    |
 | `seance.storage`, one script              | 16,000 characters                       | The `set` raises an error and stores nothing                                                         |
 | `seance.storage`, all scripts             | 128,000 characters                      | The same                                                                                             |
-| Name / folder / description               | 32 / 40 / 120 characters                | The field takes no more                                                                              |
+| Name / description                        | 32 / 120 characters                     | The field takes no more                                                                              |
 
 The instruction budget is plenty for answering messages: roughly 50,000
 turns of an empty loop, or ten thousand or so that do real work. A
@@ -54,7 +54,7 @@ a table grows for as long as the page is open, and only that tab suffers.
   library reads one in, switched off.
 - A [settings backup](../../resources/settings-backup.md) carries your
   scripts and their storage. Restoring one brings every script back
-  **switched off, and the Enable scripting switch too**, so nothing from a
+  **switched off, and the Enable Lua switch too**, so nothing from a
   file runs until you have looked at it and turned it on here.
 
 **Read a script before you run one someone gave you.** A script sees every

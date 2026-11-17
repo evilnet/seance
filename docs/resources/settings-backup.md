@@ -50,7 +50,7 @@ which came from the do-not-disturb branch.
 | `thelounge.muted`              | muted channels                                                                                                                                |
 | `thelounge.media.trusted`      | trusted media hosts / channels / accounts                                                                                                     |
 | `thelounge.reactions.recent`   | the reaction picker's recents                                                                                                                 |
-| `thelounge.aliases`            | command aliases (Settings → Aliases)                                                                                                          |
+| `thelounge.aliases`            | command aliases (Settings → Scripts → Aliases)                                                                                                |
 | `thelounge.translate`          | per-channel translation state (what each channel reads and writes, its formality, variant, languages and terms; a query's terms are left out) |
 | `thelounge.oper`               | oper notice routing and snomask                                                                                                               |
 | `thelounge.dnd`                | do not disturb: the switch and its window                                                                                                     |

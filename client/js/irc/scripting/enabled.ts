@@ -1,5 +1,5 @@
 /**
- * The master switch for Lua scripting (Settings → Scripts → Enable scripting).
+ * The master switch for Lua scripting (Settings → Scripts → Enable Lua).
  *
  * Deliberately tiny and dependency-free: `settings.ts` writes it, the script
  * manager subscribes to it, and the router and Scripts tab read it. While it is off,

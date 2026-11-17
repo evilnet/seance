@@ -1,7 +1,8 @@
 // The settings window as a modal (Windows/Settings.vue): its own pane over
-// a dimmed backdrop, a horizontal tab strip across the top that drops
-// inactive tabs to icons when the pane is narrow, settings scrolling in
-// their own section, and an always-visible footer with a Done button.
+// a dimmed backdrop, a tab strip across the top that drops every tab to its
+// icon when the pane is narrow (the title then names the open tab) and
+// wraps rather than hide a tab past the edge, settings scrolling in their
+// own section, and an always-visible footer with a Done button.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/settings-modal.mjs
@@ -9,7 +10,8 @@
 //
 // The checks adapt to the window: on a wide window the modal floats with a
 // backdrop and every tab shows its label; on a narrow one the modal is the
-// whole screen and only the active tab keeps its label. No IRC connection
+// whole screen, the tabs are icons and the title reads "Settings › …".
+// SEANCE_FONT_SIZE=large|huge runs it at a bigger text size. No IRC connection
 // is needed — the settings window renders without one.
 
 const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8000/";
@@ -24,11 +26,25 @@ const PROBE = `(() => {
 	const body = document.querySelector("${MODAL} .settings-modal-body");
 	const footer = document.querySelector("${MODAL} .settings-modal-footer");
 	const tabs = Array.from(document.querySelectorAll("${MENU} button"));
+	const strip = document.querySelector("${MENU} ul").getBoundingClientRect();
 	const labelShown = (b) => {
 		const label = b.querySelector(".tab-label");
 		return !!label && getComputedStyle(label).display !== "none";
 	};
+	const shown = (sel) => {
+		const el = document.querySelector(sel);
+		return !!el && getComputedStyle(el).display !== "none";
+	};
 	return {
+		clipped: tabs
+			.filter((b) => {
+				const r = b.getBoundingClientRect();
+				return r.left < strip.left - 1 || r.right > strip.right + 1;
+			})
+			.map((b) => b.getAttribute("aria-label")),
+		titlePlain: shown(".settings-title-plain"),
+		titleText: document.querySelector("${MODAL} .settings-modal-header h1").innerText.trim(),
+		activeLabel: document.querySelector("${MENU} button.active")?.getAttribute("aria-label"),
 		modal: modal.getBoundingClientRect().toJSON(),
 		window: {w: innerWidth, h: innerHeight},
 		rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
@@ -42,6 +58,16 @@ const PROBE = `(() => {
 
 export default async function run(page) {
 	await page.goto(page.url, {waitForSelector: MODAL});
+
+	if (process.env.SEANCE_FONT_SIZE) {
+		await page.evaluate(
+			`(() => { const s = JSON.parse(localStorage.getItem("settings") ?? "{}"); s.fontSize = ${JSON.stringify(
+				process.env.SEANCE_FONT_SIZE
+			)}; localStorage.setItem("settings", JSON.stringify(s)); location.reload(); })()`
+		);
+		await page.sleep(1500);
+		await page.waitFor(`!!document.querySelector("${MODAL}")`, {label: "the modal again"});
+	}
 	await page.waitFor(`!!document.querySelector("${MENU} button.active")`, {
 		label: "an active tab",
 	});
@@ -50,21 +76,39 @@ export default async function run(page) {
 	const narrow = p.modal.width < 42 * p.rem;
 
 	await page.check(
-		"the tabs sit on one row",
-		p.tabTops.length > 1 && Math.max(...p.tabTops) - Math.min(...p.tabTops) < 2
+		`no tab is cut off past the strip's edge${p.clipped.length ? `: ${p.clipped}` : ""}`,
+		p.clipped.length === 0
 	);
-	await page.check("the active tab always shows its label", p.activeLabelled);
+	const rows = new Set(p.tabTops).size;
+	console.log(`tab rows: ${rows}, rem ${p.rem}px`);
+
+	if (narrow) {
+		await page.check(
+			"narrow pane: every tab is its icon alone",
+			!p.activeLabelled && p.inactiveLabels.every((shown) => !shown)
+		);
+		await page.check(
+			`narrow pane: the title names the open tab (${p.titleText})`,
+			!p.titlePlain && p.titleText.endsWith(p.activeLabel)
+		);
+	} else {
+		await page.check(
+			"wide pane: the tabs sit on one row, every one labelled",
+			rows === 1 && p.activeLabelled && p.inactiveLabels.every(Boolean)
+		);
+		await page.check(
+			`wide pane: the title is plain (${p.titleText})`,
+			p.titlePlain && p.titleText === "Settings"
+		);
+	}
+	// The pane's own width decides the tabs; the window's (768px, the
+	// sidebar's overlay breakpoint) decides whether the modal fills it.
+	const phone = p.window.w <= 768;
 	await page.check(
-		narrow
-			? "narrow pane: inactive tabs are icons only"
-			: "wide pane: every tab shows its label",
-		narrow ? p.inactiveLabels.every((shown) => !shown) : p.inactiveLabels.every(Boolean)
-	);
-	await page.check(
-		narrow
+		phone
 			? "narrow window: the modal is the whole screen"
 			: "wide window: the modal floats over a backdrop",
-		narrow
+		phone
 			? p.modal.width >= p.window.w - 1 && p.modal.height >= p.window.h - 1
 			: p.modal.width < p.window.w && p.modal.height < p.window.h
 	);

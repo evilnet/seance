@@ -9,7 +9,19 @@
 	>
 		<div class="settings-modal">
 			<div class="settings-modal-header">
-				<h1>{{ t("windows.settings.title") }}</h1>
+				<h1>
+					<span class="settings-title-plain">{{ t("windows.settings.title") }}</span>
+					<span v-if="activeTab" class="settings-title-in">
+						<I18nFrame :text="t('windows.settings.titleIn', {section: KEEP})"
+							><template v-slot:section
+								><span class="settings-title-section">{{
+									activeTab.label
+								}}</span></template
+							></I18nFrame
+						>
+					</span>
+					<span v-if="activeTab" class="settings-title-only">{{ activeTab.label }}</span>
+				</h1>
 				<button
 					class="settings-modal-close"
 					type="button"
@@ -48,12 +60,10 @@
 #oper.window,
 #help.window,
 #changelog.window,
-#bouncer.window {
+#bouncer.window,
+.settings-layer {
 	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
+	inset: 0;
 	z-index: 20;
 	background: var(--overlay-bg-color);
 	display: flex;
@@ -68,6 +78,16 @@
 	 * clip (Safari 15 and older), which drops the declaration it cannot read. */
 	overflow: hidden;
 	overflow: clip;
+}
+
+/* A layer over the settings modal, for a page opened from one of its tabs
+ * (the script editor, Settings/ScriptEdit.vue; the aliases,
+ * Settings/AliasesOverlay.vue): the same frame, its own .settings-modal
+ * pane over a backdrop that dims the settings under it, one step above
+ * them (20) and below the confirm dialog and the menus (999 and up), so a
+ * question asked from it shows over it. */
+.settings-layer {
+	z-index: 30;
 }
 
 /* A fixed height, not content-driven: the footer holds still when tabs of
@@ -100,6 +120,46 @@
 	flex: 1 1 auto;
 	margin: 0;
 	font-size: 1.375em;
+}
+
+/* With the tab strip down to icons (Navigation.vue), the title names the
+ * open tab: "Settings › Appearance", the "Settings ›" muted; at the
+ * biggest text sizes on a phone, "Appearance" alone. */
+.settings-title-in {
+	display: none;
+	color: var(--body-color-muted);
+	font-weight: normal;
+}
+
+.settings-title-section {
+	color: var(--body-color);
+	font-weight: bold;
+}
+
+.settings-title-only {
+	display: none;
+}
+
+@container settings (max-width: 46rem) {
+	.settings-title-plain {
+		display: none;
+	}
+
+	.settings-title-in {
+		display: inline;
+	}
+}
+
+/* A phone at the biggest text sizes: "Settings ›" would take a line of its
+ * own, and the tab strip already says where you are. */
+@container settings (max-width: 16rem) {
+	.settings-title-in {
+		display: none;
+	}
+
+	.settings-title-only {
+		display: inline;
+	}
 }
 
 .settings-modal-close {
@@ -158,7 +218,8 @@
 	#oper.window,
 	#help.window,
 	#changelog.window,
-	#bouncer.window {
+	#bouncer.window,
+	.settings-layer {
 		padding: 0;
 	}
 
@@ -174,7 +235,10 @@
 import {defineComponent, computed} from "vue";
 import {useRoute} from "vue-router";
 import Navigation from "../Settings/Navigation.vue";
+import I18nFrame from "../I18nFrame.vue";
 import {useI18n} from "../../js/i18n";
+import {KEEP} from "../../js/i18n/core";
+import {useSettingsTabs} from "../../js/hooks/use-settings-tabs";
 import {useStore} from "../../js/store";
 import {leavePage} from "../../js/router";
 
@@ -182,6 +246,7 @@ export default defineComponent({
 	name: "Settings",
 	components: {
 		Navigation,
+		I18nFrame,
 	},
 	setup() {
 		const store = useStore();
@@ -189,6 +254,7 @@ export default defineComponent({
 		const {t} = useI18n();
 		const dialogLabel = computed(() => t("windows.settings.title"));
 		const closeAria = computed(() => t("windows.settings.close"));
+		const {active: activeTab} = useSettingsTabs();
 
 		const onChange = (event: Event) => {
 			// NetworkEdit has its own form and persistence contract; its fields
@@ -222,6 +288,8 @@ export default defineComponent({
 
 		return {
 			t,
+			KEEP,
+			activeTab,
 			dialogLabel,
 			closeAria,
 			onChange,
