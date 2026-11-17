@@ -36,6 +36,22 @@ const FOCUSED = `(document.activeElement?.id ?? null)`;
 const joined = (name) =>
 	`!!document.querySelector('.channel-list-item[data-name="${name}"]:not(.parted-channel)')`;
 const item = (name) => `.channel-list-item[data-name="${name}"]`;
+/**
+ * Records in `window.__shown` every conversation the chat window shows, in
+ * order, as "<type> <name>" ("lobby …", "query buddy…"). An init script, so
+ * it is in place before the app boots: a poll after the load could miss the
+ * lobby when registration is quick and see the query already.
+ */
+const RECORD_SHOWN = `(() => {
+	window.__shown = [];
+	const note = () => {
+		const view = document.querySelector("#chat .chat-view");
+		const name = document.querySelector("#chat-container")?.dataset.currentChannel;
+		const shown = view && name ? view.dataset.type + " " + name : null;
+		if (shown && window.__shown[window.__shown.length - 1] !== shown) window.__shown.push(shown);
+	};
+	new MutationObserver(note).observe(document, {childList: true, subtree: true, attributes: true, attributeFilter: ["data-type", "data-current-channel"]});
+})();`;
 
 export default async function run(page) {
 	const stored = async () => JSON.parse((await page.evaluate(STORED)) ?? "null");
@@ -108,12 +124,17 @@ export default async function run(page) {
 	await page.sleep(200);
 	page.check("remembers the query", (await stored())?.target === BUDDY);
 
+	await page.addInitScript(RECORD_SHOWN);
 	await page.goto(BASE, {waitForSelector: "#chat-container"});
-	const whileWaiting = await page.evaluate(ACTIVE);
 	await page.waitFor(`${ACTIVE} === "${BUDDY}"`, {timeout: 20000, label: "query restored"});
+	// The first thing shown is the lobby, and the first thing after it is the
+	// query: no stop on a channel, and no landing on the query at once. (A
+	// lobby renamed by the server's 005 NETWORK= is a second lobby entry.)
+	const shown = (await page.evaluate(`window.__shown`)) ?? [];
 	page.check(
-		"waited in the lobby, not on a channel",
-		whileWaiting === BUDDY || (whileWaiting !== "#seance" && whileWaiting !== OTHER)
+		`waited in the lobby, then landed on the query (${shown.join(", ")})`,
+		shown[0]?.startsWith("lobby ") &&
+			shown.find((s) => !s.startsWith("lobby ")) === `query ${BUDDY}`
 	);
 	page.check("lobby did not overwrite the memory", (await stored())?.target === BUDDY);
 	await page.waitFor(joined("#seance"), {timeout: 20000, label: "rejoined #seance again"});

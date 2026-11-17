@@ -25,6 +25,7 @@
 import {store} from "./store";
 import {BeforeInstallPromptEvent} from "./types";
 import {isOtherBuild} from "./build";
+import {fromOwnWorker} from "./helpers/ownWorker";
 import storage from "./localStorage";
 import {
 	DISMISSED,
@@ -109,9 +110,14 @@ function registerServiceWorker(): void {
 	// reloads — the one time "Reload to update" is true. `controllerchange`
 	// on its own cannot tell: the worker serves network-first, so a page
 	// that has just loaded already runs the new bundle by the time the new
-	// worker claims it.
+	// worker claims it. Only this deploy's worker counts: another deploy's on
+	// the origin serves another build, which a reload here never picks up.
 	navigator.serviceWorker.addEventListener("message", (event: MessageEvent) => {
-		if (event.data?.type === "build" && isOtherBuild(event.data.build)) {
+		if (
+			event.data?.type === "build" &&
+			fromOwnWorker(event) &&
+			isOtherBuild(event.data.build)
+		) {
 			store.commit("updateAvailable");
 		}
 	});

@@ -9,6 +9,7 @@
 // (see `serverAttrs`). `matchesFilters` does the rest here, on what comes back.
 
 import {findLinks} from "../../shared/linkify";
+import {matchFormatting} from "../../shared/irc";
 import {escapeRegExp} from "./highlight";
 import type {SearchAttrs} from "../../shared/types/search";
 import {MessageType, type SharedMsg} from "../../shared/types/msg";
@@ -319,14 +320,15 @@ type Searchable = Pick<SharedMsg, "text" | "type" | "time" | "from" | "fromAccou
 /**
  * Whether `msg` passes every filter but `in`, which picks the conversations.
  * Server rows pass again what the server already checked; the loaded-messages
- * fallback relies on it all. Text is compared as sent, formatting codes and all.
+ * fallback relies on it all. Text is compared as it reads, without its IRC
+ * formatting codes: one can sit inside a word ("hel\x02lo" reads "hello").
  */
 export function matchesFilters(msg: Searchable, filters: SearchFilters): boolean {
 	if (!SEARCHABLE_MESSAGE_TYPES.has(msg.type ?? MessageType.MESSAGE)) {
 		return false;
 	}
 
-	const text = msg.text ?? "";
+	const text = (msg.text ?? "").replace(matchFormatting, "");
 	const lower = text.toLowerCase();
 
 	if (!filters.words.every((word) => lower.includes(word.toLowerCase()))) {

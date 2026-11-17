@@ -49,6 +49,19 @@ class FakeTransport implements Transport {
 		lines.forEach((line) => this.line(line));
 	}
 
+	/** The socket drops; the transport will dial again. */
+	closed(): void {
+		this.state = "reconnect-wait";
+		this.emit({
+			type: "close",
+			code: 1006,
+			reason: "",
+			wasClean: false,
+			willReconnect: true,
+			delayMs: 1000,
+		});
+	}
+
 	private emit(ev: TransportEvent): void {
 		for (const listener of [...this.listeners]) {
 			listener(ev);
@@ -227,6 +240,37 @@ describe("IRC channel list numerics (lists.ts)", function () {
 			expect(client.bans.snapshot("#seance").rows.map((row) => row.mask)).to.deep.equal([
 				"ban!*@*",
 			]);
+		});
+
+		it("forgets the rows of a list the connection dropped before its end", function () {
+			const {transport} = setup();
+
+			transport.lines(
+				":irc.test 348 alice #seance stale!*@* alice 1",
+				":irc.test 346 alice #seance stale!*@* alice 1"
+			);
+			transport.closed();
+			transport.open();
+			transport.lines(
+				":irc.test CAP * LS :multi-prefix",
+				":irc.test CAP alice ACK :multi-prefix",
+				":irc.test 001 alice :Welcome to the SeanceDev IRC Network, alice",
+				":irc.test 422 alice :MOTD File is missing"
+			);
+			dispatch.resetHistory();
+
+			transport.lines(
+				":irc.test 348 alice #seance fresh!*@* alice 2",
+				":irc.test 349 alice #seance :End of channel exception list",
+				":irc.test 346 alice #seance fresh!*@* alice 2",
+				":irc.test 347 alice #seance :End of Channel Invite List"
+			);
+
+			expect(
+				specialJoins().map((j) =>
+					(j.chan.data as {hostmask: string}[]).map((r) => r.hostmask)
+				)
+			).to.deep.equal([["fresh!*@*"], ["fresh!*@*"]]);
 		});
 	});
 

@@ -752,6 +752,37 @@ describe("IrcClient SASL", function () {
 		expect(messages(client.lobby.id).map((m) => m.text)).to.include("You are now logged out");
 	});
 
+	it("does not count the last connection's login on one that runs no SASL", function () {
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		transport.lines(
+			":irc.test 900 alice alice!alice@host alice :You are now logged in as alice",
+			":irc.test 903 alice :SASL authentication successful"
+		);
+		finishRegistration(transport);
+		expect(client.saslOk).to.equal(true);
+
+		// The network is edited to "No authentication" while the socket is down.
+		transport.abandon("connection lost");
+		client.applySettings({...client.options, sasl: "", saslAccount: "", saslPassword: ""});
+		transport.sent.length = 0;
+		dispatch.resetHistory();
+		transport.open();
+		expect(client.saslOk).to.equal(false);
+
+		const requested = offer(transport, OFFERED_CAPS);
+		expect(requested).to.not.include("sasl");
+		finishRegistration(transport);
+
+		const available = dispatch
+			.getCalls()
+			.filter((call) => call.args[0] === "webpush:available")
+			.map((call) => call.args[1] as {sasl: boolean});
+		expect(available).to.have.length(1);
+		expect(available[0].sasl).to.equal(false);
+	});
+
 	it("EXTERNAL stub sends AUTHENTICATE EXTERNAL and an empty response", function () {
 		const {transport} = setup({sasl: "external", saslAccount: "", saslPassword: ""});
 		const requested = offer(transport, `${OFFERED_CAPS} sasl=PLAIN,EXTERNAL`);

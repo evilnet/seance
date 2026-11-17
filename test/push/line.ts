@@ -133,5 +133,25 @@ describe("push/line", function () {
 			expect(lineIndexOf({"evilnet.github.io/line": "4/3/5"})).to.equal(null);
 			expect(lineIndexOf({"evilnet.github.io/line": "1/6/5"})).to.equal(null);
 		});
+
+		it("holds sent to the 64 lines the server can push", function () {
+			expect(lineIndexOf({"evilnet.github.io/line": "64/64/100"})).to.deep.equal({
+				index: 64,
+				sent: 64,
+				total: 100,
+			});
+			expect(lineIndexOf({"evilnet.github.io/line": "1/65/65"})).to.equal(null);
+			expect(lineIndexOf({"evilnet.github.io/line": "1/5000000/5000000"})).to.equal(null);
+			expect(lineIndexOf({"evilnet.github.io/line": "1/1000000000/1000000000"})).to.equal(
+				null
+			);
+		});
+
+		it("rejects a total no message has", function () {
+			expect(lineIndexOf({"evilnet.github.io/line": "1/1/1000000"})).to.equal(null);
+			expect(lineIndexOf({"evilnet.github.io/line": `1/1/${"9".repeat(309)}`})).to.equal(
+				null
+			);
+		});
 	});
 });

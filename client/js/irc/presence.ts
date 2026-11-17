@@ -45,7 +45,10 @@ import {formatLine} from "./message";
 import {trailingLine} from "./wire";
 import {forgetUserAway, setUserAway} from "./userAwayStore";
 import {readNow} from "./handlers/markread";
-import {MUTE_KEY, MUTE_READ_DELAY_MS, syncPushMute} from "./pushMute";
+// pushMute.ts imports this module too: nothing from it is used as this one
+// loads (MUTE_READ_FALLBACK_MS is computed from muteRead.ts's delay).
+import {MUTE_KEY, syncPushMute} from "./pushMute";
+import {MUTE_READ_DELAY_MS} from "./muteRead";
 import {PERSISTENCE_CAP} from "./persistence";
 import type {SharedNetworkPresence} from "../../../shared/types/network";
 

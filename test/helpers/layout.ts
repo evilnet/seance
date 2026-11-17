@@ -439,6 +439,16 @@ describe("layout — lists, tables and math", () => {
 		);
 	});
 
+	it("marks a pipe a cell holds, so the adapter does not split there", () => {
+		expect(layout("| a \\| b |\n| - |", markdown)).to.deep.equal([
+			table("l", [
+				text("a "),
+				{kind: "text", text: "|", style: {}, cellPipe: true},
+				text(" b"),
+			]),
+		]);
+	});
+
 	it("keeps two tables with the same alignment apart", () => {
 		expect(layout("| a |\n| - |\n| b |\n\n| c |\n| - |\n| d |", markdown)).to.deep.equal([
 			table("l", [text("a\nb")]),
@@ -482,6 +492,18 @@ describe("layout — code blocks side by side", () => {
 		expect(layout("```js\na\n```\n\n```js\nb\n```", markdown)).to.deep.equal([
 			codeBlock([text("a")], "js"),
 			codeBlock([text("b")], "js"),
+		]);
+	});
+
+	// The wrap's value is the TeX, so the same formula twice once read as one "xx"
+	it("keeps two identical TeX spans written back to back apart", () => {
+		expect(layout("$$x$$\n$$x$$", markdown)).to.deep.equal([
+			{kind: "wrap", wrap: "mathBlock", children: [text("x")]},
+			{kind: "wrap", wrap: "mathBlock", children: [text("x")]},
+		]);
+		expect(layout("$`x`$$`x`$", markdown)).to.deep.equal([
+			{kind: "wrap", wrap: "math", children: [text("x")]},
+			{kind: "wrap", wrap: "math", children: [text("x")]},
 		]);
 	});
 });

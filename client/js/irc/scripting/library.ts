@@ -77,7 +77,9 @@ export function scriptTemplate(kind: "responder" | "slap", scripts: Script[]): S
 		id: newScriptId(),
 		name: uniqueScriptName(scripts, "slap_cmd"),
 		description: t("scripting.template.slapDescription"),
-		code: `-- Custom /slap command\nseance.register_command("slap", function(args, rest)\n    local target = rest ~= "" and rest or "themselves"\n    local chan = seance.current_channel\n    if chan ~= "" then\n        seance.send("PRIVMSG " .. chan .. " :\\001ACTION slaps " .. target .. " with a large trout\\001")\n    end\nend)\n`,
+		// In a network's lobby seance.current_channel is the network's name:
+		// the check keeps /slap from messaging it (as cookbook.md's /shrug).
+		code: `-- Custom /slap command\nseance.register_command("slap", function(args, rest)\n    local chan = seance.current_channel\n    if chan == seance.current_network then\n        seance.print("/slap works in a channel or a private conversation.")\n        return\n    end\n    local target = rest ~= "" and rest or "themselves"\n    seance.send("PRIVMSG " .. chan .. " :\\001ACTION slaps " .. target .. " with a large trout\\001")\nend)\n`,
 		enabled: true,
 		createdAt: Date.now(),
 	};

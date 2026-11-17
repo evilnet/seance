@@ -56,6 +56,15 @@ describe("push/strip", function () {
 			expect(splitAction("\x01ACTION waves")).to.deep.equal({action: true, body: "waves"});
 			expect(splitAction("plain")).to.deep.equal({action: false, body: "plain"});
 		});
+
+		it("reads an empty action, which has no space after the word", function () {
+			expect(splitAction("\x01ACTION\x01")).to.deep.equal({action: true, body: ""});
+			expect(splitAction("\x01ACTION")).to.deep.equal({action: true, body: ""});
+			expect(splitAction("\x01ACTIONS\x01")).to.deep.equal({
+				action: false,
+				body: "\x01ACTIONS\x01",
+			});
+		});
 	});
 
 	describe("notificationText", function () {
@@ -69,6 +78,13 @@ describe("push/strip", function () {
 				"*waves*"
 			);
 			expect(notificationText("\x01ACTION waves\x01", {markdown: false})).to.equal("*waves*");
+		});
+
+		it("shows an empty action as one, never as the word ACTION", function () {
+			// The same as the page's own empty action, `\x01ACTION \x01` (msg.ts).
+			expect(notificationText("\x01ACTION\x01", {markdown: false})).to.equal("**");
+			expect(notificationText("\x01ACTION\x01", {markdown: true})).to.equal("**");
+			expect(notificationText("\x01ACTION \x01", {markdown: true})).to.equal("**");
 		});
 
 		it("strips a joined multiline message as one text", function () {

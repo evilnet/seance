@@ -265,6 +265,7 @@ import {useStore} from "../js/store";
 import {ChanType} from "../../shared/types/chan";
 import {
 	cancelCompose,
+	endEdit,
 	findEditableAfter,
 	findEditableBefore,
 	findLastEditable,
@@ -272,6 +273,7 @@ import {
 	startEdit,
 } from "../js/helpers/compose";
 import {hasVirtualKeyboard} from "../js/helpers/device";
+import {isImeComposing} from "../js/helpers/ime";
 import {resetKeyboardSoon} from "../js/helpers/viewport";
 import {useI18n} from "../js/i18n";
 import {SUPPORTED_LANGUAGES, languageName} from "../js/translate/languages";
@@ -444,6 +446,17 @@ export default defineComponent({
 			}
 		};
 
+		// An edit that ends without being sent: the box now holds the draft
+		// from before it, or nothing. An empty box ends the typing with
+		// `done`; a draft that came back is not the user typing, so it
+		// announces nothing (an `active` from the edit goes `paused` on the
+		// idle timer).
+		const reportDoneIfEmpty = () => {
+			if (props.channel.pendingMessage === "") {
+				reportTyping();
+			}
+		};
+
 		// ---- The emoji picker over the composer ------------------------
 		// Typing `:` and two letters of a name opens the message toolbar's
 		// picker with its search seeded (helpers/emojiTrigger.ts). The
@@ -506,7 +519,7 @@ export default defineComponent({
 			if (
 				!emojiPick.value ||
 				!picker ||
-				e.isComposing ||
+				isImeComposing(e) ||
 				e.altKey ||
 				e.ctrlKey ||
 				e.metaKey
@@ -887,7 +900,15 @@ export default defineComponent({
 			});
 
 			props.channel.replyTo = null;
-			props.channel.editing = null;
+
+			// A sent edit gives the composer back the draft it borrowed.
+			if (props.channel.editing) {
+				endEdit(props.channel);
+
+				if (input.value) {
+					input.value.value = props.channel.pendingMessage;
+				}
+			}
 		};
 
 		const onSubmit = (fromEnterKey = false, queued = false) => {
@@ -941,12 +962,14 @@ export default defineComponent({
 
 			const editing = props.channel.editing;
 
-			// Editing to the identical text is a no-op: just leave edit mode.
+			// Editing to the identical text is a no-op: just leave edit mode,
+			// which gives the composer back the draft the edit borrowed.
 			if (editing && text === editText(editing)) {
 				cancelCompose(props.channel);
 				clearInput();
+				input.value.value = props.channel.pendingMessage;
 				setInputSize();
-				reportTyping(); // nothing was sent, so this is a real `done`
+				reportDoneIfEmpty(); // nothing was sent, so an empty box is a real `done`
 				return false;
 			}
 
@@ -1553,7 +1576,7 @@ export default defineComponent({
 					setInputSize();
 				}
 
-				reportTyping(); // cancelling an edit empties the input → `done`
+				reportDoneIfEmpty(); // cancelling an edit with no draft empties the input
 
 				return false;
 			});
@@ -1649,7 +1672,7 @@ export default defineComponent({
 						startEdit(channel, next);
 					} else if (key === "down") {
 						cancelCompose(channel); // past the newest: edit over
-						reportTyping(); // ...which empties the input → `done`
+						reportDoneIfEmpty(); // ...which puts back the draft, usually none
 					} else {
 						return; // already at the oldest own message
 					}

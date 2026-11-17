@@ -27,12 +27,19 @@ import AliasesOverlay from "../components/Settings/AliasesOverlay.vue";
 import ScriptSettings from "../components/Settings/Scripts.vue";
 import ScriptEdit from "../components/Settings/ScriptEdit.vue";
 import NetworkSettings from "../components/Settings/Networks.vue";
-import {ClientChan} from "./types";
+import {ClientChan, ClientNetwork} from "./types";
 import {brandingFeatures} from "./branding";
 import {shouldShowGeneralSettings} from "./helpers/settingsTabs";
 import {forgetTranslations} from "./translate/reader";
 import * as saved from "./irc/saved-networks";
-import {clearPendingTarget, setPendingTarget} from "./helpers/pendingTarget";
+import {
+	clearPendingTarget,
+	isChannelTarget,
+	isValidTarget,
+	setPendingTarget,
+} from "./helpers/pendingTarget";
+import {fromOwnWorker} from "./helpers/ownWorker";
+import {channelByName} from "./helpers/channelByName";
 
 declare module "vue-router" {
 	interface RouteMeta {
@@ -198,6 +205,8 @@ const router = createRouter({
 			// when it exists; otherwise remembers the target and lands on the
 			// network (or the connect form, whose autoconnect brings the
 			// network up) until the join for it arrives (socket-events/join.ts).
+			// A network already registered has no such join coming: see
+			// openTarget.
 			name: "NetworkTarget",
 			path: "/net/:uuid/:target",
 			component: RoutedChat,
@@ -207,19 +216,36 @@ const router = createRouter({
 				const hit = findChannelByName(uuid, target);
 
 				if (hit) {
+					// Found: an older link still waiting must not move the
+					// view when its own join comes.
+					clearPendingTarget();
 					return {name: "RoutedChat", params: {id: hit.id}, replace: true};
 				}
 
-				setPendingTarget(uuid, target);
 				const network = store.getters.findNetwork(uuid);
 
 				if (network && network.channels.length > 0) {
+					// A private conversation on a network registered already
+					// has no join coming: it is opened as openTarget opens it,
+					// once this redirect has settled (opening a query switches
+					// to it, which must not race the redirect). A channel waits
+					// for its join: the burst after a reconnect may not have
+					// brought it yet.
+					if (network.status.connected && !isChannelTarget(target)) {
+						clearPendingTarget();
+						setTimeout(() => openTarget(uuid, target));
+					} else {
+						setPendingTarget(uuid, target);
+					}
+
 					return {
 						name: "RoutedChat",
 						params: {id: network.channels[0].id},
 						replace: true,
 					};
 				}
+
+				setPendingTarget(uuid, target);
 
 				return {name: "Connect", replace: true};
 			},
@@ -250,13 +276,20 @@ router.push = ((to: RouteLocationRaw) => router.replace(to)) as typeof router.pu
 /** A channel on `uuid` by name, case-insensitively (IRC names). */
 function findChannelByName(uuid: string, name: string): ClientChan | undefined {
 	const network = store.getters.findNetwork(uuid);
-	const lower = name.toLowerCase();
 
-	return network?.channels.find((c) => c.name.toLowerCase() === lower);
+	// As the network compares names (helpers/channelByName.ts).
+	return network ? channelByName(network, name) : undefined;
 }
 
-/** Show the conversation a notification names (network uuid + target),
- * or remember it until its join arrives. */
+/**
+ * Show the conversation a notification names (network uuid + target), or
+ * remember it until its join arrives. On a network that is registered
+ * already no join is on its way for a private conversation that is not
+ * there (the reconnect's query reopen is past): it is opened as `/query`
+ * opens it, and shows itself. A channel is never joined from here (joining
+ * is seen by everyone in it); it waits, as before registration, because
+ * the join burst after a reconnect may still be on its way.
+ */
 function openTarget(uuid: string, target: string): void {
 	const hit = findChannelByName(uuid, target);
 
@@ -266,7 +299,30 @@ function openTarget(uuid: string, target: string): void {
 		return;
 	}
 
+	const network = store.getters.findNetwork(uuid);
+
+	if (network?.status.connected && !isChannelTarget(target)) {
+		clearPendingTarget();
+		openQuery(network, target);
+		return;
+	}
+
 	setPendingTarget(uuid, target);
+}
+
+/**
+ * Open the private conversation with `nick` on `network` as `/query` does;
+ * its `join` shows it (socket-events/join.ts). `nick` comes from a deep
+ * link, a notification or the last page's memory, never from the user's
+ * typing, and goes on a command line: anything that is not one name
+ * ({@link isValidTarget}) is refused rather than sent.
+ */
+function openQuery(network: ClientNetwork, nick: string): void {
+	if (!isValidTarget(nick) || network.channels.length === 0) {
+		return;
+	}
+
+	socket.emit("input", {target: network.channels[0].id, text: `/query ${nick}`});
 }
 
 router.beforeEach(() => {
@@ -432,7 +488,8 @@ function onStandalonePage(): boolean {
 
 if ("serviceWorker" in navigator) {
 	navigator.serviceWorker.addEventListener("message", (event) => {
-		if (!event.data || event.data.type !== "open") {
+		// Another deploy's notification click is for its own windows.
+		if (!event.data || event.data.type !== "open" || !fromOwnWorker(event)) {
 			return;
 		}
 
@@ -460,6 +517,7 @@ export {
 	switchToChannel,
 	onStandalonePage,
 	openTarget,
+	openQuery,
 	findChannelByName,
 	leavePage,
 };

@@ -199,6 +199,7 @@ export async function boot(): Promise<void> {
 			const active = store.state.activeChannel;
 			return (active ? clientForNetwork(active.network.uuid) : undefined) ?? allClients()[0];
 		},
+		clients: allClients,
 		print(text) {
 			const active = store.state.activeChannel;
 

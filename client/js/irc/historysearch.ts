@@ -39,7 +39,7 @@ import {formatRef, historyLimit, takesMsgidRefs, takesTimestampRefs} from "./his
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {applyEdit, applyReaction, applyRedaction} from "../helpers/messageUpdates";
 import {sameAuthor} from "../helpers/pastRows";
-import {ignoreListFor} from "../ignore";
+import {fromIgnored} from "../ignore";
 import {replyTagOf} from "./handlers/privmsg";
 import {REACT_TAG, UNREACT_TAG} from "./wire";
 
@@ -591,9 +591,7 @@ function withUpdates(
 			const react = line.tags.get(REACT_TAG);
 			const text = react || line.tags.get(UNREACT_TAG);
 			const row = byMsgid.get(replyTagOf(line));
-			const ignored =
-				!client.isSelf(nick) &&
-				ignoreListFor(client.uuid).matches(nick, line.source?.user, line.source?.host);
+			const ignored = fromIgnored(client.uuid, line.source, client.isSelf(nick));
 
 			if (text && !ignored) {
 				const parent = replyTagOf(line);

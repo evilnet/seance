@@ -61,6 +61,8 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	replyTo: ClientMessage | null;
 	/** Own message the next plain-text input replaces (the edit tags, `wire.ts` `editTags`). */
 	editing: ClientMessage | null;
+	/** The composer's draft from before `editing` began, given back when it ends (helpers/compose.ts). */
+	draftBeforeEdit: string;
 	/**
 	 * Escape dismissed an edit: ArrowUp browses input history instead of
 	 * re-entering edit mode, until the user types again.

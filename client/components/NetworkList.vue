@@ -24,7 +24,7 @@
 				@keydown.down="navigateResults($event, 1)"
 				@keydown.page-up="navigateResults($event, -10)"
 				@keydown.page-down="navigateResults($event, 10)"
-				@keydown.enter="selectResult"
+				@keydown.enter="onSearchEnter"
 				@keydown.escape="deactivateSearch"
 				@focus="activateSearch"
 			/>
@@ -226,6 +226,7 @@ import {autoconnectPending} from "../js/irc/manager";
 import {sortNetworks, sortChannels} from "../js/sort";
 import collapseNetworkHelper from "../js/helpers/collapseNetwork";
 import isIgnoredKeybind from "../js/helpers/isIgnoredKeybind";
+import {isImeComposing} from "../js/helpers/ime";
 import distance from "../js/helpers/distance";
 import eventbus from "../js/eventbus";
 import {ClientChan, NetChan} from "../js/types";
@@ -507,6 +508,13 @@ export default defineComponent({
 			}
 		};
 
+		// The Return that commits an IME candidate is the composition's.
+		const onSearchEnter = (event: KeyboardEvent) => {
+			if (!isImeComposing(event)) {
+				selectResult();
+			}
+		};
+
 		const navigateResults = (event: Event, direction: number) => {
 			// Prevent propagation to stop global keybind handler from capturing pagedown/pageup
 			// and redirecting it to the message list container for scrolling
@@ -529,9 +537,11 @@ export default defineComponent({
 				? channels.indexOf(activeSearchItem.value)
 				: -1;
 
-			// If there's no active channel select the first or last one depending on direction
+			// If there's no active channel select the first or last one depending on
+			// direction: down from the top, up (a negative step) from the bottom.
 			if (!activeSearchItem.value || currentIndex === -1) {
-				activeSearchItem.value = direction ? channels[0] : channels[channels.length - 1];
+				activeSearchItem.value =
+					direction > 0 ? channels[0] : channels[channels.length - 1];
 				scrollToActive();
 				return;
 			}
@@ -591,6 +601,7 @@ export default defineComponent({
 			setActiveSearchItem,
 			scrollToActive,
 			selectResult,
+			onSearchEnter,
 			navigateResults,
 			onChannelSort,
 			onNetworkSort,

@@ -433,6 +433,25 @@ describe("irc/message", function () {
 			expect(chunks).to.deep.equal([" aaaa", "aaaaa", "aaa"]);
 		});
 
+		it("never emits an empty chunk when the only space in reach is leading whitespace", function () {
+			expect(splitMessage(0, "   x", 2)).to.deep.equal(["  ", "x"]);
+			expect(splitMessage(prefix.length, "  aaaaaaaaaaaa", prefix.length + 5)).to.deep.equal([
+				"  aaa",
+				"aaaaa",
+				"aaaa",
+			]);
+
+			const long = "  " + "a".repeat(600);
+			const chunks = splitMessage(60, long);
+			expect(chunks.map((c) => c.length)).to.deep.equal([440, 162]);
+			expect(chunks.join("")).to.equal(long);
+		});
+
+		it("drops a whitespace run right after a hard cut", function () {
+			expect(splitMessage(0, "aaaa   bbbb", 4)).to.deep.equal(["aaaa", "bbbb"]);
+			expect(splitMessage(0, "aaaa   ", 4)).to.deep.equal(["aaaa"]);
+		});
+
 		it("never splits inside a multi-byte UTF-8 sequence", function () {
 			// Each 世 is 3 bytes; budget of 7 fits two (6 bytes), not three.
 			const chunks = splitMessage(prefix.length, "世世世世世", prefix.length + 7);

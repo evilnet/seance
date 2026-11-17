@@ -1,10 +1,14 @@
 import {expect} from "chai";
 import {MessageType} from "../../shared/types/msg";
 import {
+	cancelCompose,
 	editText,
+	endEdit,
 	findEditableAfter,
 	findEditableBefore,
 	findLastEditable,
+	startEdit,
+	startReply,
 } from "../../client/js/helpers/compose";
 import type {ClientChan, ClientMessage} from "../../client/js/types";
 
@@ -118,6 +122,96 @@ describe("edit stepping (helpers/compose.ts)", function () {
 		it("is a message's text, and an action's with /me in front", function () {
 			expect(editText(msg({text: "hello"}))).to.equal("hello");
 			expect(editText(msg({type: MessageType.ACTION, text: "waves"}))).to.equal("/me waves");
+		});
+	});
+
+	describe("the draft an edit borrows the composer from", function () {
+		// startEdit/startReply focus the composer. mocha has no DOM, and a
+		// document without an #input is one they leave alone. It is set and
+		// removed inside each test: mocha's leak check runs after hooks too.
+		function withDocument(run: () => void) {
+			(globalThis as {document?: unknown}).document = {getElementById: () => null};
+
+			try {
+				run();
+			} finally {
+				delete (globalThis as {document?: unknown}).document;
+			}
+		}
+
+		function composing(draft: string, messages: ClientMessage[]): ClientChan {
+			return {
+				messages,
+				pendingMessage: draft,
+				draftBeforeEdit: "",
+				editing: null,
+				replyTo: null,
+				inputHistoryPosition: 0,
+			} as unknown as ClientChan;
+		}
+
+		it("comes back when the edit is cancelled", function () {
+			const a = msg({text: "sent"});
+			const channel = composing("half a thought", [a]);
+
+			withDocument(() => startEdit(channel, a));
+			expect(channel.pendingMessage).to.equal("sent");
+
+			cancelCompose(channel);
+			expect(channel.editing).to.equal(null);
+			expect(channel.pendingMessage).to.equal("half a thought");
+			expect(channel.draftBeforeEdit).to.equal("");
+		});
+
+		it("comes back when the edit is sent (endEdit)", function () {
+			const a = msg({text: "sent"});
+			const channel = composing("half a thought", [a]);
+
+			withDocument(() => startEdit(channel, a));
+			channel.pendingMessage = "sent, fixed";
+			endEdit(channel);
+
+			expect(channel.editing).to.equal(null);
+			expect(channel.pendingMessage).to.equal("half a thought");
+		});
+
+		it("is the one from before the first edit when the edit steps on", function () {
+			const [a, b] = [msg({text: "older"}), msg({text: "newer"})];
+			const channel = composing("half a thought", [a, b]);
+
+			withDocument(() => {
+				startEdit(channel, b);
+				startEdit(channel, a);
+			});
+			expect(channel.pendingMessage).to.equal("older");
+
+			cancelCompose(channel);
+			expect(channel.pendingMessage).to.equal("half a thought");
+		});
+
+		it("comes back when a reply takes over from the edit", function () {
+			const [a, b] = [msg({text: "mine"}), msg({self: false})];
+			const channel = composing("half a thought", [a, b]);
+
+			withDocument(() => {
+				startEdit(channel, a);
+				startReply(channel, b);
+			});
+
+			expect(channel.editing).to.equal(null);
+			expect(channel.replyTo).to.equal(b);
+			expect(channel.pendingMessage).to.equal("half a thought");
+		});
+
+		it("leaves a reply's draft alone when it is cancelled", function () {
+			const b = msg({self: false});
+			const channel = composing("an answer", [b]);
+
+			withDocument(() => startReply(channel, b));
+			cancelCompose(channel);
+
+			expect(channel.replyTo).to.equal(null);
+			expect(channel.pendingMessage).to.equal("an answer");
 		});
 	});
 });

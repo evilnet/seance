@@ -4,7 +4,7 @@
 
 import storage from "../../localStorage";
 import type {Script, ScriptStorageBackend} from "./types";
-import {t} from "../../i18n/core";
+import {t, tCount} from "../../i18n/core";
 import {formatNumber} from "../../i18n/numbers";
 import {dict} from "../../helpers/dict";
 
@@ -140,6 +140,12 @@ export function saveScripts(list: Script[]): void {
 	if (list.length === 0) {
 		backend.remove(STORAGE_KEY);
 		return;
+	}
+
+	// loadScripts keeps the first MAX_SCRIPTS: one more would be stored,
+	// then dropped by the next save of any script.
+	if (list.length > MAX_SCRIPTS) {
+		throw new ScriptStorageError(tCount("scripting.storage.tooMany", MAX_SCRIPTS));
 	}
 
 	const long = list.find((s) => s.code.length > MAX_CODE_LENGTH);

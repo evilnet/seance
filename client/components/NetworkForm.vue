@@ -622,6 +622,7 @@ import {
 import {
 	defaultPort,
 	displayName,
+	isSuggestedPort,
 	parseCommands,
 	presenceModeOf,
 	SavedNetwork,
@@ -879,8 +880,15 @@ export default defineComponent({
 		watch(
 			() => props.defaults.uuid,
 			() => {
+				// The last network's verdict is not this one's, and its check
+				// still out lands nowhere: check this one afresh. With the same
+				// services on both (the usual X3 names) no field changes, so
+				// the field watcher would not.
+				checkText.value = "";
+				checkOk.value = false;
 				servicesPackage.value = props.defaults.services?.package ?? "";
 				Object.assign(serviceBots, blankBots(), props.defaults.services?.bots ?? {});
+				scheduleCheck();
 			}
 		);
 
@@ -946,23 +954,15 @@ export default defineComponent({
 			resizeCommandsInput();
 		});
 
-		// Keep the port on nefarious2's defaults while the TLS box is toggled.
+		// Keep the port on the suggested ones (saved-networks defaultPort, as
+		// the connect screen does) while the TLS box is toggled.
 		watch(
 			() => props.defaults.tls,
 			(isSecureChecked) => {
-				if (props.defaults.transport === "tcp") {
-					if (props.defaults.port === defaultPort(!isSecureChecked, "tcp")) {
-						props.defaults.port = defaultPort(isSecureChecked, "tcp");
-					}
+				const transport = props.defaults.transport;
 
-					return;
-				}
-
-				const ports = [8067, 8443];
-				const newPort = isSecureChecked ? 1 : 0;
-
-				if (props.defaults.port === ports[1 - newPort]) {
-					props.defaults.port = ports[newPort];
+				if (isSuggestedPort(props.defaults.port, !isSecureChecked, transport)) {
+					props.defaults.port = defaultPort(isSecureChecked, transport);
 				}
 			}
 		);
@@ -974,10 +974,9 @@ export default defineComponent({
 			set(value: string) {
 				const tcp = value === "tcp";
 				const tls = props.defaults.tls;
-				const from = tcp ? (tls ? 8443 : 8067) : defaultPort(tls, "tcp");
 
-				if (props.defaults.port === from) {
-					props.defaults.port = tcp ? defaultPort(tls, "tcp") : tls ? 8443 : 8067;
+				if (isSuggestedPort(props.defaults.port, tls, tcp ? "websocket" : "tcp")) {
+					props.defaults.port = defaultPort(tls, tcp ? "tcp" : "websocket");
 				}
 
 				props.defaults.transport = tcp ? "tcp" : "websocket";

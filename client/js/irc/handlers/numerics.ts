@@ -7,6 +7,7 @@
 
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
+import {joinRefused} from "../catchup";
 import {parseFeaturedChannels, parseFeaturedToken} from "../channelList";
 import {errorSpec} from "../errors";
 import {formatLine} from "../message";
@@ -230,6 +231,8 @@ export const numericError: Handler = (client, msg) => {
 	}
 
 	const params = msg.params.slice(1); // drop our nick
+	// Before its JOIN echoed, an error naming a channel is that JOIN refused.
+	joinRefused(client, params[0] ?? "");
 	const reason = params.length > 0 ? params[params.length - 1] : "";
 	const notSent = reason || t("pending.numericError", {code: msg.command});
 	// `labeled-response`: the numeric answers one of our lines. A message of

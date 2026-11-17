@@ -16,8 +16,8 @@ export const MUTE_KEY = "draft/webpush/mute";
 export const INDEFINITE_MUTE_S = 30 * 86400;
 /** ...and writes again once less than this remains. */
 export const RENEW_BELOW_S = 7 * 86400;
-/** SUB/GET wait this long after registration: the connect burst is over by then. */
-export const MUTE_READ_DELAY_MS = 10_000;
+/** When the list is read: kept in muteRead.ts, which presence.ts needs as it loads. */
+export {MUTE_READ_DELAY_MS} from "./muteRead";
 /** A write not echoed within this long is taken as lost (a FAIL, say). */
 export const MUTE_ECHO_TIMEOUT_MS = 30_000;
 

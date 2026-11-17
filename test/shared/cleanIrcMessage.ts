@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import {cleanIrcMessage} from "../../shared/irc";
+import {cleanIrcMessage, matchFormatting} from "../../shared/irc";
 
 describe("cleanIrcMessage", function () {
 	it("should remove all formatting", function () {
@@ -78,5 +78,13 @@ describe("cleanIrcMessage", function () {
 		const expected = testCases.map((testCase) => testCase.expected);
 
 		expect(actual).to.deep.equal(expected);
+	});
+
+	// MessageActions.vue's Copy text strips with matchFormatting alone: the
+	// message as read, line breaks and indentation kept.
+	it("matchFormatting takes the codes and leaves line breaks and spaces", function () {
+		const text = "  \x02one\x02\n\x0304,08two\x0f\n\n\x1dthree\x1d ";
+
+		expect(text.replace(matchFormatting, "")).to.equal("  one\ntwo\n\nthree ");
 	});
 });

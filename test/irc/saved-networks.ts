@@ -1,4 +1,7 @@
 import {expect} from "chai";
+import sinon from "sinon";
+import storage from "../../client/js/localStorage";
+import {forgetIgnoreList, ignoreListFor, ignoreStorageKey} from "../../client/js/ignore";
 import * as saved from "../../client/js/irc/saved-networks";
 import type {SavedNetwork, StorageBackend} from "../../client/js/irc/saved-networks";
 import {normalizeBranding, resetBranding, setBranding} from "../../client/js/branding";
@@ -133,6 +136,21 @@ describe("saved-networks", function () {
 		).to.equal(6667);
 	});
 
+	it("knows the suggested ports the edit form swaps when TLS or the connection type changes", function () {
+		expect(saved.isSuggestedPort(8067, false)).to.equal(true);
+		expect(saved.isSuggestedPort(9998, true)).to.equal(true);
+		expect(saved.isSuggestedPort(9998, true, "websocket")).to.equal(true);
+		// nefarious2's wss:// port, suggested before 9998.
+		expect(saved.isSuggestedPort(8443, true)).to.equal(true);
+		expect(saved.isSuggestedPort(8443, false)).to.equal(false);
+		expect(saved.isSuggestedPort(9998, false)).to.equal(false);
+		expect(saved.isSuggestedPort(6697, true, "tcp")).to.equal(true);
+		expect(saved.isSuggestedPort(6667, false, "tcp")).to.equal(true);
+		expect(saved.isSuggestedPort(8443, true, "tcp")).to.equal(false);
+		// Anything else is the user's own.
+		expect(saved.isSuggestedPort(7000, true)).to.equal(false);
+	});
+
 	it("saves and reads back an entry under thelounge.networks", function () {
 		saved.save(entry());
 
@@ -230,6 +248,40 @@ describe("saved-networks", function () {
 		}
 	});
 
+	it("removing an entry forgets its channel order and its ignore list", function () {
+		// ignore.ts writes through the localStorage wrapper itself.
+		const data = new Map<string, string>();
+		const stubs = [
+			sinon.stub(storage, "get").callsFake((key: string) => data.get(key) ?? null),
+			sinon.stub(storage, "set").callsFake((key: string, v: string) => void data.set(key, v)),
+			sinon.stub(storage, "remove").callsFake((key: string) => void data.delete(key)),
+		];
+
+		try {
+			const other = "22222222-2222-4222-8222-222222222222";
+			saved.save(entry());
+			saved.setChannelOrder(entry().uuid, ["#seance"]);
+			saved.setChannelOrder(other, ["#other"]);
+			ignoreListFor(entry().uuid).add("troll");
+			ignoreListFor(other).add("spammer");
+
+			saved.remove(entry().uuid);
+
+			expect(JSON.parse(backend.get(saved.CHANNEL_ORDER_KEY)!)).to.deep.equal({
+				[other]: ["#other"],
+			});
+			expect(data.has(ignoreStorageKey(entry().uuid))).to.equal(false);
+			expect(data.has(ignoreStorageKey(other))).to.equal(true);
+			// Not cached either: a list for that uuid starts empty.
+			expect(ignoreListFor(entry().uuid).list).to.deep.equal([]);
+			expect(ignoreListFor(other).list.map((e) => e.nick)).to.deep.equal(["spammer"]);
+		} finally {
+			forgetIgnoreList(entry().uuid);
+			forgetIgnoreList("22222222-2222-4222-8222-222222222222");
+			stubs.forEach((stub) => stub.restore());
+		}
+	});
+
 	it("orders the list by recency and reports the last-used entry", function () {
 		const a = entry({uuid: "a0000000-0000-4000-8000-000000000000", name: "Alpha"});
 		const b = entry({uuid: "b0000000-0000-4000-8000-000000000000", name: "Beta"});
@@ -257,6 +309,39 @@ describe("saved-networks", function () {
 		);
 		expect(saved.findMatching("irc.example.org", 8067, "alice")).to.equal(undefined);
 		expect(saved.findMatching("irc.example.org", 8443, "bob")).to.equal(undefined);
+	});
+
+	it("keeps a matching entry's channels and login under `/connect host +port`", function () {
+		const existing = entry({
+			join: "#seance,#dev",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "hunter2",
+			rememberPassword: true,
+		});
+		saved.save(existing);
+
+		// What commands/connect.ts sends: the server and the nick, nothing else.
+		const options = {host: "irc.example.org", port: 8443, tls: true, nick: "alice"};
+		const match = saved.findMatching(options.host, options.port, options.nick);
+		expect(match?.uuid).to.equal(existing.uuid);
+
+		const merged = saved.normalize(saved.mergeOptions(match, existing.uuid, options));
+		expect(merged).to.include({
+			join: "#seance,#dev",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "hunter2",
+		});
+
+		// A host never saved gets empty fields, as before.
+		const fresh = saved.normalize(
+			saved.mergeOptions(undefined, "22222222-2222-4222-8222-222222222222", {
+				...options,
+				host: "irc.other.org",
+			})
+		);
+		expect(fresh).to.include({join: "", sasl: "", saslAccount: "", saslPassword: ""});
 	});
 
 	it("generates stable, unique v4 uuids", function () {
@@ -325,6 +410,60 @@ describe("saved-networks", function () {
 
 		expect(edit(" alice ")).to.equal("pw");
 		expect(edit("bob")).to.equal("");
+	});
+
+	it("keeps the spaces at either end of a password, and reads a whitespace-only one as none", function () {
+		const net = saved.normalize(
+			entry({
+				sasl: "plain",
+				saslAccount: " alice ",
+				saslPassword: " pass word ",
+				serverPassword: " bob/rig:pw ",
+			})
+		) as SavedNetwork;
+		expect(net.saslAccount).to.equal("alice");
+		expect(net.saslPassword).to.equal(" pass word ");
+		expect(net.serverPassword).to.equal(" bob/rig:pw ");
+		expect(saved.toConnectOptions(net)).to.include({
+			saslPassword: " pass word ",
+			serverPassword: " bob/rig:pw ",
+		});
+
+		const blank = saved.normalize(
+			entry({
+				sasl: "plain",
+				saslAccount: "alice",
+				saslPassword: "   ",
+				serverPassword: " \t ",
+			})
+		) as SavedNetwork;
+		expect(blank.saslPassword).to.equal("");
+		expect(blank).to.not.have.property("serverPassword");
+
+		// In the edit form a whitespace-only field keeps the stored password, as a blank one does.
+		const existing = saved.save(
+			entry({
+				sasl: "plain",
+				saslAccount: "alice",
+				saslPassword: " pw ",
+				serverPassword: " spw ",
+				rememberPassword: true,
+			})
+		);
+		const edited = saved.fromForm(
+			{
+				uuid: existing.uuid,
+				sasl: "plain",
+				saslAccount: "alice",
+				saslPassword: "  ",
+				hasServerPassword: "on",
+				serverPassword: " ",
+				rememberPassword: "on",
+			},
+			existing
+		);
+		expect(edited.saslPassword).to.equal(" pw ");
+		expect(edited.serverPassword).to.equal(" spw ");
 	});
 
 	it("fromForm: another account with no password field does not inherit the stored one", function () {
@@ -429,6 +568,21 @@ describe("saved-networks", function () {
 		expect(saved.get(b.uuid)?.notifyEnabled).to.equal(false);
 	});
 
+	it("migrates the old switch once: a network switched back on stays on at the next boot", function () {
+		backend.set("settings", JSON.stringify({desktopNotifications: false, theme: "coffee"}));
+		const a = saved.save(entry({uuid: saved.newUuid()}));
+
+		saved.migrateGlobalNotify();
+		expect(saved.get(a.uuid)?.notifyEnabled).to.equal(false);
+		// The old key is gone; the other settings stay.
+		expect(JSON.parse(backend.get("settings")!)).to.deep.equal({theme: "coffee"});
+
+		// The user switches the network back on; the next boot leaves it on.
+		saved.save({...saved.get(a.uuid)!, notifyEnabled: true});
+		saved.migrateGlobalNotify();
+		expect(saved.get(a.uuid)?.notifyEnabled).to.equal(true);
+	});
+
 	it("migration leaves notifications alone when the old switch was not off", function () {
 		const on = saved.save(entry({uuid: saved.newUuid()}));
 
@@ -442,6 +596,10 @@ describe("saved-networks", function () {
 
 		// Garbage in the settings key must not wedge the migration.
 		backend.set("settings", "not json");
+		saved.migrateGlobalNotify();
+		expect(saved.get(on.uuid)?.notifyEnabled).to.equal(true);
+
+		backend.set("settings", "null");
 		saved.migrateGlobalNotify();
 		expect(saved.get(on.uuid)?.notifyEnabled).to.equal(true);
 	});

@@ -140,8 +140,8 @@ then that same line.
 `No alert named $b<name>$b could be found.`
 
 There is no LISTALERT: `STATS ALERTS [filter]` (filter = glob on the
-criteria text, or an owner, or a name): header `$bCurrent $O alerts matching '$b<f>$b'$b`, dashes, `Name Action (by Oper)`,
-dashes, per alert `$b%-20s$b %-6s (by <owner>)` then optional
+criteria text, or an owner, or a name): header `$bCurrent $O alerts matching '$b<f>$b'$b`, dashes, `Name                 Action (by Oper)`
+(padded to the columns), dashes, per alert `$b%-20s$b %-6s (by <owner>)` then optional
 ` $uExpires:$u: <%Y-%m-%d %H:%M:%S %z>`, ` $uCriteria$u: <raw>`,
 ` $uTriggered$u: <interval|Never>`; footer
 `----------------End of Alerts-----------------`.
@@ -189,8 +189,8 @@ There are no `min_channels`/`max_channels`. Errors: `$b<x>$b is an invalid searc
 ### TRACE
 
 `TRACE <action> <criteria…>` (level 100; gline/shun/tempshun/gag/kill 600;
-version/svsjoin/svspart/mark 999). PRINT: `The following users were found:`, dashes, `Nick User@Host (Account)`, dashes, per
-user `%-15s\002 \002%10s\002@\002%s (%s)` (no ` (acct)` when not authed;
+version/svsjoin/svspart/mark 999). PRINT: `The following users were found:`, dashes, `Nick                  User@Host   (Account)`
+(padded to the columns), dashes, per user `%-15s\002 \002%10s\002@\002%s (%s)` (no ` (acct)` when not authed;
 literal bold bytes), footer `------------ Found %4u matches -----------`.
 Other actions: `There were %4u matches` (skipped opers/trusted included).
 No match: `Nothing matched the criteria of your search.` Default reasons:

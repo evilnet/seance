@@ -74,6 +74,15 @@ function pendingFor(client: IrcClient): Map<string, WhoisData> {
 	return map;
 }
 
+/**
+ * The socket closed: a WHOIS it cut off before its 318 never ends. Its record
+ * would otherwise take the next WHOIS of that nick's replies into it, and
+ * swallow a 301 about the nick as a WHOIS in progress.
+ */
+export function resetWhois(client: IrcClient): void {
+	pending.delete(client);
+}
+
 /** The in-progress record for the nick in params[1], created on first use. */
 function record(client: IrcClient, msg: IrcMessage): WhoisData | undefined {
 	const nick = msg.params[1];

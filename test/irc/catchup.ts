@@ -558,6 +558,48 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 		expect(nextBackground(h)).to.deep.equal(["MODE #seance"]);
 	});
 
+	describe("a JOIN sent with its catch-up that never echoes", function () {
+		/** Joined #seance (open) and saw a line; the socket dropped; the reconnect's JOIN carries #seance's catch-up. */
+		function prefetched(): {h: Harness; atRegistration: string[]} {
+			const h = connected();
+			h.client.open(h.client.findChannel("#seance")!.id);
+			h.transport.line(":alice!alice@host JOIN #seance");
+			h.transport.line(
+				"@time=2026-08-27T12:01:00.000Z;msgid=m1 :bob!bob@host PRIVMSG #seance :hi"
+			);
+			h.transport.closed();
+			h.sent();
+			const mark = h.transport.sent.length;
+			register(h, CAPS);
+			const atRegistration = h.transport.sent.slice(mark);
+			expect(fetched(atRegistration)).to.deep.equal(["#seance"]);
+			return {h, atRegistration};
+		}
+
+		it("refused (473): the JOIN after an invite fetches the catch-up", function () {
+			const {h, atRegistration} = prefetched();
+			const label = /^@label=(\S+) /.exec(atRegistration.find(isFetch)!)![1];
+			// Invite-only since: the JOIN is refused, and the history behind it.
+			h.transport.lines(
+				":irc.test 473 alice #seance :Cannot join channel (+i)",
+				`@label=${label} :irc.test FAIL CHATHISTORY INVALID_TARGET LATEST #seance :No access to target`
+			);
+
+			// Invited, the user joins by hand: the echo asks for the gap.
+			h.transport.line(":alice!alice@host JOIN #seance");
+			expect(fetched(h.sent())).to.deep.equal(["#seance"]);
+		});
+
+		it("the socket dies first: the next connection's JOIN fetches it, the channel no longer open", function () {
+			const {h} = prefetched();
+			h.transport.closed();
+			h.client.open(h.client.findChannel("#two")!.id);
+			register(h, CAPS);
+			joinAll(h);
+			expect(pendingCatchup(h.client).map((c) => c.name)).to.include("#seance");
+		});
+	});
+
 	describe("ordered by CHATHISTORY TARGETS", function () {
 		/** Run the clock for `ms`, answering every history fetch (an empty page) and TARGETS (nothing listed). */
 		function settle(h: Harness, ms: number): void {

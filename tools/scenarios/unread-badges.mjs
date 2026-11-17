@@ -154,7 +154,14 @@ export default async function run(page) {
 	await page.sleep(2000);
 	const q = await page.evaluate(badge(TALKER));
 	await page.check(`the query read here is not unread after the reload ("${q}")`, q === "");
-	await page.check(`landed on #seance (${await page.evaluate(ACTIVE)})`, true);
+	// #seance was open before the reload, so the page comes back on it
+	// (helpers/lastChannel.ts). Wait for that, but record a miss as a failed
+	// check with the channel it did land on, not an abort.
+	await page
+		.waitFor(`${ACTIVE} === "#seance"`, {timeout: 10000, label: "landed on #seance"})
+		.catch(() => {});
+	const landed = await page.evaluate(ACTIVE);
+	await page.check(`landed on #seance (${landed})`, landed === "#seance");
 	await page.screenshot("2-after-reload");
 
 	// 4. Unread across the reload stays unread, once.

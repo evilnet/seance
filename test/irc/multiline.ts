@@ -785,6 +785,48 @@ describe("multiline sending", function () {
 			}
 		});
 
+		it("with labeled-response, takes an unlabelled echo for ours only when it says what ours said", function () {
+			const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
+
+			try {
+				const {client, transport, chanId} = setup(
+					offering("max-bytes=16384,max-lines=2", "echo-message labeled-response ")
+				);
+				const cooldown = batchCooldownMs({
+					lines: [
+						{text: "one", concat: false},
+						{text: "two", concat: false},
+					],
+					action: false,
+				});
+
+				client.input(chanId, "one\ntwo\nthree");
+				expect(transport.sent[0]).to.match(
+					/^@label=s\d+ BATCH \+m1 draft\/multiline #seance$/
+				);
+				transport.sent.length = 0;
+
+				// The same account on another device: no label, other words.
+				// Ours is still on the wire, so the second batch does not go.
+				echoBatch(transport, "Ok1", "four", "five");
+				clock.tick(cooldown);
+				expect(transport.sent).to.deep.equal([]);
+
+				// Ours, from a server that does not relay the label: taken.
+				echoBatch(transport, "Gk1", "one", "two");
+				clock.tick(cooldown);
+				expect(transport.sent.slice(1)).to.deep.equal([
+					"@batch=m2 PRIVMSG #seance :three",
+					"BATCH -m2",
+				]);
+				expect(transport.sent[0]).to.match(
+					/^@label=s\d+ BATCH \+m2 draft\/multiline #seance$/
+				);
+			} finally {
+				clock.restore();
+			}
+		});
+
 		it("paces a later message's batch past the previous message's cooldown", function () {
 			const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
 

@@ -17,7 +17,7 @@ import {DRAFT_REPLY_TAG, editTagOf, REPLY_TAG, trailingLine} from "../wire";
 import {languageFieldsOf} from "../langtag";
 import {noteListDelay} from "./list";
 import type {Handler} from "../types";
-import {ignoreListFor} from "../../ignore";
+import {fromIgnored} from "../../ignore";
 import {scriptManager} from "../scripting/manager";
 
 const nickRegExp = /(?:\x03[0-9]{1,2}(?:,[0-9]{1,2})?)?([\w[\]\\`^{|}-]+)/g;
@@ -91,11 +91,7 @@ function handleMessage(
 	const ctcp = parseCtcp(text);
 
 	// --- ignore list (client/js/ignore.ts): drop anything from a matching user
-	if (
-		!fromServer &&
-		!self &&
-		ignoreListFor(client.uuid).matches(nick, source.user, source.host)
-	) {
+	if (fromIgnored(client.uuid, source, self)) {
 		return;
 	}
 	// --- end ignore list

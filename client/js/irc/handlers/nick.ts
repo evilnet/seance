@@ -7,6 +7,7 @@ import {MessageType} from "../../../../shared/types/msg";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {fromIgnored} from "../../ignore";
 import {forgetBot} from "../bottrust";
 
 const nick: Handler = (client, msg) => {
@@ -21,13 +22,17 @@ const nick: Handler = (client, msg) => {
 		// A services bot's nick, left or newly taken, is someone to ask about again.
 		forgetBot(client, oldNick);
 		forgetBot(client, newNick);
-		scriptManager.dispatchNick({
-			network: client.name,
-			networkUuid: client.uuid,
-			oldNick,
-			newNick,
-			self: client.isSelf(oldNick) || client.isSelf(newNick),
-		});
+		const self = client.isSelf(oldNick) || client.isSelf(newNick);
+
+		if (!fromIgnored(client.uuid, msg.source, self)) {
+			scriptManager.dispatchNick({
+				network: client.name,
+				networkUuid: client.uuid,
+				oldNick,
+				newNick,
+				self,
+			});
+		}
 	}
 
 	const time = client.timeOf(msg);

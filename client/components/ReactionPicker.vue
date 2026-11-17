@@ -205,6 +205,7 @@ import {
 	searchEmoji,
 } from "../js/helpers/emoji";
 import {DEFAULT_REACTIONS, recentReactions} from "../js/helpers/reactionRecents";
+import {isImeComposing} from "../js/helpers/ime";
 import {settle, visibleHeight} from "../js/helpers/viewport";
 
 /** One thing the list offers: an emoji, a remembered reaction, or typed text. */
@@ -783,6 +784,12 @@ export default defineComponent({
 		};
 
 		const onKeydown = (e: KeyboardEvent) => {
+			// Keys an IME composition is using (the Return that commits a
+			// candidate, the arrows through them) are the composition's.
+			if (isImeComposing(e)) {
+				return;
+			}
+
 			const el = e.target as HTMLInputElement;
 			const caret = el.selectionStart ?? 0;
 			const collapsed = caret === (el.selectionEnd ?? 0);

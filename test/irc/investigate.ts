@@ -855,6 +855,28 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		expect(inv.sources.gtrace).to.equal("done");
 	});
 
+	it("takes the IP alone from the ratbox family's shorter 338, not the nick as the host", async function () {
+		const {client, transport} = setup({opered: false});
+		const inv = new Investigation(client, "user", "alice");
+		inv.start();
+		const [checkLine, whoisLine] = transport.sent;
+		batchReply(transport, checkLine, [
+			":irc.test 481 opr :Permission Denied: Insufficient privileges",
+		]);
+		batchReply(transport, whoisLine, [
+			":irc.test 311 opr alice alice host.example.org * :Alice",
+			":irc.test 338 opr alice 198.51.100.4 :actually using host",
+			":irc.test 318 opr alice :End of /WHOIS list.",
+		]);
+		await flush();
+
+		const model = inv.model as UserModel;
+		expect(model.user.host).to.equal("host.example.org");
+		expect(model.user.ident).to.equal("alice");
+		expect(model.user.ip).to.equal("198.51.100.4");
+		inv.stop();
+	});
+
 	it("without labeled replies still asks O3's gtrace once a host is known", async function () {
 		const {client, transport} = setup({labels: false});
 		const inv = new Investigation(client, "user", "carol");
@@ -869,6 +891,33 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		expect(transport.sent.map(commandOf)).to.include(
 			"PRIVMSG O3 :gtrace print host superset c@c.example.net"
 		);
+		inv.stop();
+	});
+
+	it("leaves no collector behind for a bot lookup that could not be sent", async function () {
+		// Without labels the card asks O3 alone, at once.
+		const {client, transport} = setup({labels: false});
+		const inv = new Investigation(client, "user", "carol");
+
+		// The socket is open but refuses the line, as WsTransport does a NUL.
+		const send = sinon
+			.stub(transport, "send")
+			.throws(new RangeError("WsTransport: line must not contain CR, LF or NUL"));
+		inv.start();
+		await flush();
+		expect(send.firstCall.args[0]).to.equal("PRIVMSG O3 :whois carol");
+		send.restore();
+		expect(inv.sources.lookups).to.equal("failed");
+		expect(inv.notes.lookups).to.equal("the connection is down");
+
+		// O3's next whois is nobody's: shown as any notice, not taken quietly.
+		dispatch.resetHistory();
+		notice(transport, "O3", o3Whois("carol", "c", "c.example.net", "198.51.100.9"));
+		const shown = dispatch
+			.getCalls()
+			.filter((call) => call.args[0] === "msg")
+			.map((call) => (call.args[1] as {msg: {text: string}}).msg.text);
+		expect(shown).to.include("Nick         : carol");
 		inv.stop();
 	});
 

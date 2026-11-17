@@ -18,6 +18,7 @@ const FLAGS: (keyof ParsedStyle)[] = [
 	"header",
 	"list",
 	"table",
+	"cellPipe",
 	"math",
 	"mathBlock",
 ];
@@ -421,6 +422,33 @@ describe("markdown — pipe tables", () => {
 
 	it("makes no table of a spoiler's bars", () => {
 		expect(md("||a||")).to.deep.equal([{text: "a", spoiler: true}]);
+	});
+
+	// GFM: `\|` in a row is a pipe the cell holds, a code span's included,
+	// and it no longer splits the cell (nor keeps a header row from counting)
+	it("keeps an escaped pipe in its cell, as a pipe", () => {
+		expect(md("| a | b |\n| - | - |\n| 1 \\| y | 2 |")).to.deep.equal([
+			{text: "a|b\n1 ", table: "ll"},
+			{text: "|", table: "ll", cellPipe: true},
+			{text: " y|2", table: "ll"},
+		]);
+		expect(md("| a \\| x | b |\n| - | - |")).to.deep.equal([
+			{text: "a ", table: "ll"},
+			{text: "|", table: "ll", cellPipe: true},
+			{text: " x|b", table: "ll"},
+		]);
+		expect(md("| a |\n| - |\n| `1 \\| y` |")).to.deep.equal([
+			{text: "a\n", table: "l"},
+			{text: "1 ", table: "l", monospace: true},
+			{text: "|", table: "l", monospace: true, cellPipe: true},
+			{text: " y", table: "l", monospace: true},
+		]);
+	});
+
+	it("still splits at a pipe after an escaped backslash", () => {
+		expect(md("| a | b |\n| - | - |\n| 1 \\\\| 2 |")).to.deep.equal([
+			{text: "a|b\n1 \\|2", table: "ll"},
+		]);
 	});
 });
 

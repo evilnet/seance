@@ -154,6 +154,7 @@
 
 <script lang="ts">
 import eventbus from "../js/eventbus";
+import {trapTab} from "../js/helpers/trapTab";
 import {useI18n} from "../js/i18n";
 import {defineComponent, nextTick, onMounted, onUnmounted, ref} from "vue";
 import I18nFrame from "./I18nFrame.vue";
@@ -354,9 +355,16 @@ export default defineComponent({
 			}
 		};
 
+		// Modal: Tab and Shift+Tab come round between the buttons and never
+		// leave for the app behind, which is not inert.
 		// A held Enter or Space never answers a question that opened by
 		// itself: its repeats are not a decision.
 		const onKeydown = (event: KeyboardEvent) => {
+			if (event.key === "Tab" && dialogElement.value) {
+				trapTab(event, dialogElement.value);
+				return;
+			}
+
 			if (data.value?.wait && event.repeat && (event.key === "Enter" || event.key === " ")) {
 				event.preventDefault();
 				event.stopPropagation();

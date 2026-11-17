@@ -412,8 +412,8 @@ export function formatLine(msg: IrcMessageInput): string {
  * Breaks preferentially at spaces/tabs (which are consumed). A run with no
  * space in reach (a URL, a hash, a long word) is cut between two visible
  * characters ({@link graphemeCut}), and never inside a UTF-8 multi-byte
- * sequence or a UTF-16 surrogate pair. Returns [] for empty text. Throws
- * RangeError if not even one character fits.
+ * sequence or a UTF-16 surrogate pair. Returns [] for empty text, and never
+ * an empty chunk. Throws RangeError if not even one character fits.
  */
 export function splitMessage(
 	prefixBytes: number,
@@ -470,17 +470,30 @@ export function splitMessage(
 		let next = end;
 
 		if (lastSpace > start) {
-			end = lastSpace;
-			next = lastSpace;
+			// Drop the whole whitespace run around the break point. When the
+			// only space in reach ends the message's leading whitespace, the
+			// chunk would be empty: the hard cut above keeps that whitespace.
+			let spaceEnd = lastSpace;
 
-			// Drop the whole whitespace run around the break point.
-			while (end > start && (text[end - 1] === " " || text[end - 1] === "\t")) {
-				end--;
+			while (
+				spaceEnd > start &&
+				(text[spaceEnd - 1] === " " || text[spaceEnd - 1] === "\t")
+			) {
+				spaceEnd--;
 			}
 
-			while (next < text.length && (text[next] === " " || text[next] === "\t")) {
-				next++;
+			if (spaceEnd > start) {
+				end = spaceEnd;
+				next = lastSpace;
 			}
+		}
+
+		// A run of whitespace right after the break belongs to it too, after a
+		// hard cut as well: the next chunk never starts with one (where it
+		// could be all the space in reach and leave that chunk empty), and
+		// whitespace left at the end of the text is not sent on its own.
+		while (next < text.length && (text[next] === " " || text[next] === "\t")) {
+			next++;
 		}
 
 		chunks.push(text.slice(start, end));

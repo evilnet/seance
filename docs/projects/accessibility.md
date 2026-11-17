@@ -182,9 +182,15 @@ SC = WCAG 2.2 success criterion.
 
 ### Dialogs, landmarks, structure
 
-- [ ] **B 4.1.2 / 2.4.3** `ConfirmDialog.vue` — no `role="dialog"`,
-      `aria-modal`, label, focus move, trap or restore. Mirror
-      `UploadPreview.vue:7-13`.
+- [ ] **B 4.1.2 / 2.4.3** `ConfirmDialog.vue` — done: `role="dialog"`,
+      `aria-modal`, `aria-labelledby` its title, the focus onto the answer
+      (a destructive question's Cancel) and back where it was after the
+      last of a run of questions, and Tab and Shift+Tab come round between
+      its buttons (`helpers/trapTab.ts`). Left: the question's text is not
+      its `aria-describedby`, so a screen reader announces only the title
+      and the focused button; and the app behind is not `inert`, so a click
+      on the backdrop drops the focus to `body`, and Tab from there goes
+      into the app.
 - [ ] **B 4.1.2 / 1.1.1** `ImageViewer.vue:2-39` — same; `.close-btn` has no
       handler (relies on bubbling); image `alt=""`; `.open-btn` is an empty
       link.

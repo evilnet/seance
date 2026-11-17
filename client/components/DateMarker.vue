@@ -7,7 +7,7 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, onBeforeUnmount, onMounted, PropType} from "vue";
+import {computed, defineComponent, onBeforeUnmount, onMounted, PropType, ref} from "vue";
 import eventbus from "../js/eventbus";
 import {formatDayHeading, formatRelativeDay} from "../js/i18n/dates";
 import {useI18n} from "../js/i18n";
@@ -38,7 +38,13 @@ export default defineComponent({
 			return (Date.now() - ms()) / 3600000;
 		};
 
+		// Bumped at each midnight (App.vue's daychange): nothing else the
+		// label reads changes then, so without it "Today" would stay "Today".
+		const day = ref(0);
+
 		const dayChange = () => {
+			day.value++;
+
 			if (hoursPassed() >= 48) {
 				eventbus.off("daychange", dayChange);
 			}
@@ -46,7 +52,10 @@ export default defineComponent({
 
 		// Today / Yesterday / the date. The labels resolve through the
 		// catalog keys dates.today / dates.yesterday, owned by this component.
-		const friendlyDate = () => formatRelativeDay(ms(), t);
+		const friendlyDate = () => {
+			void day.value;
+			return formatRelativeDay(ms(), t);
+		};
 
 		onMounted(() => {
 			if (hoursPassed() < 48) {

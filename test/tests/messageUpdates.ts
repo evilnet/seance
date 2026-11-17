@@ -181,8 +181,9 @@ describe("message updates (msg:react / msg:redact / msg:edit)", function () {
 	it("builds reply quotes from loaded parents only", function () {
 		const list = [
 			msg(1, {text: "  a   very\n long ".padEnd(120, "x")}),
+			// An edit has a msgid of its own (m3), as on the wire
 			msg(2, {supersededBy: 3}),
-			msg(3, {msgid: "m2", editOf: "m2", text: "new text"}),
+			msg(3, {editOf: "m2", text: "new text"}),
 		];
 
 		const quote = replyQuote(list, "m1");
@@ -191,8 +192,21 @@ describe("message updates (msg:react / msg:redact / msg:edit)", function () {
 		// raw and whole: QuotePreview.vue styles and cuts it
 		expect(quote?.text).to.equal("  a   very\n long ".padEnd(120, "x"));
 
-		// superseded message is skipped, the replacement (same msgid here) wins
-		expect(replyQuote(list, "m2")?.text).to.equal("new text");
+		// a reply names the original: it is quoted as the edit the list shows
+		expect(replyQuote(list, "m2")).to.deep.equal({id: 3, nick: "nick3", text: "new text"});
 		expect(replyQuote(list, "nope")).to.be.undefined;
+	});
+
+	it("quotes an edited parent as its newest loaded edit", function () {
+		const chain = [
+			msg(2, {supersededBy: 3}),
+			msg(3, {editOf: "m2", supersededBy: 4}),
+			msg(4, {editOf: "m3", text: "newest"}),
+		];
+		expect(replyQuote(chain, "m2")?.id).to.equal(4);
+		expect(replyQuote(chain, "m2")?.text).to.equal("newest");
+
+		// The edit is not loaded: the original still says something
+		expect(replyQuote([msg(2, {supersededBy: 9})], "m2")?.text).to.equal("text 2");
 	});
 });
