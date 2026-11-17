@@ -128,10 +128,10 @@
     "one": "{count} channel",
     "other": "{count} channels"
   },
-  "browse.delayed": "The server is making you wait",
+  "browse.delayed": "Server anti-bot protection",
   "browse.delayedNote": {
-    "one": "To keep bots out, new connections can see the full channel list in {count} second.",
-    "other": "To keep bots out, new connections can see the full channel list in {count} seconds."
+    "one": "Please wait {count} second for the full channel list.",
+    "other": "Please wait {count} seconds for the full channel list."
   },
   "browse.empty": "The server listed no channels",
   "browse.featured": "Featured",
