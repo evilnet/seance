@@ -904,7 +904,6 @@ p {
 .channel-list-item .connection-status-icon::before,
 .channel-list-item .notify-status-icon::before,
 .channel-list-item .edit-network::before,
-.channel-list-item .add-channel::before,
 .channel-list-item .oper-panel::before,
 .channel-list-item .parted-channel-icon::before,
 #chat .oper-report-btn::before,
@@ -1747,9 +1746,9 @@ background on hover (unless active) */
 
 /* The network header is two rows inside one tab — one click target, one drag
 handle, one hover — so the name reads at full width instead of sharing its line
-with four tools: `.lobby-title` is the chevron, the name and the unread badge;
+with its tools: `.lobby-title` is the chevron, the name and the unread badge;
 `.lobby-status` under it holds the tools (connection state, notifications,
-edit, join) on the left, starting where the channel rows' icons do, and the
+edit, and the oper or bouncer panel) on the left, starting where the channel rows' icons do, and the
 nick this connection uses on the right, ending where the badge does. The tools
 never shrink; a nick too long for what they leave it ends in an ellipsis. The
 wrapper is what the jump-to results' server glyph (::before) sits beside. */
@@ -1921,7 +1920,6 @@ html[data-reduce-motion] .channel-list-item.has-activity:not(.is-typing)::before
 }
 
 .channel-list-item .badge,
-#sidebar .add-channel-tooltip,
 #sidebar .edit-network-tooltip,
 #sidebar .oper-panel-tooltip,
 .channel-list-item .close-tooltip {
@@ -1988,36 +1986,10 @@ the same counter the badge shows). Muted channels keep their faded look. */
 /* Every tool on the status line is the same 1.5rem box with its glyph centred,
 so the block reads as one evenly spaced toolbar (a button centres its content
 by itself; the bell is a span and has to be told). Even boxes are not enough on
-their own: the eye measures the gaps between ink, so the four glyphs are all
-FontAwesome solids of about the same size and weight — the join tool used to
-be a thin text "+" and the bell a smaller, dimmer glyph, and the row looked
-unevenly spaced however evenly the boxes sat. */
-.channel-list-item[data-type="lobby"] .add-channel {
-	border-radius: 3px;
-	width: 1.5rem;
-	height: 1.5rem;
-	opacity: 0.4;
-	transition: opacity 0.2s, background-color 0.2s, transform 0.2s;
-}
-
-.channel-list-item[data-type="lobby"] .add-channel::before {
-	content: "\f067"; /* https://fontawesome.com/icons/plus?style=solid */
-	font-size: 0.875rem;
-	display: inline-block;
-	line-height: 1.5rem;
-	text-align: center;
-	color: #fff;
-}
-
-.channel-list-item[data-type="lobby"] .add-channel:hover {
-	opacity: 1;
-}
-
-.channel-list-item[data-type="lobby"] .add-channel.opened {
-	/* translateZ(0) enables hardware acceleration, this is to avoid jittering when animating */
-	transform: rotate(45deg) translateZ(0);
-}
-
+their own: the eye measures the gaps between ink, so the glyphs are all
+FontAwesome solids of about the same size and weight — the bell used to be a
+smaller, dimmer glyph, and the row looked unevenly spaced however evenly the
+boxes sat. */
 .channel-list-item[data-type="lobby"] .edit-network {
 	border-radius: 3px;
 	width: 1.5rem;
@@ -2067,9 +2039,9 @@ the same box, glyph size and weight as the gear and the plus beside it. */
 	opacity: 1;
 }
 
-/* Five tools do not fit the narrow end of the sidebar: the nick yields
-first, and below ~11rem of status line the boxes and gaps tighten rather
-than letting the last tool clip. Only with the shield there — four tools
+/* With the shield there the tools crowd the narrow end of the sidebar: the
+nick yields first, and below ~11rem of status line the boxes and gaps
+tighten rather than letting the last tool clip. Without it the three tools
 keep their spacing. The sidebar is `7rem + 108px` wide, so this is the
 large font steps (docs/projects/oper-tools.md, "Room for it"). A finger
 (`data-input="touch"`) keeps the full boxes and gaps: the nick gives way
@@ -2083,7 +2055,6 @@ entirely first, then the tools wrap to a second line rather than shrink. */
 	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .connection-status-icon,
 	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .notify-status-icon,
 	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .edit-network,
-	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .add-channel,
 	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .oper-panel {
 		width: 1.25rem;
 	}
@@ -3387,27 +3358,6 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	box-shadow: inherit;
 }
 
-/**
-  * Toggled via JavaScript
-  */
-#sidebar .join-form {
-	padding: 0 1.125rem 0.5rem;
-}
-
-#sidebar .join-form .input {
-	display: block;
-	margin: 5px auto;
-}
-
-#sidebar .join-form .btn {
-	display: block;
-	width: 100%;
-	margin: auto;
-}
-
-#sidebar .join-form .join-browse {
-	margin-top: 0.375rem;
-}
 
 #chat .show-more {
 	padding: 10px;

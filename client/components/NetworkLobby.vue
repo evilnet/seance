@@ -53,17 +53,6 @@
 						/>
 					</span>
 					<span
-						:aria-label="joinChannelLabel"
-						class="add-channel-tooltip tooltipped tooltipped-e tooltipped-no-touch"
-					>
-						<button
-							:class="['add-channel', {opened: isJoinChannelShown}]"
-							:aria-controls="'join-channel-' + channel.id"
-							:aria-label="joinChannelLabel"
-							@click.stop="$emit('toggle-join-channel')"
-						/>
-					</span>
-					<span
 						v-if="opered"
 						:aria-label="operPanelLabel"
 						class="oper-panel-tooltip tooltipped tooltipped-e tooltipped-no-touch"
@@ -140,11 +129,9 @@ export default defineComponent({
 			type: Object as PropType<ClientNetwork>,
 			required: true,
 		},
-		isJoinChannelShown: Boolean,
 		active: Boolean,
 		isFiltering: Boolean,
 	},
-	emits: ["toggle-join-channel"],
 	setup(props) {
 		const router = useRouter();
 		const {t} = useI18n();
@@ -234,10 +221,6 @@ export default defineComponent({
 						: "/server",
 			});
 		};
-
-		const joinChannelLabel = computed(() => {
-			return props.isJoinChannelShown ? t("lobby.cancel") : t("lobby.joinChannel");
-		});
 
 		// The nick under the network name is the one this connection uses;
 		// before the first connect it is the configured one.
@@ -348,7 +331,6 @@ export default defineComponent({
 			statusClass,
 			statusLabel,
 			onStatusClick,
-			joinChannelLabel,
 			nickLabel,
 			unreadCount,
 			onCollapseClick,
