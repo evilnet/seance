@@ -2834,7 +2834,7 @@ export default async function run(page) {
 
 	await page.screenshot("ps-seance");
 
-	// ---- no embers in a query: the plains stand still there (spec §5.7)
+	// ---- no embers in a query: it shows the yurt's room (ps-yurt.md)
 
 	// A query with the neighbour, so a line and a reaction have their echoes.
 	// Read at fixed moments, not from animation events alone (the check once
@@ -3535,7 +3535,7 @@ export default async function run(page) {
 	// stood on the noon sky, a drop just above the top); the veil, the
 	// fireflies, the near grass and the heat band stay, still; and the
 	// colours are the hour's, the same as without reduced motion at the same
-	// minute. In #seance: a query stops the scene by itself.
+	// minute. In #seance: a query shows the yurt's room instead (ps-yurt.mjs).
 	await page.send("Emulation.setEmulatedMedia", {
 		features: [{name: "prefers-reduced-motion", value: "reduce"}],
 	});

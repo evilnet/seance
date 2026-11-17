@@ -91,7 +91,7 @@ The geometry module is Vue-free and DOM-free: `client/js/scenes/ps/yurt.ts` (pro
 
 **The moon keeps its true phase.** The back window shows it while it is up, drawn from `moonShape`, and a new moon is no moon (the binding rule, ps-theme.md §2). The sun's disc shows in the back window only low in the sky near rising and setting, in clear weather, as the mockup's golden hour does. By day its light falls through the crown as the beam and its pool on the floor.
 
-**The room's light is a set of levels computed every minute,** in `palette.ts`, beside the plains' levels:
+**The room's light is a set of levels computed every minute,** in `indoor.ts` (`indoorLevels`), from the plains' levels:
 
 - **Shade:** 0 by day, about 0.74 at night, from the table's existing `dark` column.
 - **Golden warmth.**
@@ -156,7 +156,7 @@ A query is now just another view to `tierFor`.
 - **Calm:** `hearth` and `clouds`.
 - **Phone:** halves the particles, as outside.
 - **Moving between plains and room is a cut,** as NG's `transition: none` already makes the frost.
-- **Only one picture is in the render tree.** While the room shows, the plains' layers leave it (`.ps-off`); while the plains show, the room does.
+- **Only one picture is in the render tree.** While the room shows, the plains leave it (`ps-private` takes `.ps-frost` out with `display: none`); while the plains show, the room does.
 - **The room's markup is built on the first query,** so a user who never opens one pays nothing. It is kept until the theme unmounts, and rebuilt only for a new day's weather.
 
 **Plan 1 ships the room still** (§13). Under today's rule a query is still anyway, and the still room is needed regardless for reduced motion and hidden pages.
@@ -226,7 +226,7 @@ The rug's blue held without moving. Every held floor then holds over the room: t
 
 ## 10. What the scene publishes
 
-`data-ps-light`, `data-ps-text`, `--ps-halo`, `--ps-rim` and the glass tints are unchanged, subject to §9.
+`data-ps-light`, `--ps-halo` and `--ps-rim` are unchanged. In a query `data-ps-text` is `light` (`grounds.ts`), and the glass tints are the room's own (`glass.ts` `indoorTints`), subject to §9.
 
 **My call:** in a query the top of the screen is the roof, not the sky. `--canvas-bg-color`, the `theme-color` meta and so the iOS status bar take the roof's colour at that minute, which makes `publishMoment` aware of the view. The iPhone status-bar check (ps-theme.md §12) is the user's to do on a device.
 
@@ -344,7 +344,7 @@ Scripts: `tmp/yurt-check/perf3-run.sh`, `perf3-iso.sh`, `probe-anc.mjs` and `tra
 
 **Mocha:**
 
-- `test/scenes/ps/yurt.ts`: the projection, near-plane clipping, every piece's faces, and a markup census (no SMIL, unique ids, colours through classes or custom properties).
+- `test/scenes/ps/yurt.ts`: the projection and near-plane clipping; `test/scenes/ps/room.ts`: every piece's faces, and a markup census (no SMIL, unique ids, colours through classes or custom properties).
 - The weather mapping for all six weathers.
 - `tiers.ts`'s truth table: a query no longer forces still.
 - `test/helpers/psWords.ts` loses the `wordsFor` test with the withdrawn rule (§15).
@@ -460,7 +460,7 @@ Shown side by side in an Artifact; the user picked A:
   - `indoor.ts` gains a level for the fire's burn, the chimney's smoke value.
   - `--ps-in-fire`, the glow, becomes min(1, burn × (0.8 + 0.18 × storm)). That is 0 by day and the same 0.8 as now at full night.
 - **The swaps and gates:**
-  - The still fire shows only while the fire burns; the embers show only while it is out.
+  - The still fire shows only while the fire burns. As built, the embers are always drawn and the fire burns over them, so by day they are all the door shows.
   - The moving fire, the sparks and the steam take `ps-off` while the stove is out. That is the stars' gate (plan 2): nothing animates unseen.
 - **Legibility:** the sweep loses the day's grounds under the fire's glow, which only removes light. As built it gains the door: the firebox and its coal bed are room colours, as dark as the floors allow by day (about the door's own iron), and the firebox darkens behind the flames only once the night glass is up (`cavity`), each swept at its strength (the final review of plan 3). The night is otherwise unchanged.
 

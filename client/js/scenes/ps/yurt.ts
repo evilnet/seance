@@ -32,8 +32,8 @@ export const ROOM_GEOMETRY = {
 export const DESIGN_FRAME = {x: -320, y: 0, width: 1920, height: 800} as const;
 
 /** Where the frame's middle lands: the stove's x, and the image's vertical middle. */
-const CX = 640;
-const CY = 400;
+const CX = DESIGN_FRAME.x + DESIGN_FRAME.width / 2;
+const CY = DESIGN_FRAME.y + DESIGN_FRAME.height / 2;
 const PITCH = (ROOM_GEOMETRY.pitchDeg * Math.PI) / 180;
 const COS_P = Math.cos(PITCH);
 const SIN_P = Math.sin(PITCH);

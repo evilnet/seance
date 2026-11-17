@@ -2,6 +2,7 @@ import {expect} from "chai";
 import {readFileSync} from "node:fs";
 import {ROOM_MOTION_CSS} from "../../../client/js/scenes/psng/room-motion";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
+import {DESIGN_FRAME} from "../../../client/js/scenes/ps/yurt";
 
 // The yurt's motion stylesheet (psng/room-motion.ts, docs/projects/ps-yurt.md §8) on its text: inside
 // the room only, each group out of the page without its class and in phase with it, its still drawing
@@ -42,6 +43,28 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 		expect(rule(":not(.psng-m-clouds)", "ps-ym-cloud", NONE), "hidden").to.equal(true);
 		expect(rule(".psng-m-clouds ", "ps-ym-cloud", PHASED), "in phase").to.equal(true);
 		expect(rule(".psng-m-clouds ", "ps-yt-still-clouds", NONE), "swapped").to.equal(true);
+	});
+
+	it("rests a window cloud on its path where its loop puts it, whatever the group (the red team's C1)", function () {
+		expect(
+			rules.some(
+				([sel, b]) =>
+					sel === "#theme-scene .ps-ym-cloud" &&
+					/transform:\s*translateX\(calc\(\(100cqw \+ 100% \+ 0\.5rem\) \* var\(--cp\) - 100% - 0\.25rem\)\)/.test(
+						b
+					)
+			)
+		).to.equal(true);
+	});
+
+	it("places the boxes by the design frame's own scale and middle (yurt.ts DESIGN_FRAME; the red team's D2)", function () {
+		const f = DESIGN_FRAME;
+		const css = strip(ROOM_MOTION_CSS);
+		expect(css)
+			.to.contain(`calc(100cqw / ${f.width})`)
+			.and.contain(`calc(100cqh / ${f.height})`);
+		expect(css).to.contain(`(var(--x) - ${f.x + f.width / 2})`);
+		expect(css).to.contain(`(var(--y) - ${f.y + f.height / 2})`);
 	});
 
 	it("calm: the window clouds leave calm before the fire does, their still drawing shown (spec §11; plan 2, task 6)", function () {

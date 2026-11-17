@@ -18,6 +18,7 @@ import {
 	GLASS_SURFACES,
 	indoorTints,
 	isBehind,
+	isBehindIndoor,
 	lowestTint,
 	MARK_SOLVE,
 	SATURATE,
@@ -32,6 +33,7 @@ import {
 	type GlassSurface,
 } from "../../../client/js/scenes/ps/glass";
 import {sceneGrounds} from "../../../client/js/scenes/ps/grounds";
+import {indoorGrounds} from "../../../client/js/scenes/ps/indoor";
 import {paletteAt} from "../../../client/js/scenes/ps/palette";
 import {GRASS_EDGE_LOWEST} from "../../../client/js/scenes/ps/plains";
 
@@ -331,6 +333,25 @@ describe("ps glass: the luminous day glass (plan 3 task 7b, the user's pick)", f
 	});
 
 	describe("a private conversation's tints (docs/projects/ps-yurt.md §9, plan 1 task 7)", function () {
+		it("publishes, for each minute, at least the tints the room's own grounds need (§9; the red team's S1)", function () {
+			for (const doy of [15, 172]) {
+				for (const minute of [480, 750, 1020]) {
+					for (const weather of ["clear", "rain", "snow", "storm"] as const) {
+						const m = momentFor({minute, doy, dayNumber: doy, epochDays: 0, weather});
+						const own = tintsOver(indoorGrounds(m, paletteAt(m)), isBehindIndoor);
+						const published = indoorTints(m);
+
+						for (const s of GLASS_SURFACES) {
+							expect(
+								published[s],
+								`${doy} ${minute} ${weather}: ${s}`
+							).to.be.at.least(own[s]);
+						}
+					}
+				}
+			}
+		});
+
 		it("solves a query's tints over the room, within the caps, cached per step", function () {
 			for (const minute of [600, 750, 1080]) {
 				for (const weather of ["clear", "rain", "snow"] as const) {

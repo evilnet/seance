@@ -21,6 +21,7 @@ import {
 	box,
 	circle3,
 	cylinderSide,
+	DESIGN_FRAME,
 	depthOf,
 	fill,
 	freeFrame,
@@ -1178,11 +1179,14 @@ export function windowMotion(weather: Weather, phone: boolean): string {
 					const top = 0.1 + 0.25 * r();
 					const cd =
 						(70 + 30 * r()) * Math.sqrt(w / backWidth) * (weather === "wind" ? 0.5 : 1);
+					const d = Number(cd.toFixed(1));
+					const dl = Number((-r() * cd).toFixed(1));
+					// --cp: where the delay puts it in its loop, its place at rest (plains.ts; the red team's C1).
 					s += `<div class="ps-ym-cloud" style="top:${pct(top)};width:${pct(
 						(47 * kk) / w
-					)};--cd:${cd.toFixed(1)}s;--cdl:${(-r() * cd).toFixed(
-						1
-					)}s"><svg viewBox="-23 -12 47 23" style="fill: var(--ps-cloud)">${CLOUD_SHAPE}</svg></div>`;
+					)};--cd:${d}s;--cdl:${dl}s;--cp:${Number(
+						(-dl / d).toFixed(4)
+					)}"><svg viewBox="-23 -12 47 23" style="fill: var(--ps-cloud)">${CLOUD_SHAPE}</svg></div>`;
 				}
 			}
 
@@ -1456,13 +1460,16 @@ export function roomMarkup(): string {
 		poly3(circle3(0, 0.84, 0.1, 0.11, 24), cls("collarTop")) +
 		across(0.84, CROWN_H + 0.3, 0.075, 0.1, cls("pipe")) +
 		[1.1, 1.6, 2.1, 2.6].map((h) => across(h, h + 0.04, 0.088, 0.1, cls("pipeBand"))).join("") +
-		sprite(
-			[-0.17, 0.76, -0.1],
-			SPR.pot + `<g class="ps-yt-still-steam ps-yt-burn">${SPR.steam}</g>`,
-			0.0055
-		) +
+		sprite([-0.17, 0.76, -0.1], SPR.pot, 0.0055) +
 		sprite([0.18, 0.76, -0.12], SPR.kettle, 0.0055);
 	const stove = piece("stove", stoveBody);
+	// The pot's still steam, drawn once, over the stove's second drawing: the first is covered by the
+	// second, and two .45 strokes read as 0.70 (the red team's D3).
+	const potSteam = sprite(
+		[-0.17, 0.76, -0.1],
+		`<g class="ps-yt-still-steam ps-yt-burn">${SPR.steam}</g>`,
+		0.0055
+	);
 	// The still fire in the door (plan 1): its body, and its tongues with the glow along the door's foot;
 	// the moving fire is .ps-ym-top's flames (below).
 	// The door's opening: its sides, its foot and the arch's rise, on the door's surface.
@@ -1838,7 +1845,7 @@ export function roomMarkup(): string {
 	// Over the glows: the stove drawn again, so its iron stays dark against its own glow; the sun's
 	// beam through the crown, over everything it falls across; and what stays bright in the dark.
 	const over =
-		`<g class="ps-yt-stove-over">${stoveBody}</g>` +
+		`<g class="ps-yt-stove-over">${stoveBody}${potSteam}</g>` +
 		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
 		`<g class="ps-yt-embers">${embers}</g>` +
 		`<g class="ps-yt-still-hearth ps-yt-burn">${fire}</g>` +
@@ -1967,7 +1974,7 @@ export function roomMarkup(): string {
 		`</div>`;
 
 	const layer = (names: string, content: string) =>
-		`<svg class="${names}" viewBox="-320 0 1920 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${content}</svg>`;
+		`<svg class="${names}" viewBox="${DESIGN_FRAME.x} ${DESIGN_FRAME.y} ${DESIGN_FRAME.width} ${DESIGN_FRAME.height}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${content}</svg>`;
 
 	return (
 		`<div class="ps-indoor">` +

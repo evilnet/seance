@@ -30,8 +30,8 @@ engine's weather, its tiers and groups); see the design.
 
 The controls under the frame choose the view (today's frosted plains, the stove in the middle, the
 stove at the far end), the hour, the weather in the windows, the chat glass (none, as built, lighter,
-hidden), desktop or phone, and the fire (still or flickering). "No glass" is a preview only: the
-app always puts a private conversation on glass.
+hidden), desktop or phone, and the fire (still or flickering). "No glass" was a preview only: the
+app put a private conversation on glass when this was made, a rule since withdrawn (ps-yurt.md §4, §15).
 
 ## The changes the user asked for, in order (2026-11-13 to 14)
 

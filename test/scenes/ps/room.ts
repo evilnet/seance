@@ -1,5 +1,7 @@
 import {expect} from "chai";
 import {WEATHERS} from "../../../client/js/scenes/ps/engine";
+import {roomCss} from "../../../client/js/scenes/ps/indoor";
+import {DESIGN_FRAME} from "../../../client/js/scenes/ps/yurt";
 import {
 	ROOM_PIECES,
 	roomMarkup,
@@ -59,7 +61,7 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 	it("sees the views out, their weather and the crown's sky behind the panes; the frames, the ribs and all that stands in front; the glows above them", function () {
 		const panes = markup.indexOf('class="ps-ym-panes"');
 		const glow = markup.indexOf('class="ps-ym-fireglow"');
-		expect(markup.indexOf('class="ps-yt-weather"')).to.be.below(panes);
+		expect(markup.indexOf('class="ps-yt-weather"')).to.be.within(0, panes);
 		[
 			"ps-yt-p-window-back",
 			"ps-yt-p-window-left",
@@ -112,9 +114,51 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 			markup.split("ps-yt-still-hearth").length - 1,
 			"the fire and the lamp's flame"
 		).to.equal(2);
-		expect(markup.split("ps-yt-still-steam").length - 1, "both drawings of the stove").to.equal(
-			2
+		expect(markup.split("ps-yt-still-steam").length - 1, "the still steam, once").to.equal(1);
+	});
+
+	it("draws the still steam once, over the stove's second drawing, not under it as well (the red team's D3)", function () {
+		const over = markup.slice(
+			markup.indexOf('<svg class="ps-yt ps-yt-over"'),
+			markup.indexOf('<div class="ps-ym-top">')
 		);
+		expect(over).to.contain("ps-yt-still-steam");
+		expect(markup.slice(0, markup.indexOf('<svg class="ps-yt ps-yt-over"'))).to.not.contain(
+			"ps-yt-still-steam"
+		);
+	});
+
+	it("carries every element the scene writes into or gates (scene.ts; the red team's S2)", function () {
+		for (const cls of [
+			"ps-indoor",
+			"ps-yt-weather",
+			"ps-ym-panes",
+			"ps-ym-fire",
+			"ps-ym-fireglow",
+			"ps-ym-steam",
+		]) {
+			expect(markup, cls).to.match(new RegExp(`class="(?:[^"]* )?${cls}(?: [^"]*)?"`));
+		}
+	});
+
+	it("carries every class its stylesheet fades by the hour (indoor.ts roomCss; the red team's S4)", function () {
+		const faded = [
+			...roomCss().matchAll(/((?:\.ps-yt-[a-z-]+,?\s*)+)\{ opacity: var\(/g),
+		].flatMap((m) => m[1].split(",").map((x) => x.trim().slice(1)));
+		expect(faded).to.include.members(["ps-yt-moon", "ps-yt-star", "ps-yt-golden"]);
+
+		for (const cls of faded) {
+			expect(markup, cls).to.match(new RegExp(`class="(?:[^"]* )?${cls}(?: [^"]*)?"`));
+		}
+	});
+
+	it("frames every layer in the design frame (yurt.ts DESIGN_FRAME; the red team's D2)", function () {
+		const f = DESIGN_FRAME;
+		const boxes = [...markup.matchAll(/<svg class="ps-yt[^"]*" viewBox="([^"]+)"/g)].map(
+			(m) => m[1]
+		);
+		expect(boxes.length).to.be.at.least(4);
+		boxes.forEach((b) => expect(b).to.equal(`${f.x} ${f.y} ${f.width} ${f.height}`));
 	});
 
 	it("draws the stove's flames to dance: three tongues, a core and four sparks, clipped to the door (§16)", function () {
@@ -187,8 +231,8 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		expect(embers).to.be.below(over.indexOf('class="ps-yt-still-hearth ps-yt-burn"'));
 		expect(
 			markup.split("ps-yt-still-steam ps-yt-burn").length - 1,
-			"both stove drawings"
-		).to.equal(2);
+			"the still steam, once"
+		).to.equal(1);
 	});
 
 	it("keeps the plains' classes out of the room", function () {
@@ -349,5 +393,21 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 				);
 			}
 		});
+	});
+
+	it("gives every window cloud its place in its loop (--cp), so a cloud at rest stands on its path (the red team's C1)", function () {
+		for (const w of ["clear", "wind", "heat"] as const) {
+			const clouds = [
+				...windowMotion(w, false).matchAll(/class="ps-ym-cloud" style="([^"]+)"/g),
+			].map((m) => m[1]);
+			expect(clouds.length, w).to.be.above(0);
+
+			for (const st of clouds) {
+				const num = (k: string) =>
+					Number((new RegExp(`--${k}:(-?[0-9.]+)`).exec(st) ?? ["", "NaN"])[1]);
+				expect(num("cp"), `${w}: ${st}`).to.be.closeTo(-num("cdl") / num("cd"), 1e-3);
+				expect(num("cp")).to.be.within(0, 1);
+			}
+		}
 	});
 });

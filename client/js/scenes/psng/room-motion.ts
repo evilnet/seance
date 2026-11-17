@@ -7,9 +7,16 @@
  * The rain, the snow and the storm's flash are the plains' own (`.ps-rain`, `.ps-snow`, `.ps-flash`),
  * run and hidden by NG's rules (styles.ts); a pane is their container. DOM-free.
  */
-export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid slice scale, about the frame's middle (640, 400). */
+import {DESIGN_FRAME} from "../ps/yurt";
+
+/** The design frame's middle and size, as the svg's viewBox (yurt.ts). */
+const F = DESIGN_FRAME;
+const MID_X = F.x + F.width / 2;
+const MID_Y = F.y + F.height / 2;
+
+export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid slice scale, about the frame's middle (${MID_X}, ${MID_Y}). */
 #theme-scene .ps-indoor {
-	--ps-ym-s: max(calc(100cqw / 1920), calc(100cqh / 800));
+	--ps-ym-s: max(calc(100cqw / ${F.width}), calc(100cqh / ${F.height}));
 }
 
 /* Each moving box at its place in the design frame. Physical left and top, not logical properties:
@@ -17,8 +24,8 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 #theme-scene .ps-ym-pane,
 #theme-scene .ps-ym-top > * {
 	position: absolute;
-	left: calc(50% + (var(--x) - 640) * var(--ps-ym-s));
-	top: calc(50% + (var(--y) - 400) * var(--ps-ym-s));
+	left: calc(50% + (var(--x) - ${MID_X}) * var(--ps-ym-s));
+	top: calc(50% + (var(--y) - ${MID_Y}) * var(--ps-ym-s));
 	width: calc(var(--w) * var(--ps-ym-s));
 	height: calc(var(--h) * var(--ps-ym-s));
 }
@@ -33,9 +40,12 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 	position: absolute;
 }
 
+/* A cloud rests where its delay puts it in its loop (--cp), on ps-drift's own path, as the plains' do
+ * (styles.ts): a cloud a frozen scene rebuilds stays on its path, not at the window's edge. */
 #theme-scene .ps-ym-cloud {
 	left: 0;
 	aspect-ratio: 47 / 23;
+	transform: translateX(calc((100cqw + 100% + 0.5rem) * var(--cp) - 100% - 0.25rem));
 }
 
 #theme-scene .ps-ym-cloud > svg {
@@ -329,7 +339,7 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 	display: none;
 }
 
-/* Calm keeps the fire's dance but not its sparks (§16). */
+/* Calm keeps no sparks; its flames flicker instead (above; §16). */
 #theme-scene.psng.psng-calm .ps-ym-spark {
 	display: none;
 }
