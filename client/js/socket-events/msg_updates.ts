@@ -61,6 +61,23 @@ socket.on("msg:redact", function (data) {
 	});
 });
 
+// Lines are missing before this message, or no longer are: the divider above
+// it follows, and its control is released either way (bus-contract §1.4).
+socket.on("msg:gap", function (data) {
+	afterHeldPage(data.chan, () => {
+		const target = store.getters.findChannel(data.chan);
+		const message = lookup(data.chan, data.id);
+
+		if (message) {
+			message.gapBefore = data.gap || undefined;
+		}
+
+		if (target) {
+			target.channel.gapsLoading = target.channel.gapsLoading.filter((id) => id !== data.id);
+		}
+	});
+});
+
 socket.on("msg:edit", function (data) {
 	afterHeldPage(data.chan, () => {
 		const target = store.getters.findChannel(data.chan);

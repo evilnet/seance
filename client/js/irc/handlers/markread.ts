@@ -59,7 +59,7 @@ export function parseMarker(param: string | undefined): Date | undefined {
 	return Number.isNaN(time.getTime()) ? undefined : time;
 }
 
-/** `chan` is read up to `time`; a query's read point is kept with its log. */
+/** `chan` is read up to `time`; the read point is kept with its lines on the device. */
 function moveReadMarker(client: IrcClient, chan: Channel, time: Date): void {
 	chan.readMarker = time;
 	// Whoever read it (this device, another session's MARKREAD, a line of
@@ -70,8 +70,10 @@ function moveReadMarker(client: IrcClient, chan: Channel, time: Date): void {
 		time: time.toISOString(),
 	});
 
-	if (chan.type === ChanType.QUERY) {
-		client.queryLog.setRead(chan.name, time);
+	const kind = client.storeKind(chan);
+
+	if (kind) {
+		client.conversations.setRead(chan.name, kind, time);
 	}
 }
 

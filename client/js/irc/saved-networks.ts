@@ -19,7 +19,7 @@
 import {isNetworkId} from "./bouncer";
 import storage from "../localStorage";
 import {collator} from "../i18n/collation";
-import {forgetNetworkLog} from "./querylog";
+import {forgetNetworkConversations} from "./conversationStore";
 import {forgetClosedQueries} from "./closedQueries";
 import {forgetNoticeLog} from "./noticelog";
 import {forgetOperPrefs} from "./operprefs";
@@ -702,7 +702,7 @@ export function remove(uuid: string): void {
 		write(remaining);
 	}
 
-	forgetNetworkLog(uuid); // its private conversations go with it
+	forgetNetworkConversations(uuid); // its conversations go with it
 	forgetClosedQueries(uuid); // and the ones it closed
 	forgetNoticeLog(uuid); // and its server notices
 	forgetOperPrefs(uuid);

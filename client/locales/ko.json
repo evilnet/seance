@@ -2252,8 +2252,6 @@
   "settings.general.keepAliveHeading": "백그라운드 연결",
   "settings.general.keepAliveHelp": "앱이 화면에 없을 때도 연결을 유지하며, Android가 계속 알림을 표시합니다. 배터리를 더 사용합니다.",
   "settings.general.keepAliveNotificationsOff": "Android 설정에서 {appName}의 알림이 꺼져 있어 연결 알림이 숨겨집니다. Android가 앱을 중지할 수도 있습니다.",
-  "settings.general.keepPrivate": "이 기기에 개인 대화 보관",
-  "settings.general.keepPrivateHelp": "새로고침 후에도 개인 대화가 돌아옵니다: 최근 대화 {queries}개의 최신 {lines}줄을 이 브라우저에 저장합니다. 끄면 이 기기에서 삭제됩니다.",
   "settings.general.nativeApp": "네이티브 앱",
   "settings.general.openLinks": "web+irc:// 링크를 {appName}(으)로 열기",
   "settings.general.privateHeading": "개인 대화",

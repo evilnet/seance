@@ -2240,8 +2240,6 @@
   "settings.general.keepAliveHeading": "Achtergrondverbinding",
   "settings.general.keepAliveHelp": "Houdt uw verbindingen open terwijl de app niet op het scherm staat, met een melding die Android de hele tijd toont. Gebruikt meer batterij.",
   "settings.general.keepAliveNotificationsOff": "Meldingen staan uit voor {appName} in de Android-instellingen, dus de verbindingsmelding is verborgen. Android kan de app nog steeds stoppen.",
-  "settings.general.keepPrivate": "Privégesprekken op dit apparaat bewaren",
-  "settings.general.keepPrivateHelp": "Privégesprekken komen terug na herladen: de nieuwste {lines} regels van uw {queries} meest recente gesprekken, opgeslagen in deze browser. Als u dit uitzet, worden ze van dit apparaat verwijderd.",
   "settings.general.nativeApp": "Systeemeigen app",
   "settings.general.openLinks": "web+irc://-links openen met {appName}",
   "settings.general.privateHeading": "Privégesprekken",

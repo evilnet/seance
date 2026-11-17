@@ -2429,8 +2429,6 @@
   "settings.general.keepAliveHeading": "Połączenie w tle",
   "settings.general.keepAliveHelp": "Utrzymuje połączenia, gdy aplikacji nie ma na ekranie, z powiadomieniem, które Android pokazuje przez cały czas. Zużywa więcej baterii.",
   "settings.general.keepAliveNotificationsOff": "Powiadomienia dla {appName} są wyłączone w ustawieniach Androida, więc powiadomienie o połączeniu jest ukryte. Android może mimo to zatrzymać aplikację.",
-  "settings.general.keepPrivate": "Przechowuj prywatne rozmowy na tym urządzeniu",
-  "settings.general.keepPrivateHelp": "Prywatne rozmowy wracają po przeładowaniu: najnowsze wiersze ({lines}) z twoich ostatnich rozmów ({queries}), przechowywane w tej przeglądarce. Wyłączenie tej opcji usuwa je z tego urządzenia.",
   "settings.general.nativeApp": "Aplikacja natywna",
   "settings.general.openLinks": "Otwieraj linki web+irc:// w {appName}",
   "settings.general.privateHeading": "Prywatne rozmowy",

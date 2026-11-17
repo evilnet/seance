@@ -2335,8 +2335,6 @@
   "settings.general.keepAliveHeading": "Conexiune în fundal",
   "settings.general.keepAliveHelp": "Păstrează conexiunile deschise cât timp aplicația nu e pe ecran, cu o notificare pe care Android o afișează tot timpul. Consumă mai multă baterie.",
   "settings.general.keepAliveNotificationsOff": "Notificările sunt dezactivate pentru {appName} în setările Android, așa că notificarea de conexiune e ascunsă. Android poate opri totuși aplicația.",
-  "settings.general.keepPrivate": "Păstrează conversațiile private pe acest dispozitiv",
-  "settings.general.keepPrivateHelp": "Conversațiile private revin după o reîncărcare: cele mai noi {lines} rânduri din cele mai recente {queries} conversații, stocate în acest browser. Dezactivarea opțiunii le șterge de pe acest dispozitiv.",
   "settings.general.nativeApp": "Aplicație nativă",
   "settings.general.openLinks": "Deschide linkurile web+irc:// cu {appName}",
   "settings.general.privateHeading": "Conversații private",

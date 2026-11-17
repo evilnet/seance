@@ -2309,8 +2309,6 @@
   "settings.general.keepAliveHeading": "Arka plan bağlantısı",
   "settings.general.keepAliveHelp": "Uygulama ekranda değilken bağlantılarını açık tutar; Android bu sırada sürekli bir bildirim gösterir. Daha fazla pil kullanır.",
   "settings.general.keepAliveNotificationsOff": "Android ayarlarında {appName} için bildirimler kapalı, bu yüzden bağlantı bildirimi gizli. Android yine de uygulamayı durdurabilir.",
-  "settings.general.keepPrivate": "Özel konuşmaları bu cihazda sakla",
-  "settings.general.keepPrivateHelp": "Özel konuşmalar yeniden yüklemeden sonra geri gelir: en son {queries} konuşmanın en yeni {lines} satırı, bu tarayıcıda saklanır. Bunu kapatmak onları bu cihazdan siler.",
   "settings.general.nativeApp": "Yerel uygulama",
   "settings.general.openLinks": "web+irc:// bağlantılarını {appName} ile aç",
   "settings.general.privateHeading": "Özel konuşmalar",

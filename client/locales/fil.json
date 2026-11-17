@@ -2234,8 +2234,6 @@
   "settings.general.keepAliveHeading": "Koneksyon sa background",
   "settings.general.keepAliveHelp": "Pinapanatiling bukas ang mga koneksyon mo habang wala sa screen ang app, na may notification na ipinapakita ng Android sa buong panahon. Mas malakas itong kumain ng baterya.",
   "settings.general.keepAliveNotificationsOff": "Naka-off ang mga notification para sa {appName} sa mga setting ng Android, kaya nakatago ang notification ng koneksyon. Maaari pa ring ihinto ng Android ang app.",
-  "settings.general.keepPrivate": "Itago ang mga pribadong usapan sa device na ito",
-  "settings.general.keepPrivateHelp": "Bumabalik ang mga pribadong usapan pagkatapos mag-reload: ang pinakabagong {lines} linya ng iyong {queries} pinakabagong usapan, na nakatago sa browser na ito. Kapag in-off ito, mabubura ang mga ito sa device na ito.",
   "settings.general.nativeApp": "Native na app",
   "settings.general.openLinks": "Buksan ang mga link na web+irc:// gamit ang {appName}",
   "settings.general.privateHeading": "Mga pribadong usapan",

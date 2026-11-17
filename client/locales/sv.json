@@ -2278,8 +2278,6 @@
   "settings.general.keepAliveHeading": "Bakgrundsanslutning",
   "settings.general.keepAliveHelp": "Håller dina anslutningar öppna medan appen inte syns på skärmen, med en avisering som Android visar hela tiden. Drar mer batteri.",
   "settings.general.keepAliveNotificationsOff": "Aviseringar är avstängda för {appName} i Androids inställningar, så anslutningsaviseringen är dold. Android kan ändå stoppa appen.",
-  "settings.general.keepPrivate": "Behåll privata konversationer på den här enheten",
-  "settings.general.keepPrivateHelp": "Privata konversationer kommer tillbaka efter omladdning: de senaste {lines} raderna i dina {queries} senaste konversationer, sparade i den här webbläsaren. Stänger du av detta raderas de från enheten.",
   "settings.general.nativeApp": "Inbyggd app",
   "settings.general.openLinks": "Öppna web+irc://-länkar med {appName}",
   "settings.general.privateHeading": "Privata konversationer",

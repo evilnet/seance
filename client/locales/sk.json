@@ -2371,8 +2371,6 @@
   "settings.general.keepAliveHeading": "Pripojenie na pozadí",
   "settings.general.keepAliveHelp": "Udržiava vaše spojenia otvorené, keď aplikácia nie je na obrazovke, s oznámením, ktoré Android zobrazuje celý čas. Spotrebúva viac batérie.",
   "settings.general.keepAliveNotificationsOff": "Oznámenia pre {appName} sú v nastaveniach Androidu vypnuté, takže oznámenie o pripojení je skryté. Android môže aplikáciu aj tak zastaviť.",
-  "settings.general.keepPrivate": "Uchovávať súkromné rozhovory v tomto zariadení",
-  "settings.general.keepPrivateHelp": "Súkromné rozhovory sa po načítaní vrátia: najnovšie riadky ({lines}) z vašich posledných rozhovorov ({queries}), uložené v tomto prehliadači. Vypnutím ich z tohto zariadenia vymažete.",
   "settings.general.nativeApp": "Natívna aplikácia",
   "settings.general.openLinks": "Otvárať odkazy web+irc:// v {appName}",
   "settings.general.privateHeading": "Súkromné rozhovory",

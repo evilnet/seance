@@ -164,6 +164,8 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"chat.connectingTo",
 	"chat.contextMenu",
 	"chat.currentlyOpen",
+	"chat.gapLoad",
+	"chat.gapMarker",
 	"chat.historyLoading",
 	"chat.jumpToRecent",
 	"chat.mentions",

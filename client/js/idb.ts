@@ -23,12 +23,23 @@ export function useIDBFactory(next: IDBFactory | null): void {
 // good. A transaction can abort without an error event (quota), and an open
 // can be blocked by another connection holding the database.
 
-function open(): Promise<IDBDatabase> {
+/**
+ * Open database `name` at `version`, running `upgrade` when it is new or
+ * older. Settles whatever IndexedDB does: an open that another connection
+ * blocks is rejected, and the connection it yields later is closed, not
+ * leaked. For this module's own store and for the others that keep one
+ * (irc/conversationStore.ts).
+ */
+export function openDatabase(
+	name: string,
+	version: number,
+	upgrade: (db: IDBDatabase) => void
+): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
-		const req = (factory ?? indexedDB).open(DB_NAME, 1);
+		const req = (factory ?? indexedDB).open(name, version);
 		let blocked = false;
 
-		req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+		req.onupgradeneeded = () => upgrade(req.result);
 
 		req.onsuccess = () => {
 			if (blocked) {
@@ -45,6 +56,10 @@ function open(): Promise<IDBDatabase> {
 			reject(new Error("IndexedDB open blocked"));
 		};
 	});
+}
+
+function open(): Promise<IDBDatabase> {
+	return openDatabase(DB_NAME, 1, (db) => db.createObjectStore(STORE));
 }
 
 export async function idbSet(key: string, value: unknown): Promise<void> {

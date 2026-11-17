@@ -2244,8 +2244,6 @@
   "settings.general.keepAliveHeading": "バックグラウンド接続",
   "settings.general.keepAliveHelp": "アプリが画面に表示されていない間も接続を維持します。その間、Android が通知を表示し続けます。バッテリーの消費が増えます。",
   "settings.general.keepAliveNotificationsOff": "Android の設定で {appName} の通知がオフになっているため、接続中の通知は表示されません。それでも Android がアプリを停止することがあります。",
-  "settings.general.keepPrivate": "プライベート会話をこの端末に保存",
-  "settings.general.keepPrivateHelp": "再読み込み後もプライベート会話が戻ります: 直近 {queries} 件の会話の最新 {lines} 行をこのブラウザに保存します。オフにすると、この端末から削除されます。",
   "settings.general.nativeApp": "ネイティブアプリ",
   "settings.general.openLinks": "web+irc:// リンクを {appName} で開く",
   "settings.general.privateHeading": "プライベート会話",

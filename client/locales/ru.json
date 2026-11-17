@@ -2451,8 +2451,6 @@
   "settings.general.keepAliveHeading": "Фоновое подключение",
   "settings.general.keepAliveHelp": "Держит подключения открытыми, пока приложение не на экране; Android всё это время показывает уведомление. Расходует больше заряда.",
   "settings.general.keepAliveNotificationsOff": "Уведомления для {appName} отключены в настройках Android, поэтому уведомление о подключении скрыто. Android всё равно может остановить приложение.",
-  "settings.general.keepPrivate": "Хранить личные беседы на этом устройстве",
-  "settings.general.keepPrivateHelp": "Личные беседы возвращаются после перезагрузки: последние {lines} строк ваших {queries} недавних бесед хранятся в этом браузере. Если выключить, они будут удалены с этого устройства.",
   "settings.general.nativeApp": "Приложение",
   "settings.general.openLinks": "Открывать ссылки web+irc:// в {appName}",
   "settings.general.privateHeading": "Личные беседы",

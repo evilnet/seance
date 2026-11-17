@@ -11,7 +11,7 @@
 		>
 			<button
 				ref="loadMoreButton"
-				:disabled="loadingOlder || !network.status.connected"
+				:disabled="loadingOlder || !canAskOlder"
 				class="btn"
 				@click="onShowMoreClick"
 			>
@@ -39,6 +39,27 @@
 					:message="message as any"
 					:focused="message.id === focused"
 				/>
+				<div
+					v-if="gapBefore(message) !== undefined"
+					:key="message.id + '-gap'"
+					class="gap-marker"
+					role="note"
+				>
+					<span class="gap-marker-text">{{ t("chat.gapMarker") }}</span>
+					<button
+						class="btn gap-marker-load"
+						:disabled="
+							!network.status.connected ||
+							channel.gapsLoading.includes(gapBefore(message)!)
+						"
+						@click="loadGap(gapBefore(message)!)"
+					>
+						<span v-if="channel.gapsLoading.includes(gapBefore(message)!)">{{
+							t("chat.historyLoading")
+						}}</span>
+						<span v-else>{{ t("chat.gapLoad") }}</span>
+					</button>
+				</div>
 				<div
 					v-if="shouldDisplayUnreadMarker(message)"
 					:key="message.id + '-unread'"
@@ -263,8 +284,16 @@ export default defineComponent({
 				: props.channel.historyLoading
 		);
 
+		// Older lines can be asked of the server when connected, and of this
+		// device whenever it holds some (irc/conversationStore.ts).
+		const canAskOlder = computed(
+			() =>
+				props.network.status.connected ||
+				(!props.channel.past && props.channel.deviceHistory)
+		);
+
 		const onShowMoreClick = () => {
-			if (!props.network.status.connected) {
+			if (!canAskOlder.value) {
 				return;
 			}
 
@@ -312,10 +341,11 @@ export default defineComponent({
 					return; // the button stays for a tap; see autoLoadArmed
 				}
 
-				// Not connected: nothing can be asked, so the scroll that
-				// brought the button here is not spent. The page goes out when
-				// the channel is back (the readiness watch below re-observes).
-				if (!props.network.status.connected) {
+				// Not connected and nothing older on the device: nothing can
+				// be asked, so the scroll that brought the button here is not
+				// spent. The page goes out when the channel is back (the
+				// readiness watch below re-observes).
+				if (!canAskOlder.value) {
 					return;
 				}
 
@@ -618,6 +648,65 @@ export default defineComponent({
 				oldDate.getMonth() !== newDate.getMonth() ||
 				oldDate.getFullYear() !== newDate.getFullYear()
 			);
+		};
+
+		// The gap dividers (SharedMsg.gapBefore): each stands before the first
+		// row shown at or after its line, which may itself be hidden (status
+		// messages off) or folded into a condensed group. Row id → the id of
+		// the flagged line.
+		const gapRows = computed(() => {
+			const rows = new Map<number, number>();
+
+			if (props.channel.past) {
+				return rows;
+			}
+
+			const hidden = store.state.settings.statusMessages === "hidden";
+			let pending: number | undefined;
+
+			for (const message of props.channel.messages) {
+				if (message.gapBefore) {
+					pending = message.id;
+				}
+
+				const shown =
+					message.supersededBy === undefined &&
+					!(hidden && condensedTypes.has(message.type || ""));
+
+				if (pending !== undefined && shown) {
+					rows.set(message.id, pending);
+					pending = undefined;
+				}
+			}
+
+			return rows;
+		});
+
+		const gapBefore = (
+			message: ClientMessage | CondensedMessageContainer
+		): number | undefined => {
+			if (message.type === "condensed") {
+				for (const inner of message.messages) {
+					const gap = gapRows.value.get(inner.id);
+
+					if (gap !== undefined) {
+						return gap;
+					}
+				}
+
+				return undefined;
+			}
+
+			return gapRows.value.get(message.id);
+		};
+
+		const loadGap = (id: number) => {
+			if (!props.network.status.connected || props.channel.gapsLoading.includes(id)) {
+				return;
+			}
+
+			props.channel.gapsLoading = [...props.channel.gapsLoading, id];
+			socket.emit("history:fill", {target: props.channel.id, id});
 		};
 
 		const shouldDisplayUnreadMarker = (message: ClientMessage | CondensedMessageContainer) => {
@@ -1005,6 +1094,9 @@ export default defineComponent({
 			condensedMessages,
 			shouldDisplayDateMarker,
 			shouldDisplayUnreadMarker,
+			canAskOlder,
+			gapBefore,
+			loadGap,
 			keepScrollPosition,
 			isPreviousSource,
 			jumpToBottom,
