@@ -130,11 +130,12 @@
   },
   "browse.delayed": "The server is making you wait",
   "browse.delayedNote": {
-    "one": "New connections can list channels in {count} second.",
-    "other": "New connections can list channels in {count} seconds."
+    "one": "To keep bots out, new connections can see the full channel list in {count} second.",
+    "other": "To keep bots out, new connections can see the full channel list in {count} seconds."
   },
   "browse.empty": "The server listed no channels",
   "browse.featured": "Featured",
+  "browse.featuredMeanwhile": "Meanwhile, you can join these",
   "browse.featuredNote": "Picked by the network",
   "browse.filter.all": "All",
   "browse.filter.busy": "{count}+ people",

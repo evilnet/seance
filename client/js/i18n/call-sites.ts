@@ -108,6 +108,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"browse.delayedNote",
 	"browse.empty",
 	"browse.featured",
+	"browse.featuredMeanwhile",
 	"browse.featuredNote",
 	"browse.filter.all",
 	"browse.filter.busy",

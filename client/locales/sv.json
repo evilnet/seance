@@ -36,10 +36,6 @@
   "bouncer.tooLong": "För långt för att skickas på en rad: korta ner några fält.",
   "browse.clear": "Rensa sökning",
   "browse.close": "Stäng",
-  "browse.delayedNote": {
-    "one": "Nya anslutningar kan lista kanaler om {count} sekund.",
-    "other": "Nya anslutningar kan lista kanaler om {count} sekunder."
-  },
   "browse.filter.all": "Alla",
   "browse.filter.busy": "{count}+ personer",
   "browse.filters": "Filter",
