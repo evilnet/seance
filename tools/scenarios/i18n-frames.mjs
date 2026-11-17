@@ -23,7 +23,7 @@ export const url = BASE;
 
 /** The Help paragraphs this checks, by the command in the item's subject. */
 const ITEMS = {
-	connect: "/connect host [port]",
+	connect: "/server host [port]",
 	kickban: "/kickban nick [reason]",
 	ctcp: "/ctcp target cmd [args]",
 	part: "/part [channel]",
@@ -157,7 +157,7 @@ export default async function run(page) {
 
 		await page.screenshot(`help-${locale}`, {selector: "#help .help-item"});
 		await page.evaluate(
-			`(() => { const items = [...document.querySelectorAll(".help-item")]; const c = items.find((i) => i.textContent.includes("/connect host")); c && c.scrollIntoView(); })()`
+			`(() => { const items = [...document.querySelectorAll(".help-item")]; const c = items.find((i) => i.textContent.includes("/server host")); c && c.scrollIntoView(); })()`
 		);
 		await page.sleep(200);
 		await page.screenshot(`help-${locale}-connect`);

@@ -703,7 +703,7 @@ code,
 }
 
 /* A command, a mode or a mask in the chrome's prose (Help, the Aliases pane)
- * is a left-to-right token: in an RTL page "/connect host [port]" otherwise
+ * is a left-to-right token: in an RTL page "/server host [port]" otherwise
  * rendered as "connect host [port]/". Chat text keeps its own direction. */
 #help code,
 #help kbd,

@@ -11,7 +11,7 @@
  *
  * A cycle, not an archive: the newest {@link MAX_ENTRIES} lines or
  * {@link MAX_AGE_MS} of them, whichever is less. Saved networks only (an
- * ad-hoc `/connect` has nowhere to come back to). Removing the network
+ * ad-hoc `/server` has nowhere to come back to). Removing the network
  * deletes its store; the settings backup never carries it.
  *
  * Kept free of store/DOM imports (mocha): the IndexedDB backend is used

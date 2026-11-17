@@ -231,7 +231,7 @@ export default defineComponent({
 				text:
 					props.network.status.connecting && !retryPending.value
 						? "/disconnect"
-						: "/connect",
+						: "/server",
 			});
 		};
 

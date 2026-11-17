@@ -1135,8 +1135,8 @@ msgctxt "cmd.alias.updated"
 msgid "Alias /{name} updated."
 msgstr "อัปเดตนามแฝง /{name} แล้ว"
 
-#. Error when /connect is typed for a network that is already up.
-#: client/js/irc/commands/connect.ts
+#. Error when /server is typed with no arguments for a network that is already up.
+#: client/js/irc/commands/server.ts
 msgctxt "cmd.alreadyConnected"
 msgid "You are already connected."
 msgstr "คุณเชื่อมต่ออยู่แล้ว"
@@ -2898,7 +2898,7 @@ msgctxt "help.commands.collapse"
 msgid "Collapse all previews in the current channel (opposite of {command})"
 msgstr "ยุบตัวอย่างทั้งหมดในช่องปัจจุบัน (ตรงข้ามกับ {command})"
 
-#. Description of the /connect command in the help window. {port} is the command's port parameter (the word 'port' as a code element) and {plus} the plus sign '+' as a code element; TLS stays verbatim.
+#. Description of the /server command in the help window. {port} is the command's port parameter (the word 'port' as a code element) and {plus} the plus sign '+' as a code element; TLS stays verbatim.
 #: client/components/Windows/Help.vue
 msgctxt "help.commands.connect"
 msgid "Connect to a new IRC network. If {port} starts with a {plus} sign, the connection will be made secure using TLS."
