@@ -133,6 +133,15 @@ export class FakeElement extends Listeners {
 		return this.markup;
 	}
 
+	/** Markup added at the end, as the yurt's room is (psng/scene.ts): appended to the markup, nothing found so far forgotten. */
+	insertAdjacentHTML(position: "beforeend", value: string) {
+		if (position !== "beforeend") {
+			throw new Error(`insertAdjacentHTML ${String(position)}: only beforeend stands in`);
+		}
+
+		this.markup += value;
+	}
+
 	querySelector(selector: string): FakeElement {
 		let el = this.planted.get(selector) ?? this.found.get(selector);
 
@@ -376,6 +385,11 @@ export function setReducedMotion(on: boolean) {
 /** The page mount() runs in, and the handles a test needs on it. */
 export function fakePage() {
 	const root = new FakeElement("#theme-scene");
+	// The moon's phase goes on every ellipse (publish.ts): the plains' one moon, found as querySelector finds it.
+	for (const selector of [".ps-m-ell", ".ps-m-shape"]) {
+		root.lists.set(selector, () => [root.querySelector(selector)]);
+	}
+
 	const html = new FakeElement("html");
 	const column = new FakeElement("#chat .chat");
 	column.box = {left: 250, top: 0, width: 850, height: 800};

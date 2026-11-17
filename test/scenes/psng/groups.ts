@@ -4,10 +4,11 @@ import {GROUPS, groupOverride, groupsFor, type Group} from "../../../client/js/s
 const store = (value: string | null) => ({get: () => value});
 
 describe("ps NG groups (psng/groups.ts)", function () {
-	it("full runs every group, calm the clouds, still none", function () {
+	it("full runs every group, calm the clouds and the hearth, still none", function () {
 		expect([...groupsFor("full")].sort()).to.deep.equal([...GROUPS].sort());
-		expect([...groupsFor("calm")]).to.deep.equal(["clouds"]);
+		expect([...groupsFor("calm")]).to.deep.equal(["clouds", "hearth"]);
 		expect(groupsFor("still").size).to.equal(0);
+		expect(GROUPS).to.include.members(["hearth", "steam"]);
 	});
 
 	it("`only` narrows full and calm and leaves still empty", function () {
@@ -29,5 +30,9 @@ describe("ps NG groups (psng/groups.ts)", function () {
 		]);
 		expect([...(groupOverride(store("clouds,nope")) ?? [])]).to.deep.equal(["clouds"]);
 		expect(groupOverride(store(null))).to.equal(undefined);
+		expect([...(groupOverride(store("hearth,steam")) ?? [])]).to.deep.equal([
+			"hearth",
+			"steam",
+		]);
 	});
 });

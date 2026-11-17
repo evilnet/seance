@@ -13,16 +13,19 @@ import {onSystemAccessibility, systemAccessibility} from "../../helpers/systemAc
 import storage from "../../localStorage";
 import type {SceneHandle, SceneHostState} from "../../themeScene";
 import {momentAt, type Weather} from "../ps/engine";
+import {indoorVars, roomCss} from "../ps/indoor";
 import {GATES, liveLayers, type Gate} from "../ps/layers";
 import {sceneClasses, sceneMarkup, sceneVars, weatherChanged} from "../ps/markup";
 import {paletteAt} from "../ps/palette";
 import {HEAT_HAZE, weatherLayers} from "../ps/plains";
 import {publishMoment, unpublish} from "../ps/publish";
+import {roomMarkup, windowMotion, windowWeather} from "../ps/room";
 import {overcastBuilder, watchComposer, watchLand} from "../ps/watchers";
 import {fireDriver, ngSun} from "./flame";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
 import {ngBirds} from "./poses";
 import {rainTiles} from "./rain";
+import {ROOM_MOTION_CSS} from "./room-motion";
 import {NG_STILL_CSS} from "./styles";
 import {phaseSeconds, tierFor, type Tier} from "./tiers";
 
@@ -84,18 +87,35 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let viewport: HTMLElement | null = null;
 	let drawer: MutationObserver | undefined;
 	let release: number | undefined;
+	// The yurt's room (docs/projects/ps-yurt.md): built on the first private conversation, kept
+	// until the theme goes; its stylesheet; and the weather its windows were last built for.
+	let room: HTMLElement | null = null;
+	let roomSheet: CSSStyleSheet | null = null;
+	let roomBuilt: Weather | null = null;
+	let lastView: SceneHostState["view"] | null = null;
 
-	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
+	// The room as one static picture after the plains, with the stylesheet that colours it by the
+	// minute; ps.css shows it in place of the plains while ps-private is on the root.
+	const buildRoom = () => {
+		root.insertAdjacentHTML("beforeend", roomMarkup());
+		room = root.querySelector(".ps-indoor") as HTMLElement;
+		roomSheet = new CSSStyleSheet();
+		roomSheet.replaceSync(roomCss() + ROOM_MOTION_CSS);
+		document.adoptedStyleSheets = [...document.adoptedStyleSheets, roomSheet];
+	};
+
+	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live, and
+	// never in a query, where the plains are out of the render tree (docs/projects/ps-yurt.md §8);
 	// anywhere else no frame is requested (calm keeps the one frame it has painted).
 	const syncFire = () => {
-		if (tier === "full" && sunOn && sunLive) {
+		if (tier === "full" && sunOn && sunLive && latest.view !== "query") {
 			fire?.start();
 		} else {
 			fire?.stop();
 		}
 	};
 
-	// A rest that ends on its own (the window left for another, a hidden page, a query) freezes the
+	// A rest that ends on its own (the window left for another, a hidden page) freezes the
 	// scene where it stands instead of snapping it to its still places: each running animation's
 	// transform and opacity pinned inline, then every animation removed (psng-frozen), the group
 	// classes kept so nothing leaves the page. Its clock stops too: the time spent frozen is taken
@@ -285,9 +305,31 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			}
 		}
 
-		for (const [name, value] of Object.entries(vars)) {
+		for (const [name, value] of Object.entries({...vars, ...indoorVars(m, p)})) {
 			root.style.setProperty(name, value);
 		}
+
+		// The windows show the weather the plains are having: rebuilt on the same trigger.
+		if (room && weatherChanged(roomBuilt, m.weather)) {
+			const slot = room.querySelector(".ps-yt-weather") as HTMLElement;
+			slot.innerHTML = windowWeather(m.weather, isPhoneLayout());
+			slot.dataset.weather = m.weather;
+			// What moves in them, rebuilt with them (plan 2).
+			const panes = room.querySelector(".ps-ym-panes") as HTMLElement;
+			panes.innerHTML = windowMotion(m.weather, isPhoneLayout());
+			panes.dataset.weather = m.weather;
+			roomBuilt = m.weather;
+		}
+
+		// The room's stars sleep when the plains' do (the stars' gate): nothing twinkles unseen.
+		room?.querySelectorAll(".ps-ym-stars").forEach((el) =>
+			el.classList.toggle("ps-off", !live.stars)
+		);
+		// The stove burns while the plains' chimney smokes (ps-yurt.md §16): its moving fire, its glow and
+		// the pot's steam sleep with the smoke's gate.
+		room?.querySelectorAll(".ps-ym-fire, .ps-ym-fireglow, .ps-ym-steam").forEach((el) =>
+			el.classList.toggle("ps-off", !live.smoke)
+		);
 
 		sunLive = live.sun;
 
@@ -303,7 +345,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			root.classList.toggle(name, on && name !== "ps-hot");
 		}
 
-		wrote = publishMoment(root, html, meta, m, p);
+		wrote = publishMoment(root, html, meta, m, p, latest.view);
 	};
 
 	// Once now, then on each minute boundary; the next minute is scheduled whatever this one does.
@@ -321,16 +363,38 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	};
 
 	const update = (state: SceneHostState) => {
+		const viewChanged = lastView !== null && state.view !== lastView;
+		// The plains show in a channel and in any other view; the room in a query alone.
+		const pictureChanged =
+			lastView !== null && (state.view === "query") !== (lastView === "query");
 		latest = state;
 		setGroups();
+
+		// A picture leaving the render tree drops its animations and the one coming back starts them
+		// anew: at a move between the plains and the room while moving, the phase is written again as on
+		// a resume, so the loops of the picture now shown start where the clock puts them. A change of
+		// view that keeps the picture (a channel and Settings) leaves it alone, so nothing running jumps.
+		if (pictureChanged && tier !== "still") {
+			root.style.setProperty("--psng-t", `${phaseSeconds(new Date(), mounted) - restedS}s`);
+		}
+
 		findViewport();
 		root.dataset.view = state.view;
 		root.classList.toggle("ps-private", state.view === "query");
 		composer?.refind();
 
+		if (state.view === "query" && !room) {
+			buildRoom();
+		}
+
+		lastView = state.view;
+
 		if (state.visible && !visible) {
 			visible = true;
 			tick(); // synchronously, so a cold start paints the right sky
+		} else if (state.visible && viewChanged) {
+			// A view change shows at once what that view publishes and paints, not at the next minute.
+			apply(new Date());
 		} else if (!state.visible && visible) {
 			visible = false;
 			window.clearTimeout(timer);
@@ -350,7 +414,12 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			composer?.destroy();
 			land?.destroy();
 			unpublish(html, meta, themeColor, wrote);
-			document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== sheet);
+			document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+				(s) => s !== sheet && s !== roomSheet
+			);
+			room = null;
+			roomSheet = null;
+			roomBuilt = null;
 			root.replaceChildren();
 			root.removeAttribute("style");
 			root.classList.remove(
