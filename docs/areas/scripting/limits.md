@@ -38,7 +38,7 @@
 | Scripts                                   | 50                                      | —                                                                                                    |
 | `seance.storage`, one script              | 16,000 characters                       | The `set` raises an error and stores nothing                                                         |
 | `seance.storage`, all scripts             | 128,000 characters                      | The same                                                                                             |
-| Name / folder / description               | 32 / 40 / 120 characters                | The field takes no more                                                                              |
+| Name / description                        | 32 / 120 characters                     | The field takes no more                                                                              |
 
 The instruction budget is plenty for answering messages: roughly 50,000
 turns of an empty loop, or ten thousand or so that do real work. A

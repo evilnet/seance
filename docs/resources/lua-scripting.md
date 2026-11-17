@@ -291,13 +291,13 @@ seance.storage.set("last_seen", seance.current_channel)
      listed; while the switch is off it is greyed out and `inert` (no
      script opens, runs, switches or is added), and every script's state
      reads Off.
-   - **The library**: every script is filed under a _folder_ (free text,
-     `Unsorted` when unset; scripts written before folders land there) with
-     an optional one-line description, listed by folder, then name, each
-     row with its state (Running / Off / Error) and an on/off switch. Past
-     six scripts a search over name, folder, description and code appears.
-     New script, Import .lua… and two examples (Auto-responder under
-     _Automation_, /slap under _Commands_) each open the new script in the
+   - **The library**: one list by name, each script with an optional
+     one-line description, its state (Running / Off / Error) and an on/off
+     switch. There are no folders (the library once filed scripts under
+     them; a stored `folder` is dropped on the next save): a name prefix
+     groups scripts as well and costs no heading. Past six scripts a search
+     over name, description and code appears. New script, Import .lua… and
+     two examples (Auto-responder, /slap) each open the new script in the
      editor. An imported file arrives switched off, as a restored backup's
      scripts do.
    - **The editor** (`Settings/ScriptEdit.vue` at `/settings/scripts/<id>`,
@@ -308,7 +308,7 @@ seance.storage.set("last_seen", seance.current_channel)
      the whole screen on a phone, in the settings' frame — a header with
      ✕, a body that scrolls, a footer with Done — with the list still
      under it. Done, ✕, Escape and the backdrop close it back to the list,
-     which reads the library again. It holds name, folder, description,
+     which reads the library again. It holds name, description,
      Run this script, the code filling the height the fields leave, and Check
      syntax (compiles without running), Duplicate (the copy arrives off),
      Export .lua and Delete.

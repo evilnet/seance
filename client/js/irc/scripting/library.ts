@@ -66,7 +66,6 @@ export function scriptTemplate(kind: "responder" | "slap", scripts: Script[]): S
 		return {
 			id: newScriptId(),
 			name: uniqueScriptName(scripts, "auto_ping"),
-			folder: t("scripting.template.responderFolder"),
 			description: t("scripting.template.responderDescription"),
 			code: `-- Auto-responder example\nseance.on("message", function(msg)\n    if msg.text == "!ping" and not msg.self then\n        seance.reply(msg, "pong! " .. seance.nick)\n    end\nend)\n`,
 			enabled: true,
@@ -77,7 +76,6 @@ export function scriptTemplate(kind: "responder" | "slap", scripts: Script[]): S
 	return {
 		id: newScriptId(),
 		name: uniqueScriptName(scripts, "slap_cmd"),
-		folder: t("scripting.template.slapFolder"),
 		description: t("scripting.template.slapDescription"),
 		code: `-- Custom /slap command\nseance.register_command("slap", function(args, rest)\n    local target = rest ~= "" and rest or "themselves"\n    local chan = seance.current_channel\n    if chan ~= "" then\n        seance.send("PRIVMSG " .. chan .. " :\\001ACTION slaps " .. target .. " with a large trout\\001")\n    end\nend)\n`,
 		enabled: true,

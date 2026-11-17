@@ -77,40 +77,37 @@
 			<p v-if="scripts.length === 0" class="scripts-empty">
 				{{ t("settings.scripts.empty") }}
 			</p>
-			<p v-else-if="grouped.length === 0" class="scripts-empty">
+			<p v-else-if="visible.length === 0" class="scripts-empty">
 				{{ t("settings.scripts.noMatch") }}
 			</p>
-			<template v-for="group in grouped" :key="group.folder">
-				<h3 class="scripts-folder">{{ folderLabel(group.folder) }}</h3>
-				<ul class="scripts-list">
-					<li
-						v-for="script in group.scripts"
-						:key="script.id"
-						class="scripts-item"
-						:class="{'has-error': !!script.lastError}"
-					>
-						<router-link class="scripts-summary" :to="`/settings/scripts/${script.id}`">
-							<span class="scripts-name">{{ script.name }}</span>
-							<span v-if="script.description" class="scripts-desc">{{
-								script.description
-							}}</span>
-							<span class="scripts-state">{{ stateLabel(script) }}</span>
-						</router-link>
-						<input
-							v-switch
-							:checked="script.enabled"
-							type="checkbox"
-							:aria-label="t('settings.scripts.runAria', {name: script.name})"
-							:title="
-								script.enabled
-									? t('settings.scripts.stateRunning')
-									: t('settings.scripts.stateOff')
-							"
-							@change="toggle(script, $event)"
-						/>
-					</li>
-				</ul>
-			</template>
+			<ul v-else class="scripts-list">
+				<li
+					v-for="script in visible"
+					:key="script.id"
+					class="scripts-item"
+					:class="{'has-error': !!script.lastError}"
+				>
+					<router-link class="scripts-summary" :to="`/settings/scripts/${script.id}`">
+						<span class="scripts-name">{{ script.name }}</span>
+						<span v-if="script.description" class="scripts-desc">{{
+							script.description
+						}}</span>
+						<span class="scripts-state">{{ stateLabel(script) }}</span>
+					</router-link>
+					<input
+						v-switch
+						:checked="script.enabled"
+						type="checkbox"
+						:aria-label="t('settings.scripts.runAria', {name: script.name})"
+						:title="
+							script.enabled
+								? t('settings.scripts.stateRunning')
+								: t('settings.scripts.stateOff')
+						"
+						@change="toggle(script, $event)"
+					/>
+				</li>
+			</ul>
 		</div>
 
 		<!-- The editor (ScriptEdit.vue) or the aliases (AliasesOverlay.vue),
@@ -218,17 +215,9 @@
 	margin-top: 0.5rem;
 }
 
-.settings-scripts .scripts-folder {
-	color: var(--body-color-muted);
-	font-size: 0.875em;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin: 1.25rem 0 0.25rem;
-}
-
 .settings-scripts .scripts-list {
 	list-style: none;
-	margin: 0;
+	margin: 0.75rem 0 0;
 	padding: 0;
 }
 
@@ -290,10 +279,7 @@ import I18nFrame from "../I18nFrame.vue";
 import {
 	compareScripts,
 	loadScripts,
-	normalizeFolder,
 	saveScript,
-	scriptFolders,
-	DEFAULT_FOLDER,
 	MAX_CODE_LENGTH,
 	ScriptStorageError,
 } from "../../js/irc/scripting/storage";
@@ -344,23 +330,16 @@ export default defineComponent({
 		const importError = ref("");
 		const importInput = ref<HTMLInputElement>();
 
-		const grouped = computed(() => {
+		const visible = computed(() => {
 			const q = query.value.trim().toLowerCase();
-			const visible = q
+			return q
 				? scripts.value.filter((script) =>
-						[script.name, script.folder, script.description ?? "", script.code]
+						[script.name, script.description ?? "", script.code]
 							.join("\n")
 							.toLowerCase()
 							.includes(q)
 				  )
 				: scripts.value;
-
-			return scriptFolders(visible).map((folder) => ({
-				folder,
-				scripts: visible.filter(
-					(s) => normalizeFolder(s.folder).toLowerCase() === folder.toLowerCase()
-				),
-			}));
 		});
 
 		// With Lua off nothing runs, whatever a script's own switch says.
@@ -370,13 +349,6 @@ export default defineComponent({
 				: script.enabled && store.state.settings.enableScripting
 				? t("settings.scripts.stateRunning")
 				: t("settings.scripts.stateOff");
-
-		// The default folder is stored under its English name, which stays
-		// the library's identity for it; it is shown in the reader's words.
-		const folderLabel = (folder: string) =>
-			folder.toLowerCase() === DEFAULT_FOLDER.toLowerCase()
-				? t("settings.scripts.defaultFolder")
-				: folder;
 
 		// A new script opens in the editor: that is where it gets written.
 		const create = (script: Script) => {
@@ -400,7 +372,6 @@ export default defineComponent({
 			create({
 				id: newScriptId(),
 				name,
-				folder: DEFAULT_FOLDER,
 				code: `-- ${name}\n`,
 				enabled: true,
 				createdAt: Date.now(),
@@ -457,7 +428,6 @@ export default defineComponent({
 			create({
 				id: newScriptId(),
 				name: uniqueScriptName(scripts.value, importedScriptName(file.name)),
-				folder: DEFAULT_FOLDER,
 				code,
 				enabled: false,
 				createdAt: Date.now(),
@@ -469,12 +439,11 @@ export default defineComponent({
 			aliasSummary,
 			scripts,
 			query,
-			grouped,
+			visible,
 			importError,
 			importInput,
 			SEARCH_FROM,
 			stateLabel,
-			folderLabel,
 			t,
 			KEEP,
 			addNew,

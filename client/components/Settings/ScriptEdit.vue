@@ -58,28 +58,6 @@
 										@change="commit"
 									/>
 								</label>
-								<label class="script-field script-folder-field">
-									<span>{{ t("settings.scriptEdit.folder") }}</span>
-									<input
-										v-model="script.folder"
-										class="input"
-										dir="auto"
-										type="text"
-										list="script-folder-list"
-										:maxlength="maxFolderLength"
-										:placeholder="defaultFolder"
-										spellcheck="false"
-										@input="schedulePersist"
-										@change="commit"
-									/>
-									<datalist id="script-folder-list">
-										<option
-											v-for="folder in folders"
-											:key="folder"
-											:value="folder"
-										/>
-									</datalist>
-								</label>
 								<label class="script-field script-desc-field">
 									<span>{{ t("settings.scriptEdit.description") }}</span>
 									<input
@@ -317,10 +295,6 @@
 	flex: 1 1 12rem;
 }
 
-.script-editor .script-folder-field {
-	flex: 1 1 10rem;
-}
-
 .script-editor .script-desc-field {
 	flex: 3 1 16rem;
 }
@@ -469,12 +443,9 @@ import {
 	deleteScript,
 	getScript,
 	loadScripts,
-	normalizeFolder,
 	saveScript,
-	scriptFolders,
 	MAX_CODE_LENGTH,
 	MAX_DESCRIPTION_LENGTH,
-	MAX_FOLDER_LENGTH,
 	MAX_NAME_LENGTH,
 	ScriptStorageError,
 } from "../../js/irc/scripting/storage";
@@ -516,8 +487,6 @@ export default defineComponent({
 		let flashTimer: ReturnType<typeof setTimeout> | undefined;
 		let dirty = false;
 
-		const defaultFolder = computed(() => t("settings.scripts.defaultFolder"));
-		const folders = computed(() => scriptFolders(loadScripts()));
 		const lineCount = computed(() => (script.value ? script.value.code.split("\n").length : 1));
 		const sizeLine = computed(() =>
 			t("settings.scriptEdit.size", {
@@ -570,7 +539,6 @@ export default defineComponent({
 			refreshError();
 			const ok = write({
 				...script.value,
-				folder: normalizeFolder(script.value.folder),
 				description: script.value.description?.trim() || undefined,
 				updatedAt: Date.now(),
 			});
@@ -788,18 +756,15 @@ export default defineComponent({
 			nameError,
 			statusMsg,
 			saveError,
-			folders,
 			lineCount,
 			sizeLine,
 			pane,
 			codeHost,
 			editorReady,
-			defaultFolder,
 			t,
 			tCount,
 			KEEP,
 			maxNameLength: MAX_NAME_LENGTH,
-			maxFolderLength: MAX_FOLDER_LENGTH,
 			maxDescriptionLength: MAX_DESCRIPTION_LENGTH,
 			maxCodeLength: MAX_CODE_LENGTH,
 			schedulePersist,

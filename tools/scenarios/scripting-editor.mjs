@@ -232,13 +232,10 @@ export default async function run(page) {
 			(await page.evaluate("location.hash")) === "#/settings/scripts"
 	);
 
-	// Back in the list: filed under its folder, and switched off from the row.
+	// Back in the list: one flat list, no folder headings, and switched off
+	// from the row.
 	await page.waitFor(`!!document.querySelector(".scripts-item")`, {label: "list again"});
-	page.check(
-		"listed under Automation",
-		(await page.evaluate(`document.querySelector(".scripts-folder")?.textContent`)) ===
-			"Automation"
-	);
+	page.check("the list has no folder headings", (await page.count(".settings-scripts h3")) === 0);
 	page.check(
 		"the row shows the new name",
 		(await page.evaluate(`document.querySelector(".scripts-name")?.textContent`)) === "pinger"

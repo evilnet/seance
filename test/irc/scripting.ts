@@ -18,9 +18,6 @@ import {
 	STORAGE_KEY,
 	STORAGE_PREFIX,
 	compareScripts,
-	DEFAULT_FOLDER,
-	normalizeFolder,
-	scriptFolders,
 } from "../../client/js/irc/scripting/storage";
 import {
 	LuaSandbox,
@@ -82,7 +79,6 @@ describe("Lua scripting subsystem", function () {
 				name: "test_script",
 				code: "print('hello')",
 				enabled: true,
-				folder: "Automation",
 				description: "Says hello",
 			};
 			saveScripts([script]);
@@ -101,7 +97,6 @@ describe("Lua scripting subsystem", function () {
 				name: "to_delete",
 				code: "seance.print('hi')",
 				enabled: false,
-				folder: DEFAULT_FOLDER,
 			};
 			saveScripts([script]);
 			saveScriptData("del_me", {testKey: "testVal"});
@@ -113,15 +108,7 @@ describe("Lua scripting subsystem", function () {
 			expect(loadScriptData("del_me")).to.deep.equal({});
 		});
 
-		it("normalizes folders and descriptions", function () {
-			expect(normalizeFolder("  My  Scripts ")).to.equal("My Scripts");
-			expect(normalizeFolder("")).to.equal(DEFAULT_FOLDER);
-			expect(normalizeFolder("a/b")).to.equal(DEFAULT_FOLDER);
-			expect(normalizeFolder("x".repeat(41))).to.equal(DEFAULT_FOLDER);
-			expect(normalizeFolder(undefined)).to.equal(DEFAULT_FOLDER);
-		});
-
-		it("files legacy scripts without a folder under Unsorted", function () {
+		it("tidies descriptions, and drops the folder an older library filed a script under", function () {
 			store.set(
 				STORAGE_KEY,
 				JSON.stringify([
@@ -137,38 +124,24 @@ describe("Lua scripting subsystem", function () {
 				])
 			);
 			const loaded = loadScripts();
-			expect(loaded[0].folder).to.equal(DEFAULT_FOLDER);
 			expect(loaded[0].description).to.equal(undefined);
-			expect(loaded[1].folder).to.equal("Commands");
 			expect(loaded[1].description).to.equal("Adds a command");
+			expect(loaded[1]).to.not.have.property("folder");
 		});
 
-		it("lists folders once, Unsorted last, and orders the library by folder then name", function () {
-			const mk = (name: string, folder: string): Script => ({
-				id: name,
-				name,
-				folder,
-				code: "",
-				enabled: true,
-			});
-			const list = [
-				mk("b", "commands"),
-				mk("a", "Commands"),
-				mk("z", DEFAULT_FOLDER),
-				mk("c", "Automation"),
-			];
-			// First-seen spelling wins for a folder that differs only by case.
-			expect(scriptFolders(list)).to.deep.equal(["Automation", "commands", DEFAULT_FOLDER]);
+		it("orders the library by name", function () {
+			const mk = (name: string): Script => ({id: name, name, code: "", enabled: true});
+			const list = [mk("slap_cmd"), mk("Auto_ping"), mk("zebra"), mk("my_script")];
 			expect([...list].sort(compareScripts).map((s) => s.name)).to.deep.equal([
-				"c",
-				"a",
-				"b",
-				"z",
+				"Auto_ping",
+				"my_script",
+				"slap_cmd",
+				"zebra",
 			]);
 		});
 
 		it("refuses a script over the size limit and keeps what was stored", function () {
-			const ok: Script = {id: "a", name: "a", folder: "Unsorted", code: "x", enabled: true};
+			const ok: Script = {id: "a", name: "a", code: "x", enabled: true};
 			saveScripts([ok]);
 			const long = {...ok, code: "x".repeat(MAX_CODE_LENGTH + 1)};
 			expect(() => saveScripts([long])).to.throw(
@@ -183,7 +156,7 @@ describe("Lua scripting subsystem", function () {
 			const list: Script[] = [];
 
 			for (let i = 0; list.length * MAX_CODE_LENGTH <= MAX_LIBRARY_LENGTH; i++) {
-				list.push({id: `s${i}`, name: `s${i}`, folder: "Unsorted", code, enabled: true});
+				list.push({id: `s${i}`, name: `s${i}`, code, enabled: true});
 			}
 
 			expect(() => saveScripts(list)).to.throw(ScriptStorageError, /together/);
@@ -207,7 +180,6 @@ describe("Lua scripting subsystem", function () {
 			const script: Script = {
 				id: "a",
 				name: "a",
-				folder: "Unsorted",
 				code: "x",
 				enabled: true,
 			};
@@ -240,7 +212,7 @@ describe("Lua scripting subsystem", function () {
 
 	describe("the Scripts tab's helpers (irc/scripting/library.ts)", function () {
 		const named = (...names: string[]): Script[] =>
-			names.map((name, i) => ({id: `s${i}`, name, code: "", enabled: true, folder: "X"}));
+			names.map((name, i) => ({id: `s${i}`, name, code: "", enabled: true}));
 
 		it("numbers a name that is taken, case-insensitively, within the length limit", function () {
 			expect(uniqueScriptName(named(), "auto_ping")).to.equal("auto_ping");
@@ -273,12 +245,11 @@ describe("Lua scripting subsystem", function () {
 			expect(scriptNameError(scripts, "OTHER", "s0")).to.match(/already called/);
 		});
 
-		it("files the examples under their folders and keeps their names unique", function () {
+		it("keeps the examples' names unique", function () {
 			const responder = scriptTemplate("responder", []);
-			expect(responder.folder).to.equal("Automation");
 			expect(responder.name).to.equal("auto_ping");
 			expect(scriptTemplate("responder", [responder]).name).to.equal("auto_ping_2");
-			expect(scriptTemplate("slap", []).folder).to.equal("Commands");
+			expect(scriptTemplate("slap", []).name).to.equal("slap_cmd");
 		});
 	});
 
@@ -804,7 +775,6 @@ describe("Lua scripting subsystem", function () {
 				{
 					id: "bot",
 					name: "bot",
-					folder: "Unsorted",
 					// Answers everything, its own lines included: the loop
 					// the echo guard is for.
 					code: `seance.on("message", function(m) seance.reply(m, "pong") end)`,
@@ -972,7 +942,7 @@ describe("Lua scripting subsystem", function () {
 		});
 
 		it("never installs a sandbox that finished loading after scripting was turned off", async function () {
-			saveScripts([{id: "r", name: "r", folder: "Unsorted", code: "x = 1", enabled: true}]);
+			saveScripts([{id: "r", name: "r", code: "x = 1", enabled: true}]);
 			setScriptingEnabled(true);
 			const loading = scriptManager.reload();
 			setScriptingEnabled(false);
@@ -986,7 +956,6 @@ describe("Lua scripting subsystem", function () {
 				{
 					id: "once",
 					name: "once",
-					folder: "Unsorted",
 					code: `seance.on("message", function() seance.storage.set("n", tostring((tonumber(seance.storage.get("n")) or 0) + 1)) end)`,
 					enabled: true,
 				},
@@ -1014,7 +983,6 @@ describe("Lua scripting subsystem", function () {
 				{
 					id: "gated",
 					name: "gated_cmd",
-					folder: "Commands",
 					code: `seance.register_command("gatedwave", function(args, rest) end)`,
 					enabled: true,
 				},
