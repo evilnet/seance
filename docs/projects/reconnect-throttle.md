@@ -92,7 +92,7 @@ and the server says when it throttles:
 - **The long waits hold** (`WsTransport.holding`): the foreground poke
   (`manager.ts` `reconnectAll`, the app coming back, focus, `online`)
   leaves them be, since dialling would renew a refusal's window. Connect
-  now, the sidebar's status icon and a typed `/connect` dial at once
+  now, the sidebar's status icon and a typed `/server` dial at once
   whatever the wait. Every other wait the poke still cuts. A hold is
   judged by the clock, not by its timer, which stands still while a phone
   sleeps: the server's ends when the time it named has passed, ours when

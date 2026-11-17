@@ -1,6 +1,6 @@
 /**
  * `/disconnect [reason]`: QUIT and close without reconnecting; the network
- * stays in the sidebar (`/connect` brings it back).
+ * stays in the sidebar (`/server` brings it back).
  */
 
 import type {Command} from "../types";

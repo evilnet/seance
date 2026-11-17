@@ -155,7 +155,7 @@ export default async function run(page) {
 			`3. A has not seen B's offline change yet (${await page.evaluate(DOT_TEXT)})`,
 			/^Do not disturb/.test(await page.evaluate(DOT_TEXT))
 		);
-		await command(b, "/connect");
+		await command(b, "/server");
 		await b.waitFor(online, {timeout: 25000, label: "B back"});
 		page.check(
 			"3. B's offline Online reaches A after B reconnects",
@@ -170,10 +170,10 @@ export default async function run(page) {
 		await setMode(page, "away");
 		await page.sleep(1500);
 		await setMode(b, "dnd");
-		await command(page, "/connect");
+		await command(page, "/server");
 		await page.waitFor(online, {timeout: 25000, label: "A back"});
 		await page.sleep(READ_MS);
-		await command(b, "/connect");
+		await command(b, "/server");
 		await b.waitFor(online, {timeout: 25000, label: "B back"});
 		page.check("4. B (later) keeps Do not disturb", await waitMode(b, /^Do not disturb/, "4b"));
 		page.check(

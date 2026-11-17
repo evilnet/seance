@@ -121,9 +121,9 @@ describe("translate/outgoing", () => {
 				kind: "ok",
 				text: "//not a command",
 			});
-			expect(draftGate("/connect", false)).to.deep.equal({
+			expect(draftGate("/server", false)).to.deep.equal({
 				kind: "command",
-				text: "/connect",
+				text: "/server",
 			});
 			expect(draftGate("hello there", true)).to.deep.equal({
 				kind: "edit",
