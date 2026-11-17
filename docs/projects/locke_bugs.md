@@ -1,9 +1,10 @@
 # Locke's bug report: work list
 
-Status, 2026-11-15: of the 87 entries, 84 are fixed on the
-`seance_locke_bugs` branch, 13a is won't-fix, 5g is superseded by the
-conversation store, and 10e is deferred to the native-shell review. Section 14
-lists what the fixing turned up.
+Status, 2026-11-17: of the 87 entries, 84 are fixed, in #325 (released in
+v5.8.0); 13a is won't-fix, 5g is superseded by the conversation store (#326),
+and 10e is deferred to the native-shell review. 4e's remaining half waits on
+nefarious2 forwarding the label for CHECK. Section 14 lists what the fixing
+turned up.
 
 Another developer did a read-only review and reported 148 findings
 (`BUG-001` to `BUG-148`). The review read an older checkout, from before
