@@ -10,6 +10,7 @@ import sinon from "sinon";
 import "../../client/js/irc/client";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
+import type {SharedMsg} from "../../shared/types/msg";
 import {
 	CLOSED_TTL_MS,
 	ClosedQueries,
@@ -65,6 +66,23 @@ function closedQuery(from = "bob"): Harness {
 	expect(h.client.findChannel(from)).to.equal(undefined);
 	h.dispatch.resetHistory();
 	return h;
+}
+
+/** The texts of the history pages (`more`) handed to window `chan`. */
+function kept(h: Harness, chan: number): string[] {
+	return h
+		.payloads<{chan: number; messages: SharedMsg[]}>("more")
+		.filter((p) => p.chan === chan)
+		.flatMap((p) => p.messages.map((m) => m.text ?? ""));
+}
+
+/** The store's writes landed, and what it read back after them (the clock is faked: no timers). */
+async function settled(): Promise<void> {
+	await flushConversationStores();
+
+	for (let i = 0; i < 50; i++) {
+		await Promise.resolve();
+	}
 }
 
 describe("closed queries (irc/closedQueries.ts)", function () {
@@ -169,7 +187,59 @@ describe("closed queries (irc/closedQueries.ts)", function () {
 				const second = setup({uuid});
 				expect(second.client.findChannel("bob")).to.equal(undefined);
 				expect(second.client.conversations.meta("bob")?.closed).to.equal(true);
-				expect(second.client.conversations.restoredMessages("bob")).to.deep.equal([]);
+				// Closed, not forgotten: its lines wait for the day it is opened again.
+				expect(
+					second.client.conversations.restoredMessages("bob").map((m) => m.text)
+				).to.deep.equal(["hi"]);
+			} finally {
+				useConversationBackend(null);
+			}
+		});
+
+		it("a closed conversation opened again shows what was said last time, read", async function () {
+			useConversationBackend(new MemoryBackend());
+			const uuid = "closed-history-net";
+			saved.save({
+				uuid,
+				name: "",
+				host: "irc.test",
+				port: 8443,
+				tls: true,
+				nick: "alice",
+				join: "#seance",
+				sasl: "",
+				saslAccount: "",
+				saslPassword: "",
+			});
+
+			try {
+				const h = setup({uuid});
+				joined(h, ALL_CAPS);
+				h.transport.line(`@time=${T0};msgid=p0 :bob!bob@host PRIVMSG alice :hi`);
+				h.client.input(h.client.findChannel("bob")!.id, "/close");
+				await settled();
+				h.dispatch.resetHistory();
+
+				// He writes again: the window is back with last time's line above.
+				h.transport.line(`@time=${T1};msgid=p1 :bob!bob@host PRIVMSG alice :again`);
+				let query = h.client.findChannel("bob")!;
+				expect(kept(h, query.id)).to.deep.equal(["hi"]);
+				expect(h.messages(query.id).map((m) => m.text)).to.deep.equal(["again"]);
+				expect(query.shared.unread).to.equal(1);
+
+				// Closed and asked for with /query: the same, and nothing is new.
+				h.client.input(query.id, "/close");
+				await settled();
+				h.dispatch.resetHistory();
+				h.client.input(h.client.lobby.id, "/query bob");
+				query = h.client.findChannel("bob")!;
+				expect(kept(h, query.id)).to.deep.equal(["hi", "again"]);
+				expect(query.shared.unread).to.equal(0);
+				await flushConversationStores();
+
+				// And a reload brings it back open, as it was left.
+				const next = setup({uuid});
+				expect(next.client.findChannel("bob")).to.not.equal(undefined);
 			} finally {
 				useConversationBackend(null);
 			}

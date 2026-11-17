@@ -221,28 +221,30 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			expect(new ConversationStore(UUID, fold).meta("bob")!.read).to.equal(5000);
 		});
 
-		it("a closed private chat keeps no lines; a closed channel keeps them, hidden, until it is opened again", async function () {
+		it("a closed window keeps its lines, hidden and read, until it is opened again", async function () {
 			const store = new ConversationStore(UUID, fold);
 			store.append("bob", "query", line(1));
 			store.append("#seance", "channel", line(2));
 			store.append("#gone", "channel", line(3));
 			store.setJoined("#gone", true, "sesame");
-			store.close("bob", false, line(1).time);
-			store.close("#gone", true);
+			store.close("bob", line(1).time);
+			store.close("#gone");
 			await store.flush();
 
 			const again = new ConversationStore(UUID, fold);
 			expect(again.windows().map((w) => w.name)).to.deep.equal(["#seance"]);
-			expect(again.restoredMessages("bob")).to.deep.equal([]);
-			expect(backend.lines.get(`${UUID}\nbob`) ?? []).to.have.length(0);
 			// Remembered, not shown, not joined by itself.
 			expect(again.meta("#gone")).to.include({closed: true, joined: false});
 			expect(again.meta("#gone")!.key).to.equal(undefined);
 			expect(again.restoredMessages("#gone").map((m) => m.text)).to.deep.equal(["line 3"]);
+			// The private chat as the channel: its lines are there, and read.
+			expect(again.meta("bob")).to.include({closed: true, read: line(1).time.getTime()});
+			expect(again.meta("bob")!.clearedAt).to.equal(undefined);
+			expect(again.restoredMessages("bob").map((m) => m.text)).to.deep.equal(["line 1"]);
 
-			// A line from before the close does not bring the private chat back.
-			again.append("bob", "query", line(1));
-			// Joined again: the window is open, with what was kept.
+			// Asked for again, and joined again: both windows are open, with
+			// what was kept.
+			again.reopen("bob", "query");
 			again.setJoined("#gone", true);
 			await again.flush();
 			const third = new ConversationStore(UUID, fold);
@@ -251,13 +253,29 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 					.windows()
 					.map((w) => w.name)
 					.sort()
-			).to.deep.equal(["#gone", "#seance"]);
+			).to.deep.equal(["#gone", "#seance", "bob"]);
 			expect(third.restoredMessages("#gone").map((m) => m.text)).to.deep.equal(["line 3"]);
+			expect(third.restoredMessages("bob").map((m) => m.text)).to.deep.equal(["line 1"]);
 			await flushConversationStores();
 
 			forgetNetworkConversations(UUID);
 			await backend.run("readonly", () => Promise.resolve());
 			expect(new ConversationStore(UUID, fold).windows()).to.deep.equal([]);
+		});
+
+		it("a line said in a closed private chat opens it again", async function () {
+			const store = new ConversationStore(UUID, fold);
+			store.append("bob", "query", line(1));
+			store.close("bob", line(1).time);
+			store.append("bob", "query", line(2));
+			await store.flush();
+
+			const again = new ConversationStore(UUID, fold);
+			expect(again.windows().map((w) => w.name)).to.deep.equal(["bob"]);
+			expect(again.restoredMessages("bob").map((m) => m.text)).to.deep.equal([
+				"line 1",
+				"line 2",
+			]);
 		});
 
 		it("clearing keeps what was cleared from coming back, and takes what is newer", async function () {
@@ -483,7 +501,7 @@ describe("Conversations kept on the device (irc/conversationStore.ts)", function
 			expect(client.restoredMessages("#seance").map((m) => m.text)).to.deep.equal(["line 1"]);
 			client.append("#seance", "channel", line(2));
 			client.append("bob", "query", line(3));
-			client.close("bob", false, line(3).time);
+			client.close("bob", line(3).time);
 
 			// A second one while the first lives must not start from page-load state.
 			const early = new ConversationStore(UUID, fold);

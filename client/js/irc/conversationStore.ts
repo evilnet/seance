@@ -23,8 +23,8 @@
  *
  * A window the user closed is remembered, not forgotten
  * ({@link ConvRecord.closed}): it is not shown and never opens by itself,
- * and when the channel is joined again its lines are there. A closed private
- * conversation keeps no lines, only the fact and when.
+ * and when it is opened again (the channel joined, the private conversation
+ * written in or asked for) its lines are there, read.
  *
  * Caps: the newest {@link MAX_LINES} per conversation, oldest out first and
  * never from the middle. No age limit. Removing the network forgets it all;
@@ -126,11 +126,10 @@ export interface ConvRecord {
 	key?: string;
 	/**
 	 * The user closed the window: it is not shown and does not open by
-	 * itself. A channel keeps its lines for the day it is joined again; a
-	 * private conversation's are deleted ({@link clearedAt} says up to when).
+	 * itself. Its lines stay for the day it is opened again.
 	 */
 	closed?: boolean;
-	/** Nothing at or before this (epoch ms) is kept or shown again: "Clear history", a closed private conversation. */
+	/** Nothing at or before this (epoch ms) is kept or shown again: "Clear history". */
 	clearedAt?: number;
 	/** Lines kept. */
 	n: number;
@@ -186,11 +185,11 @@ export type StoreOp =
 			open?: true;
 	  }
 	| {op: "clear"; target: string; at: number}
-	/** The window was closed; `keep` leaves its lines for when it is opened again. */
-	| {op: "close"; target: string; keep: boolean; at: number};
+	/** The window was closed, at `at`: what it held is read. Its lines stay. */
+	| {op: "close"; target: string; at: number};
 
 /** The ops that take something away: written by themselves when the disk is full. */
-const DELETES = new Set<StoreOp["op"]>(["redact", "clear", "close"]);
+const DELETES = new Set<StoreOp["op"]>(["redact", "clear"]);
 
 /** One transaction's view of the database. */
 export interface StoreTx {
@@ -336,7 +335,6 @@ function addToSnapshot(snapshot: Snapshot, conv: ConvRecord, lines: LineRecord[]
 /** Read one network's windows and newest lines into `snapshot`. */
 async function readNetwork(tx: StoreTx, convs: ConvRecord[], snapshot: Snapshot): Promise<void> {
 	for (const conv of convs) {
-		// A closed private conversation has no lines to read.
 		const lines = conv.n > 0 ? await tx.newest(conv.c, RESTORE_LINES) : [];
 		addToSnapshot(snapshot, conv, lines.reverse());
 		snapshot.epochs.set(conv.uuid, await tx.getEpoch(conv.uuid));
@@ -922,13 +920,7 @@ export async function applyOps(
 				rec.joined = false;
 				delete rec.key;
 
-				if (!op.keep) {
-					tx.deleteLines(c);
-					rec.n = 0;
-					rec.clearedAt = Math.max(rec.clearedAt ?? 0, op.at);
-					delete rec.read;
-					delete rec.dead;
-				}
+				rec.read = Math.max(rec.read ?? 0, op.at);
 
 				dirty.add(c);
 				break;
@@ -974,7 +966,7 @@ async function evict(tx: StoreTx): Promise<void> {
 /**
  * `ops` without what takes something away, and without the lines those ops
  * took away: for writing after the deletions went in by themselves, where a
- * line that arrived and was deleted, cleared or closed in the same batch
+ * line that arrived and was deleted or cleared in the same batch
  * would otherwise land after its deletion.
  */
 function withoutDeleted(ops: StoreOp[]): StoreOp[] {
@@ -982,7 +974,7 @@ function withoutDeleted(ops: StoreOp[]): StoreOp[] {
 	const redacted = new Set<string>();
 
 	ops.forEach((op, i) => {
-		if (op.op === "clear" || (op.op === "close" && !op.keep)) {
+		if (op.op === "clear") {
 			emptied.set(op.target, i);
 		} else if (op.op === "redact") {
 			redacted.add(`${op.target}\n${op.msgid}`);
@@ -1707,12 +1699,12 @@ export class ConversationStore {
 	}
 
 	/**
-	 * The window was closed. `keep` (a channel): its lines stay for the day
-	 * it is joined again, and it is not shown or opened until then. Without
-	 * (a private conversation): the lines go, and none from before `at`
-	 * comes back.
+	 * The window was closed: it is not shown or opened by itself from here
+	 * on, and its lines stay for the day it is opened again (a channel
+	 * joined, a private conversation written in or asked for). What it held
+	 * is read: none of it counts as new then.
 	 */
-	close(name: string, keep: boolean, at = new Date()): void {
+	close(name: string, at = new Date()): void {
 		const folded = this.fold(name);
 		const meta = this.meta(name);
 
@@ -1724,19 +1716,19 @@ export class ConversationStore {
 		meta.joined = false;
 		meta.key = undefined;
 
-		if (!keep) {
-			meta.n = 0;
-			meta.read = undefined;
-			meta.clearedAt = Math.max(meta.clearedAt ?? 0, at.getTime());
-			this.restored.delete(folded);
-		}
+		meta.read = Math.max(meta.read ?? 0, at.getTime());
+		this.push({op: "close", target: folded, at: meta.read});
+		// What the window showed since the snapshot is read again, for when
+		// it is opened later on this page.
+		void this.flush().then(() => this.reread(folded));
+	}
 
-		this.push({op: "close", target: folded, keep, at: meta.clearedAt ?? at.getTime()});
+	/** The user opened `name` again: it is shown from here on, a reload included. */
+	reopen(name: string, kind: ConvKind): void {
+		const meta = this.meta(name);
 
-		if (keep) {
-			// What the window showed since the snapshot is read again, for a
-			// join later on this page.
-			void this.flush().then(() => this.reread(folded));
+		if (meta) {
+			this.opened(name, kind, meta);
 		}
 	}
 

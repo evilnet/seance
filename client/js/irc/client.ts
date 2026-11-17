@@ -777,9 +777,10 @@ export class IrcClient {
 				// we are in it is the server's to say where something holds
 				// our channels (a held session, a bouncer); where nothing
 				// does, one we were in is joined again, as a reconnect joins
-				// it (`autojoin`). One the user closed is not here at all:
-				// it stays remembered, and its lines come back with the
-				// window the day it is joined again (`announceChannel`).
+				// it (`autojoin`). A window the user closed, channel or
+				// private, is not here at all: it stays remembered, and its
+				// lines come back with the window the day it is opened again
+				// (`announceChannel`).
 				let channel = this.findChannel(name);
 
 				if (!channel) {
@@ -797,7 +798,7 @@ export class IrcClient {
 
 			// Closed in another tab since these lines were written.
 			if (this.closed.suppresses(name, new Date(window.touched))) {
-				this.conversations.close(name, false, new Date(window.touched));
+				this.conversations.close(name, new Date(window.touched));
 				continue;
 			}
 
@@ -4285,9 +4286,14 @@ export class IrcClient {
 			shouldOpen: options.shouldOpen ?? false,
 		});
 
-		// A channel the user had closed, opened again: what was kept of it.
-		if (type === ChanType.CHANNEL && this.announced) {
+		// A window the user had closed, opened again: what was kept of it.
+		if ((type === ChanType.CHANNEL || type === ChanType.QUERY) && this.announced) {
 			this.restoreWindow(channel);
+
+			// Asked for by the user: open from here on, a reload included.
+			if (type === ChanType.QUERY && options.shouldOpen) {
+				this.conversations.reopen(name, "query");
+			}
 		}
 
 		return channel;
@@ -4321,7 +4327,8 @@ export class IrcClient {
 	/**
 	 * Hand `chan` the lines this device kept of it, if it kept any: at the
 	 * first announce for the windows the last page left open, and when a
-	 * window the user had closed is opened again (a channel joined anew).
+	 * window the user had closed is opened again (a channel joined anew, a
+	 * private conversation written in or asked for).
 	 */
 	private restoreWindow(chan: Channel): void {
 		{
@@ -4434,10 +4441,10 @@ export class IrcClient {
 
 	/** Drop a channel from the model and the UI (`part` event). */
 	removeChannel(chan: Channel): void {
-		// Closed: not brought back. A channel's lines stay for the day it is
-		// joined again; a private conversation's go.
+		// Closed: not brought back by itself. Its lines stay for the day it
+		// is opened again.
 		if (this.storeKind(chan)) {
-			this.conversations.close(chan.name, chan.type === ChanType.CHANNEL);
+			this.conversations.close(chan.name, chan.newestRef?.time);
 		}
 
 		const idx = this.channels.indexOf(chan);

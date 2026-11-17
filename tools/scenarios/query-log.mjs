@@ -1,6 +1,7 @@
 // A private conversation survives a reload: the query window comes back in
-// the sidebar with its lines (irc/conversationStore.ts), once each, and closing it
-// forgets it for the next reload.
+// the sidebar with its lines (irc/conversationStore.ts), once each. Closing it
+// hides it for the next reload, and a new line opens it with last time's
+// lines above.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
@@ -149,7 +150,8 @@ export default async function run(page) {
 		label: "the query open again",
 	});
 
-	// 4. Close it: the next reload does not bring it back.
+	// 4. Close it: the next reload does not bring it back, and its lines
+	//    stay on the device.
 	await page.fill("#input", "/close");
 	await page.click("#submit");
 	await page.waitFor(`!document.querySelector('${item(TALKER)}')`, {
@@ -167,6 +169,10 @@ export default async function run(page) {
 		`a closed query does not come back (${state})`,
 		(await page.count(item(TALKER))) === 0
 	);
+	await page.check(
+		"and its lines are still kept",
+		(await page.evaluate(KEPT)).includes("third private line")
+	);
 
 	// 5. Settings → General → "Keep conversations on this device"
 	//    off: what is kept is deleted, nothing more is kept, and a reload
@@ -177,6 +183,29 @@ export default async function run(page) {
 		timeout: 10000,
 		label: "the query reopened by a new line",
 	});
+	await page.click(item(TALKER));
+	await page.waitFor(`${TEXTS}.includes("a line before the switch")`, {
+		timeout: 10000,
+		label: "the reopened query on screen",
+	});
+	const reopened = JSON.parse(await page.evaluate(TEXTS)).filter(
+		(t) => t.endsWith("private line") || t === "a line before the switch"
+	);
+	await page.check(
+		`reopened, last time's lines are above the new one (${JSON.stringify(reopened)})`,
+		JSON.stringify(reopened) ===
+			JSON.stringify([
+				"first private line",
+				"second private line",
+				"third private line",
+				"a line before the switch",
+			])
+	);
+	// Back to the channel: the conversation on screen is landed on again
+	// after a reload whatever is kept (helpers/lastChannel.ts), which is not
+	// what the last step is about.
+	await page.click(item("#seance"));
+	await page.sleep(300);
 	await page.sleep(1500);
 	await page.check("kept again before the switch", (await page.evaluate(LOGS)) >= 1);
 	await page.evaluate(`location.hash = "#/settings"`);
