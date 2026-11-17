@@ -9,8 +9,7 @@ import sinon from "sinon";
 // The client first: pushMute and closedQueries are part of its import cycle.
 import "../../client/js/irc/client";
 import {ChanType} from "../../shared/types/chan";
-import {MessageType} from "../../shared/types/msg";
-import type {SharedMsg} from "../../shared/types/msg";
+import {MessageType, type SharedMsg} from "../../shared/types/msg";
 import {
 	CLOSED_TTL_MS,
 	ClosedQueries,
@@ -69,7 +68,7 @@ function closedQuery(from = "bob"): Harness {
 }
 
 /** The texts of the history pages (`more`) handed to window `chan`. */
-function kept(h: Harness, chan: number): string[] {
+function pageTexts(h: Harness, chan: number): string[] {
 	return h
 		.payloads<{chan: number; messages: SharedMsg[]}>("more")
 		.filter((p) => p.chan === chan)
@@ -223,7 +222,7 @@ describe("closed queries (irc/closedQueries.ts)", function () {
 				// He writes again: the window is back with last time's line above.
 				h.transport.line(`@time=${T1};msgid=p1 :bob!bob@host PRIVMSG alice :again`);
 				let query = h.client.findChannel("bob")!;
-				expect(kept(h, query.id)).to.deep.equal(["hi"]);
+				expect(pageTexts(h, query.id)).to.deep.equal(["hi"]);
 				expect(h.messages(query.id).map((m) => m.text)).to.deep.equal(["again"]);
 				expect(query.shared.unread).to.equal(1);
 
@@ -233,7 +232,7 @@ describe("closed queries (irc/closedQueries.ts)", function () {
 				h.dispatch.resetHistory();
 				h.client.input(h.client.lobby.id, "/query bob");
 				query = h.client.findChannel("bob")!;
-				expect(kept(h, query.id)).to.deep.equal(["hi", "again"]);
+				expect(pageTexts(h, query.id)).to.deep.equal(["hi", "again"]);
 				expect(query.shared.unread).to.equal(0);
 				await flushConversationStores();
 
