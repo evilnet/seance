@@ -2,51 +2,26 @@
 	<aside class="settings-menu">
 		<ul role="navigation" :aria-label="tabsAria">
 			<SettingTabItem
-				v-if="showNetworks"
-				name="Networks"
-				:label="tabNetworks"
-				class-name="networks"
-				to="networks"
+				v-for="tab in tabs"
+				:key="tab.name"
+				:name="tab.name"
+				:label="tab.label"
+				:class-name="tab.className"
+				:to="tab.to"
 			/>
-			<SettingTabItem
-				v-if="showGeneral"
-				name="General"
-				:label="tabGeneral"
-				class-name="general"
-				to=""
-			/>
-			<SettingTabItem
-				name="Appearance"
-				:label="tabAppearance"
-				class-name="appearance"
-				to="appearance"
-			/>
-			<SettingTabItem
-				name="Notifications"
-				:label="tabNotifications"
-				class-name="notifications"
-				to="notifications"
-			/>
-			<SettingTabItem
-				name="Translation"
-				:label="tabTranslation"
-				class-name="translation"
-				to="translation"
-			/>
-			<SettingTabItem name="Aliases" :label="tabAliases" class-name="aliases" to="aliases" />
-			<SettingTabItem name="Scripts" :label="tabScripts" class-name="scripts" to="scripts" />
 		</ul>
 	</aside>
 </template>
 
 <style>
-/* The settings menu is a horizontal tab strip across the top of the
- * settings modal (Windows/Settings.vue): one row of icon + label tabs,
- * horizontally scrollable if it must be, the active one underlined in the
- * theme's accent. When the pane is too narrow for every label (the modal
- * is the `settings` size container), the inactive tabs drop to icons only
- * — the active tab keeps its label, so where you are is always written
- * out. */
+/* The settings menu is a tab strip across the top of the settings modal
+ * (Windows/Settings.vue): icon + label tabs, the active one underlined in
+ * the theme's accent. When the pane is too narrow for every label (the
+ * modal is the `settings` size container), every tab drops to its icon and
+ * the modal's title names the open one ("Settings › Appearance"). Tabs that
+ * still do not fit (the big text sizes on a phone) wrap onto another row:
+ * a strip that scrolled sideways hid them past the edge with nothing to
+ * say they were there. */
 .settings-menu {
 	flex: 0 0 auto;
 	width: 100%;
@@ -54,18 +29,12 @@
 
 .settings-menu ul {
 	display: flex;
-	flex-wrap: nowrap;
-	overflow-x: auto;
-	scrollbar-width: none;
+	flex-wrap: wrap;
 	margin: 0;
 	padding: 0 0.75rem;
 	/* An inset hairline rather than a border: the underline of the active
 	 * tab paints over it. */
 	box-shadow: inset 0 -1px 0 rgb(128 128 128 / 30%);
-}
-
-.settings-menu ul::-webkit-scrollbar {
-	display: none;
 }
 
 .settings-menu li {
@@ -115,10 +84,6 @@
 	content: "\f233"; /* https://fontawesome.com/icons/server */
 }
 
-.settings-menu .aliases::before {
-	content: "\f120"; /* https://fontawesome.com/icons/terminal */
-}
-
 .settings-menu .scripts::before {
 	content: "\f121"; /* https://fontawesome.com/icons/code */
 }
@@ -133,14 +98,15 @@
 	cursor: default;
 }
 
-/* Six labelled tabs need roughly 45rem; below that the inactive ones are
- * icons alone (their names stay as aria-label and title). */
+/* Six labelled tabs need roughly 45rem; below that every tab is its icon
+ * alone (the names stay as aria-label and title, and the modal's title
+ * names the open tab). */
 @container settings (max-width: 46rem) {
-	.settings-menu button:not(.active) .tab-label {
+	.settings-menu button .tab-label {
 		display: none;
 	}
 
-	.settings-menu button:not(.active)::before {
+	.settings-menu button::before {
 		margin-inline-end: 0;
 	}
 }
@@ -148,13 +114,9 @@
 
 <script lang="ts">
 import SettingTabItem from "./SettingTabItem.vue";
-import {computed, defineComponent, nextTick, onMounted, watch} from "vue";
-import {useRoute} from "vue-router";
+import {computed, defineComponent} from "vue";
 import {useI18n} from "../../js/i18n";
-import {useStore} from "../../js/store";
-import {brandingFeatures} from "../../js/branding";
-import {shouldShowGeneralSettings} from "../../js/helpers/settingsTabs";
-import {translationOn} from "../../js/translate";
+import {useSettingsTabs} from "../../js/hooks/use-settings-tabs";
 
 export default defineComponent({
 	name: "SettingsTabs",
@@ -162,57 +124,15 @@ export default defineComponent({
 		SettingTabItem,
 	},
 	setup() {
-		const store = useStore();
-		const route = useRoute();
 		const {t} = useI18n();
-
-		// The visible labels of the tab strip; `name` keeps the route
+		// The labels are the tabs' visible names; `name` keeps the route
 		// identity (SettingTabItem's active-tab detection), never these.
+		const {tabs} = useSettingsTabs();
 		const tabsAria = computed(() => t("settings.tabs.aria"));
-		// A sign-in deploy that locks its network shows an Account page
-		// there instead (Settings/Account.vue); the route stays Networks.
-		const features = brandingFeatures(store.state.branding);
-		const tabNetworks = computed(() =>
-			features.editNetworks ? t("settings.tabs.networks") : t("settings.tabs.account")
-		);
-		const tabGeneral = computed(() => t("settings.tabs.general"));
-		const tabAppearance = computed(() => t("settings.tabs.appearance"));
-		const tabNotifications = computed(() => t("settings.tabs.notifications"));
-		// The tab holds the interface language alone (and, where the deploy
-		// allows translation, its switch) while translation is off: it is
-		// named for what it holds then. Route, path and class stay
-		// "translation", so a link or a scenario finds it either way.
-		const tabTranslation = computed(() =>
-			translationOn() ? t("settings.tabs.translation") : t("settings.tabs.language")
-		);
-		const tabAliases = computed(() => t("settings.tabs.aliases"));
-		const tabScripts = computed(() => t("settings.tabs.scripts"));
-
-		// The strip scrolls, so the active tab may sit off screen (opening
-		// Aliases from a deep link, or coming back to the tab the user
-		// left). `nearest` makes this a no-op when nothing overflows.
-		const revealActive = () => {
-			void nextTick(() => {
-				document
-					.querySelector(".settings-menu button.active")
-					?.scrollIntoView({inline: "nearest", block: "nearest"});
-			});
-		};
-
-		onMounted(revealActive);
-		watch(() => route.name, revealActive);
 
 		return {
 			tabsAria,
-			tabNetworks,
-			tabGeneral,
-			tabAppearance,
-			tabNotifications,
-			tabTranslation,
-			tabAliases,
-			tabScripts,
-			showGeneral: shouldShowGeneralSettings(),
-			showNetworks: features.saveNetworks || !features.editNetworks,
+			tabs,
 		};
 	},
 });

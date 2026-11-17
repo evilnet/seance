@@ -125,7 +125,6 @@ async function main() {
 	const scriptB = {
 		id: "bot_b",
 		name: "bot_b",
-		folder: "Automation",
 		description: "Live test: operator and responder",
 		enabled: true,
 		code: `
@@ -170,7 +169,6 @@ async function main() {
 	const scriptA = {
 		id: "bot_a",
 		name: "bot_a",
-		folder: "Automation",
 		description: "Live test: initiator and target",
 		enabled: true,
 		code: `

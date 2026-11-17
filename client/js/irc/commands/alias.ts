@@ -1,5 +1,5 @@
 /**
- * `/alias` — the command-line face of Settings → Aliases (the same
+ * `/alias` — the command-line face of Settings → Scripts → Aliases (the same
  * `thelounge.aliases` list): bare, it prints every alias; `/alias <name>`
  * prints one; `/alias <name> <commands>` creates it or overwrites the body
  * in place. Deleting stays in Settings. Listings render verbatim

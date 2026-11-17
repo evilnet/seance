@@ -23,7 +23,7 @@ import AppearanceSettings from "../components/Settings/Appearance.vue";
 import GeneralSettings from "../components/Settings/General.vue";
 import NotificationSettings from "../components/Settings/Notifications.vue";
 import TranslationSettings from "../components/Settings/Translation.vue";
-import AliasSettings from "../components/Settings/Aliases.vue";
+import AliasesOverlay from "../components/Settings/AliasesOverlay.vue";
 import ScriptSettings from "../components/Settings/Scripts.vue";
 import ScriptEdit from "../components/Settings/ScriptEdit.vue";
 import NetworkSettings from "../components/Settings/Networks.vue";
@@ -33,6 +33,15 @@ import {shouldShowGeneralSettings} from "./helpers/settingsTabs";
 import {forgetTranslations} from "./translate/reader";
 import * as saved from "./irc/saved-networks";
 import {clearPendingTarget, setPendingTarget} from "./helpers/pendingTarget";
+
+declare module "vue-router" {
+	interface RouteMeta {
+		/** A page that opens inside a settings tab: the tab it belongs to,
+		 * lit while the page is up (helpers/settingsTabs.ts). A child route
+		 * inherits its parent's. */
+		tab?: string;
+	}
+}
 
 const router = createRouter({
 	history: createWebHashHistory(),
@@ -61,6 +70,7 @@ const router = createRouter({
 					name: "NetworkEdit",
 					path: "networks/:uuid",
 					component: NetworkEdit,
+					meta: {tab: "Networks"},
 					beforeEnter() {
 						// A deploy that keeps its network as it set it has
 						// no edit form; its Account page stands there.
@@ -95,15 +105,26 @@ const router = createRouter({
 					component: TranslationSettings,
 				},
 				{
-					name: "Aliases",
+					// Aliases were a tab of their own before they became the
+					// first row of the Scripts list.
 					path: "aliases",
-					component: AliasSettings,
+					redirect: {name: "Aliases"},
 				},
 				{
 					name: "Scripts",
 					path: "scripts",
 					component: ScriptSettings,
+					// The aliases and a script's editor open over the list.
+					meta: {tab: "Scripts"},
 					children: [
+						{
+							// An overlay over the list, as a script's editor is,
+							// and open whether Lua is on or not: aliases are not
+							// scripts.
+							name: "Aliases",
+							path: "aliases",
+							component: AliasesOverlay,
+						},
 						{
 							// An overlay over the settings, the list still under it.
 							name: "ScriptEdit",

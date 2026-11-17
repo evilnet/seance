@@ -189,7 +189,7 @@ async function check(page, proxy) {
 	await pressEnter(page);
 	await page.sleep(300);
 	page.check("3. Enter kept the draft", (await draft(page)) === "hello while down");
-	await page.fill("#input", "/connect");
+	await page.fill("#input", "/server");
 	page.check("3. a slash command re-enables send", !(await submitDisabled(page)));
 	await page.screenshot("3-draft");
 

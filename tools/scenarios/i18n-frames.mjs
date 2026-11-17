@@ -1,6 +1,6 @@
 // The whole-sentence frames with elements inside them (I18nFrame.vue) in a
 // real browser: the Help window's command descriptions and autocompletion
-// intro, the formatting shortcuts, and Settings → Aliases' intro, under en,
+// intro, the formatting shortcuts, and Settings → Scripts → Aliases' intro, under en,
 // de, ja, ar and the qqx pseudo locale (development builds only). Each must
 // render as one sentence with its <code>/<kbd> elements inside it and no raw
 // {placeholder} left over; under en the text must be upstream's English,
@@ -23,7 +23,7 @@ export const url = BASE;
 
 /** The Help paragraphs this checks, by the command in the item's subject. */
 const ITEMS = {
-	connect: "/connect host [port]",
+	connect: "/server host [port]",
 	kickban: "/kickban nick [reason]",
 	ctcp: "/ctcp target cmd [args]",
 	part: "/part [channel]",
@@ -157,12 +157,12 @@ export default async function run(page) {
 
 		await page.screenshot(`help-${locale}`, {selector: "#help .help-item"});
 		await page.evaluate(
-			`(() => { const items = [...document.querySelectorAll(".help-item")]; const c = items.find((i) => i.textContent.includes("/connect host")); c && c.scrollIntoView(); })()`
+			`(() => { const items = [...document.querySelectorAll(".help-item")]; const c = items.find((i) => i.textContent.includes("/server host")); c && c.scrollIntoView(); })()`
 		);
 		await page.sleep(200);
 		await page.screenshot(`help-${locale}-connect`);
 
-		await open(page, locale, "#/settings/aliases", ".alias-intro");
+		await open(page, locale, "#/settings/scripts/aliases", ".alias-intro");
 		const aliases = await page.evaluate(READ_ALIASES);
 		console.log(`${locale} aliases: ${aliases?.text}`);
 		page.check(

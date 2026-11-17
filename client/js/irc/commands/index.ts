@@ -22,7 +22,6 @@ import {scriptManager} from "../scripting/manager";
 import alias from "./alias";
 import away from "./away";
 import ban from "./ban";
-import connect from "./connect";
 import ctcp from "./ctcp";
 import disconnect from "./disconnect";
 import ignore from "./ignore";
@@ -47,6 +46,7 @@ import raw from "./raw";
 import react from "./react";
 import redact from "./redact";
 import rejoin from "./rejoin";
+import server from "./server";
 import topic from "./topic";
 import who from "./who";
 import whois from "./whois";
@@ -56,7 +56,6 @@ const modules: Command[] = [
 	alias,
 	away,
 	ban,
-	connect,
 	ctcp,
 	disconnect,
 	ignore,
@@ -81,6 +80,7 @@ const modules: Command[] = [
 	react,
 	redact,
 	rejoin,
+	server,
 	topic,
 	who,
 	whois,

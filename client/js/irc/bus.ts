@@ -399,7 +399,7 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 			return;
 		}
 
-		// Unsaved live network (e.g. `/connect host`): seed from its options,
+		// Unsaved live network (e.g. `/server host`): seed from its options,
 		// and the mode the lobby dot set (the form posts none it was not given).
 		// A password that is not remembered is stored blank, but the client
 		// still holds it, and a blank field keeps it (fromForm). save() keeps

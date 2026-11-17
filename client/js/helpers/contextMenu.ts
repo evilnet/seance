@@ -166,7 +166,7 @@ export function generateChannelContextMenu(
 						action: () =>
 							socket.emit("input", {
 								target: channel.id,
-								text: "/connect",
+								text: "/server",
 							}),
 				  },
 		];

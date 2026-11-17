@@ -1616,7 +1616,7 @@ export class IrcClient {
 	/**
 	 * A deploy that lets only accounts in (branding.ts `accountRequired`),
 	 * and a network set to log in with nothing: however it came to be — a
-	 * saved entry from when guests were welcome, `/connect <host>`, "No
+	 * saved entry from when guests were welcome, `/server <host>`, "No
 	 * authentication" in its settings — it could only register as the
 	 * stranger the deploy turned away. Say so, stand its autoconnect down
 	 * (`onSaslRejected`: it can never connect as it is) and, when the

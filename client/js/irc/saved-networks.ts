@@ -369,7 +369,7 @@ export function presenceModeOf(net: Pick<SavedNetwork, "presenceMode"> | undefin
 
 /** Whether a network takes part in Web Push (`draft/webpush`): the saved
  * flag, defaulting to enabled — entries stored before the flag existed and
- * networks never saved (plain `/connect host`) are push-enabled; only an
+ * networks never saved (plain `/server host`) are push-enabled; only an
  * explicit `false` opts a network out. */
 export function pushEnabledOf(net: Pick<SavedNetwork, "pushEnabled"> | undefined): boolean {
 	return net?.pushEnabled !== false;

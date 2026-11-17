@@ -604,7 +604,7 @@ export default defineComponent({
 
 		// A conversation (channel or query) on a network that is down: the
 		// draft can be typed but not sent — only a slash command goes, so
-		// `/connect` and friends still work from here — and a strip above the
+		// `/server` and friends still work from here — and a strip above the
 		// input says what the network is doing. The lobby is left alone: its
 		// input is for commands, and it is where the connection reports.
 		const isConversation = computed(
@@ -645,7 +645,7 @@ export default defineComponent({
 
 		// The wait before the transport's next retry (`status.retryAt`) counts
 		// down here — a tick every half second while the network is down — and
-		// "Connect now" skips it (`/connect` restarts the schedule).
+		// "Connect now" skips it (`/server` restarts the schedule).
 		let ticker: ReturnType<typeof setInterval> | null = null;
 
 		const retryInSeconds = computed(() => {
@@ -733,10 +733,10 @@ export default defineComponent({
 			}
 		);
 
-		// The same `/connect` the sidebar's status icon sends; any window of
+		// The same `/server` the sidebar's status icon sends; any window of
 		// the network routes to its client.
 		const connectNetwork = () => {
-			socket.emit("input", {target: props.channel.id, text: "/connect"});
+			socket.emit("input", {target: props.channel.id, text: "/server"});
 		};
 
 		// Reply/edit compose bar (channel.replyTo / channel.editing).
@@ -909,7 +909,7 @@ export default defineComponent({
 				input.value.focus();
 			}
 
-			// No global gate: `/connect` and friends must work from a
+			// No global gate: `/server` and friends must work from a
 			// disconnected network. Plain text in a conversation on a
 			// network that is down stays as the draft (`canSend`, the same
 			// rule that disables the send button); elsewhere the IRC layer
