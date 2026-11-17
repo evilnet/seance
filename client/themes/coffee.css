@@ -214,10 +214,9 @@ body {
 }
 
 /* The network toolbar is one weight: the unsubscribed bell takes the same
-colour as the gear and the plus beside it (style.css sets their opacity
-alike); only a subscribed bell is green. */
+colour as the gear beside it (style.css sets their opacity alike); only a
+subscribed bell is green. */
 .channel-list-item .close::before,
-.channel-list-item[data-type="lobby"] .add-channel::before,
 .channel-list-item[data-type="lobby"] .edit-network::before,
 .channel-list-item .notify-status-icon.enabled::before,
 .channel-list-item .notify-status-icon.off::before,

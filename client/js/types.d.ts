@@ -92,7 +92,6 @@ type InitClientChan = ClientChan & {
 
 // We omit channels so we can use ClientChan[] instead of Chan[]
 type ClientNetwork = Omit<SharedNetwork, "channels"> & {
-	isJoinChannelShown: boolean;
 	isCollapsed: boolean;
 	channels: ClientChan[];
 	/** Being an oper here (`oper:state`, irc/oper.ts); absent until the first one. */

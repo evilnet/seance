@@ -116,12 +116,6 @@ export function generateChannelContextMenu(
 						},
 				  ]
 				: []),
-			{
-				label: t("menu.joinChannel"),
-				type: "item",
-				class: "join",
-				action: () => (network.isJoinChannelShown = true),
-			},
 			...(isOperOn(network)
 				? [
 						{

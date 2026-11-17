@@ -63,7 +63,7 @@ What is on screen today (desktop, light theme, font size "medium"):
 | Footer buttons                                       | 45 × 45 px | ok                                           |
 | Header buttons (`#chat button.close`)                | 36 × 36 px | ok                                           |
 | Message action buttons                               | 26 × 24 px | at the 2.5.8 minimum                         |
-| Sidebar close / add-channel / edit-network           | 18 × 18 px | below 24 px, adjacent to each other          |
+| Sidebar close / edit-network                         | 18 × 18 px | below 24 px, adjacent to each other          |
 | User list rows                                       | ~22 px     | 14 px × 1.6                                  |
 | Reaction chips                                       | ~20 px     |                                              |
 
@@ -175,8 +175,9 @@ SC = WCAG 2.2 success criterion.
 - [ ] **D 2.1.1** `Message.vue:68-75,146-153` — collapsing a revealed deleted
       message is a `title`-only span.
 - [ ] **M 2.5.8** `style.css:1018-1078` — `.channel-list-item .close`,
-      `.add-channel`, `.edit-network` 18 × 18 px; `.close` only rendered on
-      the active row.
+      `.edit-network` 18 × 18 px; `.close` only rendered on the active row
+      (`.add-channel` is gone: the channel browser is a full-size sidebar
+      line now).
 - [ ] **M** `App.vue:4-9` — Escape does not close the mobile sidebar
       overlay (`Alt+S` is the only keyboard path).
 
@@ -213,7 +214,7 @@ SC = WCAG 2.2 success criterion.
       (1.4.13). Two of them lack `type="button"` inside a `<form>` (3.2.2).
 - [ ] **D 2.5.3** `Connect.vue:29-38`, `NetworkForm.vue:55-63` — visible
       "Server" vs `aria-label="Server address"`.
-- [ ] **D 3.3.2** `JoinChannel.vue:11-33` — placeholder-only fields.
+- [x] **D 3.3.2** `JoinChannel.vue:11-33` — placeholder-only fields. The form is gone; the channel browser's join-by-name password field carries an `aria-label`.
 - [ ] **D 4.1.3** `Chat.vue:120-126` `#user-visible-error` (no
       `role="alert"`, div-click dismiss); `Settings/Notifications.vue:65-107`
       error blocks (no live region); `Chat.vue:53-63` empty

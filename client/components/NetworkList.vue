@@ -89,23 +89,12 @@
 				>
 					<NetworkLobby
 						:network="network"
-						:is-join-channel-shown="network.isJoinChannelShown"
 						:active="
 							store.state.activeChannel &&
 							network.channels[0] === store.state.activeChannel.channel
 						"
-						@toggle-join-channel="
-							network.isJoinChannelShown = !network.isJoinChannelShown
-						"
 					/>
-					<JoinChannel
-						v-if="network.isJoinChannelShown"
-						:network="network"
-						:channel="network.channels[0]"
-						@toggle-join-channel="
-							network.isJoinChannelShown = !network.isJoinChannelShown
-						"
-					/>
+					<ChannelBrowserRow v-if="!network.isCollapsed" :network="network" />
 
 					<Draggable
 						draggable=".channel-list-item"
@@ -196,7 +185,6 @@
 	cursor: pointer;
 }
 
-.jump-to-results .channel-list-item .add-channel,
 .jump-to-results .channel-list-item .close-tooltip {
 	display: none;
 }
@@ -217,8 +205,8 @@ import Mousetrap from "mousetrap";
 import Draggable from "./Draggable.vue";
 import {filter as fuzzyFilter} from "fuzzy";
 import NetworkLobby from "./NetworkLobby.vue";
+import ChannelBrowserRow from "./ChannelBrowserRow.vue";
 import Channel from "./Channel.vue";
-import JoinChannel from "./JoinChannel.vue";
 import DormantNetwork from "./DormantNetwork.vue";
 import useSavedNetworks from "../js/hooks/use-saved-networks";
 import {autoconnectPending} from "../js/irc/manager";
@@ -238,9 +226,9 @@ import Sortable from "sortablejs";
 export default defineComponent({
 	name: "NetworkList",
 	components: {
-		JoinChannel,
 		DormantNetwork,
 		NetworkLobby,
+		ChannelBrowserRow,
 		Channel,
 		Draggable,
 	},

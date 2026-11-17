@@ -259,7 +259,6 @@
 .channel-list-item[data-type="lobby"].active:hover,
 .channel-list-item.active.has-highlight:not(.is-muted) .name,
 .channel-list-item.active .close::before,
-.channel-list-item[data-type="lobby"].active .add-channel::before,
 .channel-list-item[data-type="lobby"].active .edit-network::before,
 .channel-list-item.active .notify-status-icon.enabled::before,
 .channel-list-item.active .notify-status-icon.off::before,

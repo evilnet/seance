@@ -48,7 +48,6 @@ function mergeNetworkData(newNetworks: SharedNetwork[]): ClientNetwork[] {
 			const newNet: ClientNetwork = {
 				...sharedNet,
 				channels: sharedNet.channels.map(toClientChan),
-				isJoinChannelShown: false,
 				isCollapsed: collapsed.has(sharedNet.uuid),
 			};
 			result.push(newNet);

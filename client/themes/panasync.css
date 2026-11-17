@@ -203,7 +203,6 @@ body,
 }
 
 .channel-list-item[data-type="lobby"] .lobby-nick,
-.channel-list-item[data-type="lobby"] .add-channel::before,
 .channel-list-item[data-type="lobby"] .edit-network::before,
 .channel-list-item[data-type="lobby"] .notify-status-icon::before,
 #sidebar .network .collapse-network-icon::before {

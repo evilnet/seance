@@ -14,7 +14,6 @@ socket.on("network", function (data) {
 	const network: ClientNetwork = {
 		...data.network,
 		channels: data.network.channels.map(toClientChan),
-		isJoinChannelShown: false,
 		isCollapsed: false,
 	};
 
