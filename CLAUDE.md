@@ -78,3 +78,8 @@ Tests mirror the source under `test/` (`test/irc/`, `test/helpers/`, `test/push/
 
 - GitHub Issues live on upstream `evilnet/seance` (always pass `-R evilnet/seance`); triage labels and conventions: `docs/agents/`.
 - Glossary: `CONTEXT.md`; ADRs: `docs/adr/`; every other document: `docs/resources/codebase-guide.md` § Documentation and `docs/README.md`.
+
+## Releases
+
+- **A release bumps only the last number** (`v5.9.0` → `v5.9.1`), features included, unless the user asks for a bigger step.
+- Cut it from develop's head once its CI and Pages runs have finished: `gh release create vX.Y.Z -R evilnet/seance --target develop --title vX.Y.Z --generate-notes --notes-start-tag <previous tag>`. The release's Pages run deploys it to the site root. There is no version file, and `CHANGELOG.md` is not kept per release.
