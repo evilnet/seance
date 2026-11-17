@@ -1,8 +1,11 @@
 /**
- * `/connect` (`/server`): without arguments, reconnect the current network;
- * `/connect <host> [[+]port]` opens a new network with the current nick
+ * `/server`: without arguments, reconnect the current network;
+ * `/server <host> [[+]port]` opens a new network with the current nick
  * (`+port` means TLS, as in the old server). The new network goes through
  * the bus (`network:new`) so the manager — not this module — owns it.
+ *
+ * Not `/connect`: that is the ircd's own command (an oper linking two
+ * servers), so it stays unregistered and goes to the server raw.
  */
 
 import {MessageType} from "../../../../shared/types/msg";
@@ -11,8 +14,8 @@ import {t} from "../../i18n/core";
 import {defaultPort} from "../saved-networks";
 import type {Command, ConnectOptions} from "../types";
 
-const connect: Command = {
-	commands: ["connect", "server"],
+const server: Command = {
+	commands: ["server"],
 	allowDisconnected: true,
 	input({client, chan, args}) {
 		if (args.length === 0) {
@@ -51,4 +54,4 @@ const connect: Command = {
 	},
 };
 
-export default connect;
+export default server;

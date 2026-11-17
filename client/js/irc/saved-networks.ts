@@ -19,7 +19,7 @@
 import {isNetworkId} from "./bouncer";
 import storage from "../localStorage";
 import {collator} from "../i18n/collation";
-import {forgetNetworkLog} from "./querylog";
+import {forgetNetworkConversations} from "./conversationStore";
 import {forgetClosedQueries} from "./closedQueries";
 import {forgetNoticeLog} from "./noticelog";
 import {forgetOperPrefs} from "./operprefs";
@@ -393,7 +393,7 @@ export function presenceModeOf(net: Pick<SavedNetwork, "presenceMode"> | undefin
 
 /** Whether a network takes part in Web Push (`draft/webpush`): the saved
  * flag, defaulting to enabled — entries stored before the flag existed and
- * networks never saved (plain `/connect host`) are push-enabled; only an
+ * networks never saved (plain `/server host`) are push-enabled; only an
  * explicit `false` opts a network out. */
 export function pushEnabledOf(net: Pick<SavedNetwork, "pushEnabled"> | undefined): boolean {
 	return net?.pushEnabled !== false;
@@ -731,7 +731,7 @@ export function remove(uuid: string): void {
 		write(remaining);
 	}
 
-	forgetNetworkLog(uuid); // its private conversations go with it
+	forgetNetworkConversations(uuid); // its conversations go with it
 	forgetClosedQueries(uuid); // and the ones it closed
 	forgetNoticeLog(uuid); // and its server notices
 	forgetOperPrefs(uuid);

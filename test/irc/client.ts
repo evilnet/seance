@@ -1303,8 +1303,8 @@ describe("IrcClient", function () {
 			]);
 			expect(lastMessage(1).text).to.equal("Reconnect cancelled.");
 
-			// /connect brings it back with a fresh attempt.
-			h.client.input(1, "/connect");
+			// /server brings it back with a fresh attempt.
+			h.client.input(1, "/server");
 			expect(h.transport.connectCalls).to.equal(2);
 			expect(h.client.network.status.connecting).to.equal(true);
 		});

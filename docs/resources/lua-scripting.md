@@ -11,7 +11,7 @@ limits and pitfalls, for users — is [`docs/areas/scripting/`](../areas/scripti
 
 ### Off Unless Enabled (the master switch)
 
-Scripting is gated by **Settings → Scripts → Enable scripting** (setting
+Scripting is gated by **Settings → Scripts → Enable Lua** (setting
 `enableScripting`, default off). The flag lives in
 `client/js/irc/scripting/enabled.ts`; `settings.ts` writes it and the script
 manager subscribes to it.
@@ -285,15 +285,20 @@ seance.storage.set("last_seen", seance.current_channel)
 1. **Settings → Scripts** (`Settings/Scripts.vue` at `/settings/scripts`,
    one tab of the settings modal like the others; nothing in the sidebar):
 
-   - The tab always holds the Enable scripting switch; the library shows
-     only while it is on.
-   - **The library**: every script is filed under a _folder_ (free text,
-     `Unsorted` when unset; scripts written before folders land there) with
-     an optional one-line description, listed by folder, then name, each
-     row with its state (Running / Off / Error) and an on/off switch. Past
-     six scripts a search over name, folder, description and code appears.
-     New script, Import .lua… and two examples (Auto-responder under
-     _Automation_, /slap under _Commands_) each open the new script in the
+   - The tab opens with the Aliases row (command aliases, which are not
+     Lua and work either way; `docs/resources/aliases.md` § The editor),
+     then the Enable Lua switch. The library under the switch is always
+     listed; while the switch is off it is greyed out (0.45, 0.8 under
+     Increase Contrast) and `inert` (no script opens, runs, switches or is
+     added), each row keeps its own switch, as it will be once Lua is on,
+     and says nothing of running: only a script's error still shows.
+   - **The library**: one list by name, each script with an optional
+     one-line description, its state (Running / Off / Error) and an on/off
+     switch. There are no folders (the library once filed scripts under
+     them; a stored `folder` is dropped on the next save): a name prefix
+     groups scripts as well and costs no heading. Past six scripts a search
+     over name, description and code appears. New script, Import .lua… and
+     two examples (Auto-responder, /slap) each open the new script in the
      editor. An imported file arrives switched off, as a restored backup's
      scripts do.
    - **The editor** (`Settings/ScriptEdit.vue` at `/settings/scripts/<id>`,
@@ -304,10 +309,12 @@ seance.storage.set("last_seen", seance.current_channel)
      the whole screen on a phone, in the settings' frame — a header with
      ✕, a body that scrolls, a footer with Done — with the list still
      under it. Done, ✕, Escape and the backdrop close it back to the list,
-     which reads the library again. It holds name, folder, description,
-     Run this script, the code filling the height the fields leave, and Check
-     syntax (compiles without running), Duplicate (the copy arrives off),
-     Export .lua and Delete.
+     which reads the library again. Like the aliases' layer it takes the
+     focus as it opens, keeps Tab inside it while it is up and gives the
+     focus back to what opened it as it closes (`hooks/use-layer-focus.ts`).
+     It holds name, description, Run this script, the code filling the
+     height the fields leave, and Check syntax (compiles without running),
+     Duplicate (the copy arrives off), Export .lua and Delete.
    - **The code field** is CodeMirror 6 (`helpers/luaEditor.ts`): the Lua
      mode from `@codemirror/legacy-modes`, line numbers, undo history,
      bracket matching. Its tokens carry the same `tok-*` classes Prism gives

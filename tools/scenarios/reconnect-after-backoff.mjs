@@ -23,7 +23,7 @@
 //   2. during the quick retries a foreground signal (window focus) dials at once;
 //   3. after the quick retries the wait is the long one, 42–47 s;
 //   4. a foreground signal during the long wait does not dial;
-//   5. once dials go through again, a typed /connect registers at once;
+//   5. once dials go through again, a typed /server registers at once;
 //   6. no console errors.
 
 import {startProxy} from "./lib/irc-proxy.mjs";
@@ -140,16 +140,16 @@ async function check(page, proxy) {
 		!lines.slice(mark).some((l) => /Connecting to /.test(l))
 	);
 
-	// 5. The radio is back; the user asks: /connect dials at once and gets
+	// 5. The radio is back; the user asks: /server dials at once and gets
 	// through. (A dial refused just before the switch reports its error
 	// late: errors stay expected until the registration is in.)
 	proxy.accept();
 	const frames = page.wsFrames.length;
-	await page.fill("#input", "/connect");
+	await page.fill("#input", "/server");
 	await page.evaluate(`document.querySelector("#form").requestSubmit()`);
 	await until(page, () => registered(page, frames), 10000, "the re-registration");
 	page.expectWsErrors = false;
-	page.check("5. a typed /connect registered at once", registered(page, frames));
+	page.check("5. a typed /server registered at once", registered(page, frames));
 	await page.screenshot("4-back");
 
 	page.check("6. no console errors", page.consoleErrors.length === 0);

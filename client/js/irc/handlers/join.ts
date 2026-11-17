@@ -85,7 +85,10 @@ const join: Handler = (client, msg) => {
 	// Re-joining after a drop, the server restoring a held session
 	// (draft/persistence), or a membership we already have: state, not
 	// something that happened.
-	const quiet = self && (wasJoined || chan.rejoining || client.restoring);
+	// A join the user typed is news all the same: `rejoining` outlives a dial
+	// that never reached its JOIN, and a channel that could not be joined
+	// again (a ban) keeps it until they try by hand.
+	const quiet = self && (wasJoined || (chan.rejoining && !requested) || client.restoring);
 
 	if (self) {
 		// Joined by hand, not handed back: the burst's topic is shown once
@@ -93,6 +96,10 @@ const join: Handler = (client, msg) => {
 		// ignored (already a member) does not count for a restore or re-join.
 		chan.topicWanted = requested && !quiet;
 		chan.autoJoin = true;
+		// A page load joins it again, as a reconnect does, also a channel
+		// joined by hand that the saved list does not name (conversationStore.ts).
+		client.conversations.setJoined(chan.name, true, chan.shared.key);
+		chan.fromStore = false; // a membership of this page from here on
 
 		if (!wasJoined) {
 			// The channel modes are asked for lazily, the first time the

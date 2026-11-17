@@ -28,8 +28,8 @@ export function clearHistory(target: number): void {
 	channel.firstUnread = 0;
 	channel.moreHistoryAvailable = false;
 	closePast(channel);
-	// The counters are the IRC layer's, and so is a private conversation's
-	// log on this device: without this the next message brings the old
-	// counts back, and the next page load the cleared lines (bus-contract § 2).
+	// The counters are the IRC layer's, and so are the lines kept on this
+	// device: without this the next message brings the old counts back, and
+	// the next page load the cleared lines (bus-contract § 2).
 	socket.emit("history:clear", {target});
 }

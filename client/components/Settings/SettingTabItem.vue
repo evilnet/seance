@@ -16,6 +16,7 @@
 <script lang="ts">
 import {computed, defineComponent} from "vue";
 import {useRoute} from "vue-router";
+import {settingsTabFor} from "../../js/helpers/settingsTabs";
 
 export default defineComponent({
 	name: "SettingTabListItem",
@@ -42,12 +43,7 @@ export default defineComponent({
 	},
 	setup(props) {
 		const route = useRoute();
-		const isActiveRoute = computed(
-			() =>
-				route.name === props.name ||
-				(props.name === "Networks" && route.name === "NetworkEdit") ||
-				(props.name === "Scripts" && route.name === "ScriptEdit")
-		);
+		const isActiveRoute = computed(() => settingsTabFor(route) === props.name);
 		const label = computed(() => props.label ?? props.name);
 
 		return {

@@ -51,6 +51,7 @@ const kick: Handler = (client, msg) => {
 		chan.users.clear();
 		chan.state = ChanState.PARTED;
 		chan.autoJoin = false;
+		client.conversations.setJoined(chan.name, false); // a page load does not join it again
 		client.dispatch("channel:state", {chan: chan.id, state: chan.state});
 	} else {
 		chan.removeUser(kicked);

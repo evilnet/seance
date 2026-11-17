@@ -219,7 +219,7 @@ What to know:
 - The name has no leading `/`, and is not case-sensitive (`/GREET` works).
 - **Built-in commands win**: a script cannot replace `/join`, `/msg`,
   `/me` or any other command Seance already has. Your aliases
-  (Settings → Aliases) are expanded before commands are looked up, so an
+  (Settings → Scripts → Aliases) are expanded before commands are looked up, so an
   alias can call a script's command — and an alias with the same name hides
   it.
 - Registering a name again — in the same script or another — replaces the

@@ -66,7 +66,6 @@ export function scriptTemplate(kind: "responder" | "slap", scripts: Script[]): S
 		return {
 			id: newScriptId(),
 			name: uniqueScriptName(scripts, "auto_ping"),
-			folder: t("scripting.template.responderFolder"),
 			description: t("scripting.template.responderDescription"),
 			code: `-- Auto-responder example\nseance.on("message", function(msg)\n    if msg.text == "!ping" and not msg.self then\n        seance.reply(msg, "pong! " .. seance.nick)\n    end\nend)\n`,
 			enabled: true,
@@ -77,7 +76,6 @@ export function scriptTemplate(kind: "responder" | "slap", scripts: Script[]): S
 	return {
 		id: newScriptId(),
 		name: uniqueScriptName(scripts, "slap_cmd"),
-		folder: t("scripting.template.slapFolder"),
 		description: t("scripting.template.slapDescription"),
 		// In a network's lobby seance.current_channel is the network's name:
 		// the check keeps /slap from messaging it (as cookbook.md's /shrug).

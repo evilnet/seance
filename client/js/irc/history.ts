@@ -43,7 +43,7 @@
  */
 
 import {ChanState, ChanType} from "../../../shared/types/chan";
-import type {SharedMsg} from "../../../shared/types/msg";
+import type {MessageType, SharedMsg} from "../../../shared/types/msg";
 import type {Channel, MsgRef} from "./channel";
 import type {IdBlock} from "./ids";
 import type {IrcClient, ReplayCollection} from "./client";
@@ -53,6 +53,7 @@ import {enqueueMarkerFetch} from "./catchup";
 import {formatLine, IrcMessage} from "./message";
 import {searchAck, searchContextBatch} from "./historysearch";
 import {settlePendingLabel} from "./pending";
+import {lineIdentity} from "./conversationStore";
 import {inBouncerReplay, inServerCatchup} from "./persistence";
 import type {Handler} from "./types";
 
@@ -63,6 +64,8 @@ export const HISTORY_TIMEOUT_MS = 15_000;
 const PAGE_COST_MS = 2000;
 /** Page size for `more` (the old server also paged by 100). */
 export const MORE_PAGE_SIZE = 100;
+/** Lines asked of the device beyond a page, for the ones the window already shows. */
+const DEVICE_PAGE_OVERLAP = 20;
 /** Page size for the LATEST request on first JOIN. */
 export const JOIN_PAGE_SIZE = 50;
 /** Most pages fetched in one catch-up (LATEST plus BEFORE pages). */
@@ -102,6 +105,8 @@ export interface HistorySpec {
 	retry?: boolean;
 	/** Catch-up: ids for the gap, set aside when it started (`IrcClient.reserveIds`). */
 	ids?: IdBlock;
+	/** Filling a marked gap: the id of the line the marker stands before ({@link requestFill}). */
+	fill?: number;
 }
 
 export interface HistoryRequest {
@@ -136,6 +141,8 @@ export interface HistoryRequest {
 	gapAfter: (() => void)[];
 	/** Catch-up: the gap's ids (HistorySpec.ids). */
 	ids?: IdBlock;
+	/** Filling a marked gap (HistorySpec.fill). */
+	fill?: number;
 	timer: ReturnType<typeof setTimeout>;
 }
 
@@ -243,6 +250,7 @@ export function requestHistory(
 		floor: spec.floor,
 		held: spec.held,
 		ids: spec.ids,
+		fill: spec.fill,
 		gap: [],
 		gapAfter: [],
 		timer: setTimeout(() => resolve(client, request, null, "timeout"), HISTORY_TIMEOUT_MS),
@@ -259,6 +267,50 @@ export function requestHistory(
  * `more` itself.
  */
 export function requestMore(client: IrcClient, chan: Channel, lastId: number): boolean {
+	// The device's own lines first (conversationStore.ts): they are there
+	// without a connection, and older than what the server keeps. Only when
+	// it has none older does the server get asked.
+	const first = lastId === -1 ? undefined : chan.msgRefs.get(lastId);
+
+	if (first && client.conversations.meta(chan.name)) {
+		if (chan.deviceMore) {
+			return true;
+		}
+
+		chan.deviceMore = true;
+		void client.conversations
+			.older(chan.name, first.time, MORE_PAGE_SIZE + DEVICE_PAGE_OVERLAP)
+			.then((lines) => {
+				chan.deviceMore = false;
+
+				if (!client.channels.includes(chan)) {
+					return;
+				}
+
+				const fresh = lines.filter((msg) => !chan.shows(msg)).slice(-MORE_PAGE_SIZE);
+
+				if (fresh.length > 0) {
+					deliverPrepend(client, chan, fresh, true, true);
+				} else if (!requestServerMore(client, chan, lastId)) {
+					// The device has no more and the server cannot be asked.
+					// Offline, the control stays for when it can.
+					client.dispatch("more", {
+						chan: chan.id,
+						messages: [],
+						totalMessages: chan.shared.totalMessages,
+						moreAvailable: !client.isWelcomed,
+						device: false,
+					});
+				}
+			});
+		return true;
+	}
+
+	return requestServerMore(client, chan, lastId);
+}
+
+/** {@link requestMore}, from the server. */
+function requestServerMore(client: IrcClient, chan: Channel, lastId: number): boolean {
 	if (!canRequest(client, chan)) {
 		return false;
 	}
@@ -297,6 +349,48 @@ export function requestMore(client: IrcClient, chan: Channel, lastId: number): b
 			limit: MORE_PAGE_SIZE,
 			mode: "prepend",
 			retry: true,
+		}) !== undefined
+	);
+}
+
+/**
+ * Load the lines missing before the marked line `id` of `chan` (the gap
+ * marker, SharedMsg.gapBefore): the catch-up walk again, from that line
+ * back, `BEFORE` pages until one meets what the window holds below the
+ * marker, the server says there is no more, or the page cap. What it brings
+ * goes in above the marked line, by time; the marker then goes, or moves up
+ * to the oldest line brought when the walk stopped short again. False when
+ * nothing could be asked.
+ */
+export function requestFill(
+	client: IrcClient,
+	chan: Channel,
+	id: number,
+	pages = MAX_CATCHUP_PAGES
+): boolean {
+	const ref = chan.msgRefs.get(id);
+
+	if (!ref?.gap || !canRequest(client, chan)) {
+		return false;
+	}
+
+	if (pendingOf(client).some((r) => r.chan === chan && r.fill !== undefined)) {
+		return true; // one fill per channel at a time
+	}
+
+	// The floor: the newest line the server stamped below the marker.
+	const floor = chan.newestServerRefBefore(ref.time.getTime(), ref);
+
+	return (
+		requestHistory(client, chan, {
+			subcommand: "BEFORE",
+			ref,
+			limit: MORE_PAGE_SIZE,
+			mode: "append",
+			pagesLeft: pages - 1,
+			floor,
+			held: new Set(chan.msgids),
+			fill: id,
 		}) !== undefined
 	);
 }
@@ -485,6 +579,10 @@ function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed
 			continue; // already shown (dedupe against the channel, not within the batch)
 		}
 
+		if (chan.clearedAt !== undefined && new Date(msg.time).getTime() <= chan.clearedAt) {
+			continue; // cleared by the user on this device: not brought back
+		}
+
 		// msg.highlight is kept: a replayed mention renders highlighted.
 		// Delivery is what stays silent (no notification) — deliverAppend
 		// pushes with `replay` and `more` never notifies.
@@ -511,7 +609,8 @@ function deliverPrepend(
 	client: IrcClient,
 	chan: Channel,
 	messages: SharedMsg[],
-	moreAvailable: boolean
+	moreAvailable: boolean,
+	device?: boolean
 ): void {
 	const ids = client.historyIds(messages.length);
 	let lastRef: MsgRef | undefined;
@@ -531,9 +630,7 @@ function deliverPrepend(
 		// line we have seen; noteCursor only ever moves forward.
 		client.noteCursor(msg);
 
-		if (chan.type === ChanType.QUERY) {
-			client.queryLog.append(chan.name, msg); // by time, deduplicated
-		}
+		client.keep(chan, msg); // added only when the device does not hold it
 	});
 
 	if (!chan.newestRef && lastRef) {
@@ -554,7 +651,13 @@ function deliverPrepend(
 	// offered; under overlapping requests the running total drifted the
 	// other way. Send the boolean; totalMessages stays for other readers.
 	const totalMessages = chan.shared.totalMessages + (moreAvailable ? 1 : 0);
-	client.dispatch("more", {chan: chan.id, messages, totalMessages, moreAvailable});
+	client.dispatch("more", {
+		chan: chan.id,
+		messages,
+		totalMessages,
+		moreAvailable,
+		...(device === undefined ? {} : {device}),
+	});
 
 	// An original its edit already replaced is not news, read or not, nor
 	// a line in this page that it edits in turn.
@@ -729,6 +832,64 @@ function deliverAppend(
 	}
 }
 
+/**
+ * A walk is over (the reconnect's catch-up, or the fill of a marked gap):
+ * deliver what it gathered, in order, and say where lines are still
+ * missing. `complete`: it met what the window held, or the server said there
+ * is no more. When it did not, the oldest line it brought that is newer than
+ * everything held gets the gap marker (SharedMsg.gapBefore): the lines
+ * between it and the one before are not here, and the marker's control asks
+ * for them ({@link requestFill}). The window is then complete down to the
+ * marker, which is all `historyFilled` vouches for.
+ */
+function finishWalk(
+	client: IrcClient,
+	chan: Channel,
+	walk: {held?: ReadonlySet<string>; ids?: IdBlock; fill?: number; floor?: MsgRef},
+	gap: SharedMsg[],
+	complete: boolean
+): void {
+	const held = walk.held ?? new Set(chan.msgids);
+
+	if (walk.fill !== undefined) {
+		// Filling a marked gap: every line is older than the marked one and
+		// goes in by time. Stopped short again, the marker moves up to the
+		// oldest line brought; nothing brought, it stays where it is.
+		if (!complete && gap.length > 0) {
+			gap[0].gapBefore = true;
+		}
+
+		deliverAppend(client, chan, gap, walk.ids, held);
+
+		if (complete || gap.length > 0) {
+			client.setGap(chan, walk.fill, false);
+		} else {
+			client.setGap(chan, walk.fill, true); // releases the control
+		}
+
+		return;
+	}
+
+	let marked = false;
+
+	if (!complete && walk.floor) {
+		const newestHeld = chan.newestTimeOf(held) ?? walk.floor.time.getTime();
+		const first = gap.find((msg) => new Date(msg.time).getTime() > newestHeld);
+
+		if (first) {
+			first.gapBefore = true;
+			marked = true;
+		}
+	}
+
+	if (complete || marked) {
+		chan.historyFilled = true;
+	}
+
+	deliverAppend(client, chan, gap, walk.ids, held);
+	client.noteFilled(chan);
+}
+
 type Outcome = "batch" | "fail" | "ack" | "timeout";
 
 function resolve(
@@ -831,6 +992,7 @@ function resolve(
 				floor: request.floor,
 				held: request.held,
 				ids: request.ids,
+				fill: request.fill,
 			};
 			const {gap, gapAfter} = request;
 			const job = {
@@ -845,7 +1007,7 @@ function resolve(
 						return;
 					}
 
-					deliverAppend(client, chan, gap, spec.ids, spec.held);
+					finishWalk(client, chan, spec, gap, false);
 					runAfter(gapAfter);
 				},
 			};
@@ -867,11 +1029,7 @@ function resolve(
 		// newer pages already received. Only a walk that met what we hold, or
 		// that the server said is the end, vouches for the whole gap: the page
 		// cap stops it short.
-		if (answered && (reached || end)) {
-			chan.historyFilled = true;
-		}
-
-		deliverAppend(client, chan, request.gap, request.ids, known);
+		finishWalk(client, chan, request, request.gap, answered && (reached || end));
 		runAfter(request.gapAfter);
 		return;
 	}
@@ -887,10 +1045,25 @@ function resolve(
 	// empty page, which still closes the button.
 	if (answered && request.mode === "prepend" && request.subcommand === "LATEST") {
 		chan.historyFilled = true;
+
+		// This page could not see what the device keeps of the window (the
+		// boot read was slow or failed): older lines may be there with a
+		// hole below this page. Marked, so that it is found and can be
+		// loaded; a marker over nothing goes at the first try.
+		if (client.conversations.blind && messages.length > 0 && !end) {
+			messages[0].gapBefore = true;
+		}
 	}
 
+	client.noteFilled(chan);
+
 	// The end tag closes it even after a full page (draft/chathistory-end).
-	const more = outcome === "timeout" || (lines !== null && lines.length > 0 && !end);
+	// So does a page that reaches what the user cleared here: nothing from
+	// before that is offered again.
+	const cleared =
+		chan.clearedAt !== undefined &&
+		(lines ?? []).some((line) => Date.parse(line.tags.get("time") ?? "") <= chan.clearedAt!);
+	const more = outcome === "timeout" || (lines !== null && lines.length > 0 && !end && !cleared);
 	deliverPrepend(client, chan, messages, more);
 	runAfter(after);
 }
@@ -907,7 +1080,10 @@ export const chathistoryBatch: BatchHandler = (client, batch) => {
 	// hold, so they are appended as live ones. Checked before findRequest,
 	// which would otherwise match one to a pending request by target alone.
 	if (inBouncerReplay(batch)) {
-		deliverCatchup(client, target, batch.messages);
+		// nefarious2 sends each leg's newest lines up to a limit and says a
+		// leg is whole with the end tag (replay.c); without it the leg was
+		// cut, and the lines before its oldest are missing.
+		deliverCatchup(client, target, batch.messages, !batch.tags.has("draft/chathistory-end"));
 		return;
 	}
 
@@ -944,18 +1120,20 @@ export const ZNC_PLAYBACK_BATCH = "znc.in/playback";
  * sender, the kind (message, action, notice) and the text, with how many
  * times each came. ZNC has no msgids, and a buffer it does not clear
  * (`AutoClearChanBuffer` off, or the `*playback` module) comes back on every
- * attach, along with lines we already saw live. A query's lines restored from
- * this device (querylog.ts) count too, seeded at its first replay
- * ({@link seedFromQueryLog}). Bounded per conversation.
+ * attach, along with lines we already saw live. A window's lines restored from
+ * this device (conversationStore.ts) count too, seeded at its first replay
+ * ({@link seedFromStore}). Bounded per conversation.
  */
 const zncSeen = new WeakMap<IrcClient, Map<string, Map<string, number>>>();
 /** Conversations whose logged lines were counted in already, per client. */
 const zncSeeded = new WeakMap<IrcClient, Set<string>>();
 const ZNC_SEEN_MAX = 2000;
 
-/** A line's identity: epoch ms, sender, kind, text. */
-function identity(ms: number, nick: string, kind: string, text: string): string {
-	return [ms, nick, kind, text].join("\0");
+/** A line's identity: epoch ms, then what the line is (conversationStore.ts lineIdentity). */
+function identity(client: IrcClient, ms: number, nick: string, kind: string, text: string): string {
+	return `${ms}${lineIdentity({from: {nick, mode: ""}, type: kind as MessageType, text}, (s) =>
+		client.casefold(s)
+	)}`;
 }
 
 /** A PRIVMSG or NOTICE's identity, from the bouncer's own time tag; none without one. */
@@ -974,7 +1152,7 @@ function zncKey(client: IrcClient, line: IrcMessage): string | undefined {
 		text = text.slice("\x01ACTION ".length).replace(/\x01$/, "");
 	}
 
-	return identity(ms, client.casefold(line.source?.name ?? ""), kind, text);
+	return identity(client, ms, line.source?.name ?? "", kind, text);
 }
 
 function zncSeenFor(client: IrcClient, target: string): Map<string, number> {
@@ -1007,16 +1185,12 @@ function trimSeen(seen: Map<string, number>): void {
 }
 
 /**
- * Count a query's lines kept on this device (querylog.ts) as shown, once per
- * page: after a reload they were restored into the window, and ZNC's QueryLog
+ * Count a window's lines kept on this device (conversationStore.ts) as shown,
+ * once per page: after a reload they were restored into the window, and ZNC's
  * buffer replays the same lines. Counted with the larger of the two counts,
  * since the lines seen live since are in the log as well.
  */
-function seedFromQueryLog(client: IrcClient, target: string, seen: Map<string, number>): void {
-	if (client.isChannelName(target)) {
-		return;
-	}
-
+function seedFromStore(client: IrcClient, target: string, seen: Map<string, number>): void {
 	let seeded = zncSeeded.get(client);
 
 	if (!seeded) {
@@ -1033,14 +1207,14 @@ function seedFromQueryLog(client: IrcClient, target: string, seen: Map<string, n
 	seeded.add(folded);
 	const logged = new Map<string, number>();
 
-	for (const msg of client.queryLog.messages(target)) {
+	for (const msg of client.conversations.restoredMessages(target)) {
 		const ms = new Date(msg.time).getTime();
 
 		if (Number.isNaN(ms) || msg.text === undefined || msg.type === undefined) {
 			continue;
 		}
 
-		const key = identity(ms, client.casefold(msg.from?.nick ?? ""), msg.type, msg.text);
+		const key = identity(client, ms, msg.from?.nick ?? "", msg.type, msg.text);
 		logged.set(key, (logged.get(key) ?? 0) + 1);
 	}
 
@@ -1079,7 +1253,7 @@ export const zncPlaybackBatch: BatchHandler = (client, batch) => {
 	}
 
 	const seen = zncSeenFor(client, target);
-	seedFromQueryLog(client, target, seen);
+	seedFromStore(client, target, seen);
 	const inBatch = new Map<string, number>();
 	const lines = batch.messages.filter((line) => {
 		const key = zncKey(client, line);
@@ -1110,7 +1284,7 @@ export const zncPlaybackBatch: BatchHandler = (client, batch) => {
  * (`replay`), msgid dedupe against what the channel already shows. A PM from
  * someone we have no window for opens one, as a live message would.
  */
-function deliverCatchup(client: IrcClient, target: string, lines: IrcMessage[]): void {
+function deliverCatchup(client: IrcClient, target: string, lines: IrcMessage[], cut = false): void {
 	if (!target) {
 		return;
 	}
@@ -1133,9 +1307,41 @@ function deliverCatchup(client: IrcClient, target: string, lines: IrcMessage[]):
 		return;
 	}
 
+	// What the window held before this leg: a line of it no newer than that
+	// goes in by time, and a cut leg leaves a gap above its oldest new line.
+	const held = new Set(chan.msgids);
+	const newestHeld = chan.newestTimeOf(held);
 	const {messages, after} = replay(client, chan, lines);
-	deliverAppend(client, chan, messages, client.replayIds);
+	const first =
+		cut && newestHeld !== undefined
+			? messages.find((msg) => new Date(msg.time).getTime() > newestHeld)
+			: undefined;
+
+	if (first) {
+		first.gapBefore = true;
+	}
+
+	deliverAppend(client, chan, messages, client.replayIds, held);
 	runAfter(after);
+
+	if (first) {
+		// Nobody is waiting for it: the fill goes behind the user's own
+		// lines, the open channel's first (fakelag.ts).
+		const window = chan;
+		const id = first.id;
+		client.background.add(
+			{
+				key: `fill:${window.id}`,
+				cost: PAGE_COST_MS,
+				run() {
+					// One page: the rest waits for whoever wants it (the
+					// marker's control), not for every busy channel's turn.
+					requestFill(client, window, id, 1);
+				},
+			},
+			{front: window.id === client.activeChannelId}
+		);
+	}
 }
 
 /**

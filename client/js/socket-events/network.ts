@@ -63,8 +63,8 @@ function openOnAnnounce(network: ClientNetwork): void {
 	const waitingFor = fromDeepLink ? pending : beginLanding(network.uuid);
 
 	if (!waitingFor) {
-		// The last of the join list — not a private conversation the query
-		// log brought back, which sorts in among them (irc/querylog.ts).
+		// The last of the join list — not a window the device
+		// brought back, which sorts in among them (irc/conversationStore.ts).
 		const joinList = network.channels.filter((c) => c.type === ChanType.CHANNEL);
 		switchToChannel(joinList[joinList.length - 1] ?? network.channels[0]);
 		return;

@@ -40,7 +40,7 @@ import NetworkForm, {ConnectionAction, NetworkFormDefaults} from "../NetworkForm
  * local copy and `network:edit` writes it back to localStorage, renaming /
  * re-nicking the live network where that applies. The status row reads the
  * live network's `status` from the store; its button saves the form (so a
- * corrected port / TLS box is what gets used) and sends `/connect`, or
+ * corrected port / TLS box is what gets used) and sends `/server`, or
  * `/disconnect` (which also cancels a pending reconnect).
  */
 export default defineComponent({
@@ -124,7 +124,7 @@ export default defineComponent({
 
 			socket.emit("input", {
 				target: network.channels[0].id,
-				text: action === "connect" ? "/connect" : "/disconnect",
+				text: action === "connect" ? "/server" : "/disconnect",
 			});
 		};
 

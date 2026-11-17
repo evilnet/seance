@@ -1746,7 +1746,7 @@ describe("Chat history (history.ts)", function () {
 			expect(pendingHistory(h.client)).to.have.length(0);
 		});
 
-		it("stops on an empty page with no end tag, but does not vouch for the gap", function () {
+		it("stops on an empty page with no end tag, and marks the gap it could not vouch for", function () {
 			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
 			const id = joined(h);
 			h.transport.line(
@@ -1762,7 +1762,9 @@ describe("Chat history (history.ts)", function () {
 
 			expect(h.sent()).to.deep.equal([]);
 			expect(msgs(id).map((p) => p.msg.text)).to.include("three");
-			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(false);
+			// Complete down to the marker, which says where lines are missing.
+			expect(msgs(id).find((p) => p.msg.text === "three")!.msg.gapBefore).to.equal(true);
+			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(true);
 			expect(pendingHistory(h.client)).to.have.length(0);
 		});
 

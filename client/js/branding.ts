@@ -404,7 +404,7 @@ export function brandingFeatures(config: BrandingConfig = current): Required<Bra
 /**
  * The deploy lets only accounts in: a sign-in panel with no guest half
  * (`signIn` on, `guestAccess: false`). Hiding the guest half is not the
- * whole of it — a saved entry from before, `/connect <host>` or "No
+ * whole of it — a saved entry from before, `/server <host>` or "No
  * authentication" in a network's settings would still register a stranger
  * — so every connection must log in: the IRC layer dials nothing without a
  * login and never carries on past a failed one (client.ts), and a saved

@@ -11,7 +11,10 @@ import {CURSOR_SAVE_INTERVAL_MS} from "../../client/js/irc/client";
 import {requestHistory, requestMore} from "../../client/js/irc/history";
 import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
 import * as saved from "../../client/js/irc/saved-networks";
-import {SAVE_DELAY_MS, useStorageBackend as useQueryLogBackend} from "../../client/js/irc/querylog";
+import {
+	MemoryBackend as MemoryStore,
+	useConversationBackend,
+} from "../../client/js/irc/conversationStore";
 import type {StorageBackend} from "../../client/js/irc/saved-networks";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import {ALL_CAPS, Harness, batch, joined, labelOf, register, setup} from "./support";
@@ -494,9 +497,8 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			]);
 		});
 
-		it("adds nothing when the replay brings an edit already folded into a restored query line", function () {
-			const logBackend = new MemoryBackend();
-			useQueryLogBackend(logBackend);
+		it("adds nothing when the replay brings an edit already folded into a restored query line", async function () {
+			useConversationBackend(new MemoryStore());
 			const first = resumed();
 
 			try {
@@ -504,10 +506,10 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 					"@time=2026-08-28T11:30:00.000Z;msgid=o1 :bob!bob@host PRIVMSG alice :teh plan",
 					"@time=2026-08-28T11:30:05.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG alice :the plan"
 				);
-				clock.tick(SAVE_DELAY_MS);
-				first.client.queryLog.dispose();
+				await first.client.conversations.flush();
+				first.client.conversations.dispose();
 
-				// The page is reloaded: the query comes back from the log as one line.
+				// The page is reloaded: the query comes back from the device as one line.
 				const h = resumed();
 				const query = h.client.findChannel("bob")!;
 				expect(query, "the query came back").to.not.equal(undefined);
@@ -518,9 +520,9 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 
 				expect(h.messages(query.id)).to.deep.equal([]);
 				expect(h.payloads("msg:edit")).to.deep.equal([]);
-				h.client.queryLog.dispose();
+				h.client.conversations.dispose();
 			} finally {
-				useQueryLogBackend(null);
+				useConversationBackend(null);
 			}
 		});
 
@@ -660,6 +662,115 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			expect(h.transport.sent).to.include("PERSISTENCE ATTACH default m1");
 			expect(chathistory(h.sent())).to.deep.equal([]);
 			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+		});
+
+		it("walks for itself a channel whose own catch-up never finished", function () {
+			const h = saslClient();
+			store({msgid: "m9", time: 1});
+			h.client.open(h.client.findChannel("#seance")!.id);
+			authenticate(h);
+			finishRegistration(h);
+			h.transport.lines(
+				"@time=2026-08-28T12:00:01.000Z;msgid=join-1 :alice!alice@host JOIN #seance",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			// The fill is never answered: the page of lines it holds is not vouched for.
+			h.transport.line(
+				"@time=2026-08-28T12:00:02.000Z;msgid=m1 :bob!bob@host PRIVMSG #seance :hi"
+			);
+			h.transport.closed();
+			authenticate(h);
+			h.transport.line(":irc.test PERSISTENCE ATTACH default");
+			finishRegistration(h, HOLD);
+			h.sent();
+			restore(h);
+			expect(chathistory(h.sent())).to.have.length(1);
+		});
+
+		it("walks every restored channel after all when the server did not know the cursor", function () {
+			const h = saslClient();
+			store({msgid: "m9", time: 1});
+			reconnect(h);
+			expect(chathistory(h.sent())).to.deep.equal([]);
+
+			h.transport.line(
+				":irc.test FAIL PERSISTENCE CURSOR_UNKNOWN m9 :Cursor msgid not found; replaying from last activity"
+			);
+			const asked = chathistory(h.sent());
+			expect(asked).to.have.length(1);
+			expect(asked[0]).to.match(/CHATHISTORY LATEST #seance \* 100$/);
+			// And only once, however often the server says it.
+			h.transport.line(":irc.test FAIL PERSISTENCE CURSOR_UNKNOWN m9 :again");
+			expect(chathistory(h.sent())).to.deep.equal([]);
+		});
+
+		it("marks the gap above a leg the server cut, and loads it; a whole leg has none", function () {
+			const h = saslClient();
+			store({msgid: "m9", time: 1});
+			reconnect(h);
+			const id = h.client.findChannel("#seance")!.id;
+			h.dispatch.resetHistory();
+			h.sent();
+
+			// No end tag: the newest lines only, cut at the server's limit.
+			bouncerReplay(h, "#seance", [
+				"@time=2026-08-28T12:30:00.000Z;msgid=r8 :bob!bob@host PRIVMSG #seance :eight",
+				"@time=2026-08-28T12:31:00.000Z;msgid=r9 :bob!bob@host PRIVMSG #seance :nine",
+			]);
+			const shown = h.messages(id);
+			expect(shown.map((m) => [m.text, m.gapBefore])).to.deep.equal([
+				["eight", true],
+				["nine", undefined],
+			]);
+			const asked = chathistory(h.sent());
+			expect(asked).to.have.length(1);
+			expect(asked[0]).to.match(/CHATHISTORY BEFORE #seance msgid=r8 100$/);
+
+			// The fill meets the line we held: the lines go in above, the marker goes.
+			h.dispatch.resetHistory();
+			batch(
+				h,
+				[
+					"@time=2026-08-28T12:00:02.000Z;msgid=m1 :bob!bob@host PRIVMSG #seance :hi",
+					"@time=2026-08-28T12:20:00.000Z;msgid=r7 :bob!bob@host PRIVMSG #seance :seven",
+				],
+				{label: labelOf(asked)}
+			);
+			expect(h.messages(id).map((m) => m.text)).to.deep.equal(["seven"]);
+			expect(h.messages(id)[0].id).to.be.below(shown[0].id);
+			expect(h.payloads("msg:gap")).to.deep.equal([{chan: id, id: shown[0].id, gap: false}]);
+
+			// A second cut leg whose one page does not reach: nothing more is
+			// asked by itself, and the marker moves up to the oldest line brought.
+			h.dispatch.resetHistory();
+			bouncerReplay(h, "#seance", [
+				"@time=2026-08-28T13:30:00.000Z;msgid=s8 :bob!bob@host PRIVMSG #seance :later",
+			]);
+			const cut = h.messages(id)[0];
+			const again = chathistory(h.sent());
+			expect(again).to.have.length(1);
+			batch(
+				h,
+				["@time=2026-08-28T13:20:00.000Z;msgid=s7 :bob!bob@host PRIVMSG #seance :between"],
+				{label: labelOf(again), ref: "hist2"}
+			);
+			expect(chathistory(h.sent())).to.deep.equal([]);
+			expect(h.payloads("msg:gap")).to.deep.equal([{chan: id, id: cut.id, gap: false}]);
+			expect(h.messages(id).find((m) => m.text === "between")!.gapBefore).to.equal(true);
+
+			// A leg the server says is whole.
+			h.dispatch.resetHistory();
+			h.transport.lines(
+				":irc.test BATCH +outer2 evilnet.github.io/bouncer-replay",
+				"@batch=outer2;draft/chathistory-end :irc.test BATCH +inner2 chathistory #seance",
+				"@batch=inner2;time=2026-08-28T12:40:00.000Z;msgid=r10 :bob!bob@host PRIVMSG #seance :ten",
+				"@batch=outer2 :irc.test BATCH -inner2",
+				":irc.test BATCH -outer2"
+			);
+			expect(h.messages(id).map((m) => [m.text, m.gapBefore])).to.deep.equal([
+				["ten", undefined],
+			]);
+			expect(chathistory(h.sent())).to.deep.equal([]);
 		});
 
 		it("re-asks a `more` page the drop swallowed, once the server gave the channel back", function () {

@@ -35,6 +35,10 @@ type PastView = {
 
 type ClientChan = Omit<SharedChan, "messages"> & {
 	moreHistoryAvailable: boolean;
+	/** This device may hold older lines: "show older" works without a connection (`more`). */
+	deviceHistory: boolean;
+	/** The gap dividers being loaded, by the id of the message they stand before (`history:fill`). */
+	gapsLoading: number[];
 	editTopic: boolean;
 	messages: ClientMessage[];
 

@@ -205,7 +205,7 @@ import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import {useStore} from "../../js/store";
 import {useI18n} from "../../js/i18n";
 import {canDescribeInstall, openInstallGuide, promptInstall} from "../../js/pwa";
-import {MAX_MESSAGES, MAX_QUERIES} from "../../js/irc/querylog";
+import {MAX_LINES} from "../../js/irc/conversationStore";
 import {
 	keepAliveAvailable as isKeepAliveAvailable,
 	keepAliveStatus as fetchKeepAliveStatus,
@@ -242,7 +242,7 @@ export default defineComponent({
 		const keepAliveHelp = computed(() => t("settings.general.keepAliveHelp"));
 		const sendTypingHelp = computed(() => t("settings.general.sendTypingHelp"));
 		const keepPrivateHelp = computed(() =>
-			t("settings.general.keepPrivateHelp", {lines: MAX_MESSAGES, queries: MAX_QUERIES})
+			t("settings.general.keepPrivateHelp", {lines: MAX_LINES})
 		);
 		const awayPlaceholder = computed(() =>
 			t("settings.general.awayPlaceholder", {appName: appName.value})

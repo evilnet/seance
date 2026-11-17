@@ -136,6 +136,12 @@ interface ServerToClientEvents {
 		totalMessages: number;
 		/** Whether older history remains (the server's end tag / page fullness). */
 		moreAvailable?: boolean;
+		/**
+		 * Whether this device may hold older lines of the channel
+		 * (irc/conversationStore.ts): they can be asked for without a
+		 * connection. Absent: no change.
+		 */
+		device?: boolean;
 	}>;
 
 	/** The answer to `search:request`: always one, whatever happened. */
@@ -177,6 +183,11 @@ interface ServerToClientEvents {
 	}>;
 	/** A REDACT resolved to the loaded message it targets. */
 	"msg:redact": EventHandler<{chan: number; id: number; by: string; reason?: string; time: Date}>;
+	/**
+	 * Lines may be missing before message `id` (`gap` true), or no longer are:
+	 * the divider above it is shown or taken away (see bus-contract §1.4).
+	 */
+	"msg:gap": EventHandler<{chan: number; id: number; gap: boolean}>;
 	/** Message `id` (already delivered via `msg`) replaces message `replaces`. */
 	"msg:edit": EventHandler<{chan: number; id: number; replaces: number}>;
 	/**
@@ -486,6 +497,9 @@ interface ClientToServerEvents {
 	/** The UI dropped these messages from a channel's buffer (see bus-contract § 2). */
 	"history:trim": EventHandler<{target: number; ids: number[]}>;
 
+	/** Load the lines missing before message `id` of a channel (see bus-contract § 2). */
+	"history:fill": EventHandler<{target: number; id: number}>;
+
 	"msg:preview:toggle": EventHandler<{
 		target: number;
 		messageIds?: number[];
@@ -502,6 +516,6 @@ interface ClientToServerEvents {
 
 	"sign-out": (token?: string) => void;
 
-	/** The user cleared a channel's or query's history (client/js/history.ts, see bus-contract § 2): the IRC layer forgets what was shown, zeroes the counters and drops a query's log on this device. */
+	/** The user cleared a channel's or query's history (client/js/history.ts, see bus-contract § 2): the IRC layer forgets what was shown, zeroes the counters and drops the lines kept on this device. */
 	"history:clear": EventHandler<{target: number}>;
 }

@@ -1113,7 +1113,7 @@ describe("IrcClient SASL: a deploy that lets only accounts in", function () {
 
 	it("does not dial a network with no login, and says why", function () {
 		// A guest's saved entry from before guests were turned off,
-		// `/connect <host>`, "No authentication" in the network's settings:
+		// `/server <host>`, "No authentication" in the network's settings:
 		// each would register as the stranger the deploy turned away.
 		signInDeploy(false);
 		const {client, transport, rejected} = idle();

@@ -222,7 +222,6 @@ describe("irc commands", function () {
 			"/mute",
 			"/unmute",
 			"/disconnect",
-			"/connect",
 			"/server",
 		]) {
 			expect(names, name).to.include(name);
@@ -1111,7 +1110,7 @@ describe("irc commands", function () {
 		});
 	});
 
-	describe("/disconnect and /connect", function () {
+	describe("/disconnect and /server", function () {
 		it("quits with the reason and closes without reconnecting", function () {
 			const h = setup();
 			const id = joined(h);
@@ -1153,15 +1152,27 @@ describe("irc commands", function () {
 		it("reconnects the current network with no arguments", function () {
 			const h = setup();
 			const id = joined(h);
-			h.client.input(id, "/connect");
+			h.client.input(id, "/server");
 			expect(lastMessage(id).text).to.equal("You are already connected.");
 			expect(h.transport.connectCalls).to.equal(1);
 
 			h.client.input(id, "/disconnect");
 			h.transport.closed(1000);
-			h.client.input(1, "/connect");
+			h.client.input(1, "/server");
 			expect(h.transport.connectCalls).to.equal(2);
 			expect(h.client.state).to.equal("connecting");
+		});
+
+		it("leaves /connect to the ircd: it is an oper's server-linking command", function () {
+			const created: unknown[] = [];
+			socket.handle("network:new", (data) => void created.push(data));
+			const h = setup();
+			const id = joined(h);
+			expect(commandNames()).to.not.include("/connect");
+			h.client.input(id, "/connect hub.example.org 4400");
+			expect(h.sentAfter()).to.deep.equal(["connect hub.example.org 4400"]);
+			expect(created).to.deep.equal([]);
+			expect(h.transport.connectCalls).to.equal(1);
 		});
 
 		it("asks the manager for a new network via network:new", function () {
@@ -1169,7 +1180,7 @@ describe("irc commands", function () {
 			socket.handle("network:new", (data) => void created.push(data));
 			const h = setup();
 			const id = joined(h);
-			h.client.input(id, "/connect irc.other +7443");
+			h.client.input(id, "/server irc.other +7443");
 			h.client.input(id, "/server irc.plain 8067");
 			h.client.input(id, "/server irc.default");
 			h.client.input(id, "/server irc.secure +");

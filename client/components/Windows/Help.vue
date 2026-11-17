@@ -678,22 +678,6 @@
 
 					<div class="help-item">
 						<div class="subject">
-							<code>/connect host [port]</code>
-						</div>
-						<div class="description">
-							<p>
-								<I18nFrame
-									:text="t('help.commands.connect', {port: KEEP, plus: KEEP})"
-									><template v-slot:port><code>port</code></template
-									><template v-slot:plus><code>+</code></template></I18nFrame
-								>
-							</p>
-							<p>{{ t("help.commands.alias") }} <code>/server</code></p>
-						</div>
-					</div>
-
-					<div class="help-item">
-						<div class="subject">
 							<code>/ctcp target cmd [args]</code>
 						</div>
 						<div class="description">
@@ -1015,6 +999,21 @@
 						</div>
 						<div class="description">
 							<p>{{ t("help.commands.search") }}</p>
+						</div>
+					</div>
+
+					<div class="help-item">
+						<div class="subject">
+							<code>/server host [port]</code>
+						</div>
+						<div class="description">
+							<p>
+								<I18nFrame
+									:text="t('help.commands.connect', {port: KEEP, plus: KEEP})"
+									><template v-slot:port><code>port</code></template
+									><template v-slot:plus><code>+</code></template></I18nFrame
+								>
+							</p>
 						</div>
 					</div>
 
