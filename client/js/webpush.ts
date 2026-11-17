@@ -2,6 +2,7 @@ import {reactive} from "vue";
 
 import socket from "./socket";
 import {store} from "./store";
+import {namesEqual} from "./irc/casemap";
 import storage from "./localStorage";
 import {idbGet, idbSet} from "./idb";
 import {BUILD} from "./build";
@@ -1909,7 +1910,8 @@ function closePageNotifications(uuid: string, channel: ClientChan): void {
 		return;
 	}
 
-	const target = channel.name.toLowerCase();
+	// Folded as the network folds names: `#foo[bar]` is `#foo{bar}`.
+	const mapping = store.getters.findNetwork(uuid)?.serverOptions.CASEMAPPING;
 
 	void navigator.serviceWorker.ready
 		.then((registration) => registration.getNotifications())
@@ -1921,7 +1923,7 @@ function closePageNotifications(uuid: string, channel: ClientChan): void {
 					n.tag.startsWith("chan-") &&
 					data?.network === uuid &&
 					typeof data.target === "string" &&
-					data.target.toLowerCase() === target
+					namesEqual(data.target, channel.name, mapping)
 				) {
 					n.close();
 				}

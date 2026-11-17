@@ -881,16 +881,14 @@ export default defineComponent({
 			() => props.defaults.uuid,
 			() => {
 				// The last network's verdict is not this one's, and its check
-				// still out lands nowhere. Reset here: with the same services
-				// on both (the usual X3 names) no field changes, so
-				// scheduleCheck does not run. A check already scheduled stays,
-				// since it reads the network and the fields when it is due.
-				checkSeq++;
-				checkPending.value = false;
+				// still out lands nowhere: check this one afresh. With the same
+				// services on both (the usual X3 names) no field changes, so
+				// the field watcher would not.
 				checkText.value = "";
 				checkOk.value = false;
 				servicesPackage.value = props.defaults.services?.package ?? "";
 				Object.assign(serviceBots, blankBots(), props.defaults.services?.bots ?? {});
+				scheduleCheck();
 			}
 		);
 

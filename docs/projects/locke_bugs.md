@@ -13,7 +13,8 @@ end and, where it was cheap, reproduced with tsx or a throwaway mocha test.
 **87 still apply and are listed below.** The other 61 were dropped; the last
 section records why.
 
-Tick an item when its fix lands (name the PR). Move this file to `archives/`
+Tick an item when its fix lands (name the PR), or when it is closed
+another way, with a note under it saying how (5g, 13a). Move this file to `archives/`
 when every box is ticked. Each entry gives the report's ID and title, a
 severity (revised where the re-check changed it), today's location and what
 is wrong today. Paths are from the repository root. Line numbers are as of
@@ -181,6 +182,10 @@ with a fake transport.
       and the real 286-291 then arrive unlabelled as unhandled lines. Known in
       `docs/projects/oper-tools.md:435`; the nick menu avoids it by sending
       `CHECK nick`.
+      _Seance's half fixed: no empty card, and a labelled remote answer makes
+      the card (`test/irc/oper.ts`). Until nefarious2 adds CHECK (291, 292)
+      to its forwarded-label table (`ircd/forwarded_label.c`
+      `fwd_terminals`), the remote answer still shows as raw lines._
 
 ## 5. Saved networks, settings and local storage
 

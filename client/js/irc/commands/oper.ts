@@ -53,11 +53,13 @@ export async function runCheck(client: IrcClient, chan: Channel, args: string[])
 	const line = formatLine({command: "CHECK", params: args});
 	const reply = await request(client, line, {end: ["291", "292"]});
 
-	// Done with nothing in it: a remote CHECK (`CHECK <server> <target>`).
-	// nefarious2 does not carry the label to the other server, so it is
-	// ACKed at once and the answer comes later unlabeled, shown raw as any
-	// unlabeled reply is (docs/resources/nefarious2-oper.md). A card here
-	// could only be empty.
+	// Done with nothing in it: a remote CHECK (`CHECK <server> <target>`)
+	// on a nefarious2 whose forwarded-label table (ircd/forwarded_label.c)
+	// lacks CHECK. It is ACKed at once and the answer comes later
+	// unlabeled, shown raw as any unlabeled reply is
+	// (docs/resources/nefarious2-oper.md). A card here could only be empty.
+	// Once the server carries the label over, the answer arrives in the
+	// labelled batch and makes the card below.
 	if (reply.lines.length === 0 && (reply.outcome === "ack" || reply.outcome === "batch")) {
 		return;
 	}

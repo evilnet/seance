@@ -45,9 +45,10 @@ export function holdsChannelPower(symbols: string[], modes: string[] | undefined
 
 /** The channel called `name`, joined or not, as this network's list has it. */
 function findChannel(network: ClientNetwork, name: string): ClientChan | undefined {
-	const lower = name.toLowerCase();
 	return network.channels.find(
-		(chan) => chan.type === ChanType.CHANNEL && chan.name.toLowerCase() === lower
+		(chan) =>
+			chan.type === ChanType.CHANNEL &&
+			namesEqual(chan.name, name, network.serverOptions.CASEMAPPING)
 	);
 }
 

@@ -77,14 +77,8 @@ export function setMuteStatus(target: number, muted: boolean): void {
 export function applyStoredMuteStatus(network: ClientNetwork): void {
 	const stored = readMuted();
 
-	if (stored.size === 0) {
-		return;
-	}
-
 	for (const chan of network.channels) {
-		if (stored.has(mutedKey(network.uuid, chan.name))) {
-			chan.muted = true;
-		}
+		applyStoredMute(network.uuid, chan, stored);
 	}
 }
 
@@ -94,8 +88,8 @@ export function applyStoredMuteStatus(network: ClientNetwork): void {
  * query an incoming message reopened, a channel a held session restored.
  * The IRC layer hands each one over unmuted.
  */
-export function applyStoredMute(networkUuid: string, chan: ClientChan): void {
-	if (readMuted().has(mutedKey(networkUuid, chan.name))) {
+export function applyStoredMute(networkUuid: string, chan: ClientChan, stored = readMuted()): void {
+	if (stored.has(mutedKey(networkUuid, chan.name))) {
 		chan.muted = true;
 	}
 }

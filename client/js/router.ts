@@ -39,6 +39,7 @@ import {
 	setPendingTarget,
 } from "./helpers/pendingTarget";
 import {fromOwnWorker} from "./helpers/ownWorker";
+import {channelByName} from "./helpers/channelByName";
 
 const router = createRouter({
 	history: createWebHashHistory(),
@@ -203,11 +204,13 @@ const router = createRouter({
 				const network = store.getters.findNetwork(uuid);
 
 				if (network && network.channels.length > 0) {
-					// Registered already, so no join is coming for it: it is
-					// opened as openTarget opens it, once this redirect has
-					// settled (opening a query switches to it, which must not
-					// race the redirect).
-					if (network.status.connected) {
+					// A private conversation on a network registered already
+					// has no join coming: it is opened as openTarget opens it,
+					// once this redirect has settled (opening a query switches
+					// to it, which must not race the redirect). A channel waits
+					// for its join: the burst after a reconnect may not have
+					// brought it yet.
+					if (network.status.connected && !isChannelTarget(target)) {
 						clearPendingTarget();
 						setTimeout(() => openTarget(uuid, target));
 					} else {
@@ -252,19 +255,19 @@ router.push = ((to: RouteLocationRaw) => router.replace(to)) as typeof router.pu
 /** A channel on `uuid` by name, case-insensitively (IRC names). */
 function findChannelByName(uuid: string, name: string): ClientChan | undefined {
 	const network = store.getters.findNetwork(uuid);
-	const lower = name.toLowerCase();
 
-	return network?.channels.find((c) => c.name.toLowerCase() === lower);
+	// As the network compares names (helpers/channelByName.ts).
+	return network ? channelByName(network, name) : undefined;
 }
 
 /**
  * Show the conversation a notification names (network uuid + target), or
  * remember it until its join arrives. On a network that is registered
- * already no join is on its way for a window that is not there (the
- * announce and the reconnect's query reopen are past): a private
- * conversation is opened as `/query` opens it, and shows itself; a channel
- * the user is not in is left alone, because joining is seen by everyone in
- * it. Either way nothing is left pending to move the view later.
+ * already no join is on its way for a private conversation that is not
+ * there (the reconnect's query reopen is past): it is opened as `/query`
+ * opens it, and shows itself. A channel is never joined from here (joining
+ * is seen by everyone in it); it waits, as before registration, because
+ * the join burst after a reconnect may still be on its way.
  */
 function openTarget(uuid: string, target: string): void {
 	const hit = findChannelByName(uuid, target);
@@ -277,13 +280,9 @@ function openTarget(uuid: string, target: string): void {
 
 	const network = store.getters.findNetwork(uuid);
 
-	if (network?.status.connected) {
+	if (network?.status.connected && !isChannelTarget(target)) {
 		clearPendingTarget();
-
-		if (!isChannelTarget(target)) {
-			openQuery(network, target);
-		}
-
+		openQuery(network, target);
 		return;
 	}
 
