@@ -37,10 +37,6 @@
   "browse.all": "Alle kanalen",
   "browse.clear": "Zoeken wissen",
   "browse.close": "Sluiten",
-  "browse.delayedNote": {
-    "one": "Nieuwe verbindingen kunnen kanalen weergeven over {count} seconde.",
-    "other": "Nieuwe verbindingen kunnen kanalen weergeven over {count} seconden."
-  },
   "browse.featured": "Uitgelicht",
   "browse.filter.all": "Alles",
   "browse.filter.featured": "Uitgelicht",

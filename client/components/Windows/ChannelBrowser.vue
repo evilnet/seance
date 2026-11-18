@@ -144,15 +144,6 @@
 				<b>{{ t("browse.offline") }}</b>
 				<p>{{ t("browse.offlineNote") }}</p>
 			</div>
-			<div
-				v-else-if="list.status === 'delayed' && waitLeft > 0"
-				class="browse-center"
-				role="status"
-			>
-				<span class="browse-wait-ring" aria-hidden="true">{{ waitLeft }}</span>
-				<b>{{ t("browse.delayed") }}</b>
-				<p>{{ tCount("browse.delayedNote", waitLeft) }}</p>
-			</div>
 			<div v-else-if="list.status === 'error'" class="browse-center" role="alert">
 				<b>{{ t("browse.refused") }}</b>
 				<pre class="browse-note">{{ list.note }}</pre>
@@ -162,17 +153,35 @@
 			</div>
 
 			<template v-else>
+				<!-- The server's wait on new connections: alone it has the middle of
+				     the pane, with featured channels to offer it is a banner over them. -->
+				<div
+					v-if="waiting"
+					class="browse-center browse-wait"
+					:class="{'browse-wait-banner': featuredRows.length}"
+					role="status"
+				>
+					<span class="browse-wait-ring" aria-hidden="true">{{ waitLeft }}</span>
+					<span class="browse-wait-text">
+						<b>{{ t("browse.delayed") }}</b>
+						<p>{{ tCount("browse.delayedNote", waitLeft) }}</p>
+					</span>
+				</div>
+
 				<!-- Featured: what the network itself puts forward. -->
 				<section
 					v-if="
-						featuredRows.length && (filter === 'all' || filter === 'featured') && !query
+						featuredRows.length &&
+						(waiting || ((filter === 'all' || filter === 'featured') && !query))
 					"
 					class="browse-featured"
 					:aria-label="t('browse.featured')"
 				>
 					<div class="browse-section-head">
 						<h2>{{ t("browse.featured") }}</h2>
-						<span class="browse-dim">{{ t("browse.featuredNote") }}</span>
+						<span class="browse-dim">{{
+							waiting ? t("browse.featuredMeanwhile") : t("browse.featuredNote")
+						}}</span>
 					</div>
 					<div class="browse-cards">
 						<button
@@ -207,7 +216,7 @@
 					</div>
 				</section>
 
-				<section class="browse-all" :aria-label="t('browse.all')">
+				<section v-if="!waiting" class="browse-all" :aria-label="t('browse.all')">
 					<div class="browse-section-head">
 						<h2>
 							{{ filter === "featured" ? t("browse.featured") : t("browse.all") }}
@@ -867,6 +876,36 @@ html[data-reduce-motion] .browse-card:hover {
 	overflow-wrap: anywhere;
 }
 
+.browse-wait-text {
+	display: grid;
+	justify-items: inherit;
+	gap: 0.375rem;
+}
+
+/* With featured channels under it the wait is a banner, not the whole pane. */
+.browse-wait-banner {
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: center;
+	justify-items: start;
+	gap: 0.875rem;
+	margin: 0.75rem 0.75rem 0;
+	padding: 0.75rem 0.875rem;
+	border: 1px solid color-mix(in oklab, var(--oper-amber) 35%, transparent);
+	border-radius: 0.625rem;
+	background: color-mix(in oklab, var(--oper-amber) 8%, transparent);
+	text-align: start;
+}
+
+.browse-wait-banner p {
+	max-width: none;
+}
+
+.browse-wait-banner .browse-wait-ring {
+	width: 2.75rem;
+	height: 2.75rem;
+	font-size: 1rem;
+}
+
 .browse-wait-ring {
 	display: grid;
 	place-items: center;
@@ -1173,6 +1212,9 @@ export default defineComponent({
 			{immediate: true}
 		);
 
+		/** The server named a wait that is not over: no list to show yet. */
+		const waiting = computed(() => list.value.status === "delayed" && waitLeft.value > 0);
+
 		const canRefresh = computed(
 			() =>
 				connected.value &&
@@ -1209,6 +1251,14 @@ export default defineComponent({
 				ask();
 			}
 		};
+
+		// The wait is over with the window still open: the list is what it was
+		// opened for, so ask again rather than leave a button to press.
+		watch(waiting, (is, was) => {
+			if (was && !is && list.value.status === "delayed") {
+				ask();
+			}
+		});
 
 		const open = (name: string, withKey = "") => {
 			const net = network.value;
@@ -1406,6 +1456,7 @@ export default defineComponent({
 			shownRows,
 			visibleRows,
 			waitLeft,
+			waiting,
 			canRefresh,
 			refreshTitle,
 			updatedLabel,

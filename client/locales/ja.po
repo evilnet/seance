@@ -621,17 +621,19 @@ msgid "{count} channel"
 msgid_plural "{count} channels"
 msgstr[0] ""
 
-#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading when the server refuses the list because the connection is too new.
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading when the server refuses the list because the connection is too new, a rule servers have to keep bots from harvesting channel names.
 #: client/components/Windows/ChannelBrowser.vue
+#, fuzzy
 msgctxt "browse.delayed"
-msgid "The server is making you wait"
+msgid "Server anti-bot protection"
 msgstr ""
 
-#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): countdown under 'The server is making you wait'; {count} is the seconds left.
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): countdown under the heading 'Server anti-bot protection'; {count} is the seconds left before the server will send the list.
 #: client/components/Windows/ChannelBrowser.vue
+#, fuzzy
 msgctxt "browse.delayedNote"
-msgid "New connections can list channels in {count} second."
-msgid_plural "New connections can list channels in {count} seconds."
+msgid "Please wait {count} second for the full channel list."
+msgid_plural "Please wait {count} seconds for the full channel list."
 msgstr[0] ""
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): shown when the server's list came back empty.
@@ -644,6 +646,12 @@ msgstr ""
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.featured"
 msgid "Featured"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): note beside the Featured heading while the server is making a new connection wait for the full list; the channels under it (the ones the network puts forward) can be joined right away.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.featuredMeanwhile"
+msgid "Meanwhile, you can join these"
 msgstr ""
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): note beside the Featured heading saying who chose these channels.

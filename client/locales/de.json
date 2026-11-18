@@ -40,10 +40,6 @@
     "one": "{count} Kanal",
     "other": "{count} Kanäle"
   },
-  "browse.delayedNote": {
-    "one": "Neue Verbindungen können Kanäle in {count} Sekunde auflisten.",
-    "other": "Neue Verbindungen können Kanäle in {count} Sekunden auflisten."
-  },
   "browse.empty": "Der Server hat keine Kanäle aufgelistet",
   "browse.filter.all": "Alle",
   "browse.filter.busy": "{count}+ Personen",
