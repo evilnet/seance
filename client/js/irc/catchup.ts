@@ -33,6 +33,7 @@ import type {IrcClient} from "./client";
 import type {BatchHandler} from "./handlers/batch";
 import {fetchReadMarker, markReadEnabled} from "./handlers/markread";
 import {
+	canRequest,
 	historyEnabled,
 	historyLimit,
 	pageFitsNow,
@@ -189,6 +190,12 @@ export function enqueueCatchup(
 	// Until this JOIN's catch-up is through, what the channel holds proves
 	// nothing about the gap: a live line now is not the end of the missed ones.
 	chan.historyFilled = false;
+
+	// A walk back to what the channel held is owed: the first line relayed
+	// before it lands is kept marked (Channel.walkGap).
+	if (before && chan.historyRequested && chan.walkGap === undefined && canRequest(client, chan)) {
+		chan.walkGap = true;
+	}
 
 	if (chan.id === client.activeChannelId) {
 		const queued = takePending(client, chan);

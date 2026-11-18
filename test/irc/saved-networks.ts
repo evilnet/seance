@@ -56,6 +56,25 @@ describe("saved-networks", function () {
 		saved.useStorageBackend(null);
 	});
 
+	it("isSaved follows the list and parses it only when it changed", function () {
+		const net = entry();
+		expect(saved.isSaved(net.uuid)).to.equal(false);
+		saved.save(net);
+		const parse = sinon.spy(JSON, "parse");
+
+		try {
+			expect(saved.isSaved(net.uuid)).to.equal(true);
+			expect(saved.isSaved(net.uuid)).to.equal(true);
+			expect(saved.isSaved("someone-else")).to.equal(false);
+			expect(parse.callCount).to.equal(1);
+		} finally {
+			parse.restore();
+		}
+
+		saved.remove(net.uuid);
+		expect(saved.isSaved(net.uuid)).to.equal(false);
+	});
+
 	it("remembers a channel order per network under thelounge.sort.channels", function () {
 		expect(saved.channelOrder("a")).to.deep.equal([]);
 
