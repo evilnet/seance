@@ -63,9 +63,32 @@ function queue(client: IrcClient): WhoQuery[] {
 	return list;
 }
 
-/** Register a query about to go out; its replies are the next ones in. */
-export function beginWho(client: IrcClient, query: Omit<WhoQuery, "entries">): void {
-	queue(client).push({...query, entries: []});
+/**
+ * Register a query about to go out; its replies are the next ones in. The
+ * caller hands it to {@link dropWho} if the WHO could not be sent.
+ */
+export function beginWho(client: IrcClient, query: Omit<WhoQuery, "entries">): WhoQuery {
+	const entry = {...query, entries: []};
+	queue(client).push(entry);
+	return entry;
+}
+
+/** A query whose WHO was never sent: no 315 will take it off the queue. */
+export function dropWho(client: IrcClient, query: WhoQuery): void {
+	const list = queue(client);
+	const index = list.indexOf(query);
+
+	if (index !== -1) {
+		list.splice(index, 1);
+	}
+}
+
+/**
+ * The socket closed: the queries it cut off are never answered, and the next
+ * connection's replies would be matched against them.
+ */
+export function resetWho(client: IrcClient): void {
+	queues.delete(client);
 }
 
 /** The query the next reply belongs to, if it is one of ours. */

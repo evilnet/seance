@@ -32,9 +32,11 @@
 import {fontSizes, type FontSize} from "../../client/js/helpers/fontSize";
 import {contrast, luminance, mix} from "../../client/js/scenes/ps/colour";
 import {momentFor, WEATHERS, type Moment, type Weather} from "../../client/js/scenes/ps/engine";
+import type {SceneView} from "../../client/js/themeScene";
 import {
 	CHROME_SURFACES,
 	isBehind,
+	isBehindIndoor,
 	throughCard,
 	throughDayGlass,
 	tintsOver,
@@ -48,6 +50,7 @@ import {
 	sceneGrounds as paintedGrounds,
 	SCHEDULE_STEP,
 } from "../../client/js/scenes/ps/grounds";
+import {indoorGrounds} from "../../client/js/scenes/ps/indoor";
 import {GLASS_NIGHT_AT, paletteAt, stopsAt, type Palette} from "../../client/js/scenes/ps/palette";
 
 /** The halo's strength and the day's ink live with the page's rule (grounds.ts); their record is kept here. */
@@ -344,9 +347,13 @@ export interface Ground {
 /** Whether a ground is one of the two bodies, the moon's disc or the sun's core (the small, bright ones the light sweep may leave out). */
 export const isBody = (g: {body: Body}) => g.body === "moon" || g.body === "sun";
 
-/** Everything the scene paints at one moment (client/js/scenes/ps/grounds.ts), named for the headers. */
-export function sceneGrounds(m: Moment, p: Palette): Ground[] {
-	return paintedGrounds(m, p).map((g) => ({
+/**
+ * Everything the scene paints at one moment (client/js/scenes/ps/grounds.ts),
+ * named for the headers; in a private conversation the yurt's room
+ * (client/js/scenes/ps/indoor.ts, docs/projects/ps-yurt.md §9).
+ */
+export function sceneGrounds(m: Moment, p: Palette, view: SceneView = "channel"): Ground[] {
+	return (view === "query" ? indoorGrounds(m, p) : paintedGrounds(m, p)).map((g) => ({
 		hex: g.hex,
 		name: g.name,
 		body: g.body,
@@ -417,9 +424,10 @@ function onSurface(
 function throughTreatment(
 	scene: Ground[],
 	m: Moment,
-	p: Palette
+	p: Palette,
+	view: SceneView = "channel"
 ): {state: Text; grounds: Ground[]} {
-	const {text, halo} = publishedFor(p, m);
+	const {text, halo} = publishedFor(p, m, view);
 	return {
 		state: text,
 		grounds: scene.map((g) => ({...g, hex: effectiveGround(g.hex, text, halo)})),
@@ -479,9 +487,14 @@ export interface Checked {
  * glass's under the tint at opacity 0, i.e. the scene's own colours, which the
  * generator and the floors test tint at the opacity they solve or read.
  */
-export function groundsAt(m: Moment, p: Palette, where: string): Checked {
-	const scene = sceneGrounds(m, p);
-	const column = onSurface("column", scene, m, p);
+export function groundsAt(
+	m: Moment,
+	p: Palette,
+	where: string,
+	view: SceneView = "channel"
+): Checked {
+	const scene = sceneGrounds(m, p, view);
+	const column = throughTreatment(scene, m, p, view);
 	const glass = onSurface("glass", scene, m, p, 0);
 	const out: Checked = {column: {ink: [], light: []}, glass: {day: [], night: []}};
 	const checked = (g: Ground) => ({...g, lum: luminance(g.hex), where});
@@ -531,15 +544,15 @@ export function withPinned(checked: Checked, text: string): Checked {
 	return out;
 }
 
-const cache: Partial<Record<Days, Checked>> = {};
+const cache = new Map<string, Checked>();
 
 /**
  * Every distinct ground of a sweep (the same colour from the same kind of
  * ground kept once, at the first moment that meets it): the sparse sweep is
  * about 50,000 moments, the dense one about 630,000.
  */
-export function checkedGrounds(days: Days): Checked {
-	const hit = cache[days];
+export function checkedGrounds(days: Days, view: SceneView = "channel"): Checked {
+	const hit = cache.get(`${days} ${view}`);
 
 	if (hit) {
 		return hit;
@@ -548,7 +561,7 @@ export function checkedGrounds(days: Days): Checked {
 	const out: Checked = {column: {ink: [], light: []}, glass: {day: [], night: []}};
 	const seen = new Set<string>();
 	eachChecked((m, p, where) => {
-		const at = groundsAt(m, p, where);
+		const at = groundsAt(m, p, where, view);
 
 		for (const [surface, states] of Object.entries(at) as Array<
 			[keyof Checked, Record<string, CheckedGround[]>]
@@ -565,7 +578,7 @@ export function checkedGrounds(days: Days): Checked {
 			}
 		}
 	}, days);
-	cache[days] = out;
+	cache.set(`${days} ${view}`, out);
 	return out;
 }
 
@@ -577,11 +590,16 @@ export function checkedGrounds(days: Days): Checked {
  * rim's ink is the outline's halo: not sampled again). The same colour from
  * the same kind of ground is kept once, at the first moment that meets it.
  */
-export function shadowGrounds(words: "rim" | "glow", text: Text, days: Days): CheckedGround[] {
+export function shadowGrounds(
+	words: "rim" | "glow",
+	text: Text,
+	days: Days,
+	view: SceneView = "channel"
+): CheckedGround[] {
 	const out: CheckedGround[] = [];
 	const seen = new Set<string>();
 	eachChecked((m, p, where) => {
-		const published = publishedFor(p, m);
+		const published = publishedFor(p, m, view);
 
 		if (published.text !== text) {
 			return;
@@ -590,7 +608,7 @@ export function shadowGrounds(words: "rim" | "glow", text: Text, days: Days): Ch
 		const layer = text === "ink" ? published.halo : words === "rim" ? rimFor(p) : "#000000";
 		const alpha = text === "ink" ? ALPHA_GLOW_HALO : words === "rim" ? ALPHA_RIM : ALPHA_GLOW;
 
-		for (const g of sceneGrounds(m, p)) {
+		for (const g of sceneGrounds(m, p, view)) {
 			const hex = mix(g.hex, layer, alpha);
 			const key = `${hex} ${g.body} ${g.below}`;
 
@@ -626,9 +644,12 @@ const dayGlassCache = new Map<string, DayGlassGround[]>();
 export function dayGlassGrounds(
 	days: Days,
 	pinned = "",
-	surfaces: readonly GlassSurface[] = CHROME_SURFACES
+	surfaces: readonly GlassSurface[] = CHROME_SURFACES,
+	view: SceneView = "channel"
 ): DayGlassGround[] {
-	const key = `${days}\n${pinned}\n${surfaces.join(" ")}`;
+	const key = `${days}\n${pinned}\n${surfaces.join(" ")}\n${view}`;
+	const query = view === "query";
+	const behind = query ? isBehindIndoor : isBehind;
 	const hit = dayGlassCache.get(key);
 
 	if (hit) {
@@ -644,14 +665,14 @@ export function dayGlassGrounds(
 			return;
 		}
 
-		const grounds = paintedGrounds(m, paletteAt(m));
-		const tints = tintsOver(grounds);
+		const grounds = query ? indoorGrounds(m, paletteAt(m)) : paintedGrounds(m, paletteAt(m));
+		const tints = tintsOver(grounds, behind);
 
 		for (const surface of surfaces) {
 			const tint = tints[surface];
 
 			for (const g of grounds) {
-				if (!isBehind(surface, g)) {
+				if (!behind(surface, g)) {
 					continue;
 				}
 

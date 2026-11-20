@@ -1,6 +1,5 @@
 <template>
-	<div class="settings-aliases" role="group" :aria-label="paneAria">
-		<h2>{{ t("settings.aliases.titleHeading") }}</h2>
+	<div class="settings-aliases">
 		<p class="alias-intro">
 			<I18nFrame
 				:text="
@@ -389,7 +388,6 @@ export default defineComponent({
 				: "/wave bob"
 		);
 
-		const paneAria = computed(() => t("settings.aliases.paneAria"));
 		const tryAria = computed(() => t("settings.aliases.tryAria"));
 		const namePlaceholder = computed(() => t("settings.aliases.namePlaceholder"));
 		const bodyPlaceholder = computed(() => t("settings.aliases.bodyPlaceholder"));
@@ -425,7 +423,6 @@ export default defineComponent({
 			nameAria,
 			bodyAria,
 			removeAria,
-			paneAria,
 			tryAria,
 			preview,
 			maxNameLength: MAX_NAME_LENGTH,

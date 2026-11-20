@@ -176,6 +176,9 @@ function enableAutocomplete(input: HTMLTextAreaElement) {
 			e.preventDefault();
 
 			const text = input.value;
+			// Where the text being replaced ends. Later presses cycle through
+			// what the last one put before the caret, so it is the caret.
+			let replaceEnd = input.selectionStart;
 
 			if (tabCount === 0) {
 				lastMatch = text.substring(0, input.selectionStart).split(/\s/).pop() || "";
@@ -189,6 +192,12 @@ function enableAutocomplete(input: HTMLTextAreaElement) {
 				if (currentMatches.length === 0) {
 					return;
 				}
+
+				// The first press completes what is before the caret and
+				// replaces the whole word around it: at `ali|cex`, `alice`
+				// takes the place of `alicex`, not of `ali` alone. `$` always
+				// matches, so this is never -1.
+				replaceEnd += text.substring(input.selectionStart).search(/\s|$/);
 			}
 
 			const position = input.selectionStart - lastMatch.length;
@@ -197,7 +206,7 @@ function enableAutocomplete(input: HTMLTextAreaElement) {
 				String(currentMatches[tabCount % currentMatches.length]),
 				position
 			);
-			const remainder = text.substring(input.selectionStart);
+			const remainder = text.substring(replaceEnd);
 
 			input.value = text.substr(0, position) + newMatch + remainder;
 

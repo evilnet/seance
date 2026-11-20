@@ -30,7 +30,10 @@ export function startReply(channel: ClientChan, message: ClientMessage) {
 		return;
 	}
 
-	channel.editing = null;
+	if (channel.editing) {
+		endEdit(channel);
+	}
+
 	channel.replyTo = message;
 	focusInput();
 }
@@ -52,6 +55,13 @@ export function startEdit(channel: ClientChan, message: ClientMessage) {
 		return;
 	}
 
+	// The edit borrows the composer: what was typed there waits in
+	// `draftBeforeEdit` until the edit ends (endEdit). Stepping from one edit
+	// to the next keeps the draft from before the first, not the edit text.
+	if (!channel.editing) {
+		channel.draftBeforeEdit = channel.pendingMessage;
+	}
+
 	channel.replyTo = null;
 	channel.editing = message;
 	channel.pendingMessage = editText(message);
@@ -59,10 +69,16 @@ export function startEdit(channel: ClientChan, message: ClientMessage) {
 	focusInput();
 }
 
+/** Leave edit mode, giving the composer back the draft the edit borrowed it from. */
+export function endEdit(channel: ClientChan) {
+	channel.editing = null;
+	channel.pendingMessage = channel.draftBeforeEdit;
+	channel.draftBeforeEdit = "";
+}
+
 export function cancelCompose(channel: ClientChan) {
 	if (channel.editing) {
-		channel.editing = null;
-		channel.pendingMessage = "";
+		endEdit(channel);
 	}
 
 	channel.replyTo = null;

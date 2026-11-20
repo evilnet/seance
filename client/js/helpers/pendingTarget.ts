@@ -21,9 +21,28 @@ export const PENDING_TARGET_TTL_MS = 60_000;
 
 let pending: PendingTarget | null = null;
 
-/** Remember where to go once `target` on `network` exists. */
+/**
+ * Whether `target` can be one nick or channel name, and so is safe to put on
+ * a command line (`/query <target>`, router.ts `openQuery`). A deep link's
+ * target comes from a URL anyone can write: decoded, `NickServ%20<cmd>` is a
+ * message to NickServ and a `%0A` starts a second command. No whitespace, no
+ * control characters, no comma (a list of targets) and no leading `/` (a
+ * command) or `:` (IRC's trailing parameter).
+ */
+export function isValidTarget(target: string): boolean {
+	return (
+		target.length > 0 &&
+		!/[\s,\u0000-\u001f\u007f-\u009f]/.test(target) &&
+		target[0] !== "/" &&
+		target[0] !== ":"
+	);
+}
+
+/** Remember where to go once `target` on `network` exists. A target that
+ * cannot be a nick or channel ({@link isValidTarget}) is dropped, and with it
+ * any target still pending: the link that named it goes nowhere. */
 export function setPendingTarget(network: string, target: string, now = Date.now()): void {
-	pending = {network, target, at: now};
+	pending = isValidTarget(target) ? {network, target, at: now} : null;
 }
 
 /** The pending target, if any and not expired (an expired one is dropped). */

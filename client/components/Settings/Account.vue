@@ -138,7 +138,7 @@ export default defineComponent({
 
 		const connect = () => {
 			if (live.value) {
-				socket.emit("input", {target: live.value.channels[0].id, text: "/connect"});
+				socket.emit("input", {target: live.value.channels[0].id, text: "/server"});
 				return;
 			}
 

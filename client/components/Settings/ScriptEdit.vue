@@ -3,7 +3,7 @@
 		<div
 			id="script-editor-overlay"
 			v-backdrop="close"
-			class="screen-overlay"
+			class="screen-overlay settings-layer"
 			data-escape-close="script-editor"
 		>
 			<div
@@ -17,6 +17,7 @@
 						: t('settings.scriptEdit.title')
 				"
 				tabindex="-1"
+				@keydown.tab="onTab"
 			>
 				<div class="settings-modal-header">
 					<h1>
@@ -57,28 +58,6 @@
 										@input="onNameInput"
 										@change="commit"
 									/>
-								</label>
-								<label class="script-field script-folder-field">
-									<span>{{ t("settings.scriptEdit.folder") }}</span>
-									<input
-										v-model="script.folder"
-										class="input"
-										dir="auto"
-										type="text"
-										list="script-folder-list"
-										:maxlength="maxFolderLength"
-										:placeholder="defaultFolder"
-										spellcheck="false"
-										@input="schedulePersist"
-										@change="commit"
-									/>
-									<datalist id="script-folder-list">
-										<option
-											v-for="folder in folders"
-											:key="folder"
-											:value="folder"
-										/>
-									</datalist>
 								</label>
 								<label class="script-field script-desc-field">
 									<span>{{ t("settings.scriptEdit.description") }}</span>
@@ -251,26 +230,9 @@
 
 <style>
 /* The script editor: one more layer over the settings modal, in its frame
- * (a header, a body that scrolls by itself, a footer with Done) but as wide
- * as the window allows, since code wants the room. Absolute in #viewport
- * like #settings, one step above it (20) and below the confirm dialog and
- * the menus (999 and up), so Delete's question shows over it. */
-#script-editor-overlay {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	z-index: 30;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 1.5rem;
-	background: var(--overlay-bg-color);
-	overflow: hidden;
-	overflow: clip;
-}
-
+ * (a header, a body that scrolls by itself, a footer with Done; the layer
+ * itself is .settings-layer, Windows/Settings.vue) but as wide as the
+ * window allows, since code wants the room. */
 .script-editor.settings-modal {
 	width: min(80rem, 100%);
 	height: 100%;
@@ -332,10 +294,6 @@
 
 .script-editor .script-name-field {
 	flex: 1 1 12rem;
-}
-
-.script-editor .script-folder-field {
-	flex: 1 1 10rem;
 }
 
 .script-editor .script-desc-field {
@@ -467,10 +425,6 @@
 
 /* On a phone it is the whole screen, as the settings are. */
 @media (max-width: 768px) {
-	#script-editor-overlay {
-		padding: 0;
-	}
-
 	.script-editor.settings-modal {
 		width: 100%;
 		border-radius: 0;
@@ -490,12 +444,9 @@ import {
 	deleteScript,
 	getScript,
 	loadScripts,
-	normalizeFolder,
 	saveScript,
-	scriptFolders,
 	MAX_CODE_LENGTH,
 	MAX_DESCRIPTION_LENGTH,
-	MAX_FOLDER_LENGTH,
 	MAX_NAME_LENGTH,
 	ScriptStorageError,
 } from "../../js/irc/scripting/storage";
@@ -503,6 +454,7 @@ import {newScriptId, scriptNameError, uniqueScriptName} from "../../js/irc/scrip
 import type {Script} from "../../js/irc/scripting/types";
 import {scriptManager} from "../../js/irc/scripting/manager";
 import type {LuaEditor} from "../../js/helpers/luaEditor";
+import {useLayerFocus} from "../../js/hooks/use-layer-focus";
 
 const loadLuaEditor = () => import("../../js/helpers/luaEditor");
 
@@ -529,6 +481,14 @@ export default defineComponent({
 		const statusMsg = ref("");
 		const saveError = ref("");
 		const pane = ref<HTMLElement>();
+		// Back to the script's row; to New script when it was deleted.
+		const {onTab} = useLayerFocus(
+			pane,
+			() =>
+				document.querySelector<HTMLElement>(
+					`.settings-scripts a[href$="/scripts/${CSS.escape(id)}"]`
+				) ?? document.querySelector<HTMLElement>(".settings-scripts .scripts-actions .btn")
+		);
 		const codeHost = ref<HTMLElement>();
 		const editorReady = ref(false);
 		let editor: LuaEditor | undefined;
@@ -537,8 +497,6 @@ export default defineComponent({
 		let flashTimer: ReturnType<typeof setTimeout> | undefined;
 		let dirty = false;
 
-		const defaultFolder = computed(() => t("settings.scripts.defaultFolder"));
-		const folders = computed(() => scriptFolders(loadScripts()));
 		const lineCount = computed(() => (script.value ? script.value.code.split("\n").length : 1));
 		const sizeLine = computed(() =>
 			t("settings.scriptEdit.size", {
@@ -591,7 +549,6 @@ export default defineComponent({
 			refreshError();
 			const ok = write({
 				...script.value,
-				folder: normalizeFolder(script.value.folder),
 				description: script.value.description?.trim() || undefined,
 				updatedAt: Date.now(),
 			});
@@ -699,8 +656,6 @@ export default defineComponent({
 
 		onMounted(() => {
 			eventbus.on("escapekey", onEscape);
-			// Into the dialog, not a field: a phone would raise its keyboard.
-			pane.value?.focus();
 			void mountEditor();
 		});
 
@@ -724,9 +679,14 @@ export default defineComponent({
 			flash(t("settings.scriptEdit.checking"));
 			// Compiled, never run: running it would fire its top-level code
 			// and register its handlers a second time.
-			const error = await scriptManager.checkSyntax(script.value.code);
+			const code = script.value.code;
+			const error = await scriptManager.checkSyntax(code);
 
-			if (!script.value) {
+			// The first check waits for the interpreter to load. If the editor
+			// closed meanwhile, writing this snapshot back would undo whatever
+			// changed the script since (the list's switch, a reopened editor);
+			// if the code changed, the answer is about code that is gone.
+			if (unmounted || !script.value || script.value.code !== code) {
 				return;
 			}
 
@@ -809,18 +769,15 @@ export default defineComponent({
 			nameError,
 			statusMsg,
 			saveError,
-			folders,
 			lineCount,
 			sizeLine,
 			pane,
 			codeHost,
 			editorReady,
-			defaultFolder,
 			t,
 			tCount,
 			KEEP,
 			maxNameLength: MAX_NAME_LENGTH,
-			maxFolderLength: MAX_FOLDER_LENGTH,
 			maxDescriptionLength: MAX_DESCRIPTION_LENGTH,
 			maxCodeLength: MAX_CODE_LENGTH,
 			schedulePersist,
@@ -832,6 +789,7 @@ export default defineComponent({
 			remove,
 			exportScript,
 			close,
+			onTab,
 		};
 	},
 });

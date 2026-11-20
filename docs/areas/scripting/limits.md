@@ -28,17 +28,17 @@
 | One handler, command or script load       | 100,000 Lua instructions                | `Instruction limit exceeded (possible infinite loop)`; the next handler still runs                   |
 | One event, all handlers together          | 1,000,000 instructions                  | The rest are skipped: `Skipped the rest of this message event: its handlers ran out of instructions` |
 | One `string.find`/`match`/`gmatch`/`gsub` | 200,000 matching steps                  | `pattern too complex (step limit)`                                                                   |
-| `string.rep`                              | a 1 MiB result                          | `string.rep: result too large`                                                                       |
+| `string.rep`                              | a 1 MiB result, and 1,048,576 copies    | `string.rep: result too large`                                                                       |
 | Handlers                                  | 50 per event name, all scripts together | `seance.on: too many message handlers (50)`                                                          |
 | Commands                                  | 100 names, all scripts together         | `seance.register_command: too many commands (100)`                                                   |
 | Script lines waiting to go out            | 10 per network                          | `[Lua error] Not sent: 10 script lines are already waiting to go out`                                |
 | One IRC line                              | 500 bytes, no line breaks               | _Not sent: …_ in the network's lobby                                                                 |
 | One script's code                         | 16,000 characters                       | The editor stops taking more; an import that long is refused                                         |
 | All scripts' code                         | 256,000 characters                      | _Not saved: …_ in the editor                                                                         |
-| Scripts                                   | 50                                      | —                                                                                                    |
+| Scripts                                   | 50                                      | _You can keep at most 50 scripts_: a new, imported or duplicated script is not added                 |
 | `seance.storage`, one script              | 16,000 characters                       | The `set` raises an error and stores nothing                                                         |
 | `seance.storage`, all scripts             | 128,000 characters                      | The same                                                                                             |
-| Name / folder / description               | 32 / 40 / 120 characters                | The field takes no more                                                                              |
+| Name / description                        | 32 / 120 characters                     | The field takes no more                                                                              |
 
 The instruction budget is plenty for answering messages: roughly 50,000
 turns of an empty loop, or ten thousand or so that do real work. A
@@ -54,7 +54,7 @@ a table grows for as long as the page is open, and only that tab suffers.
   library reads one in, switched off.
 - A [settings backup](../../resources/settings-backup.md) carries your
   scripts and their storage. Restoring one brings every script back
-  **switched off, and the Enable scripting switch too**, so nothing from a
+  **switched off, and the Enable Lua switch too**, so nothing from a
   file runs until you have looked at it and turned it on here.
 
 **Read a script before you run one someone gave you.** A script sees every

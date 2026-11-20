@@ -67,13 +67,16 @@ async function ask<T>(client: IrcClient, lookup: ServiceLookup<T>): Promise<Look
 		return {kind: notReady.kind};
 	}
 
-	const reply = collectServiceReply(client, bot, {accept: (text) => lookup.accept(text)});
-
+	// Collected only once the line is out (lines come in from socket events,
+	// never inside a send): a line that could not be sent leaves no
+	// collector behind to take the bot's lines meant for a later lookup.
 	if (!sendQuiet(client, line)) {
 		return {kind: "closed"};
 	}
 
-	const answer: ServiceAnswer<string[]> = await reply;
+	const answer: ServiceAnswer<string[]> = await collectServiceReply(client, bot, {
+		accept: (text) => lookup.accept(text),
+	});
 
 	if (answer.kind !== "reply") {
 		return {kind: answer.kind};

@@ -101,7 +101,7 @@
 						name="guestNick"
 						pattern="[^\s:!@]+"
 						maxlength="100"
-						@keydown.enter.prevent="onGuest"
+						@keydown.enter.prevent="onGuestEnter"
 					/>
 				</div>
 				<button type="button" class="btn btn-guest" @click="onGuest">
@@ -483,6 +483,7 @@ import {autoconnectSavedNetworks, clientForNetwork, createNetwork} from "../../j
 import * as saved from "../../js/irc/saved-networks";
 import {defaultPort, SavedNetwork} from "../../js/irc/saved-networks";
 import {isShell, macDragRegion} from "../../js/helpers/shell";
+import {isImeComposing} from "../../js/helpers/ime";
 import {mergeJoinLists} from "../../js/helpers/linkTarget";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {router, switchToChannel} from "../../js/router";
@@ -828,6 +829,13 @@ export default defineComponent({
 			start({rememberPassword: false, autoconnect: false});
 		};
 
+		// The Return that commits an IME candidate is the composition's.
+		const onGuestEnter = (event: KeyboardEvent) => {
+			if (!isImeComposing(event)) {
+				onGuest();
+			}
+		};
+
 		const onSubmit = () => {
 			if (signInMode) {
 				onSignIn();
@@ -899,6 +907,7 @@ export default defineComponent({
 			guestNick,
 			rememberMe,
 			onGuest,
+			onGuestEnter,
 			hostLocked,
 			networkLabel,
 			showSavedNetworks,

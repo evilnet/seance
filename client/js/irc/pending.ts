@@ -161,6 +161,18 @@ export function armPending(client: IrcClient, entry: PendingMessage): void {
 	}, PENDING_TIMEOUT_MS);
 }
 
+/**
+ * Stop the copy's wait but leave it up: a multiline batch the server sent
+ * back to wait out its cooldown is off the wire, and {@link armPending}
+ * starts the wait again when it goes out.
+ */
+export function disarmPending(entry: PendingMessage): void {
+	if (entry.timer) {
+		clearTimeout(entry.timer);
+		entry.timer = undefined;
+	}
+}
+
 /** Take the copy down. Idempotent; returns whether it was still waiting. */
 export function settlePending(client: IrcClient, entry: PendingMessage): boolean {
 	const registry = registryOf(client);

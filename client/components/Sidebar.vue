@@ -154,12 +154,9 @@ export default defineComponent({
 		const onTouchMove = (e: TouchEvent) => {
 			const touch = (touchCurPos.value = e.touches.item(0));
 
-			if (
-				!touch ||
-				!touchStartPos.value ||
-				!touchStartPos.value.screenX ||
-				!touchStartPos.value.screenY
-			) {
+			// A null check, not a falsy one, as in endDrag: a touch that starts
+			// at the screen's edge has a `screenX` or `screenY` of 0.
+			if (!touch || !touchStartPos.value) {
 				return;
 			}
 
@@ -176,8 +173,11 @@ export default defineComponent({
 				// menu must be open; gestures in 45°-90° (>1) are considered vertical, so
 				// chat windows must be scrolled.
 				if (Math.abs(distY / distX) >= 1) {
+					// A scroll, not a swipe: it ends the drag without the release's
+					// toggle, which a fast diagonal flick (|dx| over 50px within
+					// 180ms) would otherwise reach.
 					// eslint-disable-next-line no-use-before-define
-					onTouchEnd();
+					endDrag(false);
 					return;
 				}
 

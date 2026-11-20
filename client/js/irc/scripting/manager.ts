@@ -46,6 +46,8 @@ export interface ActiveContextProvider {
 	print(text: string): void;
 	/** The network with this uuid (none when it is gone); without one, the open network, else the first. */
 	clientFor(networkUuid?: string): IrcClient | undefined;
+	/** Every connection. */
+	clients(): IrcClient[];
 }
 
 /**
@@ -452,6 +454,18 @@ class ScriptManager implements SandboxHost {
 		return asked ?? contextProvider?.clientFor();
 	}
 
+	/**
+	 * The connection called `name`, for a table that names its network but
+	 * not the connection. Two connections can share a name: the one
+	 * {@link clientOf} would pick comes first.
+	 */
+	private clientNamed(name: string): IrcClient | undefined {
+		const same = (client: IrcClient) => client.name.toLowerCase() === name.toLowerCase();
+		const usual = this.clientOf();
+
+		return usual && same(usual) ? usual : contextProvider?.clients().find(same);
+	}
+
 	/** At once in a command the user typed on that network, else paced. */
 	private deliver(client: IrcClient, line: string): void {
 		this.rememberOwnLine(client, line);
@@ -476,7 +490,10 @@ class ScriptManager implements SandboxHost {
 	}
 
 	public reply(msg: ScriptMessageEvent, text: string): void {
-		const client = this.clientOf(msg.networkUuid || undefined);
+		const client =
+			!msg.networkUuid && msg.network
+				? this.clientNamed(msg.network)
+				: this.clientOf(msg.networkUuid || undefined);
 
 		if (!client || !client.isConnected || !text) {
 			return;

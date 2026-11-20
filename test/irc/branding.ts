@@ -402,9 +402,19 @@ describe("branding", function () {
 			expect(nickFromAccount("user@example.com", "guest1")).to.equal("userexamplecom");
 		});
 
+		it("drops the digits and dashes a nick may not start with", function () {
+			expect(nickFromAccount("1alice", "guest1")).to.equal("alice");
+			expect(nickFromAccount("-42-bob7", "guest1")).to.equal("bob7");
+			// Only after what a nick may not contain is gone: ".1x" leaves "1x".
+			expect(nickFromAccount(".1x", "guest1")).to.equal("x");
+			expect(nickFromAccount("[1]", "guest1")).to.equal("[1]");
+		});
+
 		it("falls back when nothing usable is left", function () {
 			expect(nickFromAccount("", "guest1")).to.equal("guest1");
 			expect(nickFromAccount("...", "guest1")).to.equal("guest1");
+			expect(nickFromAccount("2024", "guest1")).to.equal("guest1");
+			expect(nickFromAccount("-", "guest1")).to.equal("guest1");
 		});
 	});
 

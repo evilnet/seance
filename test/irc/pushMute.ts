@@ -1,4 +1,6 @@
 import {expect} from "chai";
+import {spawnSync} from "child_process";
+import path from "path";
 import sinon from "sinon";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -90,6 +92,24 @@ describe("push mute value (irc/pushMute.ts)", function () {
 		);
 		expect(withoutGlobal("*:1800000900", NOW)).to.equal("");
 	});
+});
+
+describe("the pushMute.ts ↔ presence.ts import cycle", function () {
+	// Every module here is loaded already by the time a test runs, so each
+	// order is tried in a node of its own, loaded as the suite loads them.
+	const ROOT = path.resolve(__dirname, "../..");
+
+	for (const first of ["pushMute", "presence"]) {
+		it(`loads with ${first}.ts imported first`, function () {
+			this.timeout(30_000);
+			const run = spawnSync(
+				process.execPath,
+				["--import", "tsx", "-e", `require("./client/js/irc/${first}.ts")`],
+				{cwd: ROOT, encoding: "utf8"}
+			);
+			expect(run.status, run.stderr).to.equal(0);
+		});
+	}
 });
 
 class FakeTransport implements Transport {

@@ -7,6 +7,7 @@ import {t} from "../../i18n/core";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {fromIgnored} from "../../ignore";
 
 const topicChange: Handler = (client, msg) => {
 	const [name, topic = ""] = msg.params;
@@ -30,13 +31,15 @@ const topicChange: Handler = (client, msg) => {
 		return; // history: the current topic came from 332
 	}
 
-	scriptManager.dispatchTopic({
-		network: client.name,
-		networkUuid: client.uuid,
-		channel: chan.name,
-		topic,
-		nick,
-	});
+	if (!fromIgnored(client.uuid, msg.source, client.isSelf(nick))) {
+		scriptManager.dispatchTopic({
+			network: client.name,
+			networkUuid: client.uuid,
+			channel: chan.name,
+			topic,
+			nick,
+		});
+	}
 
 	chan.shared.topic = topic;
 	client.dispatch("topic", {chan: chan.id, topic});

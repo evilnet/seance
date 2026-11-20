@@ -2,6 +2,8 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {momentAt} from "../../../client/js/scenes/ps/engine";
 import {moonShape, sceneClasses} from "../../../client/js/scenes/ps/markup";
+import {indoorTints} from "../../../client/js/scenes/ps/glass";
+import {roofColourAt} from "../../../client/js/scenes/ps/indoor";
 import {paletteAt} from "../../../client/js/scenes/ps/palette";
 import {mount, RELEASE_MS} from "../../../client/js/scenes/psng/scene";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
@@ -329,6 +331,17 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					"--ps-buzzard-op": "1",
 					"--ps-lark-op": "1",
 					"--ps-db-ink": "#3a3436",
+					// The yurt's light levels (indoor.ts), written whatever the view.
+					"--ps-in-shade": "0.000",
+					"--ps-in-warm": "0.000",
+					"--ps-in-golden": "0.000",
+					"--ps-in-fire": "0.000",
+					"--ps-in-burn": "0.000",
+					"--ps-in-cavity": "0.000",
+					"--ps-in-lamp": "0.000",
+					"--ps-in-beam": "1.000",
+					"--ps-in-sun": "0.000",
+					"--ps-in-screen": "0.000",
 				},
 				moon: {
 					rx: lit.rx.toFixed(2),
@@ -374,6 +387,152 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 		});
 	});
 
+	describe("the yurt in a private conversation (docs/projects/ps-yurt.md, plan 1 task 6)", function () {
+		const room = (page: Page) => page.root.querySelector(".ps-indoor");
+
+		it("a query builds the room once and shows it instead of the plains; back and forth leaves one room and one sheet", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				const scene = mountOn(page);
+				expect(page.root.markup).to.not.contain("ps-indoor");
+				const sheets = page.doc.adoptedStyleSheets.length;
+
+				for (let i = 0; i < 5; i++) {
+					scene.update(state({view: "query"}));
+					scene.update(state());
+				}
+
+				scene.update(state({view: "query"}));
+				expect((page.root.markup.match(/class="ps-indoor"/g) ?? []).length).to.equal(1);
+				expect(page.doc.adoptedStyleSheets.length).to.equal(sheets + 1);
+				expect(page.root.classList.contains("ps-private")).to.equal(true);
+				scene.destroy();
+			});
+		});
+
+		it("mounting straight into a query builds and colours the room in the first tick", function () {
+			withPage(new Date(2026, 5, 21, 23, 0), (page) => {
+				const scene = mountOn(page, {view: "query"});
+				expect(page.root.markup).to.contain('class="ps-indoor"');
+				expect(Number(page.root.style.props.get("--ps-in-shade"))).to.be.closeTo(
+					0.74,
+					0.001
+				);
+				expect(room(page).querySelector(".ps-yt-weather").dataset.weather).to.equal(
+					"clear"
+				);
+				scene.destroy();
+			});
+		});
+
+		it("a new day's weather rebuilds the windows' weather with the plains'", function () {
+			// 21 June 2026 is clear, 22 June heat.
+			withPage(new Date(2026, 5, 21, 23, 59, 30), (page, clock) => {
+				const scene = mountOn(page, {view: "query"});
+				const slot = room(page).querySelector(".ps-yt-weather");
+				expect(slot.dataset.weather).to.equal("clear");
+				expect(slot.markup).to.contain('data-weather="clear"');
+				clock.tick(60_000);
+				expect(page.root.dataset.weather).to.equal("heat");
+				expect(slot.dataset.weather).to.equal("heat");
+				expect(slot.markup).to.contain('data-weather="heat"');
+				scene.destroy();
+			});
+		});
+
+		it("the moving panes follow the day's weather with the static slot, moving or frozen (plan 2, Review Focus 2)", function () {
+			// 21 June 2026 is clear, 22 June heat.
+			withPage(new Date(2026, 5, 21, 23, 59), (page, clock) => {
+				const scene = mountOn(page, {view: "query"});
+				const panes = room(page).querySelector(".ps-ym-panes");
+				expect(panes.dataset.weather).to.equal("clear");
+				expect(panes.markup).to.contain("ps-ym-cloud");
+				scene.update(state({view: "query", attended: false}));
+				clock.tick(120_000);
+				expect(() => scene.update(state({view: "query"}))).to.not.throw();
+				expect(panes.dataset.weather).to.equal("heat");
+				expect(panes.markup).to.not.contain("psng-rain-tile");
+				scene.destroy();
+			});
+		});
+
+		it("the moving fire, its glow and the steam sleep while the chimney does (plan 3, Review Focus 2)", function () {
+			withPage(new Date(2026, 5, 21, 19, 0), (page, clock) => {
+				const indoor = new FakeElement(".ps-indoor");
+				const parts = [
+					new FakeElement(".ps-ym-fire"),
+					new FakeElement(".ps-ym-fireglow"),
+					new FakeElement(".ps-ym-steam"),
+				];
+				indoor.lists.set(".ps-ym-fire, .ps-ym-fireglow, .ps-ym-steam", () => parts);
+				page.root.planted.set(".ps-indoor", indoor);
+				const scene = mountOn(page, {view: "query"});
+				const smoke = () => Number(page.root.style.props.get("--ps-smoke-op") ?? 0);
+				expect(smoke(), "no smoke at 19:00").to.equal(0);
+				expect(
+					parts.every((e) => e.classList.contains("ps-off")),
+					"asleep by day"
+				).to.equal(true);
+
+				for (let i = 0; i < 4 * 60 && smoke() === 0; i++) {
+					clock.tick(60_000);
+				}
+
+				expect(smoke(), "smoke by 23:00").to.be.above(0);
+				expect(
+					parts.some((e) => e.classList.contains("ps-off")),
+					"awake with the smoke"
+				).to.equal(false);
+				scene.destroy();
+			});
+		});
+
+		it("the room's stars sleep when the plains' do (the stars' gate): ps-off on its star layers by day", function () {
+			for (const [hour, off] of [
+				[12, true],
+				[23, false],
+			] as const) {
+				withPage(new Date(2026, 5, 21, hour, 0), (page) => {
+					const indoor = new FakeElement(".ps-indoor");
+					const stars = new FakeElement(".ps-ym-stars");
+					indoor.lists.set(".ps-ym-stars", () => [stars]);
+					page.root.planted.set(".ps-indoor", indoor);
+					const scene = mountOn(page, {view: "query"});
+					expect(stars.classList.contains("ps-off"), `${hour}:00`).to.equal(off);
+					scene.destroy();
+				});
+			}
+		});
+
+		it("a query publishes the roof as the canvas, light words and the room's tints; a channel publishes as before, at once both ways", function () {
+			withPage(new Date(2026, 5, 21, 12, 30), (page) => {
+				const meta = page.plantMeta(THEME_COLOR);
+				const scene = mountOn(page);
+				const channel = published(page, meta);
+				scene.update(state({view: "query"}));
+				const m = momentAt(new Date(2026, 5, 21, 12, 30));
+				const p = paletteAt(m);
+				expect(page.html.style.props.get("--canvas-bg-color")).to.equal(roofColourAt(m, p));
+				expect(meta.content).to.equal(roofColourAt(m, p));
+				expect(page.html.dataset.psText).to.equal("light");
+				expect(page.html.style.props.get("--ps-g-tint-float")).to.equal(
+					indoorTints(m).float.toFixed(2)
+				);
+				scene.update(state());
+				expect(published(page, meta)).to.deep.equal(channel);
+				scene.destroy();
+			});
+		});
+
+		it("a window shows no moon while the moon's opacity is 0", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				const scene = mountOn(page, {view: "query"});
+				// .ps-yt-moon reads it (indoor.ts roomCss).
+				expect(Number(page.root.style.props.get("--ps-moon-op"))).to.equal(0);
+				scene.destroy();
+			});
+		});
+	});
+
 	it("destroy leaves nothing", function () {
 		withPage(new Date(2026, 5, 21, 23, 0), (page, clock) => {
 			const meta = page.plantMeta(THEME_COLOR);
@@ -402,7 +561,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				(n) => n.startsWith("psng-m-") || n === "psng-calm"
 			);
 		const all = GROUPS.map((g) => `psng-m-${g}`).sort();
-		const calm = ["psng-m-clouds"];
+		const calm = ["psng-m-clouds", "psng-m-hearth"];
 
 		// systemAccessibility() follows the first window it is given for good.
 		let following = false;
@@ -416,7 +575,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			}
 		};
 
-		it("full: every group's class, none else; unattended or a query: frozen with its classes; attended again: all", function () {
+		it("full: every group's class, none else; unattended: frozen with its classes; a query: every class, not frozen (spec §8)", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);
 				const scene = mountOn(page);
@@ -430,7 +589,10 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				expect(motionClasses(page).sort()).to.deep.equal(all);
 				expect(frozen()).to.equal(false);
 				scene.update(state({view: "query"}));
-				expect(frozen()).to.equal(true);
+				expect(frozen(), "a query moves").to.equal(false);
+				expect(motionClasses(page).sort()).to.deep.equal(all);
+				scene.update(state({view: "query", attended: false}));
+				expect(frozen(), "unattended in a query").to.equal(true);
 				scene.update(state({view: "query", motion: "still"}));
 				expect(motionClasses(page), "the setting at Still snaps").to.deep.equal([]);
 				expect(frozen()).to.equal(false);
@@ -457,7 +619,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			});
 		});
 
-		it("calm: the clouds and psng-calm; destroy removes every class", function () {
+		it("calm: the clouds, the hearth and psng-calm; destroy removes every class", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);
 				const scene = mountOn(page, {motion: "calm"});
@@ -522,6 +684,51 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				clock.tick(60_000);
 				scene.update(state());
 				expect(phase.lastCall.args[1]).to.equal(`${12 * 3600 + 10}s`);
+				scene.destroy();
+			});
+		});
+
+		it("--psng-t: rewritten at each change of view while moving, from the clock less the rested time", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page, clock) => {
+				follow(page);
+				const scene = mountOn(page);
+				const {phase} = watch(page);
+				clock.tick(90_000);
+				scene.update(state({view: "query"}));
+				expect(phase.lastCall.args[1], "into a query").to.equal(`${12 * 3600 + 90}s`);
+				clock.tick(30_000);
+				scene.update(state());
+				expect(phase.lastCall.args[1], "back to the channel").to.equal(
+					`${12 * 3600 + 120}s`
+				);
+				scene.update(state({attended: false}));
+				clock.tick(60_000);
+				scene.update(state());
+				expect(phase.lastCall.args[1], "the thaw, the rest taken off").to.equal(
+					`${12 * 3600 + 120}s`
+				);
+				clock.tick(10_000);
+				scene.update(state({view: "query"}));
+				expect(phase.lastCall.args[1], "into a query again").to.equal(
+					`${12 * 3600 + 130}s`
+				);
+				clock.tick(10_000);
+				scene.update(state());
+				expect(phase.lastCall.args[1], "and back").to.equal(`${12 * 3600 + 140}s`);
+				scene.destroy();
+			});
+		});
+
+		it("--psng-t: kept across a channel and another view (Settings, Help): the same picture, nothing jumps", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page, clock) => {
+				follow(page);
+				const scene = mountOn(page);
+				const {phase} = watch(page);
+				clock.tick(300_000);
+				scene.update(state({view: "other"}));
+				clock.tick(60_000);
+				scene.update(state());
+				expect(phase.callCount, "the plains both ways").to.equal(0);
 				scene.destroy();
 			});
 		});
@@ -654,6 +861,24 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				});
 			});
 
+			it("stops in a query and runs again on the plains, every time", function () {
+				withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+					follow(page);
+					const paints = plantFire(page);
+					const scene = mountOn(page);
+					expect(paints.pending(), "the plains at noon").to.equal(1);
+
+					for (let i = 0; i < 2; i++) {
+						scene.update(state({view: "query"}));
+						expect(paints.pending(), "a query").to.equal(0);
+						scene.update(state());
+						expect(paints.pending(), "the plains again").to.equal(1);
+					}
+
+					scene.destroy();
+				});
+			});
+
 			it("its gate off (midnight): no frame request", function () {
 				withPage(new Date(2026, 5, 21, 0, 0), (page) => {
 					follow(page);
@@ -717,6 +942,22 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 						clock.tick(1);
 						expect(moving(page)).to.equal(GROUPS.length);
 						expect(paints.pending()).to.equal(1);
+						scene.destroy();
+					});
+				});
+
+				it("a phone in a query: auto is calm (the clouds and the hearth); the drawer holds it still", function () {
+					withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+						follow(page);
+						const set = plantDrawer(page, true);
+						const scene = mountOn(page, {phone: true, motion: "auto", view: "query"});
+						expect(
+							[...page.root.classList.names]
+								.filter((n) => n.startsWith("psng-m-") || n === "psng-calm")
+								.sort()
+						).to.deep.equal(["psng-calm", "psng-m-clouds", "psng-m-hearth"]);
+						set("menu-open");
+						expect(moving(page), "the drawer holds it still").to.equal(0);
 						scene.destroy();
 					});
 				});

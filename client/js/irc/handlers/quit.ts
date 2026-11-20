@@ -7,6 +7,7 @@ import type {Channel} from "../channel";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {fromIgnored} from "../../ignore";
 import {forgetBot} from "../bottrust";
 
 const quit: Handler = (client, msg) => {
@@ -19,12 +20,15 @@ const quit: Handler = (client, msg) => {
 
 	if (!client.replaying) {
 		forgetBot(client, nick);
-		scriptManager.dispatchQuit({
-			network: client.name,
-			networkUuid: client.uuid,
-			nick,
-			message: reason || undefined,
-		});
+
+		if (!fromIgnored(client.uuid, msg.source, client.isSelf(nick))) {
+			scriptManager.dispatchQuit({
+				network: client.name,
+				networkUuid: client.uuid,
+				nick,
+				message: reason || undefined,
+			});
+		}
 	}
 
 	const time = client.timeOf(msg);

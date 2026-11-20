@@ -495,10 +495,13 @@ async function screenshot(name, {selector, pad = 24, clip} = {}) {
 		const r = await rect(selector);
 
 		if (r) {
+			// No wider than the viewport as it is now: --width, or whatever a
+			// scenario set with its own Emulation.setDeviceMetricsOverride.
+			const viewportWidth = await evaluate("innerWidth");
 			box = {
 				x: Math.max(0, r.x - pad),
 				y: Math.max(0, r.y - pad),
-				width: Math.min(1280, r.width + pad * 2),
+				width: Math.min(viewportWidth, r.width + pad * 2),
 				height: r.height + pad * 2,
 			};
 		}
@@ -599,6 +602,9 @@ const page = {
 		return consoleLogs.filter((l) => l.type === "error" || l.type === "exception");
 	},
 	outDir,
+	/** The browser's DevTools port, for a second tab of this browser
+	 * (tools/scenarios/lib/device.mjs `openTab`). */
+	devtoolsPort: port,
 	url: opt("url", null),
 	flags,
 	opt,

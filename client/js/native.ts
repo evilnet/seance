@@ -7,7 +7,6 @@
 // viewport) talk to; this file is free to pull in the store and the router.
 
 import {leavePage, onStandalonePage, openTarget, router} from "./router";
-import {closeOpenImage} from "./helpers/imageViewer";
 import {followSystemTextSize} from "./helpers/systemTextSize";
 import {reconnectAll} from "./irc/manager";
 import {isPhoneLayout} from "./helpers/device";
@@ -306,9 +305,10 @@ export function installNativeHooks(): void {
 		theme?.addEventListener("load", hideSplash, {once: true});
 	}
 
-	// Android back button: whatever is open on top goes first — an image,
-	// then anything that closes on Escape (every such overlay marks itself
-	// `data-escape-close` while it is up), then the phone's sidebar or
+	// Android back button: whatever is open on top goes first — anything that
+	// closes on Escape, the image viewer included (every such overlay marks
+	// itself `data-escape-close` while it is up, and the topmost goes), then
+	// the phone's sidebar or
 	// user-list overlay — then a standalone page gives way to the
 	// conversation it came from, and with nothing left to close the app
 	// minimizes (overrides the default). Not `router.back()`: the history is
@@ -319,10 +319,6 @@ export function installNativeHooks(): void {
 	}
 
 	nativeListen("App", "backButton", () => {
-		if (closeOpenImage()) {
-			return;
-		}
-
 		// The topmost one only (helpers/escapeLayer.ts).
 		if (topEscapeLayer() !== null) {
 			emitEscape();

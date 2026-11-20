@@ -21,7 +21,7 @@ import {ChanType} from "../../../../shared/types/chan";
 import {REACT_TAG, TYPING_TAG, typingStateOf, UNREACT_TAG} from "../wire";
 import type {Channel} from "../channel";
 import type {Handler} from "../types";
-import {ignoreListFor} from "../../ignore";
+import {fromIgnored} from "../../ignore";
 import {replyTagOf, splitStatusTarget} from "./privmsg";
 
 const tagmsg: Handler = (client, msg) => {
@@ -45,7 +45,7 @@ const tagmsg: Handler = (client, msg) => {
 
 	const self = client.isSelf(nick);
 
-	if (!self && ignoreListFor(client.uuid).matches(nick, source.user, source.host)) {
+	if (fromIgnored(client.uuid, source, self)) {
 		return;
 	}
 

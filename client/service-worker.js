@@ -58,6 +58,18 @@ const scopeNetwork = networkOfScope(shellUrl);
 const pushOnly = scopeNetwork !== undefined;
 const appUrl = pushOnly ? shellUrl.replace(/push\/[^/]+\/$/, "") : shellUrl;
 
+// The shell cache is named for this deploy: its scope, "|", then the build.
+// Cache Storage is per origin, not per scope, and one origin can hold several
+// deploys (GitHub Pages serves the release at /seance/, develop at
+// /seance/develop/ and each PR preview at /seance/prN/ from one host); a bare
+// build name could not tell an older build of this deploy from another
+// deploy's cache. The "|" keeps /seance/'s names from matching /seance/develop/'s.
+const shellCachePrefix = shellUrl + "|";
+const shellCache = shellCachePrefix + cacheName;
+// Before that, a shell cache was named by the build token alone: ten hex
+// digits (scripts/build-info.mts). Swept once by whichever deploy updates first.
+const isLegacyShellCache = (name) => /^[0-9a-f]{10}$/.test(name);
+
 function networkOfScope(scope) {
 	if (self.seancePush && self.seancePush.networkFromScope) {
 		return self.seancePush.networkFromScope(scope);
@@ -122,27 +134,29 @@ self.addEventListener("activate", function (event) {
 		return;
 	}
 
+	// Only this deploy's older builds, and the pre-scope names. Other deploys
+	// on the origin, other sites' caches and the model caches stay.
+	const stale = (name) =>
+		!isModelCache(name) &&
+		((name.startsWith(shellCachePrefix) && name !== shellCache) || isLegacyShellCache(name));
+
 	event.waitUntil(
 		caches
 			.keys()
-			.then((names) =>
-				Promise.all(
-					names
-						.filter((name) => name !== cacheName && !isModelCache(name))
-						.map((name) => caches.delete(name))
-				)
-			)
+			.then((names) => Promise.all(names.filter(stale).map((name) => caches.delete(name))))
 	);
 
 	event.waitUntil(self.clients.claim().then(announceBuild));
 });
 
-// Tell every open window which build serves it now. A page whose bundle is
-// older compares (client/js/pwa.ts) and offers "Reload to update"; a page
-// that has just loaded is this build already and stays quiet. Uncontrolled
-// windows included: a hard reload leaves a page without a controller.
+// Tell every open window of this deploy which build serves it now. A page
+// whose bundle is older compares (client/js/pwa.ts) and offers "Reload to
+// update"; a page that has just loaded is this build already and stays
+// quiet. Uncontrolled windows included: a hard reload leaves a page without
+// a controller. Another deploy's window is served by its own worker, so
+// reloading it could never clear the offer.
 async function announceBuild() {
-	const windows = await self.clients.matchAll({type: "window", includeUncontrolled: true});
+	const windows = await appWindows();
 
 	for (const client of windows) {
 		client.postMessage({type: "build", build: cacheName});
@@ -178,7 +192,7 @@ async function precacheShell() {
 	}
 
 	try {
-		const cache = await caches.open(cacheName);
+		const cache = await caches.open(shellCache);
 
 		await Promise.all(
 			shellPaths.map(async (path) => {
@@ -346,7 +360,7 @@ async function putInCache(request, response) {
 		return;
 	}
 
-	const cache = await caches.open(cacheName);
+	const cache = await caches.open(shellCache);
 	await cache.put(request, response);
 }
 
@@ -400,7 +414,7 @@ async function fromNetworkOrCache(event) {
 
 		throw new Error(`Request failed with HTTP ${response.status}`);
 	} catch (e) {
-		const cache = await caches.open(cacheName);
+		const cache = await caches.open(shellCache);
 		let matching = await cache.match(request, {ignoreSearch: navigation});
 
 		if (!matching && navigation) {
@@ -1248,11 +1262,26 @@ const AWAY_REPLY_MS = 2000;
 /** Mirrors PRE_AWAY_CAP in client/js/irc/presence.ts. */
 const PRE_AWAY_CAP = "draft/pre-away";
 
-/** Windows of this app: `includeUncontrolled` reports every window on the
- * origin, and a github.io origin holds other projects' pages too. */
+/** Windows of this deploy: `includeUncontrolled` reports every window on the
+ * origin, and a github.io origin holds other projects' pages too, as well as
+ * other deploys of this app nested inside this one's directory (develop at
+ * /seance/develop/ and previews at /seance/prN/ under the release at
+ * /seance/). Every message to "the app" and every "is the app open?" goes
+ * through here. */
 async function appWindows() {
 	const all = await self.clients.matchAll({type: "window", includeUncontrolled: true});
-	return all.filter((c) => typeof c.url === "string" && c.url.startsWith(appUrl));
+	return all.filter((c) => isAppWindow(c.url));
+}
+
+/** The app is one page with hash routes, so a window of this deploy has at
+ * most a file name (index.html) between `appUrl` and any `?` or `#`; a
+ * further "/" is a directory, and so another deploy. */
+function isAppWindow(url) {
+	if (typeof url !== "string" || !url.startsWith(appUrl)) {
+		return false;
+	}
+
+	return !url.slice(appUrl.length).split(/[?#]/)[0].includes("/");
 }
 
 /**
@@ -1608,8 +1637,16 @@ function push() {
 		lineIndexOf: () => null,
 		CONCAT_TAG: "draft/multiline-concat",
 		stripFormatting: stripFormattingInline,
-		notificationText: (text) =>
-			stripFormattingInline(text.replace(/\x01ACTION /, "*").replace(/\x01$/, "*")),
+		// strip.ts splitAction's rule: an empty action (`\x01ACTION\x01`)
+		// has no space after the word, and the closing byte is gone by now
+		// (cleanPayload drops trailing control bytes).
+		notificationText(text) {
+			const action = /^\x01ACTION(?: ([\s\S]*?))?\x01?$/.exec(text);
+
+			return action
+				? "*" + stripFormattingInline(action[1] || "") + "*"
+				: stripFormattingInline(text);
+		},
 		addMessage: (entries, incoming, keep = MERGE_KEEP_FALLBACK) =>
 			incoming.msgid && entries.some((m) => m.msgid === incoming.msgid)
 				? {entries: entries.slice(-keep), isNew: false}
@@ -2838,8 +2875,9 @@ async function handleResubscribe(oldSub, newSub) {
 
 	if (!sub) {
 		// No usable subscription: ask the page (next open) to redo it, for
-		// this network.
-		const cs = await self.clients.matchAll({includeUncontrolled: true, type: "window"});
+		// this network. Only this deploy's: another deploy's page would
+		// subscribe on its own registration, a second endpoint for one device.
+		const cs = await appWindows();
 
 		for (const c of cs) {
 			c.postMessage({type: "resubscribe", network: scopeNetwork});
@@ -3128,7 +3166,9 @@ function routeFor(data, tag) {
 /** Bring the app to the conversation a notification is about: tell an open
  * page to switch (and focus it), or open a window on the deep link. */
 async function openApp(data, tag) {
-	const cs = await clients.matchAll({includeUncontrolled: true, type: "window"});
+	// This deploy's windows only: telling another deploy's page (or another
+	// project's) to switch would leave this app unopened.
+	const cs = await appWindows();
 
 	// Focusing or opening a window needs the user activation a notification
 	// click carries; without it (a synthetic call) the browser refuses.

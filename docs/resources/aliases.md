@@ -1,6 +1,7 @@
 # Command aliases
 
-User-defined slash commands: a name and a body, edited in Settings → Aliases,
+User-defined slash commands: a name and a body, edited in Settings → Scripts →
+Aliases (the first row of the Scripts list),
 stored in `thelounge.aliases` (one JSON list of `{name, body}`, order kept),
 carried by the settings backup.
 
@@ -65,12 +66,22 @@ who defines an alias literally named `alias` shadows the command, like any
 other shadow. `alias` is in `multilineCommands` (`irc/commands/index.ts`), so
 a body typed with Shift+Enter stays one definition where `draft/multiline` is
 negotiated; without the capability each line is its own input, as everywhere
-else, and only the first reaches `/alias`. A Settings pane already open does
-not live-reload the list; reopen it to see a command-line change.
+else, and only the first reaches `/alias`. The aliases page, already open,
+does not live-reload the list; reopen it to see a command-line change.
 
 ## The editor
 
-`client/components/Settings/Aliases.vue`: one grid row per alias (name input
+Aliases are no tab of their own. Settings → Scripts opens with an Aliases row
+(`Settings/Scripts.vue`: the alias names on its second line), above the
+"Enable Lua" switch, which governs only the Lua scripts under it: aliases
+work with Lua off, and their row never greys out. The row opens
+`/settings/scripts/aliases` (a child route of Scripts, as a script's editor
+is; the old `/settings/aliases` redirects there), rendered by
+`Settings/AliasesOverlay.vue`: a `.settings-layer` over the settings
+(`Windows/Settings.vue`), the size of the settings pane, closed by Done, ✕,
+Escape or the backdrop back to the list, which re-reads the aliases then.
+
+Inside it, `client/components/Settings/Aliases.vue`: one grid row per alias (name input
 with a fixed `/` prefix, monospace body textarea sized to its line count, a
 remove button), inline validation — a row with an error is kept on screen but
 not saved; every valid change persists at once, like the rest of the

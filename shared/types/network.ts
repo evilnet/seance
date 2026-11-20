@@ -21,6 +21,12 @@ export type SharedServerOptions = {
 	NETWORK: string;
 	/** The network's upload host (`draft/FILEHOST` ISUPPORT), when usable. */
 	FILEHOST?: string;
+	/**
+	 * How the server folds nick and channel names (`CASEMAPPING` ISUPPORT,
+	 * client/js/irc/casemap.ts), so the page compares them as it does.
+	 * Absent means rfc1459, the default.
+	 */
+	CASEMAPPING?: "rfc1459" | "rfc1459-strict" | "ascii";
 };
 
 export type SharedNetworkStatus = {

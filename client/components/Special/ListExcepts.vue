@@ -43,8 +43,9 @@ export default defineComponent({
 	setup() {
 		const {t} = useI18n();
 
-		const fullTime = (date: number | Date) => {
-			return formatDateTime(date);
+		// A row the server gave no time: nothing, not the time now
+		const fullTime = (date: number | Date | undefined) => {
+			return date ? formatDateTime(date) : undefined;
 		};
 
 		return {

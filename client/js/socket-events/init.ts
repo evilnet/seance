@@ -1,5 +1,5 @@
 import socket from "../socket";
-import storage from "../localStorage";
+import {collapsedNetworks} from "../helpers/collapseNetwork";
 import {toClientChan} from "../chan";
 import {onStandalonePage, switchToChannel} from "../router";
 import {store} from "../store";
@@ -37,8 +37,7 @@ socket.on("init", function (data) {
 });
 
 function mergeNetworkData(newNetworks: SharedNetwork[]): ClientNetwork[] {
-	const stored = storage.get("thelounge.networks.collapsed");
-	const collapsedNetworks = stored ? new Set(JSON.parse(stored)) : new Set();
+	const collapsed = collapsedNetworks();
 	const result: ReturnType<typeof mergeNetworkData> = [];
 
 	for (const sharedNet of newNetworks) {
@@ -49,8 +48,7 @@ function mergeNetworkData(newNetworks: SharedNetwork[]): ClientNetwork[] {
 			const newNet: ClientNetwork = {
 				...sharedNet,
 				channels: sharedNet.channels.map(toClientChan),
-				isJoinChannelShown: false,
-				isCollapsed: collapsedNetworks.has(sharedNet.uuid),
+				isCollapsed: collapsed.has(sharedNet.uuid),
 			};
 			result.push(newNet);
 			continue;
@@ -69,6 +67,16 @@ function mergeNetworkData(newNetworks: SharedNetwork[]): ClientNetwork[] {
 					currentNetwork.channels,
 					sharedNet.channels
 				);
+			} else if (key === "status") {
+				// `downSince` is this page's own (socket-events/network.ts) and
+				// never comes from the IRC layer. Every registration sends
+				// `init` for every network: one still down has been down since
+				// then, not since now, or the composer's strip waits again.
+				const {downSince} = currentNetwork.status;
+				currentNetwork.status = {
+					...sharedNet.status,
+					...(!sharedNet.status.connected && downSince !== undefined ? {downSince} : {}),
+				};
 			} else {
 				currentNetwork[key] = sharedNet[key];
 			}

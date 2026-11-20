@@ -30,6 +30,11 @@ export type LineIndex = {index: number; sent: number; total: number};
 export const LINE_TAG = "evilnet.github.io/line";
 export const CONCAT_TAG = "draft/multiline-concat";
 
+/** The most lines the server pushes of one message: it caps
+ * WEBPUSH_MULTILINE_LINES, and with it `sent`, at 64
+ * (docs/projects/push-payload-multiline.md §3.2). */
+export const MAX_PUSHED_LINES = 64;
+
 const ESCAPES: Record<string, string> = {":": ";", s: " ", "\\": "\\", r: "\r", n: "\n"};
 
 /** The message-tags value escapes undone; a trailing lone backslash is dropped. */
@@ -161,7 +166,10 @@ export function lineIndexOf(tags: PushTags): LineIndex | null {
 		return null;
 	}
 
-	const match = /^(\d+)\/(\d+)\/(\d+)$/.exec(value);
+	// At most six digits each, as the Android mirror reads it
+	// (PushLine.java): a longer number is no line count, and 309 digits
+	// would make Infinity.
+	const match = /^(\d{1,6})\/(\d{1,6})\/(\d{1,6})$/.exec(value);
 
 	if (!match) {
 		return null;
@@ -172,6 +180,15 @@ export function lineIndexOf(tags: PushTags): LineIndex | null {
 	const total = Number(match[3]);
 
 	if (index < 1 || sent < 1 || total < 1 || index > sent || sent > total) {
+		return null;
+	}
+
+	// joinLines (merge.ts) walks every index up to `sent`, so a value past
+	// what the server can push would cost the worker that many steps on
+	// each line. `total` is the message's own line count, which the
+	// multiline max-lines lets go past 64 (nefarious2 advertises 100); it
+	// is only compared with `sent`, never walked.
+	if (sent > MAX_PUSHED_LINES) {
 		return null;
 	}
 

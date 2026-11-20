@@ -87,6 +87,55 @@
 		</div>
 
 		<div class="browse-body">
+			<!-- One channel by name: what the search holds when the list has no
+			     row by that name (a channel nobody has started, or one the server
+			     keeps out of its list), or a join from here the server refused. -->
+			<form
+				v-if="connected && joinName"
+				class="browse-direct"
+				:class="{refused: !!refusal?.text}"
+				autocomplete="off"
+				@submit.prevent="joinByName"
+			>
+				<span class="browse-direct-main">
+					<span class="browse-direct-name"
+						><bdi>{{ joinName }}</bdi></span
+					>
+					<span v-if="refusal?.text" class="browse-direct-refusal" role="alert"
+						><bdi>{{ refusal.text }}</bdi></span
+					>
+					<span v-else-if="list.status === 'done'" class="browse-dim">{{
+						t("browse.unlisted")
+					}}</span>
+				</span>
+				<input
+					v-if="keyShown"
+					ref="keyField"
+					v-model="chanKey"
+					class="browse-direct-key"
+					type="password"
+					name="key"
+					dir="auto"
+					maxlength="200"
+					pattern="[^\s]+"
+					autocomplete="new-password"
+					:title="t('join.passwordHint')"
+					:placeholder="t('join.passwordPlaceholder')"
+					:aria-label="t('join.passwordPlaceholder')"
+				/>
+				<button
+					v-else
+					type="button"
+					class="oper-icon-btn browse-icon browse-icon-key browse-direct-keybtn"
+					:aria-label="t('browse.addKey')"
+					:title="t('browse.addKey')"
+					@click="showKey"
+				/>
+				<button type="submit" class="browse-direct-go">
+					{{ joinedNames.has(fold(joinName)) ? t("browse.open") : t("browse.join") }}
+				</button>
+			</form>
+
 			<!-- The server's word on the list: a wait, a refusal, no connection. -->
 			<div v-if="!network" class="browse-center" role="status">
 				<b>{{ t("browse.noNetwork") }}</b>
@@ -94,15 +143,6 @@
 			<div v-else-if="!connected" class="browse-center" role="status">
 				<b>{{ t("browse.offline") }}</b>
 				<p>{{ t("browse.offlineNote") }}</p>
-			</div>
-			<div
-				v-else-if="list.status === 'delayed' && waitLeft > 0"
-				class="browse-center"
-				role="status"
-			>
-				<span class="browse-wait-ring" aria-hidden="true">{{ waitLeft }}</span>
-				<b>{{ t("browse.delayed") }}</b>
-				<p>{{ tCount("browse.delayedNote", waitLeft) }}</p>
 			</div>
 			<div v-else-if="list.status === 'error'" class="browse-center" role="alert">
 				<b>{{ t("browse.refused") }}</b>
@@ -113,17 +153,35 @@
 			</div>
 
 			<template v-else>
+				<!-- The server's wait on new connections: alone it has the middle of
+				     the pane, with featured channels to offer it is a banner over them. -->
+				<div
+					v-if="waiting"
+					class="browse-center browse-wait"
+					:class="{'browse-wait-banner': featuredRows.length}"
+					role="status"
+				>
+					<span class="browse-wait-ring" aria-hidden="true">{{ waitLeft }}</span>
+					<span class="browse-wait-text">
+						<b>{{ t("browse.delayed") }}</b>
+						<p>{{ tCount("browse.delayedNote", waitLeft) }}</p>
+					</span>
+				</div>
+
 				<!-- Featured: what the network itself puts forward. -->
 				<section
 					v-if="
-						featuredRows.length && (filter === 'all' || filter === 'featured') && !query
+						featuredRows.length &&
+						(waiting || ((filter === 'all' || filter === 'featured') && !query))
 					"
 					class="browse-featured"
 					:aria-label="t('browse.featured')"
 				>
 					<div class="browse-section-head">
 						<h2>{{ t("browse.featured") }}</h2>
-						<span class="browse-dim">{{ t("browse.featuredNote") }}</span>
+						<span class="browse-dim">{{
+							waiting ? t("browse.featuredMeanwhile") : t("browse.featuredNote")
+						}}</span>
 					</div>
 					<div class="browse-cards">
 						<button
@@ -158,7 +216,7 @@
 					</div>
 				</section>
 
-				<section class="browse-all" :aria-label="t('browse.all')">
+				<section v-if="!waiting" class="browse-all" :aria-label="t('browse.all')">
 					<div class="browse-section-head">
 						<h2>
 							{{ filter === "featured" ? t("browse.featured") : t("browse.all") }}
@@ -191,14 +249,6 @@
 					<div v-else-if="!shownRows.length" class="browse-center" role="status">
 						<template v-if="query">
 							<b>{{ t("browse.noMatches", {query}) }}</b>
-							<button
-								v-if="creatable"
-								class="oper-btn oper-btn-primary"
-								type="button"
-								@click="open(creatable)"
-							>
-								{{ t("browse.create", {name: creatable}) }}
-							</button>
 						</template>
 						<template v-else-if="list.status === 'done'">
 							<b>{{ t("browse.empty") }}</b>
@@ -290,6 +340,9 @@
 }
 .browse-icon-people::before {
 	content: "\f0c0";
+}
+.browse-icon-key::before {
+	content: "\f084";
 }
 
 .browse-icon-refresh.spinning::before {
@@ -589,7 +642,8 @@ html[data-reduce-motion] .browse-card:hover {
 }
 
 .browse-card-action,
-.browse-row-action {
+.browse-row-action,
+.browse-direct-go {
 	padding: 0.25rem 0.625rem;
 	border-radius: 999px;
 	background: var(--oper-amber);
@@ -615,6 +669,83 @@ html[data-reduce-motion] .browse-card:hover {
 	font-size: 0.8125rem;
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
+}
+
+/* Join by name: one compact row above the list, for a channel the list does
+ * not have, or one whose join the server refused. Used rarely, so it stays
+ * small: a dashed edge until the server says something about it. */
+.browse-direct {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0.75rem 0.75rem 0;
+	padding-block: 0.375rem;
+	padding-inline: 0.75rem 0.375rem;
+	border: 1px dashed var(--oper-line-2);
+	border-radius: 0.625rem;
+}
+
+.browse-direct.refused {
+	border-style: solid;
+	border-color: color-mix(in oklab, var(--oper-red) 55%, transparent);
+}
+
+.browse-direct-main {
+	flex: 1;
+	display: grid;
+	gap: 0.125rem;
+	min-width: 0;
+}
+
+.browse-direct-name {
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.browse-direct-refusal {
+	color: var(--oper-red);
+	font-size: 0.8125rem;
+	overflow-wrap: anywhere;
+}
+
+.browse-direct-key {
+	flex: 0 1 11rem;
+	min-width: 6rem;
+	height: 2rem;
+	padding: 0 0.625rem;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.4rem;
+	background: var(--oper-sunk);
+	color: var(--body-color);
+	font: inherit;
+	font-size: 0.875rem;
+}
+
+.browse-direct-key::placeholder {
+	color: var(--body-color-muted);
+	opacity: 1;
+}
+
+.browse-direct-key:focus {
+	border-color: var(--oper-amber);
+	outline: 0;
+	box-shadow: 0 0 0 1px var(--oper-amber);
+}
+
+.browse-direct .browse-direct-keybtn {
+	flex: none;
+	width: 2rem;
+	height: 2rem;
+	color: var(--body-color-muted);
+}
+
+.browse-direct-go {
+	flex: none;
+	border: 0;
+	font-family: inherit;
+	cursor: pointer;
 }
 
 /* Every channel: one row each, the whole row a button. */
@@ -745,6 +876,36 @@ html[data-reduce-motion] .browse-card:hover {
 	overflow-wrap: anywhere;
 }
 
+.browse-wait-text {
+	display: grid;
+	justify-items: inherit;
+	gap: 0.375rem;
+}
+
+/* With featured channels under it the wait is a banner, not the whole pane. */
+.browse-wait-banner {
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: center;
+	justify-items: start;
+	gap: 0.875rem;
+	margin: 0.75rem 0.75rem 0;
+	padding: 0.75rem 0.875rem;
+	border: 1px solid color-mix(in oklab, var(--oper-amber) 35%, transparent);
+	border-radius: 0.625rem;
+	background: color-mix(in oklab, var(--oper-amber) 8%, transparent);
+	text-align: start;
+}
+
+.browse-wait-banner p {
+	max-width: none;
+}
+
+.browse-wait-banner .browse-wait-ring {
+	width: 2.75rem;
+	height: 2.75rem;
+	font-size: 1rem;
+}
+
 .browse-wait-ring {
 	display: grid;
 	place-items: center;
@@ -836,16 +997,19 @@ html[data-reduce-motion] .browse-skeleton-topic {
 </style>
 
 <script lang="ts">
-import {computed, defineComponent, onMounted, onUnmounted, ref, watch} from "vue";
+import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue";
 import {useRoute} from "vue-router";
 
 import socket from "../../js/socket";
 import {leavePage, switchToChannel} from "../../js/router";
 import {useStore} from "../../js/store";
 import {useI18n} from "../../js/i18n";
+import {casefold} from "../../js/irc/casemap";
+import {channelByName} from "../../js/helpers/channelByName";
 import {formatRelativeTime} from "../../js/i18n/dates";
 import {BUSY_USERS, REFRESH_AFTER_MS, STALE_AFTER_MS} from "../../js/irc/channelList";
 import {ChanState, ChanType} from "../../../shared/types/chan";
+import {MessageType, type SharedMsg} from "../../../shared/types/msg";
 import type {SharedChannelList} from "../../../shared/types/channel-list";
 import SidebarToggle from "../SidebarToggle.vue";
 
@@ -873,6 +1037,15 @@ interface Row {
 	featured: boolean;
 }
 
+/** A join sent from this window that the server refused, in its words. */
+interface Refusal {
+	name: string;
+	/** Empty while the join is tried again. */
+	text: string;
+	/** A bad key (475): the row opens its password field. */
+	needsKey: boolean;
+}
+
 export default defineComponent({
 	name: "ChannelBrowser",
 	components: {SidebarToggle},
@@ -882,7 +1055,15 @@ export default defineComponent({
 		const {t, tCount} = useI18n();
 
 		const queryField = ref<HTMLInputElement>();
+		const keyField = ref<HTMLInputElement>();
 		const query = ref("");
+		const chanKey = ref("");
+		const keyShown = ref(false);
+		const refusal = ref<Refusal | null>(null);
+		/** The channels this window sent a JOIN for, folded: the errors
+		 * naming one are its refusal, shown here, where the user is looking
+		 * (the chat they would land in is under this window). */
+		const asked = new Set<string>();
 		const filter = ref<Filter>("all");
 		const sort = ref<Sort>("people");
 		const shown = ref(PAGE);
@@ -892,6 +1073,8 @@ export default defineComponent({
 		const network = computed(() => store.getters.findNetwork(String(route.params.uuid)));
 		const networkName = computed(() => network.value?.name ?? "");
 		const connected = computed(() => network.value?.status.connected ?? false);
+		/** A channel name as the network compares them (`#a[b]` is `#a{b}` under rfc1459). */
+		const fold = (name: string) => casefold(name, network.value?.serverOptions.CASEMAPPING);
 		const list = computed<SharedChannelList>(
 			() => (network.value && store.state.channelLists[network.value.uuid]) ?? EMPTY
 		);
@@ -901,22 +1084,20 @@ export default defineComponent({
 
 			for (const chan of network.value?.channels ?? []) {
 				if (chan.type === ChanType.CHANNEL && chan.state === ChanState.JOINED) {
-					names.add(chan.name.toLowerCase());
+					names.add(fold(chan.name));
 				}
 			}
 
 			return names;
 		});
 
-		const featuredNames = computed(
-			() => new Set(list.value.featured.map((f) => f.name.toLowerCase()))
-		);
+		const featuredNames = computed(() => new Set(list.value.featured.map((f) => fold(f.name))));
 
 		const byName = computed(() => {
 			const map = new Map<string, Row>();
 
 			for (const r of list.value.rows) {
-				const key = r.name.toLowerCase();
+				const key = fold(r.name);
 				map.set(key, {
 					name: r.name,
 					users: r.users,
@@ -932,13 +1113,13 @@ export default defineComponent({
 		/** Featured cards: the MOTD's blurb, the list's count and topic when it has them. */
 		const featuredRows = computed(() =>
 			list.value.featured.map((f) => {
-				const row = byName.value.get(f.name.toLowerCase());
+				const row = byName.value.get(fold(f.name));
 				return {
 					name: f.name,
 					blurb: f.blurb,
 					topic: row?.topic ?? "",
 					users: row?.users,
-					joined: joinedNames.value.has(f.name.toLowerCase()),
+					joined: joinedNames.value.has(fold(f.name)),
 				};
 			})
 		);
@@ -991,16 +1172,26 @@ export default defineComponent({
 
 		const visibleRows = computed(() => shownRows.value.slice(0, shown.value));
 
-		/** A query that is one channel name with no match: offer to start it. */
-		const creatable = computed(() => {
+		/** The search read as one channel name, prefixed when it lacks one ("" when it cannot be one). */
+		const typedName = computed(() => {
 			const q = query.value.trim();
-			const types = network.value?.serverOptions.CHANTYPES ?? ["#"];
+			const types = network.value?.serverOptions.CHANTYPES ?? [];
 
-			if (!q || /[\s,]/.test(q) || shownRows.value.length) {
+			if (!q || /[\s,]/.test(q)) {
 				return "";
 			}
 
-			return types.includes(q[0]) ? q : types[0] + q;
+			return types.includes(q[0]) ? q : (types[0] ?? "#") + q;
+		});
+
+		/** The join-by-name row's channel: a refused join from here, else the typed name the list lacks. */
+		const joinName = computed(() => {
+			if (refusal.value) {
+				return refusal.value.name;
+			}
+
+			const name = typedName.value;
+			return name && !byName.value.has(fold(name)) ? name : "";
 		});
 
 		const delayedAt = ref(0);
@@ -1020,6 +1211,9 @@ export default defineComponent({
 			},
 			{immediate: true}
 		);
+
+		/** The server named a wait that is not over: no list to show yet. */
+		const waiting = computed(() => list.value.status === "delayed" && waitLeft.value > 0);
 
 		const canRefresh = computed(
 			() =>
@@ -1058,23 +1252,95 @@ export default defineComponent({
 			}
 		};
 
-		const open = (name: string) => {
+		// The wait is over with the window still open: the list is what it was
+		// opened for, so ask again rather than leave a button to press.
+		watch(waiting, (is, was) => {
+			if (was && !is && list.value.status === "delayed") {
+				ask();
+			}
+		});
+
+		const open = (name: string, withKey = "") => {
 			const net = network.value;
 
 			if (!net) {
 				return;
 			}
 
-			const existing = net.channels.find(
-				(c) => c.type === ChanType.CHANNEL && c.name.toLowerCase() === name.toLowerCase()
-			);
+			const existing = channelByName(net, name);
 
-			if (existing && existing.state === ChanState.JOINED) {
+			if (existing?.type === ChanType.CHANNEL && existing.state === ChanState.JOINED) {
 				switchToChannel(existing);
 				return;
 			}
 
-			socket.emit("input", {target: net.channels[0].id, text: `/join ${name}`});
+			asked.add(fold(name));
+			socket.emit("input", {
+				target: net.channels[0].id,
+				text: withKey ? `/join ${name} ${withKey}` : `/join ${name}`,
+			});
+		};
+
+		const focusKey = () => {
+			void nextTick(() => keyField.value?.focus());
+		};
+
+		const showKey = () => {
+			keyShown.value = true;
+			focusKey();
+		};
+
+		const joinByName = () => {
+			const name = joinName.value;
+
+			if (!name) {
+				return;
+			}
+
+			if (refusal.value) {
+				refusal.value = {...refusal.value, text: ""};
+			}
+
+			open(name, keyShown.value ? chanKey.value.trim() : "");
+		};
+
+		/** What the server said to a JOIN this window sent: the join-by-name row shows it. */
+		const refusalText = (code: string, name: string, reason: string) => {
+			switch (code) {
+				case "bad_channel_key":
+					return t("error.badChannelKey", {channel: name});
+				case "banned_from_channel":
+					return t("error.bannedFromChannel", {channel: name});
+				case "channel_is_full":
+					return t("error.channelIsFull", {channel: name});
+				case "invite_only_channel":
+					return t("error.inviteOnlyChannel", {channel: name});
+				default:
+					return reason || code;
+			}
+		};
+
+		const onMsg = ({msg, chan}: {msg: SharedMsg; chan: number}) => {
+			if (msg.type !== MessageType.ERROR || !msg.channel || !asked.has(fold(msg.channel))) {
+				return;
+			}
+
+			if (store.getters.findChannel(chan)?.network.uuid !== network.value?.uuid) {
+				return;
+			}
+
+			asked.delete(fold(msg.channel));
+			const needsKey = msg.error === "bad_channel_key";
+			refusal.value = {
+				name: msg.channel,
+				text: refusalText(msg.error ?? "", msg.channel, msg.reason ?? ""),
+				needsKey,
+			};
+
+			if (needsKey) {
+				chanKey.value = "";
+				showKey();
+			}
 		};
 
 		const filterLabel = (f: Filter) => {
@@ -1090,9 +1356,20 @@ export default defineComponent({
 			}
 		};
 
+		/** Enter in the search: the typed channel, when that is unambiguous (the list's row by that name, or the name when nothing else matches). */
 		const submitQuery = () => {
-			if (creatable.value) {
-				open(creatable.value);
+			const name = typedName.value;
+
+			if (!name) {
+				return;
+			}
+
+			const row = byName.value.get(fold(name));
+
+			if (row) {
+				open(row.name);
+			} else if (!shownRows.value.length) {
+				open(name, keyShown.value && joinName.value === name ? chanKey.value.trim() : "");
 			}
 		};
 		const clearQuery = () => {
@@ -1110,6 +1387,20 @@ export default defineComponent({
 			shown.value = PAGE;
 		});
 
+		// Typing moves on from a refusal; another channel in the row starts without a key.
+		watch(query, () => {
+			refusal.value = null;
+		});
+
+		watch(
+			() => fold(joinName.value),
+			() => {
+				chanKey.value = "";
+				// A refusal for a bad key brings its field along.
+				keyShown.value = refusal.value?.needsKey ?? false;
+			}
+		);
+
 		watch(connected, (up) => {
 			if (up) {
 				askIfStale();
@@ -1123,6 +1414,7 @@ export default defineComponent({
 		});
 
 		onMounted(() => {
+			socket.on("msg", onMsg);
 			askIfStale();
 			clock = setInterval(() => {
 				now.value = Date.now();
@@ -1134,6 +1426,8 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
+			socket.off("msg", onMsg);
+
 			if (clock) {
 				clearInterval(clock);
 			}
@@ -1149,18 +1443,27 @@ export default defineComponent({
 			list,
 			query,
 			queryField,
+			keyField,
+			chanKey,
+			keyShown,
+			refusal,
+			joinName,
+			joinedNames,
+			fold,
 			filter,
 			sort,
 			featuredRows,
 			shownRows,
 			visibleRows,
-			creatable,
 			waitLeft,
+			waiting,
 			canRefresh,
 			refreshTitle,
 			updatedLabel,
 			ask,
 			open,
+			showKey,
+			joinByName,
 			filterLabel,
 			submitQuery,
 			clearQuery,

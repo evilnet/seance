@@ -20,6 +20,7 @@ import {
 	sanitizeLinkParams,
 	type LinkSuggestion,
 } from "./helpers/linkTarget";
+import {preloadConversations} from "./irc/conversationStore";
 import * as saved from "./irc/saved-networks";
 import type {SavedNetwork} from "./irc/saved-networks";
 import {parseJoinList} from "./irc/client";
@@ -125,6 +126,15 @@ export async function boot(): Promise<void> {
 	// 'theme' setting depends on serverConfiguration.themes so
 	// settings cannot be applied before this point
 	void store.dispatch("settings/applyAll");
+	// From here on, a settings change made in another tab is applied here as
+	// it lands; not earlier, for the same reason as applyAll.
+	void store.dispatch("settings/watch");
+
+	// The conversations kept on this device, read while the rest of the
+	// boot goes on: every window shows its lines the moment its network is
+	// made, before any connection (irc/conversationStore.ts). After the
+	// settings: with keeping switched off there is nothing to read.
+	const conversationsRead = preloadConversations(() => saved.list().map((entry) => entry.uuid));
 
 	// The root service worker isolates the app's documents only while
 	// translation is on (translate/index.ts startIsolationMirror): told now,
@@ -189,6 +199,7 @@ export async function boot(): Promise<void> {
 			const active = store.state.activeChannel;
 			return (active ? clientForNetwork(active.network.uuid) : undefined) ?? allClients()[0];
 		},
+		clients: allClients,
 		print(text) {
 			const active = store.state.activeChannel;
 
@@ -221,6 +232,10 @@ export async function boot(): Promise<void> {
 		// if the router throws an error, it means the route isn't matched,
 		// so we can continue on.
 	}
+
+	// Before anything below can make a network (a link, the autoconnect).
+	// Never rejects, and gives up by itself when the read is slow.
+	await conversationsRead;
 
 	if (window.g_TheLoungeRemoveLoading) {
 		window.g_TheLoungeRemoveLoading();

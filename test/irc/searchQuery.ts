@@ -241,6 +241,16 @@ describe("searchQuery", function () {
 			expect(matchesFilters(row("fake lag in docker"), filters)).to.equal(false);
 		});
 
+		it("reads the text without its IRC formatting codes", function () {
+			expect(matchesFilters(row("hel\x02lo"), parseSearchQuery("hello"))).to.equal(true);
+			expect(matchesFilters(row("\x0304,01he\x0fllo"), parseSearchQuery("hello"))).to.equal(
+				true
+			);
+			expect(matchesFilters(row("hi wor\x1dld"), parseSearchQuery("hi -world"))).to.equal(
+				false
+			);
+		});
+
 		it("matches from exactly, not as a substring", function () {
 			const filters = parseSearchQuery("from:kit");
 

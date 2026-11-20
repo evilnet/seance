@@ -1,6 +1,12 @@
 import storage from "./localStorage";
 import {config, createState} from "./settings";
 import {migrateStoredSettings, readStoredSettings} from "./helpers/settingsMigration";
+import {
+	assignStoredSettings,
+	parseStoredSettings,
+	settingsToStore,
+	storedChanges,
+} from "./helpers/settingsSync";
 import {Store} from "vuex";
 import {State} from "./store";
 
@@ -63,15 +69,76 @@ export function createSettingsStore(store: Store<State>) {
 				}
 
 				commit("set", {name, value});
-				storage.set("settings", JSON.stringify(state));
+				// Onto what is stored, not this tab's whole state: another tab
+				// may have changed a setting this one has not caught up with
+				// yet (helpers/settingsSync.ts).
+				storage.set(
+					"settings",
+					JSON.stringify(
+						settingsToStore(
+							parseStoredSettings(storage.get("settings")),
+							state,
+							createState(),
+							name,
+							value
+						)
+					)
+				);
 				settingConfig.apply(store, value);
+			},
+			/** Another tab's write (the `storage` event, which fires only in
+			 * the other tabs of this origin) is taken here: each setting it
+			 * changed is set and applied, as applyAll does, so this tab shows
+			 * what a reload would. boot.ts starts it after applyAll, once the
+			 * themes are known. A page brought back from the back/forward
+			 * cache missed the events in between and reads storage again. */
+			watch({state, commit}) {
+				const follow = (raw: string | null) => {
+					const defaults: Record<string, unknown> = createState();
+					const deployTheme = store.state.serverConfiguration?.defaultTheme;
+
+					if (deployTheme) {
+						defaults.theme = deployTheme;
+					}
+
+					const changes = storedChanges(parseStoredSettings(raw), state, defaults);
+
+					// All set before any is applied: an apply() can read
+					// another setting (the theme reads matchSystemAppearance).
+					for (const [name, value] of changes) {
+						commit("set", {name, value});
+					}
+
+					// `auto`, as at boot: nobody here asked for the change,
+					// so keepConnected does not prompt.
+					for (const [name, value] of changes) {
+						config[name].apply(store, value, true);
+					}
+				};
+
+				window.addEventListener("storage", (ev: StorageEvent) => {
+					// `key` is null when another tab cleared all of storage
+					// (Auth.signout). What is stored now, not the event's
+					// newValue: this tab may have written a change of its own
+					// since the other tab's write, and newValue would take
+					// it back. Nothing stored (cleared, or the entry
+					// removed) reads as defaults.
+					if (ev.key === "settings" || ev.key === null) {
+						follow(storage.get("settings"));
+					}
+				});
+				window.addEventListener("pageshow", (ev: PageTransitionEvent) => {
+					if (ev.persisted) {
+						follow(storage.get("settings"));
+					}
+				});
 			},
 		},
 	};
 }
 
 function loadFromLocalStorage() {
-	let storedSettings: Record<string, any> = {};
+	let storedSettings: unknown = {};
 
 	try {
 		storedSettings = JSON.parse(storage.get("settings") || "{}");
@@ -80,30 +147,4 @@ function loadFromLocalStorage() {
 	}
 
 	return readStoredSettings(storedSettings);
-}
-
-/**
- * Essentially Object.assign but does not overwrite and only assigns
- * if key exists in both supplied objects and types match
- *
- * @param {object} defaultSettings
- * @param {object} storedSettings
- */
-function assignStoredSettings(
-	defaultSettings: Record<string, any>,
-	storedSettings: Record<string, any>
-) {
-	const newSettings = {...defaultSettings};
-
-	for (const key in defaultSettings) {
-		// Make sure the setting in local storage has the same type that the code expects
-		if (
-			typeof storedSettings[key] !== "undefined" &&
-			typeof defaultSettings[key] === typeof storedSettings[key]
-		) {
-			newSettings[key] = storedSettings[key];
-		}
-	}
-
-	return newSettings;
 }

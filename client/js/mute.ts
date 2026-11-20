@@ -7,7 +7,7 @@
 import storage from "./localStorage";
 import {mirrorPushPrefs} from "./push-prefs";
 import {store} from "./store";
-import {ClientNetwork} from "./types";
+import {ClientChan, ClientNetwork} from "./types";
 import {ChanType} from "../../shared/types/chan";
 
 const KEY = "thelounge.muted";
@@ -77,13 +77,19 @@ export function setMuteStatus(target: number, muted: boolean): void {
 export function applyStoredMuteStatus(network: ClientNetwork): void {
 	const stored = readMuted();
 
-	if (stored.size === 0) {
-		return;
-	}
-
 	for (const chan of network.channels) {
-		if (stored.has(mutedKey(network.uuid, chan.name))) {
-			chan.muted = true;
-		}
+		applyStoredMute(network.uuid, chan, stored);
+	}
+}
+
+/**
+ * Re-apply the stored mute flag to one conversation that arrived after its
+ * network was announced (socket-events/join.ts): a channel joined again, a
+ * query an incoming message reopened, a channel a held session restored.
+ * The IRC layer hands each one over unmuted.
+ */
+export function applyStoredMute(networkUuid: string, chan: ClientChan, stored = readMuted()): void {
+	if (stored.has(mutedKey(networkUuid, chan.name))) {
+		chan.muted = true;
 	}
 }

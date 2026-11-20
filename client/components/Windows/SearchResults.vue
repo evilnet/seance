@@ -1455,6 +1455,9 @@ export default defineComponent({
 		onMounted(() => {
 			socket.on("search:results", onResults);
 			eventbus.on("escapekey", onEscape);
+			// `/search` with the query already showing (commands/search.ts):
+			// the route does not change, so it comes here instead.
+			eventbus.on("search:again", setQuery);
 			window.addEventListener("resize", showMatches);
 			run();
 
@@ -1466,6 +1469,7 @@ export default defineComponent({
 		onUnmounted(() => {
 			socket.off("search:results", onResults);
 			eventbus.off("escapekey", onEscape);
+			eventbus.off("search:again", setQuery);
 			window.removeEventListener("resize", showMatches);
 			clearTimeout(liveTimer);
 			clearHighlight("search-hit");

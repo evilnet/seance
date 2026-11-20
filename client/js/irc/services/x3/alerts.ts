@@ -14,7 +14,19 @@ import {REFUSED} from "./refusals";
 const CRITERIA_ERROR =
 	/is an invalid search criteria\.|requires more parameters\.|is an invalid IRC hostmask\.|is not a valid IP address|is an invalid binary value\.|^Invalid regex:/;
 
+/**
+ * Whether `line` is a column header. X3 pads its headers to line up with the
+ * rows (`Name                 Action (by Oper)`), and a header otherwise
+ * reads as a row: compare with every run of whitespace taken as one space.
+ */
+function isHeader(line: string, header: string): boolean {
+	return line.replace(/\s+/g, " ") === header;
+}
+
 // ----------------------------------------------------------- stats alerts
+
+/** OSMSG_ALERTS_HEADER, spaces collapsed. */
+const ALERTS_HEADER = "Name Action (by Oper)";
 
 /** `<name> <reaction> (by <owner>)` — `%-20s %-6s (by %s)`. */
 const ALERT_ROW = /^(\S+)\s+(\S+)\s+\(by (\S+)\)$/;
@@ -49,7 +61,7 @@ function alerts(): ServiceLookup<ServiceAlert[]> {
 			for (const raw of lines.slice(1)) {
 				const line = raw.trim();
 
-				if (/^-+$/.test(line) || line === "Name Action (by Oper)" || line === "") {
+				if (/^-+$/.test(line) || isHeader(line, ALERTS_HEADER) || line === "") {
 					continue;
 				}
 
@@ -98,6 +110,9 @@ function alerts(): ServiceLookup<ServiceAlert[]> {
 }
 
 // ------------------------------------------------------------ trace print
+
+/** OSMSG_USER_SEARCH_HEADER, spaces collapsed. */
+const TRACE_HEADER = "Nick User@Host (Account)";
 
 /** `%-15s %10s@%s (%s)`: the nick, the ident right-aligned, the host, the account. */
 const TRACE_ROW = /^(\S+)\s+(\S+)@(\S+)(?:\s+\((\S*)\))?$/;
@@ -153,7 +168,7 @@ function tracePrint(criteria: string): ServiceLookup<TraceResult> {
 					continue;
 				}
 
-				if (/^-+$/.test(line) || line === "Nick User@Host (Account)") {
+				if (/^-+$/.test(line) || isHeader(line, TRACE_HEADER)) {
 					continue;
 				}
 

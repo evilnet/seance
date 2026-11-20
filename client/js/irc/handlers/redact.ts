@@ -35,6 +35,13 @@ const redact: Handler = (client, msg) => {
 	const conversation = chan?.name ?? (client.isSelf(target) ? nick : target);
 	client.dispatch("inbox:drop", {network: client.uuid, target: conversation, msgid});
 
+	// The kept line goes by msgid, loaded or not: a line trimmed off the
+	// screen would otherwise come back with the next page load. Best effort:
+	// a device that never hears of the deletion keeps the line.
+	if (chan && client.storeKind(chan)) {
+		client.conversations.redact(chan.name, msgid);
+	}
+
 	if (chan) {
 		client.dispatch("msg:changed", {
 			chan: chan.id,

@@ -24,7 +24,7 @@
 				@keydown.down="navigateResults($event, 1)"
 				@keydown.page-up="navigateResults($event, -10)"
 				@keydown.page-down="navigateResults($event, 10)"
-				@keydown.enter="selectResult"
+				@keydown.enter="onSearchEnter"
 				@keydown.escape="deactivateSearch"
 				@focus="activateSearch"
 			/>
@@ -89,23 +89,12 @@
 				>
 					<NetworkLobby
 						:network="network"
-						:is-join-channel-shown="network.isJoinChannelShown"
 						:active="
 							store.state.activeChannel &&
 							network.channels[0] === store.state.activeChannel.channel
 						"
-						@toggle-join-channel="
-							network.isJoinChannelShown = !network.isJoinChannelShown
-						"
 					/>
-					<JoinChannel
-						v-if="network.isJoinChannelShown"
-						:network="network"
-						:channel="network.channels[0]"
-						@toggle-join-channel="
-							network.isJoinChannelShown = !network.isJoinChannelShown
-						"
-					/>
+					<ChannelBrowserRow v-if="!network.isCollapsed" :network="network" />
 
 					<Draggable
 						draggable=".channel-list-item"
@@ -196,7 +185,6 @@
 	cursor: pointer;
 }
 
-.jump-to-results .channel-list-item .add-channel,
 .jump-to-results .channel-list-item .close-tooltip {
 	display: none;
 }
@@ -217,8 +205,8 @@ import Mousetrap from "mousetrap";
 import Draggable from "./Draggable.vue";
 import {filter as fuzzyFilter} from "fuzzy";
 import NetworkLobby from "./NetworkLobby.vue";
+import ChannelBrowserRow from "./ChannelBrowserRow.vue";
 import Channel from "./Channel.vue";
-import JoinChannel from "./JoinChannel.vue";
 import DormantNetwork from "./DormantNetwork.vue";
 import useSavedNetworks from "../js/hooks/use-saved-networks";
 import {autoconnectPending} from "../js/irc/manager";
@@ -226,6 +214,7 @@ import {autoconnectPending} from "../js/irc/manager";
 import {sortNetworks, sortChannels} from "../js/sort";
 import collapseNetworkHelper from "../js/helpers/collapseNetwork";
 import isIgnoredKeybind from "../js/helpers/isIgnoredKeybind";
+import {isImeComposing} from "../js/helpers/ime";
 import distance from "../js/helpers/distance";
 import eventbus from "../js/eventbus";
 import {ClientChan, NetChan} from "../js/types";
@@ -237,9 +226,9 @@ import Sortable from "sortablejs";
 export default defineComponent({
 	name: "NetworkList",
 	components: {
-		JoinChannel,
 		DormantNetwork,
 		NetworkLobby,
+		ChannelBrowserRow,
 		Channel,
 		Draggable,
 	},
@@ -507,6 +496,13 @@ export default defineComponent({
 			}
 		};
 
+		// The Return that commits an IME candidate is the composition's.
+		const onSearchEnter = (event: KeyboardEvent) => {
+			if (!isImeComposing(event)) {
+				selectResult();
+			}
+		};
+
 		const navigateResults = (event: Event, direction: number) => {
 			// Prevent propagation to stop global keybind handler from capturing pagedown/pageup
 			// and redirecting it to the message list container for scrolling
@@ -529,9 +525,11 @@ export default defineComponent({
 				? channels.indexOf(activeSearchItem.value)
 				: -1;
 
-			// If there's no active channel select the first or last one depending on direction
+			// If there's no active channel select the first or last one depending on
+			// direction: down from the top, up (a negative step) from the bottom.
 			if (!activeSearchItem.value || currentIndex === -1) {
-				activeSearchItem.value = direction ? channels[0] : channels[channels.length - 1];
+				activeSearchItem.value =
+					direction > 0 ? channels[0] : channels[channels.length - 1];
 				scrollToActive();
 				return;
 			}
@@ -591,6 +589,7 @@ export default defineComponent({
 			setActiveSearchItem,
 			scrollToActive,
 			selectResult,
+			onSearchEnter,
 			navigateResults,
 			onChannelSort,
 			onNetworkSort,

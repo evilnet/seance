@@ -182,6 +182,17 @@ function checkIp(host: string): MaskCheck | undefined {
 		};
 	}
 
+	// A `/bits` is read only after a whole address: gline_checkmask and
+	// zline_checkmask refuse one after a wildcard, or after a dotted address
+	// without exactly three dots (`1.2.3/24`), and `!` cannot lift that.
+	if (cidr[2] !== undefined) {
+		const dots = cidr[1].split(".").length - 1;
+
+		if (wild || (dots > 0 && dots !== 3)) {
+			return {error: t("oper.ban.check.cidrAddress"), needsForce: false};
+		}
+	}
+
 	if (!v6 && wild) {
 		// `1.2.3.*` is a /24, `1.2.*` a /16: count the fixed octets.
 		const fixed = cidr[1].split(".").findIndex((part) => /[*?]/.test(part));

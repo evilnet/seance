@@ -2,7 +2,7 @@ import socket from "../socket";
 import {getPendingTarget, isChannelTarget, takePendingTarget} from "../helpers/pendingTarget";
 import {beginLanding, cancelLanding, pendingLanding, takeLanding} from "../helpers/lastChannel";
 import {store} from "../store";
-import {findChannelByName, onStandalonePage, switchToChannel} from "../router";
+import {findChannelByName, onStandalonePage, openQuery, switchToChannel} from "../router";
 import {toClientChan} from "../chan";
 import {ClientNetwork} from "../types";
 import {ChanState, ChanType} from "../../../shared/types/chan";
@@ -14,7 +14,6 @@ socket.on("network", function (data) {
 	const network: ClientNetwork = {
 		...data.network,
 		channels: data.network.channels.map(toClientChan),
-		isJoinChannelShown: false,
 		isCollapsed: false,
 	};
 
@@ -63,8 +62,8 @@ function openOnAnnounce(network: ClientNetwork): void {
 	const waitingFor = fromDeepLink ? pending : beginLanding(network.uuid);
 
 	if (!waitingFor) {
-		// The last of the join list — not a private conversation the query
-		// log brought back, which sorts in among them (irc/querylog.ts).
+		// The last of the join list — not a window the device
+		// brought back, which sorts in among them (irc/conversationStore.ts).
 		const joinList = network.channels.filter((c) => c.type === ChanType.CHANNEL);
 		switchToChannel(joinList[joinList.length - 1] ?? network.channels[0]);
 		return;
@@ -105,8 +104,9 @@ socket.on("network:options", function (data) {
  * without this the user sits on an empty channel with the explanation a
  * badge away. Move to the lobby when the view is on that network or on
  * nothing in particular; leave a page opened on purpose alone, as the
- * announce does. Any landing still pending is called off: there is no
- * conversation coming to land on.
+ * announce does. A landing still pending on this network is called off:
+ * there is no conversation coming to land on. One on another network is
+ * not: that network is still connecting.
  */
 socket.on("network:aborted", function (data) {
 	const network = store.getters.findNetwork(data.network);
@@ -115,7 +115,9 @@ socket.on("network:aborted", function (data) {
 		return;
 	}
 
-	cancelLanding();
+	if (pendingLanding(data.network)) {
+		cancelLanding();
+	}
 
 	const active = store.state.activeChannel?.network;
 
@@ -175,16 +177,8 @@ socket.on("network:status", function (data) {
 			? pending
 			: pendingLanding(data.network);
 
-	if (
-		data.connected &&
-		waitingFor &&
-		!isChannelTarget(waitingFor.target) &&
-		network.channels.length > 0
-	) {
-		socket.emit("input", {
-			target: network.channels[0].id,
-			text: `/query ${waitingFor.target}`,
-		});
+	if (data.connected && waitingFor && !isChannelTarget(waitingFor.target)) {
+		openQuery(network, waitingFor.target);
 	}
 
 	if (!data.connected) {

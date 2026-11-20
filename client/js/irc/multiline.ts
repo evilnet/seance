@@ -28,7 +28,14 @@ import {
 	MAX_LINE_BYTES,
 	utf8ByteLength,
 } from "./message";
-import {armPending, pendingLabel, PendingMessage, settlePending, showPending} from "./pending";
+import {
+	armPending,
+	disarmPending,
+	pendingLabel,
+	PendingMessage,
+	settlePending,
+	showPending,
+} from "./pending";
 import {ClientTags, editTagOf, REPLY_TAG, trailingLine} from "./wire";
 
 /** The capability name, whose CAP 302 value carries the limits. */
@@ -236,11 +243,12 @@ export const multilineBatch: BatchHandler = (client, batch) => {
 
 	// Our own batch coming back live is the server saying it took it, so the
 	// next one of the message may go out (a nested batch is history, not an
-	// echo).
+	// echo). The opener's label, or failing that its text, says whether it
+	// is the batch of ours on the wire.
 	const from = batch.messages[0].source;
 
 	if (!batch.parent && from && client.isSelf(from.name)) {
-		multilineAccepted(client);
+		multilineAccepted(client, batch.tags.get("label"), joined);
 	}
 
 	const prefix = joined.source ? `:${joined.source} ` : "";
@@ -786,12 +794,44 @@ function settle(client: IrcClient): SentBatch | null {
 	return batch;
 }
 
+/** What `batch` says, as {@link joinMultiline} joins its echo. */
+function sentText(batch: SentBatch): string {
+	const text = joinPlan(batch.lines);
+	return batch.action ? `${ACTION_PREFIX}${text}\x01` : text;
+}
+
 /**
  * Our own batch came back, so the server took it: the next one may go out.
  * Called from {@link multilineBatch} for a live echo of ours — a nested batch
- * is history, not an echo.
+ * is history, not an echo — with the `label` on its opener and what it says.
  */
-export function multilineAccepted(client: IrcClient): void {
+export function multilineAccepted(
+	client: IrcClient,
+	label: string | undefined,
+	echo: JoinedMultiline
+): void {
+	const inFlight = queueOf(client).inFlight;
+
+	// Ours went out labelled (`labeled-response`), so the rule is the one a
+	// single line's copy settles by (pending.ts settleEcho): a label on the
+	// echo decides, and an echo without one (a server or bouncer that does
+	// not relay it) is ours only when it says what ours said, where. A batch
+	// of the same account's on another device says something else, and
+	// taking it for ours would turn the server's cooldown for ours into a
+	// failure. Without the cap, the nick is all there is to go on.
+	if (inFlight?.label !== undefined) {
+		const ours =
+			label !== undefined
+				? label === inFlight.label
+				: echo.command === inFlight.command &&
+				  client.casefold(echo.target) === client.casefold(inFlight.target) &&
+				  echo.text === sentText(inFlight);
+
+		if (!ours) {
+			return;
+		}
+	}
+
 	const batch = settle(client);
 
 	if (batch) {
@@ -854,6 +894,13 @@ export function multilineCooldown(client: IrcClient, seconds: number): boolean {
 		// not going out.
 		dropBatches(client);
 		return false;
+	}
+
+	// The copy's wait for the server starts again when the batch goes out:
+	// a cooldown can outlast it, and the batch would be reported not sent
+	// while it is still waiting its turn.
+	if (batch.pending) {
+		disarmPending(batch.pending);
 	}
 
 	queue.waiting.unshift(batch);

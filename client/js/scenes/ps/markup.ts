@@ -222,9 +222,9 @@ export function stars(): string {
  * weather layer, left empty here: the first tick builds the day's weather
  * into it (mount's `apply`), and a new day's weather replaces it (and the
  * weather's own clouds with it). A phone (the phone layout at mount)
- * gets half the fireflies. All of them sit in one wrapper, `.ps-frost`, the
- * one group the private view blurs (spec §5.7: one filtered group is one
- * raster); the sky stays the root's own.
+ * gets half the fireflies. All of them sit in one wrapper, `.ps-frost`,
+ * which leaves the render tree in a private conversation, where the yurt's
+ * room shows instead (docs/projects/ps-yurt.md); the sky stays the root's own.
  */
 export function sceneMarkup(phone: boolean): string {
 	return (

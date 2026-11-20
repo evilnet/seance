@@ -5,13 +5,13 @@
  * the important ones shown in a channel — is gone on the way back. So every
  * routed notice (not the ones routed `off`) is appended here, written to
  * IndexedDB per network, and on the next page load put back into the lobby
- * as one history page (`IrcClient.restoreNotices`, the way querylog.ts brings
+ * as one history page (`IrcClient.restoreNotices`, the way conversationStore.ts brings
  * private conversations back). The oper panel's Notices tab searches the
  * same ring. docs/projects/oper-tools.md.
  *
  * A cycle, not an archive: the newest {@link MAX_ENTRIES} lines or
  * {@link MAX_AGE_MS} of them, whichever is less. Saved networks only (an
- * ad-hoc `/connect` has nowhere to come back to). Removing the network
+ * ad-hoc `/server` has nowhere to come back to). Removing the network
  * deletes its store; the settings backup never carries it.
  *
  * Kept free of store/DOM imports (mocha): the IndexedDB backend is used

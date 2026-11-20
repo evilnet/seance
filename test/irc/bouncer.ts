@@ -15,7 +15,11 @@ import {
 } from "../../client/js/irc/bouncer";
 import {setup, register, Harness} from "./support";
 import * as saved from "../../client/js/irc/saved-networks";
-import * as querylog from "../../client/js/irc/querylog";
+import {
+	ConversationStore,
+	MemoryBackend,
+	useConversationBackend,
+} from "../../client/js/irc/conversationStore";
 import {MessageType, type SharedMsg} from "../../shared/types/msg";
 import type {StorageBackend} from "../../client/js/irc/saved-networks";
 
@@ -118,11 +122,24 @@ describe("Bouncers: ZNC buffer playback", function () {
 		expect(h.messages(chan.id).filter((m) => m.text === "ok")).to.have.length(2);
 	});
 
-	it("skips a buffered query line this device kept from before a reload", function () {
-		querylog.useStorageBackend(new MemoryStorage());
+	it("skips a buffered query line this device kept from before a reload", async function () {
+		useConversationBackend(new MemoryBackend());
+		saved.useStorageBackend(new MemoryStorage());
+		const uuid = "znc-kept-net";
+		saved.save({
+			uuid,
+			name: "",
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			nick: "alice",
+			join: "#seance",
+			sasl: "",
+			saslAccount: "",
+			saslPassword: "",
+		});
 
 		try {
-			const h = setup();
 			// What a page that went away left in the query log: one line from
 			// bob, one of ours (an action), both still in ZNC's QueryLog buffer.
 			const kept = (nick: string, type: MessageType, text: string, minute: number) =>
@@ -133,8 +150,12 @@ describe("Bouncers: ZNC buffer playback", function () {
 					from: {nick, mode: ""},
 					self: nick === "alice",
 				} as unknown as SharedMsg);
-			h.client.queryLog.append("bob", kept("bob", MessageType.MESSAGE, "hi there", 5));
-			h.client.queryLog.append("bob", kept("alice", MessageType.ACTION, "waves", 6));
+			const before = new ConversationStore(uuid, (s) => s.toLowerCase());
+			before.append("bob", "query", kept("bob", MessageType.MESSAGE, "hi there", 5));
+			before.append("bob", "query", kept("alice", MessageType.ACTION, "waves", 6));
+			await before.flush();
+			before.dispose();
+			const h = setup({uuid});
 			register(h, ZNC_CAPS);
 			attach(
 				h,
@@ -153,7 +174,8 @@ describe("Bouncers: ZNC buffer playback", function () {
 				.map((p) => p.msg.text);
 			expect(delivered).to.deep.equal(["new since"]);
 		} finally {
-			querylog.useStorageBackend(null);
+			useConversationBackend(null);
+			saved.useStorageBackend(null);
 		}
 	});
 

@@ -279,7 +279,7 @@ The gates stand as in plan 1: a group runs only while `liveLayers` (`layers.ts`)
 
 ### 9.3 Tiers and the setting
 
-Still runs no group. It is forced by reduced motion (`data-reduce-motion`), a hidden page, a page at rest (`createAttention`: 15 s unfocused or 2 minutes idle), a query, or the setting at Still. The setting and its migration are §6.
+Still runs no group. It is forced by reduced motion (`data-reduce-motion`), a hidden page, a page at rest (`createAttention`: 15 s unfocused or 2 minutes idle), or the setting at Still. A query forced it too until ps-yurt plan 2 (2026-11-15), since when it is just another view: the yurt's room moves on its own groups (`docs/projects/ps-yurt.md` §8). The setting and its migration are §6.
 
 ### 9.4 Testing
 

@@ -10,8 +10,6 @@ export interface Script {
 	name: string;
 	code: string;
 	enabled: boolean;
-	/** Library folder the script is filed under (see storage `normalizeFolder`). */
-	folder: string;
 	/** One-line note shown and searched in the script library. */
 	description?: string;
 	lastError?: string;

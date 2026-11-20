@@ -795,5 +795,66 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 				"Not sent (no acknowledgement from the server): one\ntwo",
 			]);
 		});
+
+		it("does not time a copy out while its batch waits out a cooldown", function () {
+			const h = setup();
+			const id = joined(h, MULTILINE);
+			h.client.input(id, "one\ntwo");
+			const copy = h.lastMessage(id);
+			h.sent();
+
+			h.transport.line(
+				":irc.test FAIL BATCH MULTILINE_COOLDOWN 90 :Multiline batch cooldown active; retry after the listed seconds"
+			);
+			clock.tick(PENDING_TIMEOUT_MS);
+			expect(settled(h)).to.deep.equal([]);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+
+			clock.tick(91000 - PENDING_TIMEOUT_MS); // the named wait and a second
+			expect(h.sent()).to.deep.equal([
+				"@label=s1 BATCH +m2 draft/multiline #seance",
+				"@batch=m2 PRIVMSG #seance :one",
+				"@batch=m2 PRIVMSG #seance :two",
+				"BATCH -m2",
+			]);
+
+			// The wait for the server starts again with the batch back on the wire.
+			clock.tick(PENDING_TIMEOUT_MS);
+			expect(settled(h)).to.deep.equal([{chan: id, id: copy.id}]);
+			expect(errorsIn(h, id).map((m) => m.text)).to.deep.equal([
+				"Not sent (no acknowledgement from the server): one\ntwo",
+			]);
+		});
+
+		it("does not take another device's batch for ours", function () {
+			const h = setup();
+			const id = joined(h, MULTILINE);
+			h.client.input(id, "one\ntwo");
+			h.sent();
+
+			// The same account on another device: its batch comes without our label.
+			h.transport.lines(
+				"@msgid=other1;time=2026-08-25T12:00:01.000Z :alice!alice@other.example BATCH +Ok1 draft/multiline #seance",
+				"@batch=Ok1 :alice!alice@other.example PRIVMSG #seance :three",
+				"@batch=Ok1 :alice!alice@other.example PRIVMSG #seance :four",
+				":alice!alice@other.example BATCH -Ok1"
+			);
+			expect(pendingIn(h, id).map((m) => m.text)).to.deep.equal(["one\ntwo"]);
+			expect(settled(h)).to.deep.equal([]);
+
+			// So the server's cooldown is still about ours: it is sent again, not reported.
+			h.transport.line(
+				":irc.test FAIL BATCH MULTILINE_COOLDOWN 3 :Multiline batch cooldown active; retry after the listed seconds"
+			);
+			expect(h.messages().filter((m) => m.type === MessageType.ERROR)).to.deep.equal([]);
+
+			clock.tick(4000);
+			expect(h.sent()).to.deep.equal([
+				"@label=s1 BATCH +m2 draft/multiline #seance",
+				"@batch=m2 PRIVMSG #seance :one",
+				"@batch=m2 PRIVMSG #seance :two",
+				"BATCH -m2",
+			]);
+		});
 	});
 });

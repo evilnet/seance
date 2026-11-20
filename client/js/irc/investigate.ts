@@ -554,16 +554,18 @@ export class Investigation {
 
 	/** Send one lookup to a bot and collect its answer. */
 	private askBot<T>(bot: string, lookup: ServiceLookup<T>): Promise<ServiceAnswer<string[]>> {
-		const reply = collectServiceReply(this.client, bot, {
-			accept: (text) => lookup.accept(text),
-		});
-
 		// Quiet (quiet.ts): the PRIVMSG's echo opens no window for the bot.
 		if (!sendQuiet(this.client, lookup.command(bot))) {
 			return Promise.resolve({kind: "closed"});
 		}
 
-		return reply;
+		// Collected only once the line is out (lines come in from socket
+		// events, never inside a send): a line that could not be sent leaves
+		// no collector behind to take the bot's lines meant for a later
+		// lookup.
+		return collectServiceReply(this.client, bot, {
+			accept: (text) => lookup.accept(text),
+		});
 	}
 
 	// ----------------------------------------------------------- channel
@@ -1255,12 +1257,25 @@ export class Investigation {
 					break;
 
 				case "338": {
-					// <nick> [<user>@]<host> <ip> :Actual user@host, Actual IP
+					// ircu and nefarious2: <nick> [<user>@]<host> <ip> :Actual
+					// user@host, Actual IP. The ratbox family sends <nick> <ip>
+					// :actually using host, the IP alone, as in handlers/whois.ts:
+					// read as the long form, that puts the nick in the host.
+					if (msg.params.length === 4) {
+						const ip = goodIp(msg.params[2]);
+
+						if (ip) {
+							user.ip = ip;
+						}
+
+						break;
+					}
+
 					const userHost = msg.params[msg.params.length - 3] ?? "";
 					const ip = goodIp(msg.params[msg.params.length - 2]);
 					const at = userHost.indexOf("@");
 
-					if (msg.params.length >= 4 && userHost) {
+					if (msg.params.length >= 5 && userHost) {
 						user.host = userHost.slice(at + 1);
 
 						if (at !== -1) {

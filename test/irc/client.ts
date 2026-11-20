@@ -314,11 +314,31 @@ describe("IrcClient", function () {
 			expect(options[1].serverOptions.PREFIX.modeToSymbol).to.deep.equal({o: "@", v: "+"});
 			expect(options[1].serverOptions.CHANTYPES).to.deep.equal(["#", "&"]);
 			expect(options[1].serverOptions.NETWORK).to.equal("SeanceDev");
+			expect(options[1].serverOptions.CASEMAPPING).to.equal("rfc1459");
+
+			// The page compares nicks under it (a user menu's lookups)
+			h.transport.line(":irc.test 005 alice CASEMAPPING=ascii :are supported by this server");
+			const latest = payloads<{serverOptions: SharedNetwork["serverOptions"]}>(
+				"network:options"
+			).at(-1);
+			expect(latest?.serverOptions.CASEMAPPING).to.equal("ascii");
 			expect(payloads("network:name")).to.deep.equal([
 				{uuid: h.client.uuid, name: "SeanceDev"},
 			]);
 			expect(h.client.network.name).to.equal("SeanceDev");
 			expect(h.client.lobby.name).to.equal("SeanceDev");
+		});
+
+		it("tells the UI the network's CASEMAPPING, so the store compares names as the server does", function () {
+			const h = setup();
+			register(h);
+			h.transport.line(":irc.test 005 alice CASEMAPPING=ascii :are supported by this server");
+
+			const options = payloads<{serverOptions: SharedNetwork["serverOptions"]}>(
+				"network:options"
+			);
+			expect(options[options.length - 1].serverOptions.CASEMAPPING).to.equal("ascii");
+			expect(h.client.network.serverOptions.CASEMAPPING).to.equal("ascii");
 		});
 
 		it("keeps the name the user saved over 005 NETWORK, never announcing the server's", function () {
@@ -1161,6 +1181,35 @@ describe("IrcClient", function () {
 			expect(h.sentAfter()).to.include("USER alice 0 * :alice");
 		});
 
+		it("forgets a WHOIS the close cut off before its end", function () {
+			const h = setup();
+			joined(h);
+			h.transport.lines(
+				":bob!bob@host PRIVMSG alice :hi",
+				":irc.test 311 alice bob ~bob old.example * :Bob",
+				":irc.test 319 alice bob :#old"
+			);
+			const query = h.client.findChannel("bob")!;
+			h.transport.closed(1006, "", true);
+			register(h);
+			dispatch.resetHistory();
+
+			// No WHOIS of bob is running now: a 301 is the reply to a message.
+			h.transport.line(":irc.test 301 alice bob :gone fishing");
+			expect(messages(query.id).map((m) => [m.type, m.text])).to.deep.equal([
+				[MessageType.AWAY, "gone fishing"],
+			]);
+
+			h.transport.lines(
+				":irc.test 311 alice bob ~bob new.example * :Bob",
+				":irc.test 319 alice bob :#new",
+				":irc.test 318 alice bob :End of /WHOIS list."
+			);
+			const whois = messages(h.client.lobby.id).filter((m) => m.type === MessageType.WHOIS);
+			expect(whois).to.have.length(1);
+			expect(whois[0].whois).to.include({hostname: "new.example", channels: "#new"});
+		});
+
 		it("registers again with the configured ident after a CHGHOST changed it", function () {
 			const h = setup({username: "custom"});
 			joined(h);
@@ -1254,8 +1303,8 @@ describe("IrcClient", function () {
 			]);
 			expect(lastMessage(1).text).to.equal("Reconnect cancelled.");
 
-			// /connect brings it back with a fresh attempt.
-			h.client.input(1, "/connect");
+			// /server brings it back with a fresh attempt.
+			h.client.input(1, "/server");
 			expect(h.transport.connectCalls).to.equal(2);
 			expect(h.client.network.status.connecting).to.equal(true);
 		});

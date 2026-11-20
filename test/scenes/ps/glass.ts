@@ -16,7 +16,9 @@ import {
 	dayTints,
 	glassVars,
 	GLASS_SURFACES,
+	indoorTints,
 	isBehind,
+	isBehindIndoor,
 	lowestTint,
 	MARK_SOLVE,
 	SATURATE,
@@ -31,6 +33,7 @@ import {
 	type GlassSurface,
 } from "../../../client/js/scenes/ps/glass";
 import {sceneGrounds} from "../../../client/js/scenes/ps/grounds";
+import {indoorGrounds} from "../../../client/js/scenes/ps/indoor";
 import {paletteAt} from "../../../client/js/scenes/ps/palette";
 import {GRASS_EDGE_LOWEST} from "../../../client/js/scenes/ps/plains";
 
@@ -326,6 +329,49 @@ describe("ps glass: the luminous day glass (plan 3 task 7b, the user's pick)", f
 			"--ps-g-tint-side": null,
 			"--ps-g-tint-float": null,
 			"--ps-g-tint-card": null,
+		});
+	});
+
+	describe("a private conversation's tints (docs/projects/ps-yurt.md §9, plan 1 task 7)", function () {
+		it("publishes, for each minute, at least the tints the room's own grounds need (§9; the red team's S1)", function () {
+			for (const doy of [15, 172]) {
+				for (const minute of [480, 750, 1020]) {
+					for (const weather of ["clear", "rain", "snow", "storm"] as const) {
+						const m = momentFor({minute, doy, dayNumber: doy, epochDays: 0, weather});
+						const own = tintsOver(indoorGrounds(m, paletteAt(m)), isBehindIndoor);
+						const published = indoorTints(m);
+
+						for (const s of GLASS_SURFACES) {
+							expect(
+								published[s],
+								`${doy} ${minute} ${weather}: ${s}`
+							).to.be.at.least(own[s]);
+						}
+					}
+				}
+			}
+		});
+
+		it("solves a query's tints over the room, within the caps, cached per step", function () {
+			for (const minute of [600, 750, 1080]) {
+				for (const weather of ["clear", "rain", "snow"] as const) {
+					const t = indoorTints({doy: 172, minute, weather});
+
+					for (const s of GLASS_SURFACES) {
+						expect(t[s]).to.be.within(TINT_FLOOR, TINT_CAP);
+					}
+
+					expect(indoorTints({doy: 172, minute: minute + 1, weather})).to.equal(t);
+				}
+			}
+		});
+
+		it("keeps a channel's tints as they were", function () {
+			const noon = {doy: 172, minute: 750, weather: "clear" as const};
+			const m = momentFor({...noon, dayNumber: 172, epochDays: 0});
+			const grounds = sceneGrounds(m, paletteAt(m));
+			expect(tintsOver(grounds)).to.deep.equal(tintsOver(grounds, isBehind));
+			expect(glassVars(noon, "day")).to.deep.equal(glassVars(noon, "day", "channel"));
 		});
 	});
 });

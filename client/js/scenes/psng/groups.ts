@@ -10,7 +10,9 @@ export type Group =
 	| "weather"
 	| "skeins"
 	| "daybirds"
-	| "sun";
+	| "sun"
+	| "hearth"
+	| "steam";
 
 export const GROUPS: readonly Group[] = [
 	"clouds",
@@ -22,9 +24,13 @@ export const GROUPS: readonly Group[] = [
 	"skeins",
 	"daybirds",
 	"sun",
+	// The yurt's room (docs/projects/ps-yurt.md §8): the stove's fire and the lamp; the pot's steam.
+	"hearth",
+	"steam",
 ];
 
-const CALM: readonly Group[] = ["clouds"];
+/** Calm: the clouds, and inside the yurt the hearth (spec §8). */
+const CALM: readonly Group[] = ["clouds", "hearth"];
 
 /** The groups that run in a tier, narrowed to `only` when given (the phone ladder). */
 export function groupsFor(tier: Tier, only?: ReadonlySet<Group>): Set<Group> {

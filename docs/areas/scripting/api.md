@@ -37,7 +37,9 @@ events as it likes, up to 50 per event name across all scripts.
 - **Only live events fire.** Scrollback loaded from the server, the
   catch-up after a reconnect and anything else replayed from history never
   run handlers, so a script never answers an old message.
-- Lines from people on your ignore list never reach scripts.
+- Lines from people on your ignore list never reach scripts: not their
+  messages, nor their joins, parts, quits, nick changes, kicks, topics or
+  modes — a kick of you by one of them included.
 - Every event except `send` carries `network` (the network's name, as the
   server announces it, e.g. `AfterNET`) and `networkUuid` (the
   connection's id; pass it to `seance.send` to answer on the right
@@ -217,7 +219,7 @@ What to know:
 - The name has no leading `/`, and is not case-sensitive (`/GREET` works).
 - **Built-in commands win**: a script cannot replace `/join`, `/msg`,
   `/me` or any other command Seance already has. Your aliases
-  (Settings → Aliases) are expanded before commands are looked up, so an
+  (Settings → Scripts → Aliases) are expanded before commands are looked up, so an
   alias can call a script's command — and an alias with the same name hides
   it.
 - Registering a name again — in the same script or another — replaces the
@@ -288,7 +290,11 @@ end)
 - The same rules as `seance.send` apply: one line, at most about 450 bytes
   of text, paced from a handler.
 - It reads only the `network`, `networkUuid`, `target`, `from` and `self`
-  fields of the table, so you can also build one yourself.
+  fields of the table, so you can also build one yourself. `networkUuid`
+  picks the connection; without it, `network` does, by name (the open
+  network first, when two connections share the name), and with neither
+  the reply goes out on the open network. A network that is not connected
+  gets nothing.
 
 ### `seance.print(text)`
 

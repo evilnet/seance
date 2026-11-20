@@ -205,7 +205,7 @@ import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import {useStore} from "../../js/store";
 import {useI18n} from "../../js/i18n";
 import {canDescribeInstall, openInstallGuide, promptInstall} from "../../js/pwa";
-import {MAX_MESSAGES, MAX_QUERIES} from "../../js/irc/querylog";
+import {MAX_LINES} from "../../js/irc/conversationStore";
 import {
 	keepAliveAvailable as isKeepAliveAvailable,
 	keepAliveStatus as fetchKeepAliveStatus,
@@ -227,6 +227,7 @@ import {
 	FILE_EXTENSION,
 	fileName,
 	hasPasswords,
+	MAX_BACKUP_BYTES,
 	networkCount,
 	SettingsBackup,
 } from "../../js/helpers/settingsBackup";
@@ -241,7 +242,7 @@ export default defineComponent({
 		const keepAliveHelp = computed(() => t("settings.general.keepAliveHelp"));
 		const sendTypingHelp = computed(() => t("settings.general.sendTypingHelp"));
 		const keepPrivateHelp = computed(() =>
-			t("settings.general.keepPrivateHelp", {lines: MAX_MESSAGES, queries: MAX_QUERIES})
+			t("settings.general.keepPrivateHelp", {lines: MAX_LINES})
 		);
 		const awayPlaceholder = computed(() =>
 			t("settings.general.awayPlaceholder", {appName: appName.value})
@@ -483,6 +484,10 @@ export default defineComponent({
 					return t("settings.general.importDamaged");
 				case "no-decompression":
 					return t("settings.general.importNoDecompression");
+				case "too-large":
+					// No settings file comes near the cap: one that does is read
+					// no further, as any file that cannot be read.
+					return t("settings.general.importFailed");
 				default:
 					return t("settings.general.importNotSettings");
 			}
@@ -500,6 +505,12 @@ export default defineComponent({
 			busy.value = true;
 
 			try {
+				// Before it is read into memory (decodeBackup checks again, and
+				// caps what a gzipped file inflates to).
+				if (file.size > MAX_BACKUP_BYTES) {
+					throw new BackupFormatError("too-large");
+				}
+
 				const backup = await decodeBackup(new Uint8Array(await file.arrayBuffer()));
 				restore(backup, file.name);
 			} catch (e) {

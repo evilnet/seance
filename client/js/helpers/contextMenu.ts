@@ -17,6 +17,7 @@ import {banItem, holdsChannelPower} from "./banMenu";
 import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
 import {ignoreListFor} from "../ignore";
 import {brandingFeatures} from "../branding";
+import {namesEqual} from "../irc/casemap";
 
 type BaseContextMenuItem = {
 	label: string;
@@ -115,12 +116,6 @@ export function generateChannelContextMenu(
 						},
 				  ]
 				: []),
-			{
-				label: t("menu.joinChannel"),
-				type: "item",
-				class: "join",
-				action: () => (network.isJoinChannelShown = true),
-			},
 			...(isOperOn(network)
 				? [
 						{
@@ -166,7 +161,7 @@ export function generateChannelContextMenu(
 						action: () =>
 							socket.emit("input", {
 								target: channel.id,
-								text: "/connect",
+								text: "/server",
 							}),
 				  },
 		];
@@ -372,12 +367,15 @@ export function generateUserContextMenu(
 	/** `ident@host` when the nick was clicked in a line that shows it. */
 	address?: string
 ): ContextMenuItem[] {
+	// Names as the server folds them: after a case-only nick change, or on a
+	// stored or replayed row, the case can differ from the user list's.
+	const same = (a: string, b: string) => namesEqual(a, b, network.serverOptions.CASEMAPPING);
 	const currentChannelUser: ClientUser | Record<string, never> = channel
-		? channel.users.find((u) => u.nick === network.nick) || {}
+		? channel.users.find((u) => same(u.nick, network.nick)) || {}
 		: {};
 
 	const whois = () => {
-		const chan = network.channels.find((c) => c.name === user.nick);
+		const chan = network.channels.find((c) => same(c.name, user.nick));
 
 		if (chan) {
 			switchToChannel(chan);
@@ -413,8 +411,7 @@ export function generateUserContextMenu(
 			action() {
 				// This menu's network: a Mentions row or an oper card can be
 				// another network's, with a query open on both.
-				const nick = user.nick.toLowerCase();
-				const chan = network.channels.find((c) => c.name.toLowerCase() === nick);
+				const chan = network.channels.find((c) => same(c.name, user.nick));
 
 				if (chan) {
 					switchToChannel(chan);
@@ -544,7 +541,7 @@ export function generateUserContextMenu(
 			});
 		}
 
-		if (channel.type === ChanType.CHANNEL && user.nick !== network.nick) {
+		if (channel.type === ChanType.CHANNEL && !same(user.nick, network.nick)) {
 			const target = {nick: user.nick, address};
 			items.push(banItem(network, channel.name, t("menu.ban"), target));
 		}

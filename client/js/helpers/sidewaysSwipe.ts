@@ -4,11 +4,12 @@
 // still scroll by.
 
 /** An open modal overlay (the oper cards, builder and dialog, the confirm
- * dialog, the upload preview…): they carry `.opened` while shown; the script
- * editor is mounted only while open, so its presence is enough. The
- * sidebar's own dimmer is not one; a swipe on it closes the sidebar. */
+ * dialog, the upload preview…): they carry `.opened` while shown; a layer
+ * over the settings (the script editor, the aliases) is mounted only while
+ * open, so its presence is enough. The sidebar's own dimmer is not one; a
+ * swipe on it closes the sidebar. */
 const OPEN_OVERLAY =
-	'[id$="-overlay"].opened:not(#sidebar-overlay), #script-editor-overlay, #image-viewer.opened';
+	'[id$="-overlay"].opened:not(#sidebar-overlay), .settings-layer, #image-viewer.opened';
 
 export function inOpenOverlay(el: Element): boolean {
 	return el.closest(OPEN_OVERLAY) !== null;

@@ -43,7 +43,7 @@
 
 import http from "node:http";
 import {readFileSync} from "node:fs";
-import {crc32, deflateSync} from "node:zlib";
+import {png} from "./lib/png.mjs";
 
 const IRCD = process.env.SEANCE_IRC_URL ?? "ws://127.0.0.1:8067/";
 const CHANNEL = process.env.SEANCE_IRC_CHANNEL ?? "#seance";
@@ -65,45 +65,12 @@ export const url =
 
 // ------------------------------------------------------------ the PNG
 
-function chunk(type, data) {
-	const head = Buffer.alloc(8);
-	head.writeUInt32BE(data.length, 0);
-	head.write(type, 4, "ascii");
-	const crc = Buffer.alloc(4);
-	crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), data])) >>> 0, 0);
-	return Buffer.concat([head, data, crc]);
-}
-
 /** A `size`×`size` RGB PNG, a diagonal two-colour split. */
-function png(size = 96) {
-	const ihdr = Buffer.alloc(13);
-	ihdr.writeUInt32BE(size, 0);
-	ihdr.writeUInt32BE(size, 4);
-	ihdr[8] = 8; // bit depth
-	ihdr[9] = 2; // RGB
-	const rows = [];
-
-	for (let y = 0; y < size; y++) {
-		const row = Buffer.alloc(1 + size * 3);
-
-		for (let x = 0; x < size; x++) {
-			const [r, g, b] = x > y ? [214, 120, 40] : [40, 110, 200];
-			row.set([r, g, b], 1 + x * 3);
-		}
-
-		rows.push(row);
-	}
-
-	return Buffer.concat([
-		Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-		chunk("IHDR", ihdr),
-		chunk("IDAT", deflateSync(Buffer.concat(rows))),
-		chunk("IEND", Buffer.alloc(0)),
-	]);
-}
+const splitPng = (size = 96) =>
+	png(size, size, (x, y) => (x > y ? [214, 120, 40] : [40, 110, 200]));
 
 function serveMedia() {
-	const body = png();
+	const body = splitPng();
 	const server = http.createServer((req, res) => {
 		const path = new URL(req.url, "http://x").pathname;
 		const headers = {"Content-Type": "image/png", "Cache-Control": "max-age=300"};

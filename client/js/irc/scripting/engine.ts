@@ -93,6 +93,12 @@ const BOOTSTRAP = `
 	string.rep = function(s, n, sep)
 		local count = tonumber(n) -- string.rep takes "5" as well as 5
 		if count and count > 1 then
+			-- The count too: copies of an empty string add up to nothing,
+			-- but the native loop still turns once per copy and never
+			-- yields to the instruction hook.
+			if count > max_rep then
+				error("string.rep: result too large", 2)
+			end
 			local size = #tostring(s) * count
 			if sep ~= nil then
 				size = size + #tostring(sep) * (count - 1)
@@ -123,10 +129,15 @@ const BOOTSTRAP = `
 	end
 
 	local function view(lib)
+		-- pairs walks the library through this closure: handing out next and
+		-- lib itself would give the script the shared table to write to.
+		local function walk(_, k)
+			return next(lib, k)
+		end
 		return setmetatable({}, {
 			__index = lib,
 			__newindex = readonly_lib,
-			__pairs = function() return next, lib, nil end,
+			__pairs = function(self) return walk, self, nil end,
 			__metatable = false,
 		})
 	end

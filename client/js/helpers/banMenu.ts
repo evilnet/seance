@@ -13,6 +13,7 @@ import {ChanType} from "../../../shared/types/chan";
 import type {BanChange, BanChangeOutcome, BanEntry} from "../../../shared/types/ban-list";
 import type {ClientChan, ClientNetwork} from "../types";
 import {banSetter} from "./channelBans";
+import {namesEqual} from "../irc/casemap";
 import type {ContextMenuItem} from "./contextMenu";
 import {operTargetItems} from "./operMenu";
 
@@ -44,15 +45,19 @@ export function holdsChannelPower(symbols: string[], modes: string[] | undefined
 
 /** The channel called `name`, joined or not, as this network's list has it. */
 function findChannel(network: ClientNetwork, name: string): ClientChan | undefined {
-	const lower = name.toLowerCase();
 	return network.channels.find(
-		(chan) => chan.type === ChanType.CHANNEL && chan.name.toLowerCase() === lower
+		(chan) =>
+			chan.type === ChanType.CHANNEL &&
+			namesEqual(chan.name, name, network.serverOptions.CASEMAPPING)
 	);
 }
 
 /** Whether we can change the bans of `channel` on `network`. */
 export function canSetBans(network: ClientNetwork, channel: string): boolean {
-	const me = findChannel(network, channel)?.users.find((u) => u.nick === network.nick);
+	// Our own nick as the server folds it: the list's case can lag a change
+	const me = findChannel(network, channel)?.users.find((u) =>
+		namesEqual(u.nick, network.nick, network.serverOptions.CASEMAPPING)
+	);
 	return holdsChannelPower(network.serverOptions.PREFIX.symbols, me?.modes);
 }
 

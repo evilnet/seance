@@ -1,6 +1,6 @@
 // The network header in the sidebar is two rows: the name alone on the first
 // line (chevron, name, unread badge); on the second the tools (connection
-// state, notifications, edit, join) on the left and the nick on the right
+// state, notifications, edit) on the left and the nick on the right
 // (NetworkLobby.vue, the `.lobby-wrap` rules in style.css). What `pnpm test`
 // cannot see: that the name gets its whole line and is not clipped, that the
 // tools sit under it as an evenly spaced toolbar with every glyph centred in
@@ -26,7 +26,7 @@ export const url = `${BASE}?host=127.0.0.1&port=8067&tls=false&nick=${NICK}&join
 
 const LOBBY = '.channel-list-item[data-type="lobby"]';
 const CHANNEL_ROW = '.channel-list-item[data-name="#seance"]';
-const TOOLS = [".connection-status-icon", ".notify-status-icon", ".edit-network", ".add-channel"];
+const TOOLS = [".connection-status-icon", ".notify-status-icon", ".edit-network"];
 const text = (selector) =>
 	`(document.querySelector(${JSON.stringify(selector)})?.textContent ?? "").trim()`;
 const NICK_SHOWN = `document.querySelector('${LOBBY} .lobby-nick').textContent.replace(/^\\s*Nickname:\\s*/, "").trim()`;

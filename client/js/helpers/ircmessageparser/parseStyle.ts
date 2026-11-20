@@ -42,6 +42,8 @@ export type ParsedStyle = {
 	// The pipe table the fragment is a cell of, as its column alignments:
 	// one of `l`, `r`, `c` or `` (left) per column
 	table?: string;
+	// A pipe a table cell holds (typed `\|`), which the adapter never splits at
+	cellPipe?: boolean;
 	// TeX rendered by KaTeX: `$`…`$` inline, `$$…$$` display. The id keeps two
 	// identical spans from merging into one.
 	math?: string;
@@ -268,6 +270,7 @@ export const STYLE_KEYS: (keyof ParsedStyle)[] = [
 	"header",
 	"list",
 	"table",
+	"cellPipe",
 	"math",
 	"mathBlock",
 	"mathId",

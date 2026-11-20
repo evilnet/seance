@@ -40,7 +40,9 @@ export default defineComponent({
 
 		return {
 			t,
-			fullTime: (date: number | Date) => formatDateTime(date),
+			// A row the server gave no time: nothing, not the time now
+			fullTime: (date: number | Date | undefined) =>
+				date ? formatDateTime(date) : undefined,
 		};
 	},
 });

@@ -35,6 +35,10 @@ type PastView = {
 
 type ClientChan = Omit<SharedChan, "messages"> & {
 	moreHistoryAvailable: boolean;
+	/** This device may hold older lines: "show older" works without a connection (`more`). */
+	deviceHistory: boolean;
+	/** The gap dividers being loaded, by the id of the message they stand before (`history:fill`). */
+	gapsLoading: number[];
 	editTopic: boolean;
 	messages: ClientMessage[];
 
@@ -57,6 +61,8 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	replyTo: ClientMessage | null;
 	/** Own message the next plain-text input replaces (the edit tags, `wire.ts` `editTags`). */
 	editing: ClientMessage | null;
+	/** The composer's draft from before `editing` began, given back when it ends (helpers/compose.ts). */
+	draftBeforeEdit: string;
 	/**
 	 * Escape dismissed an edit: ArrowUp browses input history instead of
 	 * re-entering edit mode, until the user types again.
@@ -86,7 +92,6 @@ type InitClientChan = ClientChan & {
 
 // We omit channels so we can use ClientChan[] instead of Chan[]
 type ClientNetwork = Omit<SharedNetwork, "channels"> & {
-	isJoinChannelShown: boolean;
 	isCollapsed: boolean;
 	channels: ClientChan[];
 	/** Being an oper here (`oper:state`, irc/oper.ts); absent until the first one. */

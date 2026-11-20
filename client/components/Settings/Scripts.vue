@@ -1,6 +1,18 @@
 <template>
 	<div class="settings-scripts" role="group" :aria-label="t('settings.scripts.heading')">
 		<h2>{{ t("settings.scripts.heading") }}</h2>
+
+		<!-- Aliases are no script, and work with Lua off: their row sits
+		     above the switch, which reads as governing only what is under it. -->
+		<router-link class="scripts-aliases" to="/settings/scripts/aliases">
+			<span class="scripts-aliases-icon" aria-hidden="true" />
+			<span class="scripts-aliases-text">
+				<span class="scripts-aliases-name">{{ t("settings.scripts.aliases") }}</span>
+				<span class="scripts-aliases-list" dir="auto">{{ aliasSummary }}</span>
+			</span>
+			<span class="scripts-aliases-chevron" aria-hidden="true" />
+		</router-link>
+
 		<p class="scripts-intro">{{ t("settings.scripts.intro") }}</p>
 		<label class="opt">
 			<input
@@ -17,7 +29,13 @@
 			>
 		</p>
 
-		<template v-else>
+		<!-- With Lua off the library stays in sight, greyed out and inert: no
+		     script runs, opens or is added until the switch is on. -->
+		<div
+			class="scripts-library"
+			:class="{'scripts-library-off': !store.state.settings.enableScripting}"
+			:inert="!store.state.settings.enableScripting"
+		>
 			<div class="scripts-actions">
 				<button class="btn btn-small" type="button" @click="addNew">
 					{{ t("settings.scripts.new") }}
@@ -59,44 +77,40 @@
 			<p v-if="scripts.length === 0" class="scripts-empty">
 				{{ t("settings.scripts.empty") }}
 			</p>
-			<p v-else-if="grouped.length === 0" class="scripts-empty">
+			<p v-else-if="visible.length === 0" class="scripts-empty">
 				{{ t("settings.scripts.noMatch") }}
 			</p>
-			<template v-for="group in grouped" :key="group.folder">
-				<h3 class="scripts-folder">{{ folderLabel(group.folder) }}</h3>
-				<ul class="scripts-list">
-					<li
-						v-for="script in group.scripts"
-						:key="script.id"
-						class="scripts-item"
-						:class="{'has-error': !!script.lastError}"
-					>
-						<router-link class="scripts-summary" :to="`/settings/scripts/${script.id}`">
-							<span class="scripts-name">{{ script.name }}</span>
-							<span v-if="script.description" class="scripts-desc">{{
-								script.description
-							}}</span>
-							<span class="scripts-state">{{ stateLabel(script) }}</span>
-						</router-link>
-						<input
-							v-switch
-							:checked="script.enabled"
-							type="checkbox"
-							:aria-label="t('settings.scripts.runAria', {name: script.name})"
-							:title="
-								script.enabled
-									? t('settings.scripts.stateRunning')
-									: t('settings.scripts.stateOff')
-							"
-							@change="toggle(script, $event)"
-						/>
-					</li>
-				</ul>
-			</template>
-		</template>
+			<ul v-else class="scripts-list">
+				<li
+					v-for="script in visible"
+					:key="script.id"
+					class="scripts-item"
+					:class="{'has-error': !!script.lastError}"
+				>
+					<router-link class="scripts-summary" :to="`/settings/scripts/${script.id}`">
+						<span class="scripts-name">{{ script.name }}</span>
+						<span v-if="script.description" class="scripts-desc">{{
+							script.description
+						}}</span>
+						<span v-if="stateLabel(script)" class="scripts-state">{{
+							stateLabel(script)
+						}}</span>
+					</router-link>
+					<input
+						v-switch
+						:checked="script.enabled"
+						type="checkbox"
+						:aria-label="t('settings.scripts.runAria', {name: script.name})"
+						:title="stateLabel(script)"
+						@change="toggle(script, $event)"
+					/>
+				</li>
+			</ul>
+		</div>
 
-		<!-- The editor (ScriptEdit.vue), an overlay above the settings. Keyed
-		     by the script, so Duplicate's jump to the copy mounts a fresh one. -->
+		<!-- The editor (ScriptEdit.vue) or the aliases (AliasesOverlay.vue),
+		     an overlay above the settings. Keyed by the script, so Duplicate's
+		     jump to the copy mounts a fresh one. -->
 		<router-view v-slot:default="{Component, route: shown}">
 			<component :is="Component" :key="shown.params.id" />
 		</router-view>
@@ -104,6 +118,74 @@
 </template>
 
 <style>
+/* The aliases' row: one link, set apart from the scripts below it, that
+ * opens the aliases over the list (AliasesOverlay.vue). */
+.settings-scripts .scripts-aliases {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0.25rem 0 1rem;
+	padding: 0.6rem 0.75rem;
+	border-radius: 4px;
+	background: rgb(128 128 128 / 10%);
+	color: inherit;
+	text-decoration: none;
+}
+
+.settings-scripts .scripts-aliases-icon,
+.settings-scripts .scripts-aliases-chevron {
+	color: var(--body-color-muted);
+}
+
+.settings-scripts .scripts-aliases-icon::before {
+	font: normal normal normal 1em/1 FontAwesome;
+	content: "\f120"; /* https://fontawesome.com/icons/terminal */
+}
+
+.settings-scripts .scripts-aliases-chevron::before {
+	font: normal normal normal 0.875em/1 FontAwesome;
+	content: "\f054"; /* https://fontawesome.com/icons/chevron-right */
+}
+
+[dir="rtl"] .settings-scripts .scripts-aliases-chevron::before {
+	content: "\f053"; /* chevron-left: onward points the other way */
+}
+
+.settings-scripts .scripts-aliases-text {
+	display: grid;
+	min-width: 0;
+}
+
+.settings-scripts .scripts-aliases-name {
+	font-weight: bold;
+}
+
+.settings-scripts .scripts-aliases:hover .scripts-aliases-name,
+.settings-scripts .scripts-aliases:focus-visible .scripts-aliases-name {
+	color: var(--link-color);
+	text-decoration: underline;
+}
+
+.settings-scripts .scripts-aliases-list {
+	color: var(--body-color-muted);
+	font-family: Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New",
+		monospace;
+	font-size: 0.875em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Lua off: the library is still shown, greyed out (and inert). */
+.settings-scripts .scripts-library-off {
+	opacity: 0.45;
+}
+
+html[data-contrast="more"] .settings-scripts .scripts-library-off {
+	opacity: 0.8;
+}
+
 .settings-scripts .scripts-intro,
 .settings-scripts .scripts-examples,
 .settings-scripts .scripts-empty {
@@ -135,17 +217,9 @@
 	margin-top: 0.5rem;
 }
 
-.settings-scripts .scripts-folder {
-	color: var(--body-color-muted);
-	font-size: 0.875em;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin: 1.25rem 0 0.25rem;
-}
-
 .settings-scripts .scripts-list {
 	list-style: none;
-	margin: 0;
+	margin: 0.75rem 0 0;
 	padding: 0;
 }
 
@@ -207,14 +281,12 @@ import I18nFrame from "../I18nFrame.vue";
 import {
 	compareScripts,
 	loadScripts,
-	normalizeFolder,
 	saveScript,
-	scriptFolders,
-	DEFAULT_FOLDER,
 	MAX_CODE_LENGTH,
 	ScriptStorageError,
 } from "../../js/irc/scripting/storage";
 import type {Script} from "../../js/irc/scripting/types";
+import {aliasNames} from "../../js/helpers/aliases";
 import {scriptManager} from "../../js/irc/scripting/manager";
 import {
 	importedScriptName,
@@ -236,56 +308,59 @@ export default defineComponent({
 		const {t} = useI18n();
 		const route = useRoute();
 		const scripts = ref<Script[]>(loadScripts().sort(compareScripts));
+		const aliases = ref<string[]>(aliasNames());
 
-		// The editor saves straight to storage: read the library again as it
-		// closes (Done, ✕, Escape, Delete).
+		// The editor and the aliases save straight to storage: read both
+		// again as they close (Done, ✕, Escape, Delete).
 		watch(
 			() => route.name,
 			(name) => {
 				if (name === "Scripts") {
 					scripts.value = loadScripts().sort(compareScripts);
+					aliases.value = aliasNames();
 				}
 			}
+		);
+
+		// The row's second line: the aliases by name, as they are typed.
+		const aliasSummary = computed(() =>
+			aliases.value.length > 0
+				? aliases.value.map((name) => `/${name}`).join(" ")
+				: t("settings.aliases.empty")
 		);
 		const query = ref("");
 		const importError = ref("");
 		const importInput = ref<HTMLInputElement>();
 
-		const grouped = computed(() => {
+		const visible = computed(() => {
 			const q = query.value.trim().toLowerCase();
-			const visible = q
+			return q
 				? scripts.value.filter((script) =>
-						[script.name, script.folder, script.description ?? "", script.code]
+						[script.name, script.description ?? "", script.code]
 							.join("\n")
 							.toLowerCase()
 							.includes(q)
 				  )
 				: scripts.value;
-
-			return scriptFolders(visible).map((folder) => ({
-				folder,
-				scripts: visible.filter(
-					(s) => normalizeFolder(s.folder).toLowerCase() === folder.toLowerCase()
-				),
-			}));
 		});
 
-		const stateLabel = (script: Script) =>
+		// With Lua off nothing runs: a row keeps its own switch (greyed, as
+		// it will be once Lua is on) and says nothing of running, which its
+		// switch would contradict; only an error stays.
+		const stateLabel = (script: Script): string | undefined =>
 			script.lastError
 				? t("settings.scripts.stateError")
+				: !store.state.settings.enableScripting
+				? undefined
 				: script.enabled
 				? t("settings.scripts.stateRunning")
 				: t("settings.scripts.stateOff");
 
-		// The default folder is stored under its English name, which stays
-		// the library's identity for it; it is shown in the reader's words.
-		const folderLabel = (folder: string) =>
-			folder.toLowerCase() === DEFAULT_FOLDER.toLowerCase()
-				? t("settings.scripts.defaultFolder")
-				: folder;
-
 		// A new script opens in the editor: that is where it gets written.
 		const create = (script: Script) => {
+			// A refusal from an earlier try (too many scripts, say) may no longer hold.
+			importError.value = "";
+
 			try {
 				saveScript(script);
 			} catch (err) {
@@ -306,7 +381,6 @@ export default defineComponent({
 			create({
 				id: newScriptId(),
 				name,
-				folder: DEFAULT_FOLDER,
 				code: `-- ${name}\n`,
 				enabled: true,
 				createdAt: Date.now(),
@@ -363,7 +437,6 @@ export default defineComponent({
 			create({
 				id: newScriptId(),
 				name: uniqueScriptName(scripts.value, importedScriptName(file.name)),
-				folder: DEFAULT_FOLDER,
 				code,
 				enabled: false,
 				createdAt: Date.now(),
@@ -372,14 +445,14 @@ export default defineComponent({
 
 		return {
 			store,
+			aliasSummary,
 			scripts,
 			query,
-			grouped,
+			visible,
 			importError,
 			importInput,
 			SEARCH_FROM,
 			stateLabel,
-			folderLabel,
 			t,
 			KEEP,
 			addNew,

@@ -14,7 +14,7 @@ Chrome's install criteria, and what satisfies them here:
 | Served from a secure context               | **Your job**: `https://` with a certificate the browser trusts. `http://localhost` also counts (dev). A self-signed cert blocks service-worker registration and install. |
 | Web app manifest linked from the page      | `client/manifest.webmanifest` → `public/manifest.webmanifest`, `<link rel="manifest">` in `index.html`; `name`/`short_name`/colours filled from `config.json` at build   |
 | `start_url`/`scope` inside the deploy path | Both `./`, relative to the manifest, so a deploy under `https://irc.example.org/chat/` scopes to `/chat/`                                                                |
-| 192×192 and 512×512 PNG icons, purpose any | `img/logo-grey-bg-*.png`; the same 192/512 files are declared `maskable` separately (Chrome warns on the combined `"maskable any"`)                                      |
+| 192×192 and 512×512 PNG icons, purpose any | `img/icon-192.png`, `img/icon-512.png`; separate `img/icon-maskable-*.png` files are declared `maskable` (Chrome warns on a combined `"maskable any"`)                   |
 | `display` standalone/minimal-ui/fullscreen | `standalone`                                                                                                                                                             |
 | A service worker (offline fallback)        | `client/service-worker.js`, registered by `client/js/pwa.ts` in any secure context. Chrome no longer strictly requires one to install, but the offline shell needs it    |
 
@@ -23,10 +23,12 @@ No server-side piece is needed. The static host must serve
 or `application/json`) — most do by extension; nginx needs
 `types { application/manifest+json webmanifest; }` if it doesn't already.
 
-`pnpm build` without `NODE_ENV=production` is a **dev** build: the service
-worker's cache name is `dev`, it caches nothing and never precaches, so the
-app is installable but not offline-capable and no update is ever detected.
-Ship `NODE_ENV=production pnpm build`.
+A plain `pnpm build` is a production build: `vite build` sets
+`NODE_ENV=production` when it is unset, before `vite.config.mts` reads it.
+`NODE_ENV=development pnpm build` is a **dev** build: the service worker's
+cache name is `dev`, it caches nothing and never precaches, so the app is
+installable but not offline-capable and no update is ever detected. Never
+ship one.
 
 ## What the installed app does
 
@@ -64,7 +66,7 @@ Ship `NODE_ENV=production pnpm build`.
   `scripts/build-info.mts`: a hash of the version and the commit, so two builds of
   different commits never share one; a dirty tree or a checkout without git
   makes every build distinct): `?v=` on the asset URLs, the worker's cache
-  name, and `process.env.SEANCE_BUILD` in the bundle (`client/js/build.ts`).
+  name (`<scope>|<token>`), and `process.env.SEANCE_BUILD` in the bundle (`client/js/build.ts`).
   The one exception is the entry, `js/bundle-<hash>.js`: it is named by its
   content instead, because lazy chunks import it by its plain name and a
   page that had loaded `bundle.js?v=…` would run a second copy of the app.
@@ -73,8 +75,8 @@ Ship `NODE_ENV=production pnpm build`.
   `pwa.ts` `checkForUpdate()`, from the foreground hooks (throttled to one
   check per five minutes) and hourly while a window stays open, because
   browsers never look on their own for a page that stays put. The new worker
-  precaches its shell, `skipWaiting`s, deletes every cache from an older
-  build (but never the translation engines' model caches —
+  precaches its shell, `skipWaiting`s, deletes its own older builds' caches
+  (never another deploy's, and never the translation engines' model caches —
   `transformers-cache` and `webllm/*`, see `docs/resources/translation.md`
   § Weights), claims every window and announces
   `{type: "build", build}` to them; a page whose own token differs commits
@@ -102,6 +104,18 @@ Ship `NODE_ENV=production pnpm build`.
   the app when it is closed or the OS has suspended its WebSocket — one
   push-only registration per network; see `docs/projects/push-subscription.md`
   and `push-per-network.md`.
+- **Several deploys on one origin.** GitHub Pages serves the release at
+  `/seance/` and develop and every PR preview in directories inside it
+  (`.github/workflows/pages.yml`). Each registers its own worker, but Cache
+  Storage and the worker's list of windows are per origin, so the worker
+  names its shell cache after its scope (`<scope>|<token>`, the `|` keeping
+  `/seance/|` from matching `/seance/develop/|`) and deletes only its own
+  older builds, plus once the bare-token names shells had before; and
+  `appWindows()` counts a window as its own only when nothing but a file name
+  follows the deploy's directory, for every message to the app and every
+  "is the app open?". Pages ignore a message from a worker that runs another
+  directory's `service-worker.js` (`client/js/helpers/ownWorker.ts`), for
+  workers installed before that.
 
 ## The install guide
 

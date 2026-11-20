@@ -40,6 +40,8 @@ export type PieceFlags = {
 	// The pipe table the fragment is a cell of: one alignment letter per
 	// column, `l`, `r` or `c`
 	table?: string;
+	// A pipe a table cell holds, typed `\|`: text, never a cell boundary
+	cellPipe?: true;
 	// TeX for KaTeX. The id keeps two identical spans from merging into one
 	math?: string;
 	mathBlock?: string;
@@ -375,8 +377,10 @@ function scan(text: string): Scan {
 	let i = 0;
 
 	// A table row is never also a fence, quote, header or list line: the
-	// line-level markup yields to the table that claimed the line
-	const inTable = (pos: number) => tables.ranges.some((r) => r.start <= pos && pos < r.end);
+	// line-level markup yields to the table that claimed the line. The tables
+	// only, not every escaped pipe in them: asked per marker, that was quadratic
+	const tableRanges = tables.ranges.filter((r) => r.flag === "table");
+	const inTable = (pos: number) => tableRanges.some((r) => r.start <= pos && pos < r.end);
 
 	while (i < text.length) {
 		const skip = skipAt(i);
@@ -984,7 +988,11 @@ function tableAt(
 		const trail = /\|\s*$/.exec(raw);
 		let trailStart = row.stop;
 
-		if (trail && trail[0].length !== raw.length) {
+		if (
+			trail &&
+			trail[0].length !== raw.length &&
+			!escapedPipe(text, row.stop - trail[0].length, row.start)
+		) {
 			const pipe = row.stop - trail[0].length;
 			const before = spaceBefore(pipe, row.start);
 
@@ -997,6 +1005,14 @@ function tableAt(
 		// reads `Item` and not `Item `
 		for (let k = row.start; k < row.stop; k++) {
 			if (text[k] !== "|") {
+				continue;
+			}
+
+			// `\|` is a pipe the cell holds, inside a code span too (GFM): its
+			// backslash goes, and the adapter does not split there
+			if (escapedPipe(text, k, row.start)) {
+				removals.push({start: k - 1, end: k});
+				ranges.push({start: k, end: k + 1, flag: "cellPipe"});
 				continue;
 			}
 
@@ -1034,24 +1050,58 @@ function tableAt(
 	return lastRow.next;
 }
 
+// Whether the pipe at `k` is escaped: an odd run of backslashes before it,
+// counted back no further than `floor` (the row's start).
+function escapedPipe(text: string, k: number, floor: number): boolean {
+	let n = 0;
+
+	while (k - n - 1 >= floor && text[k - n - 1] === "\\") {
+		n++;
+	}
+
+	return n % 2 === 1;
+}
+
 // A row's cells: the line must hold a pipe; the outer pipes and the spaces
-// around them are padding, the rest splits at the pipes it kept.
+// around them are padding, the rest splits at the pipes it kept. An escaped
+// pipe (`\|`) is part of a cell, never a boundary.
 function rowCells(line: string): string[] | undefined {
 	if (!line.includes("|")) {
 		return undefined;
 	}
 
-	let inner = line.trim();
+	const inner = line.trim();
+	const bounds: number[] = [];
 
-	if (inner.startsWith("|")) {
-		inner = inner.slice(1);
+	for (let k = inner.indexOf("|"); k !== -1; k = inner.indexOf("|", k + 1)) {
+		if (!escapedPipe(inner, k, 0)) {
+			bounds.push(k);
+		}
 	}
 
-	if (inner.endsWith("|")) {
-		inner = inner.slice(0, -1);
+	let from = 0;
+	let to = inner.length;
+
+	if (bounds[0] === 0) {
+		from = 1;
+		bounds.shift();
 	}
 
-	return inner.split("|").map((cell) => cell.trim());
+	if (bounds.length > 0 && bounds[bounds.length - 1] === inner.length - 1) {
+		to = inner.length - 1;
+		bounds.pop();
+	}
+
+	const cells: string[] = [];
+
+	for (const k of bounds) {
+		cells.push(inner.slice(from, k).trim());
+		from = k + 1;
+	}
+
+	cells.push(inner.slice(from, to).trim());
+
+	return cells;
 }
 
 // What a separator cell asks of its column: `:---` left, `---:` right,

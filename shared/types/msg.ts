@@ -142,6 +142,13 @@ export type SharedMsg = {
 	 */
 	supersededBy?: number;
 	previews?: LinkPreview[];
+	/**
+	 * Lines may be missing between this one and the one before it: a
+	 * catch-up stopped before it reached what the window held. Shown as a
+	 * divider with a control that loads them (`history:fill`); kept with the
+	 * line on the device (irc/conversationStore.ts).
+	 */
+	gapBefore?: boolean;
 	/** Sender's services account, from the `account-tag` on PRIVMSG/NOTICE. */
 	fromAccount?: string;
 	text?: string;

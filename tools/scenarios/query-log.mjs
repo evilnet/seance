@@ -1,6 +1,7 @@
 // A private conversation survives a reload: the query window comes back in
-// the sidebar with its lines (irc/querylog.ts), once each, and closing it
-// forgets it for the next reload.
+// the sidebar with its lines (irc/conversationStore.ts), once each. Closing it
+// hides it for the next reload, and a new line opens it with last time's
+// lines above.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
@@ -8,7 +9,9 @@
 //
 // `SEANCE_IRC_URL` points it at another ircd (default ws://127.0.0.1:8067/),
 // `SEANCE_PORT` at another static server. One browser profile throughout:
-// localStorage surviving the reload is the point.
+// the profile's storage surviving the reload is the point.
+
+import {KEPT as KEPT_BY_TARGET, coldLoad} from "./lib/kept.mjs";
 
 const IRCD = process.env.SEANCE_IRC_URL ?? "ws://127.0.0.1:8067/";
 const PORT = process.env.SEANCE_PORT ?? "8000";
@@ -31,6 +34,9 @@ const item = (name) => `.channel-list-item[data-name="${name}"]`;
 const ACTIVE = `(document.querySelector("#chat-container")?.dataset.currentChannel ?? null)`;
 /** Texts of the rows the open conversation shows. */
 const TEXTS = `JSON.stringify(Array.from(document.querySelectorAll("#chat .msg .content")).map((c) => c.textContent.trim()))`;
+
+/** Texts kept in IndexedDB for the private conversations (irc/conversationStore.ts). */
+const KEPT = `(${KEPT_BY_TARGET}).then((kept) => Object.entries(kept).filter(([target]) => !target.startsWith("#")).flatMap(([, texts]) => texts))`;
 
 /** A second user who talks to the page in private. */
 function talker(nick) {
@@ -63,31 +69,6 @@ function talker(nick) {
 }
 
 export default async function run(page) {
-	// F5: see reload-on-settings.mjs for why it is replaceState + Page.reload.
-	const coldLoad = async (waitFor) => {
-		await page.evaluate(
-			`(() => { window.__coldLoad = true; history.replaceState(null, "", "/"); })()`
-		);
-		await page.send("Page.reload");
-		const started = Date.now();
-
-		for (;;) {
-			try {
-				if (await page.evaluate(`!window.__coldLoad && !!(${waitFor})`)) {
-					return;
-				}
-			} catch {
-				// the document is being replaced
-			}
-
-			if (Date.now() - started > 30000) {
-				throw new Error(`timed out waiting for ${waitFor} after the reload`);
-			}
-
-			await page.sleep(150);
-		}
-	};
-
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.click('#connect input[name="autoconnect"]');
 	await page.click('#connect button[type="submit"]');
@@ -110,18 +91,16 @@ export default async function run(page) {
 		timeout: 10000,
 		label: "both lines in the query",
 	});
-	await page.sleep(1500); // past the log's write throttle
+	await page.sleep(1500); // past the store's write throttle
 	await page.check(
-		"the conversation is in localStorage",
-		await page.evaluate(
-			`Object.keys(localStorage).some((k) => k.startsWith("thelounge.querylog.") && localStorage.getItem(k).includes("second private line"))`
-		)
+		"the conversation is kept on the device",
+		(await page.evaluate(KEPT)).includes("second private line")
 	);
 	await page.screenshot("1-before-reload");
 
 	// 1. Reload: the window is back before the server says anything, and so
 	//    are its lines, once each.
-	await coldLoad(`document.querySelector('${item(TALKER)}')`);
+	await coldLoad(page, `document.querySelector('${item(TALKER)}')`);
 	await page.check("the query window is back after the reload", true);
 	// It was the conversation on screen: the page lands on it by itself,
 	// and registration (`init`) does not move the view off it.
@@ -161,7 +140,7 @@ export default async function run(page) {
 	// 3. With nothing remembered, a reload lands on the last channel of the
 	//    join list, not on the restored query that sorts after it.
 	await page.evaluate(`localStorage.removeItem("thelounge.state.lastChannel")`);
-	await coldLoad(`document.querySelector('${item(TALKER)}')`);
+	await coldLoad(page, `document.querySelector('${item(TALKER)}')`);
 	await page.sleep(500);
 	const fresh = await page.evaluate(ACTIVE);
 	await page.check(`no memory: lands on #seance, not the query (${fresh})`, fresh === "#seance");
@@ -171,7 +150,8 @@ export default async function run(page) {
 		label: "the query open again",
 	});
 
-	// 4. Close it: the next reload does not bring it back.
+	// 4. Close it: the next reload does not bring it back, and its lines
+	//    stay on the device.
 	await page.fill("#input", "/close");
 	await page.click("#submit");
 	await page.waitFor(`!document.querySelector('${item(TALKER)}')`, {
@@ -179,27 +159,55 @@ export default async function run(page) {
 		label: "the query closed",
 	});
 	await page.sleep(1500);
-	await coldLoad(`document.querySelector('${item("#seance")}')`);
+	await coldLoad(page, `document.querySelector('${item("#seance")}')`);
 	await page.sleep(1500);
-	const state = await page.evaluate(
-		`JSON.stringify({last: localStorage.getItem("thelounge.state.lastChannel"), logs: Object.keys(localStorage).filter((k) => k.startsWith("thelounge.querylog.")).map((k) => localStorage.getItem(k))})`
-	);
+	const state = JSON.stringify({
+		last: await page.evaluate(`localStorage.getItem("thelounge.state.lastChannel")`),
+		kept: await page.evaluate(KEPT),
+	});
 	await page.check(
 		`a closed query does not come back (${state})`,
 		(await page.count(item(TALKER))) === 0
 	);
+	await page.check(
+		"and its lines are still kept",
+		(await page.evaluate(KEPT)).includes("third private line")
+	);
 
-	// 5. Settings → General → "Keep private conversations on this device"
+	// 5. Settings → General → "Keep conversations on this device"
 	//    off: what is kept is deleted, nothing more is kept, and a reload
 	//    brings no query back.
-	const LOGS = `Object.keys(localStorage).filter((k) => k.startsWith("thelounge.querylog.")).length`;
+	const LOGS = `(${KEPT}).then((texts) => texts.length)`;
 	bob.say("a line before the switch");
 	await page.waitFor(`document.querySelector('${item(TALKER)}')`, {
 		timeout: 10000,
 		label: "the query reopened by a new line",
 	});
+	await page.click(item(TALKER));
+	await page.waitFor(`${TEXTS}.includes("a line before the switch")`, {
+		timeout: 10000,
+		label: "the reopened query on screen",
+	});
+	const reopened = JSON.parse(await page.evaluate(TEXTS)).filter(
+		(t) => t.endsWith("private line") || t === "a line before the switch"
+	);
+	await page.check(
+		`reopened, last time's lines are above the new one (${JSON.stringify(reopened)})`,
+		JSON.stringify(reopened) ===
+			JSON.stringify([
+				"first private line",
+				"second private line",
+				"third private line",
+				"a line before the switch",
+			])
+	);
+	// Back to the channel: the conversation on screen is landed on again
+	// after a reload whatever is kept (helpers/lastChannel.ts), which is not
+	// what the last step is about.
+	await page.click(item("#seance"));
+	await page.sleep(300);
 	await page.sleep(1500);
-	await page.check("kept again before the switch", (await page.evaluate(LOGS)) === 1);
+	await page.check("kept again before the switch", (await page.evaluate(LOGS)) >= 1);
 	await page.evaluate(`location.hash = "#/settings"`);
 	await page.waitFor(`!!document.querySelector('input[name="keepPrivateConversations"]')`, {
 		timeout: 10000,
@@ -211,8 +219,11 @@ export default async function run(page) {
 			`document.querySelector('input[name="keepPrivateConversations"]').checked`
 		)
 	);
-	await page.click('input[name="keepPrivateConversations"]');
-	await page.sleep(300);
+	// The input itself: a click at its coordinates lands on the switch drawn over it.
+	await page.evaluate(
+		`(() => { const el = document.querySelector('input[name="keepPrivateConversations"]'); el.scrollIntoView({block: "center"}); el.click(); })()`
+	);
+	await page.sleep(800);
 	await page.check(
 		"switched off, the kept conversations are deleted",
 		(await page.evaluate(LOGS)) === 0
@@ -222,7 +233,7 @@ export default async function run(page) {
 	bob.say("a line after the switch");
 	await page.sleep(2000);
 	await page.check("nothing is kept while it is off", (await page.evaluate(LOGS)) === 0);
-	await coldLoad(`document.querySelector('${item("#seance")}')`);
+	await coldLoad(page, `document.querySelector('${item("#seance")}')`);
 	await page.sleep(1500);
 	await page.check(
 		"with it off, a reload brings no query back",

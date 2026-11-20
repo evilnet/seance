@@ -478,7 +478,7 @@ sidebar collapsed — nothing pushy or in the way.
 - **Send gate** (`ChatInput.vue` `canSend`): in a channel or query, while
   `network.status.connected` is false, the send button is disabled (its
   tooltip says "Not connected") and Enter keeps the draft. A draft that starts
-  with `/` is sendable regardless, because `/connect` and friends have to
+  with `/` is sendable regardless, because `/server` and friends have to
   work from a disconnected network — that is why the submit had no gate at
   all before. The lobby is never gated: its input is for commands, and it is
   where the connection reports.
@@ -497,7 +497,7 @@ sidebar collapsed — nothing pushy or in the way.
   `Connecting to <network>…`; when nothing is being tried (the user cancelled
   with `/disconnect`, or a rejection ended it) it shows
   `Disconnected from <network>.` and a Connect button. Both buttons send the
-  same `/connect` as the sidebar's status icon, which restarts the schedule
+  same `/server` as the sidebar's status icon, which restarts the schedule
   (round seven). It is `role="status" aria-live="polite"`, so assistive
   technology announces the change once; no sound, no vibration, nothing
   modal. On a phone it sits right above the keyboard, whatever the sidebar is
@@ -518,7 +518,7 @@ background page may).
 
 Browser check: `tools/scenarios/disconnected-channel.mjs` (20 checks: the
 three states, the countdown and its "Connect now", the draft kept through
-Enter, `/connect` sendable, the Connect button dialling, everything clearing
+Enter, `/server` sendable, the Connect button dialling, everything clearing
 on registration and a message going out), through
 `tools/scenarios/lib/irc-proxy.mjs` — the proxy of round seven, now shared.
 Run it on the phone layout as well:

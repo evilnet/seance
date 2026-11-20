@@ -168,7 +168,7 @@
 						autocomplete="off"
 						:placeholder="t('translate.sheet.search')"
 						:aria-label="t('translate.sheet.search')"
-						@keydown.enter.prevent="chooseFirst"
+						@keydown.enter.prevent="onSearchEnter"
 					/>
 					<ul class="language-sheet-list" :aria-label="sideLabel">
 						<li v-if="side === 'from' && !query">
@@ -357,6 +357,7 @@ import {
 	watch,
 } from "vue";
 import {hasVirtualKeyboard} from "../js/helpers/device";
+import {isImeComposing} from "../js/helpers/ime";
 import friendlysize from "../js/helpers/friendlysize";
 import {translateWhyText} from "../js/helpers/translateWhy";
 import {trapTab} from "../js/helpers/trapTab";
@@ -635,6 +636,13 @@ export default defineComponent({
 			} else if (side.value === "to" && to.value) {
 				// The highlighted "They read" language, as it opened.
 				choose(to.value);
+			}
+		};
+
+		// The Return that commits an IME candidate is the composition's.
+		const onSearchEnter = (event: KeyboardEvent) => {
+			if (!isImeComposing(event)) {
+				chooseFirst();
 			}
 		};
 
@@ -941,6 +949,7 @@ export default defineComponent({
 			close,
 			choose,
 			chooseFirst,
+			onSearchEnter,
 			swap,
 			turnOff,
 			listOpen,

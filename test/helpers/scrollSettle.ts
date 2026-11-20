@@ -5,6 +5,7 @@ import {
 	inMotion,
 	noteScroll,
 	noteTouch,
+	resetSettle,
 	settled,
 	useSettleClock,
 } from "../../client/js/helpers/scrollSettle";
@@ -42,6 +43,11 @@ describe("history pages wait for the list to settle (helpers/scrollSettle.ts)", 
 		);
 		noteTouch(false);
 		clock += SETTLE_IDLE_MS + 1;
+	});
+
+	// The module's clock and state outlive this file: hand them back real.
+	afterEach(function () {
+		resetSettle();
 	});
 
 	it("is settled when nothing has moved for the idle time", async function () {
@@ -100,5 +106,18 @@ describe("history pages wait for the list to settle (helpers/scrollSettle.ts)", 
 		advance(clock + SETTLE_IDLE_MS + 1);
 		await Promise.resolve();
 		expect(done, "capped").to.equal(true);
+	});
+
+	it("a reset puts back the real clock and timers, with nothing in motion", async function () {
+		noteTouch(true);
+		resetSettle();
+		expect(inMotion(), "finger let go").to.equal(false);
+
+		// In motion on the real clock: the wait is a real timer, not one of ours.
+		noteScroll();
+		const done = settled();
+		expect(timers).to.have.length(0);
+		await done;
+		expect(inMotion()).to.equal(false);
 	});
 });

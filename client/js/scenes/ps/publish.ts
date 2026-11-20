@@ -7,6 +7,7 @@
  * Moved out of scene.ts so a renderer other than classic's can publish the
  * same without importing scene.ts (and with it the stepper and the gates).
  */
+import type {SceneView} from "../../themeScene";
 import type {Moment} from "./engine";
 import {GLASS_TINT_VARS, glassVars} from "./glass";
 import {publishedFor, themeColorFor} from "./grounds";
@@ -19,17 +20,23 @@ export function publishMoment(
 	html: HTMLElement,
 	meta: HTMLMetaElement | null,
 	m: Moment,
-	p: Palette
+	p: Palette,
+	view: SceneView = "channel"
 ): string | null {
-	const ellipse = root.querySelector(".ps-m-ell") as SVGEllipseElement;
-	const shape = root.querySelector(".ps-m-shape") as SVGGElement;
 	const lit = moonShape(m.phase);
-	ellipse.setAttribute("rx", lit.rx.toFixed(2));
-	ellipse.setAttribute("fill", lit.fill);
-	shape.setAttribute("transform", lit.mirror ? "scale(-1,1)" : "");
+
+	// The plains' moon, and the yurt's back window's once the room is built.
+	for (const ellipse of root.querySelectorAll(".ps-m-ell")) {
+		ellipse.setAttribute("rx", lit.rx.toFixed(2));
+		ellipse.setAttribute("fill", lit.fill);
+	}
+
+	for (const shape of root.querySelectorAll(".ps-m-shape")) {
+		shape.setAttribute("transform", lit.mirror ? "scale(-1,1)" : "");
+	}
 	root.dataset.weather = m.weather;
 	root.dataset.season = m.season.main;
-	const out = publishedFor(p, m);
+	const out = publishedFor(p, m, view);
 	html.dataset.psLight = out.light;
 	html.dataset.psText = out.text;
 	html.style.setProperty("--ps-halo", out.halo);
@@ -37,7 +44,7 @@ export function publishMoment(
 	html.style.setProperty("--canvas-bg-color", out.canvas);
 
 	// The luminous day glass's tints, one per surface (glass.ts); none at night.
-	for (const [name, value] of Object.entries(glassVars(m, out.light))) {
+	for (const [name, value] of Object.entries(glassVars(m, out.light, view))) {
 		if (value === null) {
 			html.style.removeProperty(name);
 		} else {

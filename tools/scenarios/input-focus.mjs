@@ -4,7 +4,8 @@
 // which element actually holds focus after the conversation opened through
 // every way in — a *real* click on a sidebar row when the input did NOT
 // already have it (the user clicked into the scrollback first), Alt+Up, the
-// Jump-to box (click on a result, Enter), the lobby's join form, a click on
+// Jump-to box (click on a result, Enter), the channel browser's join by name
+// (the network's Browse channels line), a click on
 // a row from the settings page, the channel that opens first after
 // connecting, and the remembered conversation after a cold load.
 //
@@ -169,19 +170,27 @@ export default async function run(page) {
 			"jump-to Enter"
 		);
 
-		// The lobby's join form: a channel the user asked for opens on its JOIN.
+		// The network's Browse channels line opens the browser; a channel typed
+		// there that the list lacks is joined by name and opens on its JOIN.
 		await switchTo(
 			`#seance3-${RUN}`,
 			async (name) => {
-				await page.click('.channel-list-item[data-type="lobby"] .add-channel');
-				await page.waitFor(`document.querySelector('.join-form input[name="channel"]')`, {
+				await page.click('#sidebar .channel-list-item[data-type="browse"]');
+				await page.waitFor(
+					`document.querySelector("#channel-browser .browse-query input")`,
+					{
+						timeout: 5000,
+						label: "the channel browser",
+					}
+				);
+				await page.fill("#channel-browser .browse-query input", name);
+				await page.waitFor(`document.querySelector(".browse-direct .browse-direct-go")`, {
 					timeout: 5000,
-					label: "the join form",
+					label: "the join-by-name row",
 				});
-				await page.fill('.join-form input[name="channel"]', name);
-				await page.click('.join-form button[type="submit"]');
+				await page.click(".browse-direct .browse-direct-go");
 			},
-			"join form"
+			"join by name"
 		);
 
 		// From a page that is not a conversation the chat mounts afresh:

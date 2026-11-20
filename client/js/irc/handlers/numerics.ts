@@ -7,6 +7,7 @@
 
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
+import {joinRefused} from "../catchup";
 import {parseFeaturedChannels, parseFeaturedToken} from "../channelList";
 import {errorSpec} from "../errors";
 import {formatLine} from "../message";
@@ -219,6 +220,9 @@ const badNick: Handler = (client, msg) => {
 };
 
 /** Any other 4xx/5xx: an ERROR message with the code error.vue understands. */
+/** The numerics that refuse a JOIN. */
+const JOIN_REFUSALS = new Set(["471", "473", "474", "475", "477"]);
+
 export const numericError: Handler = (client, msg) => {
 	const spec = errorSpec(msg.command);
 
@@ -227,6 +231,8 @@ export const numericError: Handler = (client, msg) => {
 	}
 
 	const params = msg.params.slice(1); // drop our nick
+	// Before its JOIN echoed, an error naming a channel is that JOIN refused.
+	joinRefused(client, params[0] ?? "");
 	const reason = params.length > 0 ? params[params.length - 1] : "";
 	const notSent = reason || t("pending.numericError", {code: msg.command});
 	// `labeled-response`: the numeric answers one of our lines. A message of
@@ -250,6 +256,13 @@ export const numericError: Handler = (client, msg) => {
 
 	if (spec.channel !== undefined && params[spec.channel]) {
 		error.channel = params[spec.channel];
+
+		// A JOIN the server refused (full, invite only, banned, a wrong key,
+		// registered nicks only): the device stops joining it at page load,
+		// until the user gets in by hand (conversationStore.ts `joined`).
+		if (JOIN_REFUSALS.has(msg.command)) {
+			client.conversations.setJoined(params[spec.channel], false);
+		}
 	}
 
 	if (spec.nick !== undefined && params[spec.nick]) {

@@ -10,6 +10,7 @@ import {
 	FORMAT,
 	hasPasswords,
 	isBackupKey,
+	MAX_BACKUP_BYTES,
 	networkCount,
 	useStorageBackend,
 	VERSION,
@@ -224,6 +225,38 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 
 		const damaged = await failure(new Uint8Array([0x1f, 0x8b, 1, 2, 3, 4]));
 		expect(damaged).to.be.instanceOf(BackupFormatError);
+	});
+
+	it("refuses a file, or what a gzipped one inflates to, past the size cap", async function () {
+		const tooLarge = async (bytes: Uint8Array, limit: number) => {
+			try {
+				await decodeBackup(bytes, limit);
+			} catch (e) {
+				return e instanceof BackupFormatError ? e.code : e;
+			}
+
+			return undefined;
+		};
+
+		seed();
+		const backup = collectBackup();
+		const plain = new TextEncoder().encode(JSON.stringify(backup));
+		const gzipped = await encodeBackup(backup);
+
+		// The file itself, plain or gzipped.
+		expect(await tooLarge(plain, plain.length - 1)).to.equal("too-large");
+		expect(await tooLarge(gzipped, gzipped.length - 1)).to.equal("too-large");
+		// A small gzip that inflates past the cap is stopped as it streams.
+		expect(gzipped.length).to.be.below(plain.length);
+		expect(await tooLarge(gzipped, plain.length - 1)).to.equal("too-large");
+		// At the cap it is read.
+		expect(await decodeBackup(gzipped, plain.length)).to.deep.equal(backup);
+
+		// A real bomb: 4 MiB of zeros in a few kilobytes.
+		const bomb = await encodeBackup({...backup, exportedAt: "0".repeat(4 * 1024 * 1024)});
+		expect(bomb.length).to.be.below(64 * 1024);
+		expect(await tooLarge(bomb, 1024 * 1024)).to.equal("too-large");
+		expect(MAX_BACKUP_BYTES).to.be.at.least(16 * 1024 * 1024);
 	});
 
 	it("a restore that runs out of storage changes nothing and says so", function () {

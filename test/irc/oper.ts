@@ -923,6 +923,56 @@ describe("oper tools: commands (irc/commands/oper.ts)", function () {
 		expect(msg.report!.error).to.be.a("string").and.not.equal("");
 	});
 
+	it("/check on another server shows no empty card; its unlabeled answer shows raw", async function () {
+		const {client, transport} = setup();
+		const chan = client.findChannel("#seance")!;
+
+		dispatchInput(client, chan, "/check leaf.test bob");
+		expect(transport.sent).to.deep.equal(["@label=r1 CHECK leaf.test bob"]);
+
+		// The label is not forwarded: ACKed at once, the answer comes later.
+		transport.line(`@label=r1 :irc.test ACK`);
+		await flush();
+		expect(messages(chan.id)).to.deep.equal([]);
+
+		transport.lines(
+			":leaf.test 286 opr :Information for user bob",
+			":leaf.test 291 opr :End of CHECK"
+		);
+		await flush();
+		expect(messages(client.lobby.id).map((m) => m.text)).to.deep.equal([
+			"286 Information for user bob",
+			"291 End of CHECK",
+		]);
+	});
+
+	it("/check on another server is a card once the server carries the label to it", async function () {
+		// What nefarious2 sends once CHECK is in its forwarded-label table
+		// (ircd/forwarded_label.c): the remote answer in a labelled batch.
+		const {client, transport} = setup();
+		const chan = client.findChannel("#seance")!;
+
+		dispatchInput(client, chan, "/check leaf.test bob");
+		transport.lines(
+			"@label=r1 :irc.test BATCH +fw1 labeled-response",
+			"@batch=fw1 :leaf.test 290 opr : ",
+			"@batch=fw1 :leaf.test 286 opr :Information for user bob",
+			"@batch=fw1 :leaf.test 290 opr : ",
+			"@batch=fw1 :leaf.test 290 opr :           Nick:: bob (ACAAB)",
+			"@batch=fw1 :leaf.test 290 opr :  User/Hostmask:: bob@host.example",
+			"@batch=fw1 :leaf.test 291 opr : ",
+			":irc.test BATCH -fw1"
+		);
+		await flush();
+
+		const msgs = messages(chan.id);
+		expect(msgs).to.have.length(1);
+		expect(msgs[0].type).to.equal(MessageType.REPORT);
+		expect(msgs[0].report!.kind).to.equal("check-user");
+		expect(msgs[0].report!.command).to.equal("CHECK leaf.test bob");
+		expect(messages(client.lobby.id)).to.deep.equal([]);
+	});
+
 	it("/privs shows the privileges as chips and keeps our own", async function () {
 		const {client, transport} = setup();
 		const chan = client.findChannel("#seance")!;

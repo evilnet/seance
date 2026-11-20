@@ -4,6 +4,7 @@
 		v-backdrop="close"
 		class="screen-overlay"
 		:class="{opened: store.state.installGuideOpen}"
+		:data-escape-close="store.state.installGuideOpen ? 'install-guide' : null"
 	>
 		<div
 			v-if="store.state.installGuideOpen && step"
@@ -330,8 +331,11 @@ export default defineComponent({
 			}
 		);
 
-		const onEscape = () => {
-			if (store.state.installGuideOpen) {
+		// An escape layer of its own: Escape closes the guide alone, not the
+		// Settings page it was opened from (keybinds.ts) or anything else
+		// listening for the press with no overlay up.
+		const onEscape = (layer: string | null) => {
+			if (layer === "install-guide" && store.state.installGuideOpen) {
 				close();
 			}
 		};

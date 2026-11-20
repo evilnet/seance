@@ -215,7 +215,7 @@ export default defineComponent({
 			}
 
 			if (!current.status.connecting) {
-				socket.emit("input", {target: current.channels[0].id, text: "/connect"});
+				socket.emit("input", {target: current.channels[0].id, text: "/server"});
 			}
 		};
 

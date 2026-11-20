@@ -32,29 +32,36 @@ browser without it writes plain JSON, and the loader accepts either (it sniffs
 the gzip magic). `version` is bumped when the covered keys change or a restore
 would need a migration; a file from a newer version is refused with a message.
 An **older** file is applied as far as it goes: a key added after its version
-(`KEY_SINCE` in `settingsBackup.ts` — `thelounge.translate` arrived in
-version 2) is left as it is on the device rather than cleared, since that file
-could never have carried it. `thelounge.oper` was added upstream without a
-bump and counts from version 1, as it does there; so does `thelounge.dnd`,
-which came from the do-not-disturb branch.
+(`KEY_SINCE` in `settingsBackup.ts` — `thelounge.translate`,
+`thelounge.scripts` and `thelounge.script_storage.*` count from version 2) is
+left as it is on the device rather than cleared, since that file could never
+have carried it. The scripting keys are listed although upstream's own
+version-1 files carry them: this branch's version-1 files never did, and the
+number cannot tell the two apart, so a version-1 file without scripts leaves
+the device's alone while one that has them still restores them.
+`thelounge.oper` was added upstream without a bump and counts from version 1,
+as it does there; so does `thelounge.dnd`, which came from the
+do-not-disturb branch.
 
 ## What is in it
 
-| Key                            | What                                                                                                                                          |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `settings`                     | the settings object (the store's live one)                                                                                                    |
-| `thelounge.networks`           | saved networks                                                                                                                                |
-| `thelounge.networks.collapsed` | collapsed networks in the sidebar                                                                                                             |
-| `thelounge.sort.networks`      | network order                                                                                                                                 |
-| `thelounge.sort.channels`      | channel order per network                                                                                                                     |
-| `thelounge.muted`              | muted channels                                                                                                                                |
-| `thelounge.media.trusted`      | trusted media hosts / channels / accounts                                                                                                     |
-| `thelounge.reactions.recent`   | the reaction picker's recents                                                                                                                 |
-| `thelounge.aliases`            | command aliases (Settings → Aliases)                                                                                                          |
-| `thelounge.translate`          | per-channel translation state (what each channel reads and writes, its formality, variant, languages and terms; a query's terms are left out) |
-| `thelounge.oper`               | oper notice routing and snomask                                                                                                               |
-| `thelounge.dnd`                | do not disturb: the switch and its window                                                                                                     |
-| `thelounge.ignore.<uuid>`      | ignore list per network                                                                                                                       |
+| Key                               | What                                                                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `settings`                        | the settings object (the store's live one)                                                                                                    |
+| `thelounge.networks`              | saved networks                                                                                                                                |
+| `thelounge.networks.collapsed`    | collapsed networks in the sidebar                                                                                                             |
+| `thelounge.sort.networks`         | network order                                                                                                                                 |
+| `thelounge.sort.channels`         | channel order per network                                                                                                                     |
+| `thelounge.muted`                 | muted channels                                                                                                                                |
+| `thelounge.media.trusted`         | trusted media hosts / channels / accounts                                                                                                     |
+| `thelounge.reactions.recent`      | the reaction picker's recents                                                                                                                 |
+| `thelounge.aliases`               | command aliases (Settings → Scripts → Aliases)                                                                                                |
+| `thelounge.translate`             | per-channel translation state (what each channel reads and writes, its formality, variant, languages and terms; a query's terms are left out) |
+| `thelounge.oper`                  | oper notice routing and snomask                                                                                                               |
+| `thelounge.dnd`                   | do not disturb: the switch and its window                                                                                                     |
+| `thelounge.scripts`               | Lua scripts (Settings → Scripts), restored switched off                                                                                       |
+| `thelounge.ignore.<uuid>`         | ignore list per network                                                                                                                       |
+| `thelounge.script_storage.<name>` | each script's own data (`seance.storage`)                                                                                                     |
 
 Left out on purpose: `thelounge.sts` (a cache), `thelounge.push*` (this
 device's push subscriptions, bound to its service worker registration),
@@ -65,7 +72,14 @@ the same uuid may carry other credentials (`CLEARED_ON_RESTORE`).
 The restore never writes a key outside the list above, whatever the file
 holds.
 
-**Passwords.** The saved networks' `saslPassword` is stripped unless
+**Scripts.** A file's scripts arrive switched off, and so does the scripting
+switch (`enableScripting` in `settings`): a script can send any line and read
+every message, so one from a file, perhaps someone else's, runs only once the
+person turns it on here (`disarmScripts`). Like every covered key, a restore
+replaces the device's scripts and their data with the file's, and a version-2
+file without them removes them.
+
+**Passwords.** The saved networks' `saslPassword` and `serverPassword` are stripped unless
 "Include network passwords" is ticked (the stripped entries get
 `rememberPassword: false`, so the connect form asks again). The file is not
 encrypted; the checkbox's tooltip says so. The restore dialog says when the
@@ -100,7 +114,9 @@ still carries every setting.
 
 ## Restoring
 
-Choosing a file decodes and validates it, then asks through the app's confirm
+Choosing a file decodes and validates it (a file over `MAX_BACKUP_BYTES`,
+32 MiB, is not read, and a gzipped one stops inflating there: both read as
+"Couldn't read the file"), then asks through the app's confirm
 dialog (naming the file, the number of networks and whether it carries
 passwords). On confirm, `applyBackup` writes the file's keys (the
 platform-dependent settings rebased as above), then removes every covered key
@@ -108,8 +124,10 @@ the file does not carry, and the page reloads — that is how every module
 re-reads its storage (the settings store, `saved-networks.ts`, `sort.ts`,
 `mute.ts`, `ignore.ts`, `mediaTrust.ts` all load at boot). Nothing runs
 between the writes and the reload, so in-memory state cannot overwrite the
-file's entries. Writes come first because `localStorage.ts` swallows a full
-quota: each write is read back, and one that did not land undoes the ones
+file's entries. Another tab open on the app takes the restored settings as
+they land and writes only what it changes afterwards
+(`docs/resources/client-features.md` § Settings in more than one tab).
+Writes come first because `localStorage.ts` swallows a full quota: each write is read back, and one that did not land undoes the ones
 before it and throws `BackupStorageError`, which the form shows instead of
 reloading, so a full device keeps what it had. A reload on Settings stays on Settings (`router.ts`
 `onStandalonePage`); autoconnect networks come back on their own.

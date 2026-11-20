@@ -2,8 +2,9 @@
 
 ## Turn scripting on
 
-Open **Settings → Scripts** and switch on **Enable scripting**. The library
-appears under the switch.
+Open **Settings → Scripts** and switch on **Enable Lua**. The library
+under the switch, greyed out until now, comes to life. (The Aliases row
+above the switch is not Lua: aliases work with the switch on or off.)
 
 While the switch is off no script runs, `/lua` says scripting is disabled,
 and the Lua interpreter is never downloaded. Your scripts are kept; turning
@@ -18,9 +19,7 @@ script called `my_script`, already switched on.
    digit, at most 32 characters, different from your other scripts' names
    (case does not count). The name is what the library lists and what an
    export is called.
-2. Optionally give it a **folder** (free text; the library groups scripts
-   by it, and anything without one goes under _Unsorted_) and a one-line
-   **description**.
+2. Optionally give it a one-line **description**.
 3. Type the code:
 
    ```lua
@@ -63,8 +62,8 @@ A script's top-level code — everything not inside a handler — runs when the
 script **loads**. That is:
 
 - when the page loads, if scripting and the script are both switched on;
-- when you finish an edit: the code field (or the name, folder or
-  description) loses the caret, you flip a switch, or you close the editor;
+- when you finish an edit: the code field (or the name or description)
+  loses the caret, you flip a switch, or you close the editor;
 - when you switch scripting on.
 
 Typing saves as you go ("Changes are saved as you type"), but nothing
@@ -82,8 +81,8 @@ commands run when you type them.
 
 ## The editor
 
-The editor holds the script's name, folder, description and a **Run this
-script** switch, the code, and four buttons:
+The editor holds the script's name, description and a **Run this script**
+switch, the code, and four buttons:
 
 - **Check syntax** compiles the code without running it and says _Syntax
   OK_ or shows the error.
@@ -103,10 +102,11 @@ library.
 
 ## The library
 
-The Scripts tab lists every script by folder, then by name, each with its
-state — **Running**, **Off** or **Error** — and an on/off switch. Click a
-script to open it. Once you have more than six, a search box appears that
-looks through names, folders, descriptions and code.
+The Scripts tab lists every script by name, each with its state —
+**Running**, **Off** or **Error** — and an on/off switch. Click a script to
+open it. Once you have more than six, a search box appears that looks
+through names, descriptions and code. To keep related scripts together,
+start their names alike (`bot_greet`, `bot_kick`).
 
 - **New script** starts an empty one.
 - **Import .lua…** reads a `.lua` file into a new script named after the

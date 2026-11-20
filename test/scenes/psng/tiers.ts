@@ -21,7 +21,8 @@ describe("ps NG tiers (psng/tiers.ts)", function () {
 									phone,
 									lowPower,
 								};
-								const still = !visible || !attended || view === "query" || reduce;
+								// A query is just another view (docs/projects/ps-yurt.md §8).
+								const still = !visible || !attended || reduce;
 								const auto = phone
 									? lowPower
 										? "still"
@@ -50,6 +51,13 @@ describe("ps NG tiers (psng/tiers.ts)", function () {
 			}
 		}
 	}
+
+	it("a query is just another view (spec §8)", function () {
+		const base = {visible: true, attended: true, phone: false, lowPower: false} as const;
+		expect(tierFor({...base, view: "query", motion: "full"}, false)).to.equal("full");
+		expect(tierFor({...base, view: "query", motion: "auto"}, false)).to.equal("full");
+		expect(tierFor({...base, view: "query", motion: "calm"}, false)).to.equal("calm");
+	});
 
 	it("covers every combination", function () {
 		expect(rows).to.equal(256);

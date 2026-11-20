@@ -154,12 +154,12 @@ function shown(): string[] {
 		.map((c) => (c.args[1] as {msg: SharedMsg}).msg.text ?? "");
 }
 
-/** x3-services.md §7, STATS ALERTS: `$b%-20s$b %-6s (by <owner>)` and the three detail lines. */
+/** x3-services.md §7, STATS ALERTS: the padded header, `$b%-20s$b %-6s (by <owner>)` and the three detail lines. */
 const STATS_ALERTS = [
 	`${B}Current O3 alerts matching '${B}*${B}'${B}`,
-	"--------------------------------------------",
-	"Name Action (by Oper)",
-	"--------------------------------------------",
+	"----------------------------------------------",
+	"Name                 Action (by Oper)",
+	"----------------------------------------------",
 	`${B}seance-bots         ${B} NOTICE (by rubin)`,
 	` ${U}Expires:${U}: 2026-10-18 21:00:00 +0000`,
 	` ${U}Criteria${U}: authed no info irc?client ident r???? reason bot group in #seance, see rubin`,
@@ -170,12 +170,12 @@ const STATS_ALERTS = [
 	"----------------End of Alerts-----------------",
 ];
 
-/** §7 TRACE PRINT: `%-15s\002 \002%10s\002@\002%s (%s)`, no ` (acct)` when not authed. */
+/** §7 TRACE PRINT: the padded header, `%-15s\002 \002%10s\002@\002%s (%s)`, no ` (acct)` when not authed. */
 const TRACE_PRINT = [
 	"The following users were found:",
-	"---------------------------------------------",
-	"Nick User@Host (Account)",
-	"---------------------------------------------",
+	"-------------------------------------------",
+	"Nick                  User@Host   (Account)",
+	"-------------------------------------------",
 	`spamfan2       ${B} ${B}     r8821${B}@${B}203-0-113-7.example.net`,
 	`spamfan3       ${B} ${B}     r1002${B}@${B}203-0-113-8.example.net (spammy)`,
 	`opr            ${B} ${B}       opr${B}@${B}oper.example.net (rubin)`,
@@ -268,6 +268,21 @@ describe("the alert builder's wire side (irc/alerts.ts, services/x3/alerts.ts)",
 			users: [],
 			error: "frobnicate is an invalid search criteria.",
 		});
+	});
+
+	it("leaves no collector behind for a lookup that could not be sent", async function () {
+		const {client, transport} = setup();
+
+		// The socket is open but refuses the line, as WsTransport does a NUL.
+		const send = sinon
+			.stub(transport, "send")
+			.throws(new RangeError("WsTransport: line must not contain CR, LF or NUL"));
+		expect(await tracePrint(client, "reason a\0b")).to.deep.equal({kind: "closed"});
+		send.restore();
+
+		// O3's next answer is nobody's: shown as any notice, not taken quietly.
+		notice(transport, "O3", ...TRACE_PRINT);
+		expect(shown()).to.include("The following users were found:");
 	});
 
 	it("finds the opers among the matched nicks with one WHOX", async function () {

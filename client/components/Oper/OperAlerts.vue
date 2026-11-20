@@ -713,9 +713,13 @@ export default defineComponent({
 				return t("oper.alerts.o3.expiresAt", {when: alert.expires});
 			}
 
+			// Expired only once the time has passed: under half an hour left
+			// rounds to 0 hours, which is "< 1 h", not "expired".
 			const left = Math.round((at - now.value) / 3_600_000);
-			return left <= 0
+			return at <= now.value
 				? t("oper.alerts.o3.expired")
+				: left < 1
+				? t("oper.alerts.o3.expiresUnderHour")
 				: left < 48
 				? t("oper.alerts.o3.expiresHours", {hours: left})
 				: t("oper.alerts.o3.expiresDays", {days: Math.round(left / 24)});
