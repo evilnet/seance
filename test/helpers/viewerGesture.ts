@@ -187,7 +187,7 @@ describe("viewerGesture", function () {
 			// A small one shown at its own size goes to 2.5×.
 			expect(doubleTapScale(1, 1)).to.equal(2.5);
 			// Never past the maximum.
-			expect(doubleTapScale(1, 1, 2)).to.equal(2);
+			expect(doubleTapScale(1.4, 1.4)).to.equal(MAX_SCALE);
 			// Zoomed: back to fitted.
 			expect(doubleTapScale(1.5, 0.2)).to.equal(0.2);
 		});

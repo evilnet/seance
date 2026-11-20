@@ -9,7 +9,7 @@
 
 export type Point = {x: number; y: number};
 export type View = {x: number; y: number; scale: number};
-export type Size = {width: number; height: number};
+type Size = {width: number; height: number};
 export type Box = {left: number; top: number; width: number; height: number};
 
 /** The most the picture is ever zoomed, in CSS pixels per image pixel. */
@@ -21,7 +21,7 @@ export const TAP_SLOP_PX = 10;
 export const TAP_MAX_MS = 400;
 /** A second tap this soon after the first, this close to it, is a double tap. */
 export const DOUBLE_TAP_MS = 300;
-export const DOUBLE_TAP_SLOP_PX = 30;
+const DOUBLE_TAP_SLOP_PX = 30;
 /** A finger held this long without moving is a long press. */
 export const LONG_PRESS_MS = 500;
 
@@ -130,15 +130,15 @@ export function softCentre(view: View, size: Size, box: Box): Point {
 export type Axis = "x" | "y";
 
 /** The way a one-finger drag goes once it is past the slop, or null before. */
-export function lockAxis(dx: number, dy: number, slop = TAP_SLOP_PX): Axis | null {
-	if (Math.hypot(dx, dy) < slop) {
+export function lockAxis(dx: number, dy: number): Axis | null {
+	if (Math.hypot(dx, dy) < TAP_SLOP_PX) {
 		return null;
 	}
 
 	return Math.abs(dx) > Math.abs(dy) ? "x" : "y";
 }
 
-export type SwipeOutcome = "close" | "next" | "previous" | "stay";
+type SwipeOutcome = "close" | "next" | "previous" | "stay";
 
 export type Swipe = {
 	axis: Axis;
@@ -153,6 +153,12 @@ export type Swipe = {
 	hasNext: boolean;
 	hasPrevious: boolean;
 };
+
+/** Whether a sideways drag `dx` goes toward the next picture: left, or right
+ * to left, right. */
+export function isForward(dx: number, rtl: boolean): boolean {
+	return rtl ? dx > 0 : dx < 0;
+}
 
 /** A drag this far across the box, or a flick, carries its swipe. */
 const SWIPE_CLOSE_FRACTION = 0.2;
@@ -184,9 +190,7 @@ export function swipeOutcome(s: Swipe): SwipeOutcome {
 		return "close";
 	}
 
-	const forward = s.rtl ? s.distance > 0 : s.distance < 0;
-
-	if (forward) {
+	if (isForward(s.distance, s.rtl)) {
 		return s.hasNext ? "next" : "stay";
 	}
 
@@ -209,12 +213,12 @@ export function isDoubleTap(previous: Tap | null, now: Tap): boolean {
  * zoom, else close up — two and a half times the fitted size, at least the
  * picture's own pixels, at most MAX_SCALE.
  */
-export function doubleTapScale(scale: number, fitScale: number, max = MAX_SCALE): number {
+export function doubleTapScale(scale: number, fitScale: number): number {
 	if (!isFitted(scale, fitScale)) {
 		return fitScale;
 	}
 
-	return Math.min(max, Math.max(1, fitScale * 2.5));
+	return Math.min(MAX_SCALE, Math.max(1, fitScale * 2.5));
 }
 
 /** The keyboard's and the wheel's zoom step. */

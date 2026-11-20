@@ -1,26 +1,22 @@
-// The image viewer's open state lives in a component ref (App.vue provides it
-// to LinkPreview), which non-Vue code — the Android shell's back button in
-// native.ts — cannot reach. While an image is open, ImageViewer.vue registers
-// its close function here; closeOpenImage() closes it and reports whether
-// there was anything to close.
-//
 // Back in an installed PWA should close an open image, not the app. That is
 // a CloseWatcher where the browser has one (Chromium: Android's back gesture
-// and button, and Escape), which takes the back without a history entry.
-// Never a history entry of our own: the router keeps the history one entry
-// deep so that iOS's edge swipes have nothing to go back or forward to
-// (router.ts), and an entry pushed for the viewer can never be taken off
-// again — history.back() leaves it as forward history, a forward swipe lands
-// on it, and from there the left edge has a page to go back to. Where there
-// is no CloseWatcher (Safari) an edge swipe does nothing to an open image;
-// ✕, a tap and Escape close it.
+// and button), which takes the back without a history entry. Never a history
+// entry of our own: the router keeps the history one entry deep so that iOS's
+// edge swipes have nothing to go back or forward to (router.ts), and an entry
+// pushed for the viewer can never be taken off again — history.back() leaves
+// it as forward history, a forward swipe lands on it, and from there the left
+// edge has a page to go back to. Where there is no CloseWatcher (Safari) an
+// edge swipe does nothing to an open image; ✕, a tap, a swipe up or down and
+// Escape close it.
 //
-// A close request is for the topmost layer: with a menu open on the picture
-// (ImageViewer.vue, in the app shells) it closes the menu, and the viewer
-// takes a fresh watcher for the next one. Escape never gets here: App.vue
-// cancels its keydown whenever a layer is up, the viewer included.
+// A close request closes the topmost layer as Escape does
+// (helpers/escapeLayer.ts): the viewer is one, so with a menu open on the
+// picture (ImageViewer.vue, in the app shells) the menu goes first and the
+// viewer, still open, takes a fresh watcher for the next request. Escape
+// itself never gets here: App.vue cancels its keydown whenever a layer is up.
+// The Android shell's back button (native.ts) goes by the layers alone.
 
-import {emitEscape, topEscapeLayer} from "./escapeLayer";
+import {emitEscape} from "./escapeLayer";
 
 interface CloseWatcherLike {
 	onclose: (() => void) | null;
@@ -29,7 +25,7 @@ interface CloseWatcherLike {
 
 type CloseWatcherCtor = new () => CloseWatcherLike;
 
-let close: (() => void) | null = null;
+let open = false;
 let watcher: CloseWatcherLike | null = null;
 
 function watchForClose(): void {
@@ -41,15 +37,11 @@ function watchForClose(): void {
 
 	watcher = new Ctor();
 	watcher.onclose = () => {
-		const layer = topEscapeLayer();
+		emitEscape();
 
-		if (close && layer !== null && layer !== "image-viewer") {
-			emitEscape();
+		if (open) {
 			watchForClose();
-			return;
 		}
-
-		closeOpenImage();
 	};
 }
 
@@ -58,22 +50,13 @@ function stopWatching(): void {
 	watcher = null;
 }
 
-export function setImageViewerClose(fn: (() => void) | null): void {
-	const wasOpen = close !== null;
-	close = fn;
-
-	if (fn && !wasOpen) {
+/** ImageViewer.vue says when an image opens and closes. */
+export function setImageViewerOpen(isOpen: boolean): void {
+	if (isOpen && !open) {
 		watchForClose();
-	} else if (!fn) {
+	} else if (!isOpen) {
 		stopWatching();
 	}
-}
 
-export function closeOpenImage(): boolean {
-	if (!close) {
-		return false;
-	}
-
-	close();
-	return true;
+	open = isOpen;
 }

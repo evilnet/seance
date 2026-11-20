@@ -500,8 +500,11 @@ html[data-platform="macos"][dir="rtl"] #search-panel .search-head {
 html[data-platform="macos"] #image-viewer {
 	box-sizing: border-box;
 	padding: calc(var(--mac-titlebar-height) + 1rem) 4.5rem 3rem;
-	background: rgb(0 0 0 / calc(0.55 * var(--viewer-dim, 1)));
 	backdrop-filter: blur(1.25rem);
+}
+
+html[data-platform="macos"] #image-viewer::before {
+	background: rgb(0 0 0 / 55%);
 }
 
 html[data-platform="macos"] #image-viewer .close-btn {
@@ -8584,28 +8587,38 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 
 #confirm-dialog-overlay,
 #push-prompt-overlay,
-#upload-preview-overlay,
-#image-viewer {
+#upload-preview-overlay {
 	background: rgb(0 0 0 / 90%);
 }
 
 /* Every touch on the viewer is its pan, pinch or swipe (ImageViewer.vue).
- * A swipe up or down fades the backdrop as it goes: --viewer-dim, 0–1. */
+ * A swipe up or down fades the backdrop as it goes (--viewer-dim, 0–1): a
+ * layer of its own under the picture, so the fade is the compositor's
+ * opacity and not a repaint of the whole screen at every move. */
 #image-viewer {
 	touch-action: none;
-	background: rgb(0 0 0 / calc(0.9 * var(--viewer-dim, 1)));
+	background: none;
+}
+
+#image-viewer::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	background: rgb(0 0 0 / 90%);
+	opacity: var(--viewer-dim, 1);
 }
 
 /* The picture coming to rest, springing back or flying out of a swipe. */
-#image-viewer.settling {
-	transition: opacity 0.2s, visibility 0.2s, background-color 0.2s;
+#image-viewer.settling::before {
+	transition: opacity 0.2s;
 }
 
 #image-viewer.settling > img {
 	transition: transform 0.2s ease-out;
 }
 
-html[data-reduce-motion] #image-viewer.settling,
+html[data-reduce-motion] #image-viewer.settling::before,
 html[data-reduce-motion] #image-viewer.settling > img {
 	transition: none;
 }

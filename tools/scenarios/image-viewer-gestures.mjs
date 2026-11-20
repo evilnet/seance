@@ -19,7 +19,8 @@
 // app from another port.
 
 import http from "node:http";
-import zlib from "node:zlib";
+import {clickAt, finger, key, mouse, tapAt, touch} from "./lib/input.mjs";
+import {png} from "./lib/png.mjs";
 import {startTinyIrcd} from "./lib/tiny-ircd.mjs";
 
 const PORT = process.env.SEANCE_PORT ?? "8000";
@@ -34,49 +35,18 @@ export const url = `http://localhost:${PORT}/?host=127.0.0.1&port=${IRCD_PORT}&t
 
 // ------------------------------------------------------------ the pictures
 
-/** A `width`×`height` PNG: a diagonal gradient, so every pixel tells where it is. */
-function png(width, height, tint) {
-	const row = width * 3 + 1;
-	const raw = Buffer.alloc(row * height);
-
-	for (let y = 0; y < height; y++) {
-		raw[y * row] = 0;
-
-		for (let x = 0; x < width; x++) {
-			const o = y * row + 1 + x * 3;
-			raw[o] = Math.floor((x / width) * 255);
-			raw[o + 1] = Math.floor((y / height) * 255);
-			raw[o + 2] = tint;
-		}
-	}
-
-	const chunk = (type, data) => {
-		const len = Buffer.alloc(4);
-		len.writeUInt32BE(data.length);
-		const body = Buffer.concat([Buffer.from(type), data]);
-		const crc = Buffer.alloc(4);
-		crc.writeUInt32BE(zlib.crc32(body));
-		return Buffer.concat([len, body, crc]);
-	};
-
-	const ihdr = Buffer.alloc(13);
-	ihdr.writeUInt32BE(width, 0);
-	ihdr.writeUInt32BE(height, 4);
-	ihdr.writeUInt8(8, 8); // bit depth
-	ihdr.writeUInt8(2, 9); // truecolour
-
-	return Buffer.concat([
-		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-		chunk("IHDR", ihdr),
-		chunk("IDAT", zlib.deflateSync(raw)),
-		chunk("IEND", Buffer.alloc(0)),
+/** A `width`×`height` diagonal gradient: every pixel tells where it is. */
+const gradient = (width, height, tint) =>
+	png(width, height, (x, y) => [
+		Math.floor((x / width) * 255),
+		Math.floor((y / height) * 255),
+		tint,
 	]);
-}
 
 const PICTURES = {
-	"/a.png": png(1600, 1000, 40),
-	"/b.png": png(800, 1200, 140),
-	"/c.png": png(1200, 900, 240),
+	"/a.png": gradient(1600, 1000, 40),
+	"/b.png": gradient(800, 1200, 140),
+	"/c.png": gradient(1200, 900, 240),
 };
 
 const media = http.createServer((req, res) => {
@@ -122,38 +92,6 @@ const MENU = `document.querySelector("#context-menu") !== null`;
 
 let mobile = false;
 
-function finger(x, y, id = 0) {
-	return {x, y, id, radiusX: 12, radiusY: 12, force: 1};
-}
-
-async function touch(page, type, points) {
-	await page.send("Input.dispatchTouchEvent", {type, touchPoints: points});
-}
-
-async function tapAt(page, x, y, after = 500) {
-	await touch(page, "touchStart", [finger(x, y)]);
-	await page.sleep(40);
-	await touch(page, "touchEnd", []);
-	await page.sleep(after);
-}
-
-async function mouse(page, type, x, y, extra) {
-	await page.send("Input.dispatchMouseEvent", {type, x, y, ...extra});
-}
-
-async function clickAt(page, x, y, clickCount = 1) {
-	await mouse(page, "mouseMoved", x, y);
-	await mouse(page, "mousePressed", x, y, {button: "left", buttons: 1, clickCount});
-	await mouse(page, "mouseReleased", x, y, {button: "left", buttons: 0, clickCount});
-}
-
-async function key(page, key, code, keyCode, text) {
-	const base = {key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode};
-	await page.send("Input.dispatchKeyEvent", {type: "keyDown", ...base, text});
-	await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...base});
-	await page.sleep(400);
-}
-
 /** The picture's box on screen. */
 async function imgBox(page) {
 	return JSON.parse(
@@ -180,8 +118,18 @@ async function pixelAt(page, x, y) {
 const near = (a, b, tolerance) =>
 	Math.abs(a.x - b.x) < tolerance && Math.abs(a.y - b.y) < tolerance;
 
-/** A one-finger drag from (x, y) by (dx, dy) in `steps` moves `ms` apart. */
-async function drag(page, x, y, dx, dy, steps = 10, ms = 16) {
+/**
+ * A one-finger drag from (x, y) by (dx, dy) in `steps` moves `ms` apart, held
+ * still `hold` ms before it lifts (unless `lift` is false), `after` ms to settle.
+ */
+async function drag(
+	page,
+	x,
+	y,
+	dx,
+	dy,
+	{steps = 10, ms = 16, hold = 0, lift = true, after = 450} = {}
+) {
 	await touch(page, "touchStart", [finger(x, y)]);
 
 	for (let i = 1; i <= steps; i++) {
@@ -189,8 +137,13 @@ async function drag(page, x, y, dx, dy, steps = 10, ms = 16) {
 		await touch(page, "touchMove", [finger(x + (dx * i) / steps, y + (dy * i) / steps)]);
 	}
 
+	if (!lift) {
+		return;
+	}
+
+	await page.sleep(hold);
 	await touch(page, "touchEnd", []);
-	await page.sleep(450);
+	await page.sleep(after);
 }
 
 /** Two fingers about (x, y), `from` px apart, moved to `to` px apart. */
@@ -210,39 +163,29 @@ async function lift(page) {
 	await page.sleep(450);
 }
 
-async function revealAll(page) {
-	for (let i = 0; i < 5 && (await page.count(".media-veil-main")) > 0; i++) {
-		const r = JSON.parse(
-			await page.evaluate(`(() => {
-				const el = document.querySelector(".media-veil-main");
-				el.scrollIntoView({block: "center"});
-				return JSON.stringify(el.getBoundingClientRect());
-			})()`)
-		);
-
-		if (mobile) {
-			await tapAt(page, r.x + r.width / 2, r.y + r.height / 2, 400);
-		} else {
-			await clickAt(page, r.x + r.width / 2, r.y + r.height / 2);
-			await page.sleep(400);
-		}
-	}
-}
-
-async function openImage(page, index) {
+/** A finger's tap (--mobile) or a click on the `index`th `selector`, scrolled into view. */
+async function press(page, selector, index = 0) {
 	const r = JSON.parse(
 		await page.evaluate(`(() => {
-			const el = document.querySelectorAll(".media-frame img")[${index}];
+			const el = document.querySelectorAll(${JSON.stringify(selector)})[${index}];
 			el.scrollIntoView({block: "center"});
 			return JSON.stringify(el.getBoundingClientRect());
 		})()`)
 	);
+	const x = r.x + r.width / 2;
+	const y = r.y + r.height / 2;
+	await (mobile ? tapAt(page, x, y, 0) : clickAt(page, x, y));
+}
 
-	if (mobile) {
-		await tapAt(page, r.x + r.width / 2, r.y + r.height / 2, 200);
-	} else {
-		await clickAt(page, r.x + r.width / 2, r.y + r.height / 2);
+async function revealAll(page) {
+	for (let i = 0; i < 5 && (await page.count(".media-veil-main")) > 0; i++) {
+		await press(page, ".media-veil-main");
+		await page.sleep(400);
 	}
+}
+
+async function openImage(page, index) {
+	await press(page, ".media-frame img", index);
 
 	await page.waitFor(OPEN, {label: "the image viewer"});
 	await page.waitFor(`document.querySelector("#image-viewer img:not(.loading)")`, {
@@ -340,19 +283,15 @@ async function touchChecks(page) {
 	await pinchAt(page, cx, cy, 40, 380);
 	await pinchAt(page, cx, cy, 40, 380);
 	await lift(page);
-	page.check(
-		`a pinch past the maximum springs back to 3 (${await page.evaluate(SCALE)})`,
-		(await page.evaluate(SCALE)) === 3
-	);
+	const max = await page.evaluate(SCALE);
+	page.check(`a pinch past the maximum springs back to 3 (${max})`, max === 3);
 	await pinchAt(page, cx, cy, 380, 20);
 	await page.screenshot("4-pinched-below-fit");
 	await lift(page);
 	await pinchAt(page, cx, cy, 380, 20);
 	await lift(page);
-	page.check(
-		`a pinch below fitted springs back to it (${await page.evaluate(SCALE)})`,
-		(await page.evaluate(SCALE)) === fit
-	);
+	const least = await page.evaluate(SCALE);
+	page.check(`a pinch below fitted springs back to it (${least})`, least === fit);
 	box = await imgBox(page);
 	page.check(
 		"…centred",
@@ -377,15 +316,7 @@ async function touchChecks(page) {
 
 	// A finger that lands while the picture is still flying out does not
 	// undo the step.
-	await touch(page, "touchStart", [finger(cx + 100, cy)]);
-
-	for (let i = 1; i <= 8; i++) {
-		await page.sleep(16);
-		await touch(page, "touchMove", [finger(cx + 100 - i * 25, cy)]);
-	}
-
-	await touch(page, "touchEnd", []);
-	await page.sleep(60);
+	await drag(page, cx + 100, cy, -200, 0, {steps: 8, after: 60});
 	await tapAt(page, cx, cy, 500);
 	page.check(
 		"a tap during the fly-out keeps the step",
@@ -395,31 +326,16 @@ async function touchChecks(page) {
 	await page.sleep(300);
 
 	// A drag that stops before the finger lifts is not a flick.
-	await touch(page, "touchStart", [finger(cx, cy)]);
-
-	for (let i = 1; i <= 4; i++) {
-		await page.sleep(16);
-		await touch(page, "touchMove", [finger(cx, cy + i * 15)]);
-	}
-
-	await page.sleep(400);
-	await touch(page, "touchEnd", []);
-	await page.sleep(450);
+	await drag(page, cx, cy, 0, 60, {steps: 4, hold: 400});
 	page.check("a quick drag down held before lifting springs back", await page.evaluate(OPEN));
 
 	// A short, slow drag down springs back; a long one closes.
-	await drag(page, cx, cy, 0, 50, 10, 60);
+	await drag(page, cx, cy, 0, 50, {ms: 60});
 	page.check("a short swipe down leaves it open", await page.evaluate(OPEN));
 	page.check("…at its place", Math.abs((await imgBox(page)).y - box.y) < 2);
 
 	// Mid-swipe, the backdrop fades.
-	await touch(page, "touchStart", [finger(cx, cy)]);
-
-	for (let i = 1; i <= 10; i++) {
-		await page.sleep(16);
-		await touch(page, "touchMove", [finger(cx, cy + i * 25)]);
-	}
-
+	await drag(page, cx, cy, 0, 250, {lift: false});
 	const dimmed = Number(
 		await page.evaluate(
 			`getComputedStyle(document.querySelector("#image-viewer")).getPropertyValue("--viewer-dim")`
@@ -514,10 +430,8 @@ async function bothChecks(page) {
 	const fit = await page.evaluate(SCALE);
 
 	await key(page, "+", "Equal", 187, "+");
-	page.check(
-		`+ zooms in (${fit} → ${await page.evaluate(SCALE)})`,
-		(await page.evaluate(SCALE)) > fit
-	);
+	const keyed = await page.evaluate(SCALE);
+	page.check(`+ zooms in (${fit} → ${keyed})`, keyed > fit);
 	await key(page, "0", "Digit0", 48, "0");
 	page.check("0 goes back to fitted", (await page.evaluate(SCALE)) === fit);
 
