@@ -8629,6 +8629,9 @@ html[data-reduce-motion] #image-viewer.settling > img {
 /* A tap on the picture puts the buttons away, the next brings them back. */
 #image-viewer.controls-hidden :is(.close-btn, .open-btn, .previous-image-btn, .next-image-btn) {
 	opacity: 0;
+
+	/* Out of the tab order too; hidden as the fade ends. */
+	visibility: hidden;
 	pointer-events: none;
 }
 
@@ -8642,7 +8645,9 @@ html[data-reduce-motion] #image-viewer.settling > img {
 	font-size: 2.25rem;
 	color: white;
 	opacity: 0.6;
-	transition: 0.2s opacity;
+	transition:
+		0.2s opacity,
+		0.2s visibility;
 }
 
 #image-viewer .close-btn {

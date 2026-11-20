@@ -24,6 +24,7 @@ interface CloseWatcherLike {
 type CloseWatcherCtor = new () => CloseWatcherLike;
 
 let watcher: CloseWatcherLike | null = null;
+let viewerOpen = false;
 
 function watchForClose(): void {
 	const Ctor = (globalThis as {CloseWatcher?: CloseWatcherCtor}).CloseWatcher;
@@ -33,7 +34,18 @@ function watchForClose(): void {
 	}
 
 	watcher = new Ctor();
-	watcher.onclose = () => emitEscape();
+	watcher.onclose = () => {
+		watcher = null;
+		emitEscape();
+
+		// A watcher closes once. The request may have closed a layer over
+		// the viewer (a dialog that came up on it), not the viewer: the
+		// next back is still the viewer's. A viewer the request did close
+		// says so a moment later, which takes this one down again.
+		if (viewerOpen) {
+			watchForClose();
+		}
+	};
 }
 
 function stopWatching(): void {
@@ -43,6 +55,7 @@ function stopWatching(): void {
 
 /** ImageViewer.vue says when an image opens and closes. */
 export function setImageViewerOpen(open: boolean): void {
+	viewerOpen = open;
 	stopWatching();
 
 	if (open) {

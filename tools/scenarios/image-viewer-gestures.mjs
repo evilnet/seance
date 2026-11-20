@@ -282,6 +282,21 @@ async function touchChecks(page) {
 	await lift(page);
 	const max = await page.evaluate(SCALE);
 	page.check(`a pinch past the maximum springs back to 3 (${max})`, max === 3);
+
+	// Stretched past it, one finger lifting leaves the picture where it is:
+	// the finger left carries on from the stretch, not from a second one.
+	await pinchAt(page, cx, cy, 60, 300);
+	await page.sleep(100);
+	const stretched = await page.evaluate(SCALE);
+	await touch(page, "touchEnd", [finger(cx - 150, cy, 0)]);
+	await touch(page, "touchMove", [finger(cx - 150, cy, 0)]);
+	await page.sleep(100);
+	const kept = await page.evaluate(SCALE);
+	page.check(
+		`a finger lifting from a stretched pinch keeps the stretch (${stretched} → ${kept})`,
+		stretched > 3 && Math.abs(kept - stretched) < 0.01
+	);
+	await lift(page);
 	await pinchAt(page, cx, cy, 380, 20);
 	await page.screenshot("4-pinched-below-fit");
 	await lift(page);
@@ -310,6 +325,31 @@ async function touchChecks(page) {
 	await drag(page, cx - 100, cy, 200, 0);
 	await page.sleep(300);
 	page.check("a swipe right goes back", (await page.evaluate(SRC)) === first);
+
+	// The next and previous buttons run the screen's full height at its
+	// edges, where a thumb starts a swipe: one begun on them swipes, and a
+	// tap on them is still their click.
+	const btn = await page.evaluate(
+		`JSON.stringify(document.querySelector("#image-viewer .next-image-btn").getBoundingClientRect())`
+	);
+	const edge = JSON.parse(btn);
+	await drag(page, edge.x + edge.width / 2, cy + 80, -200, 0);
+	await page.sleep(300);
+	page.check(
+		"a swipe begun on the next button's strip goes to the next",
+		/b\.png/.test(await page.evaluate(SRC))
+	);
+	await drag(page, cx - 100, cy, 200, 0);
+	await page.sleep(300);
+	await tapAt(page, edge.x + edge.width / 2, edge.y + edge.height / 2, 600);
+	page.check(
+		"a tap on the next button goes to the next",
+		/b\.png/.test(await page.evaluate(SRC))
+	);
+	page.check("…and leaves it open", await page.evaluate(OPEN));
+	await drag(page, cx - 100, cy, 200, 0);
+	await page.sleep(300);
+	page.check("…and a swipe right comes back", (await page.evaluate(SRC)) === first);
 
 	// A finger that lands while the picture is still flying out does not
 	// undo the step.

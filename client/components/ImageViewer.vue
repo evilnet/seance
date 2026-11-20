@@ -284,6 +284,20 @@ export default defineComponent({
 			return {x: box.left + box.width / 2, y: box.top + box.height / 2, scale: fitScale};
 		};
 
+		// The middle of the picture's box: what the keyboard zooms about.
+		const boxCentre = (): Point => {
+			const view = fittedView();
+			return view ? {x: view.x, y: view.y} : {x: 0, y: 0};
+		};
+
+		// The scale that fits the picture in the box, never past its own pixels.
+		const measureFit = (viewerEl: HTMLElement, imageEl: HTMLImageElement) => {
+			const {width, height} = contentBox(viewerEl);
+			// A picture that failed to load has no size: shown as it is.
+			const scale = Math.min(1, width / imageEl.width, height / imageEl.height) || 1;
+			return Math.max(scale, 0.1);
+		};
+
 		const prepareImage = () => {
 			const viewerEl = viewer.value;
 			const imageEl = image.value;
@@ -292,13 +306,9 @@ export default defineComponent({
 				return;
 			}
 
-			const {width, height} = contentBox(viewerEl);
-			// A picture that failed to load has no size: shown as it is.
-			const scale = Math.min(1, width / imageEl.width, height / imageEl.height) || 1;
-
 			position.value.x = Math.floor(-imageEl.naturalWidth / 2);
 			position.value.y = Math.floor(-imageEl.naturalHeight / 2);
-			fitScale = Math.max(scale, 0.1);
+			fitScale = measureFit(viewerEl, imageEl);
 			Object.assign(transform.value, fittedView());
 			loaded.value = true;
 		};
@@ -348,10 +358,13 @@ export default defineComponent({
 				return;
 			}
 
-			Object.assign(
-				transform.value,
-				clampCentre(transform.value, imageSize(), contentBox(viewer.value))
-			);
+			// Zoomed, it stays zoomed, but the fitted size moved with the box
+			// (a phone turned): no smaller than the new fit, edges kept out.
+			if (image.value) {
+				fitScale = measureFit(viewer.value, image.value);
+			}
+
+			Object.assign(transform.value, restingView(transform.value, boxCentre()));
 		};
 
 		// Zoom to `scale` about a point in the viewer, kept within bounds;
@@ -378,12 +391,6 @@ export default defineComponent({
 		// Fitted: zoom in on the point. Zoomed: back to fitted.
 		const toggleZoom = (point: Point) => {
 			zoomTo(doubleTapScale(transform.value.scale, fitScale), point, true);
-		};
-
-		// The keyboard zooms about the middle of the picture's box.
-		const boxCentre = (): Point => {
-			const view = fittedView();
-			return view ? {x: view.x, y: view.y} : {x: 0, y: 0};
 		};
 
 		const zoomIn = () => zoomTo(transform.value.scale * ZOOM_STEP, boxCentre(), true);
@@ -436,8 +443,9 @@ export default defineComponent({
 		//   or hides the buttons, unless a second tap follows, which zooms
 		//   in on that point (or back out to fitted).
 		// The touchend is cancelled, so the compatibility mouse events (whose
-		// mouseup would pan) and the click never follow; a touch on a button
-		// starts no gesture and keeps its click. No touch leaves the viewer:
+		// mouseup would pan) and the click never follow; a tap on a button is
+		// given its click, and a touch on the open link starts no gesture and
+		// keeps its own. No touch leaves the viewer:
 		// the sidebar's swipe listens on <body>.
 		type Gesture = {
 			from: Fingers;
@@ -464,13 +472,19 @@ export default defineComponent({
 			// Nothing more to do with this touch but swallow it: it landed as
 			// a swipe's step or close went ahead.
 			spent: boolean;
+			// Where the fingers have put the picture before any stretch past
+			// its bounds damps it: what the fingers carry on from when one
+			// lifts or joins. Null while it is the transform itself.
+			raw: View | null;
+			// A button the touch began on: a tap there is its click.
+			control: HTMLElement | null;
 		};
 		let gesture: Gesture | null = null;
 
 		// The fingers changed: measure from where they and the picture are now.
 		const rebase = (g: Gesture, touches: TouchList) => {
 			g.from = reduceTouches(touches, g.offset);
-			g.base = {...transform.value};
+			g.base = g.raw ?? {...transform.value};
 			g.fingers = touches.length;
 		};
 
@@ -561,14 +575,14 @@ export default defineComponent({
 				hasPrevious: !!previousImage.value,
 			});
 			const away = (Math.sign(distance) || 1) * extent;
+			// What happens when the picture is out is for the picture that
+			// flew out: a key or an arrow may have stepped already.
+			const from = link.value;
 
 			if (outcome === "close") {
 				dim.value = 0;
-				settle({y: rest.y + away}, closeViewer);
+				settle({y: rest.y + away}, () => link.value === from && closeViewer());
 			} else if (outcome === "next" || outcome === "previous") {
-				// The step is for the picture that flew out: a key or an
-				// arrow may have stepped already.
-				const from = link.value;
 				const step = outcome === "next" ? next : previous;
 				settle({x: rest.x + away}, () => link.value === from && step());
 			} else {
@@ -594,12 +608,20 @@ export default defineComponent({
 				g.moved = Math.max(g.moved, Math.hypot(touch.x - g.from.x, touch.y - g.from.y));
 			}
 
+			// No longer a tap: an earlier tap waiting for it as its second
+			// does not show or hide the buttons under a swipe or a pinch.
+			if (g.multi || g.moved >= TAP_SLOP_PX) {
+				cancelTap();
+			}
+
 			if (g.swipe) {
 				moveSwipe(g, touch);
 				return;
 			}
 
-			const view = pinch(g.base, g.from, touch, (s) => softScale(s, fitScale, MAX_SCALE));
+			const raw = pinch(g.base, g.from, touch, (s) => s);
+			const view = zoomAbout(raw, softScale(raw.scale, fitScale, MAX_SCALE), touch);
+			g.raw = raw;
 			Object.assign(transform.value, {...softCentre(view, g.size, g.box), scale: view.scale});
 		};
 
@@ -662,6 +684,8 @@ export default defineComponent({
 
 			if (!tapped) {
 				springBack(g.last);
+			} else if (g.control) {
+				g.control.click();
 			} else if (outsideImage(g.origin)) {
 				closeViewer();
 			} else {
@@ -708,6 +732,7 @@ export default defineComponent({
 
 				if (gesture.swipe && gesture.axis) {
 					unswipe(false);
+					gesture.raw = null;
 				}
 
 				gesture.swipe = false;
@@ -717,8 +742,13 @@ export default defineComponent({
 
 			const viewerEl = viewer.value;
 
-			// The buttons and the open link keep their own taps.
-			if (!viewerEl || (e.target as Element | null)?.closest?.("button, a")) {
+			// The open link keeps its own tap. A button's strip is part of the
+			// screen a swipe starts from (the next and previous ones run its
+			// full height), so a touch there is a gesture too, and a tap on it
+			// is the button's click.
+			const target = e.target as Element | null;
+
+			if (!viewerEl || target?.closest?.("a")) {
 				return;
 			}
 
@@ -727,6 +757,13 @@ export default defineComponent({
 			// (the picture it would move is on its way out).
 			const departing = !!departure;
 			finishSettling();
+
+			if (departing) {
+				// A close takes the viewer away under the finger, and its
+				// touchend and click would land on the chat beneath: the touch
+				// goes no further than here.
+				e.preventDefault();
+			}
 
 			const rect = viewerEl.getBoundingClientRect();
 			const offset = {x: rect.left, y: rect.top};
@@ -748,6 +785,8 @@ export default defineComponent({
 				axis: null,
 				samples: [{x: first.x, y: first.y, at: Date.now()}],
 				spent: departing,
+				raw: null,
+				control: target?.closest?.("button") ?? null,
 			};
 		};
 
@@ -764,6 +803,9 @@ export default defineComponent({
 
 			e.stopPropagation();
 			e.preventDefault();
+			// A press after a click (a drag, or the second click of a slow
+			// double click) is not that click's close.
+			clearTimeout(tapTimer);
 
 			const viewerEl = viewer.value;
 
@@ -830,13 +872,25 @@ export default defineComponent({
 		type PinchEvent = Event & {scale: number; clientX: number; clientY: number};
 		let pinchFrom = 1;
 
+		// iOS sends them for a two-finger touch too, alongside the touch
+		// events: the touch pinch owns those, with its stretch.
 		const onGestureStart = (e: Event) => {
 			e.preventDefault();
+
+			if (gesture) {
+				return;
+			}
+
 			pinchFrom = transform.value.scale;
 		};
 
 		const onGestureChange = (e: Event) => {
 			e.preventDefault();
+
+			if (gesture) {
+				return;
+			}
+
 			const pinchEvent = e as PinchEvent;
 			zoomAt(pinchFrom * pinchEvent.scale, pinchEvent.clientX, pinchEvent.clientY);
 		};
@@ -852,6 +906,8 @@ export default defineComponent({
 			}
 
 			e.preventDefault();
+			// A wheel after a click on the picture keeps it open.
+			clearTimeout(tapTimer);
 
 			if (e.ctrlKey) {
 				// A trackpad pinch arrives in Chromium and Firefox as a wheel
@@ -865,10 +921,13 @@ export default defineComponent({
 				transform.value.y -= e.deltaY;
 				correctPosition();
 			} else if (e.deltaY !== 0) {
-				// Elsewhere a wheel zooms in steps, about the pointer: up
-				// (away from you) in, as a pinch outward does.
-				const step = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-				zoomAt(transform.value.scale * step, e.clientX, e.clientY);
+				// Elsewhere a wheel zooms about the pointer, up (away from you)
+				// in, as a pinch outward does: a notch (100 px, or 3 lines) by
+				// a step, a touchpad's or a fine wheel's many small deltas by
+				// as much in all.
+				const px = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 800 : 1);
+				const steps = Math.max(-1, Math.min(1, -px / 100));
+				zoomAt(transform.value.scale * ZOOM_STEP ** steps, e.clientX, e.clientY);
 			}
 		};
 
@@ -892,9 +951,16 @@ export default defineComponent({
 		const bindKeys = () => {
 			Mousetrap.bind("left", () => (isRtl() ? next() : previous()));
 			Mousetrap.bind("right", () => (isRtl() ? previous() : next()));
-			Mousetrap.bind(["plus", "="], zoomIn);
-			Mousetrap.bind("-", zoomOut);
-			Mousetrap.bind("0", zoomReset);
+			// Not typed into the composer behind the viewer (Mousetrap hears
+			// it, its mousetrap class): false keeps the key.
+			const zoomKey = (zoom: () => void) => () => {
+				zoom();
+				return false;
+			};
+
+			Mousetrap.bind(["plus", "="], zoomKey(zoomIn));
+			Mousetrap.bind("-", zoomKey(zoomOut));
+			Mousetrap.bind("0", zoomKey(zoomReset));
 		};
 
 		const unbindKeys = () => {
