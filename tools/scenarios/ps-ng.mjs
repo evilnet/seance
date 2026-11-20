@@ -302,12 +302,9 @@ const GROUP_OF = {
 	// The yurt's room (docs/projects/ps-yurt.md §8); its steam is ps-smoke-rise inside .ps-indoor (CENSUS).
 	"psng-yt-flick": "hearth",
 	"psng-yt-flick-b": "hearth",
-	// The stove's fire (ps-yurt.md §16): the tongues' licks, the core, the sparks.
-	"psng-yt-lick-a": "hearth",
-	"psng-yt-lick-b": "hearth",
-	"psng-yt-lick-c": "hearth",
-	"psng-yt-core": "hearth",
-	"psng-yt-rise": "hearth",
+	// The stove's fire (ps-yurt.md §16): its poses' flow and the embers' pulse.
+	"psng-yt-flow": "hearth",
+	"psng-yt-embers": "hearth",
 };
 const ALL_GROUPS = [...new Set([...Object.values(GROUP_OF), "steam"])];
 const CALM_GROUPS = ["clouds", "hearth"];

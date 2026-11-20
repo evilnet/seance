@@ -26,6 +26,9 @@ It replaces the frosted, still plains that private conversations show today (ps-
 | 2026-11-14 | The room moves like the plains                   | "Moves like the plains": the same tiers, freezing and reduced-motion rules as a channel; a query no longer forces still                                                                                                                                                                 |
 | 2026-11-14 | The stove in the middle                          | "In the middle": the stove centred under the crown                                                                                                                                                                                                                                      |
 | 2026-11-16 | In calm the flames flicker                       | "in calm, make the flames flicker instead of dance" (after §11.3): the tongues and the core fade on the mockup's flickers, each on its own beat                                                                                                                                         |
+| 2026-11-19 | The crown posts and the curtain rod              | "end caps at the top that have the wrong z-order", "a brown bar in the middle … free-floating": the poles rise into their caps; the back curtains' rod hangs on the wall, on finials and brackets                                                                                       |
+| 2026-11-20 | The bed, cleaned up                              | "there's still some imperfections in the porportions/angles on the bed": its corner posts are its legs, and the quilt's turned-down fold hangs to the hem                                                                                                                               |
+| 2026-11-21 | The fire redrawn                                 | "too childish of an animation", then of the soft firelight "very choppy; the smooth edges look great", then "soft firelight, flowing is very good. i'll take that" (§16.1)                                                                                                              |
 
 ## 3. Goals, non-goals, anti-goals
 
@@ -172,7 +175,7 @@ A query is now just another view to `tierFor`.
 
 One length, `--ps-ym-s`, places the HTML in the design frame as the svg's `slice` does. `psng/room-motion.ts` (`ROOM_MOTION_CSS`, adopted with the room's sheet) hangs the motion on NG's groups, in phase:
 
-- `hearth`, a new group: the glow on the mockup's `flick` and the lamp's flame on its `flick-b`; since plan 3 (§16), the fire's three tongues licking on their own beats (`psng-yt-lick-a`, `-b`, `-c`), its core breathing (`psng-yt-core`) and four sparks rising (`psng-yt-rise`), in the door's box clipped to its opening; in calm the tongues and the core flicker on the mockup's `flick` and `flick-b` instead, each on its own beat, and no spark rises (the user, 2026-11-16, after §11.3);
+- `hearth`, a new group: the glow on the mockup's `flick` and the lamp's flame on its `flick-b`; since plan 3 (§16), the fire's three tongues licking on their own beats (`psng-yt-lick-a`, `-b`, `-c`), its core breathing (`psng-yt-core`) and in the door's box clipped to its opening, since 2026-11-21 the soft firelight of §16.1: three blurred layers of flame, six poses each, flowing into one another (`psng-yt-flow`), the embers' pulse (`psng-yt-embers`), the firebox's glow and a white-hot core, the same at full and in calm;
 - `steam`, a new group: the smoke's keyframes;
 - `clouds`;
 - `weather`: the plains' own rain tiles, snow and flash, run by NG's rules;
@@ -442,9 +445,9 @@ The flames' size and strength follow the fire's level: small at dusk, full by ni
 
 **Tiers:**
 
-- Full: the flames, the core, the sparks and the glow.
-- Calm: the flames, the core and the glow, without the sparks. Phones on Auto are calm. As built, the flames and the core flicker in calm rather than dance (the user, 2026-11-16, after §11.3's cost).
-- Still, reduced motion, a frozen rest or the drawer open: plan 1's still fire while it burns, the embers while it is out.
+- Full: the flames, the core, the sparks and the glow. As built since 2026-11-21 (§16.1): the flowing soft firelight, with no sparks.
+- Calm: the flames, the core and the glow, without the sparks. Phones on Auto are calm. The flames flickered in calm rather than danced from 2026-11-16; since 2026-11-21 calm shows the same flowing fire as full (§16.1).
+- Still, reduced motion, a frozen rest or the drawer open: the still fire while it burns, the embers while it is out. Since 2026-11-21 the still fire is one frame of the soft firelight (§16.1).
 
 ### Approaches
 
@@ -477,3 +480,43 @@ Shown side by side in an Artifact; the user picked A:
 - How many sparks.
 - How the embers are drawn.
 - Whether the embers pulse by day. The design's call: they are still, so nothing moves by day.
+
+### 16.1 The fire redrawn: soft firelight, flowing (2026-11-21)
+
+**Status: built, 2026-11-21**, approved by the user from the fire's Artifact (version 4, "Soft firelight, flowing").
+
+**Why.** The user: "I don't love the fire. It looks too childish of an animation with the quality of the rest of the scene. can you improve the fire effect without a great performance loss?" Two rounds of hard-edged flame shapes did not land ("i don't think any of them look very great"). At the stove's real size, about 60 pixels across, a hard edge reads as an icon. Soft edges and light that glows read as fire. The soft firelight landed, but "it feels very choppy; the smooth edges look great though". The flowing version was "very good. i'll take that".
+
+**What it is** (`client/js/scenes/ps/flames.ts`, `room.ts`, `psng/room-motion.ts`):
+
+- **Three layers of flame:** red outside, then orange, then yellow. Each is a body joining the feet of two to four tongues. Each tongue has a bulging foot, a pinched waist and a curling, pointed tip, and sometimes a smaller fork.
+- **Blur:** each layer is blurred in its own svg, the outer most (1.7 units), then 1.15 and 0.7. The blur is rasterized once, when the room is built.
+- **Light:** a white-hot core sits between the outer flame and the two inner ones. The mid flame, the inner flame and the core are screen-blended over the outer, so they add light to it.
+- **Embers and glow:** behind the flames, the firebox glows (`psng-yt-flick`, 1.9 s) and the embers pulse (`psng-yt-embers`, 2.8 s, alternate).
+- **Six poses a layer:** drawn as one loop, so each tongue's height, lean, sway and fork follow slow waves through it. A pose differs only a little from the next, and the loop wraps.
+- **The flow:** each pose fades in over a sixth of its layer's beat, holds for a sixth, and fades out over a sixth while its neighbours fade (`psng-yt-flow`). One pose is always at full, so the flames morph without a break. The outer layer turns over every 3.6 s, the mid every 2.7 s and the inner every 2.1 s, so the whole never visibly repeats.
+- **Opacity only:** nothing in the fire moves by transform.
+- **The flat flame space:** 60 by 54 units, with the flames standing at 50. It is stretched over the door's opening and clipped to it, so the fire still follows the burn: its strength and height.
+- **Tiers:**
+  - Full and calm show the same fire.
+  - Still, reduced motion and the like show its first pose, blurred, in the over layer.
+  - The sparks went with the dancing tongues; the version the user chose has none.
+- **What it replaces:**
+  - plan 3's dancing tongues, core and sparks;
+  - the calm flicker of 2026-11-16;
+  - plan 1's still fire.
+- **Tests:**
+  - `test/scenes/ps/flames.ts` pins that the loop flows: each pose looks more like the next than like the pose across the loop. Independently drawn poses, which is how the choppy version moved, fail that.
+  - `room.ts` and `room-motion.ts` pin the markup and the flow.
+  - `tools/scenarios/ps-yurt.mjs` counts the 18 poses flowing at full and in calm.
+
+**Cost.** §11.2's method, against the fire it replaces (the dance, with calm's flicker), both builds served side by side in the same sitting. A clear 21:00, the phone profile (390 × 844, CPU throttled 4×), three rotated rounds; the desktop once each. The load ran 2–13, so these figures rank only. Script: `tmp/yurt-check/perf5-run.sh` (scratch). Each phone figure is the median of three, with its range:
+
+| Slot, clear 21:00                 | Before          | Soft firelight  |
+| --------------------------------- | --------------- | --------------- |
+| Calm, phone 4× (a channel: 3.5 %) | 1.0 % (0.9–1.1) | 1.6 % (1.5–1.6) |
+| Full, phone 4× (a channel: 26 %)  | 37.8 % (32–38)  | 39.5 % (39–57)  |
+| Calm, desktop (one run)           | 0.18 %          | 0.27 %          |
+| Full, desktop (one run)           | 4.4 %           | 4.1 %           |
+
+Calm, which is a phone's Auto, costs about half a point more and stays well under the plains' calm. Its style recalculations stay at 2 a second, so the fading never reaches the main thread. Full costs a point or two more, within this sitting's noise. The 18 poses, the core, the glow and the embers are 21 composited layers in a box about 60 pixels across.

@@ -82,26 +82,57 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 }
 
 #theme-scene .ps-ym-flames {
-	container-type: size;
 	transform-origin: 50% 100%;
 	transform: scale(calc(0.55 + 0.45 * var(--ps-in-burn)));
 }
 
-#theme-scene .ps-ym-tongue,
-#theme-scene .ps-ym-core {
+/* Its parts (the user, 2026-11-21: "soft firelight, flowing"): the firebox's glow and the embers' pulse
+ * behind three layers of blurred flame, each six poses stacked in its box (flames.ts), and the white-hot
+ * core; the mid and inner flames and the core add their light to the outer flame. */
+#theme-scene .ps-ym-fback,
+#theme-scene .ps-ym-fembers,
+#theme-scene .ps-ym-hotcore,
+#theme-scene .ps-ym-fl,
+#theme-scene .ps-ym-fpose {
 	position: absolute;
-	transform-origin: 50% 100%;
 }
 
-/* A spark: a dot that rests unseen at the coals until it rises. */
-#theme-scene .ps-ym-spark {
-	position: absolute;
-	inline-size: 0.09rem;
-	block-size: 0.09rem;
+#theme-scene .ps-ym-fback {
+	background: radial-gradient(70% 60% at 50% 95%, rgb(255 120 40 / 45%), rgb(140 40 20 / 18%) 60%, transparent 85%);
+}
+
+#theme-scene .ps-ym-fembers {
+	background:
+		radial-gradient(12% 40% at 18% 72%, #ff8a2e, transparent),
+		radial-gradient(14% 45% at 50% 78%, #ffc04a, transparent),
+		radial-gradient(12% 40% at 82% 70%, #ff7a26, transparent),
+		radial-gradient(8% 28% at 34% 82%, #ffd27a, transparent),
+		radial-gradient(8% 28% at 66% 84%, #ff9a3a, transparent);
+}
+
+#theme-scene .ps-ym-hotcore {
 	border-radius: 50%;
-	background: #ffd77a;
-	box-shadow: 0 0 0.08rem rgb(255 179 71 / 80%);
+	background: radial-gradient(closest-side, #fffbe6, rgb(255 236 170 / 70%) 45%, transparent);
+	mix-blend-mode: screen;
+}
+
+#theme-scene .ps-ym-fpose {
+	inset: 0;
 	opacity: 0.001;
+}
+
+#theme-scene .ps-ym-fl-outer {
+	--fb: 3.6s;
+}
+
+#theme-scene .ps-ym-fl-mid {
+	--fb: 2.7s;
+	mix-blend-mode: screen;
+}
+
+#theme-scene .ps-ym-fl-inner {
+	--fb: 2.1s;
+	mix-blend-mode: screen;
 }
 
 #theme-scene .ps-ym-fire svg,
@@ -129,8 +160,9 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 
 /* ---- the groups: each moves with its class, in phase ---- */
 /* The hearth: the approved mockup's flicker — the stove's glow on its flick, the lamp's flame on its
- * flick-b (1 written 0.999, as a pose's: never exactly 1 or 0) — and, at full, the fire's dance (§16): each
- * tongue licks up from the coals on its own beat, the core breathes, the sparks rise. */
+ * flick-b (1 written 0.999, as a pose's: never exactly 1 or 0) — and the fire's flow (§16), the same at
+ * full and in calm: each pose fades in over a sixth of its layer's beat, holds a sixth and fades out over
+ * a sixth while its neighbours fade, so one is always at full and the flames morph without a break. */
 #theme-scene.psng.psng-m-hearth .ps-ym-fireglow {
 	animation: psng-yt-flick 2.4s ease-in-out infinite;
 	animation-delay: calc(0s - var(--psng-t));
@@ -141,51 +173,24 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 	animation-delay: calc(0s - var(--psng-t));
 }
 
-#theme-scene.psng.psng-m-hearth:not(.psng-calm) .ps-ym-tongue.ps-ym-t1 {
-	animation: psng-yt-lick-a 0.95s ease-in-out infinite;
+#theme-scene.psng.psng-m-hearth .ps-ym-fpose {
+	animation: psng-yt-flow var(--fb) ease-in-out infinite;
+	animation-delay: calc(var(--fb) * var(--fk) / -6 - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-hearth .ps-ym-hotcore {
+	animation: psng-yt-flick-b 1.6s ease-in-out infinite;
 	animation-delay: calc(0s - var(--psng-t));
 }
 
-#theme-scene.psng.psng-m-hearth:not(.psng-calm) .ps-ym-tongue.ps-ym-t2 {
-	animation: psng-yt-lick-b 1.2s ease-in-out infinite;
-	animation-delay: calc(0s - var(--psng-t));
-}
-
-#theme-scene.psng.psng-m-hearth:not(.psng-calm) .ps-ym-tongue.ps-ym-t3 {
-	animation: psng-yt-lick-c 0.8s ease-in-out infinite;
-	animation-delay: calc(0s - var(--psng-t));
-}
-
-#theme-scene.psng.psng-m-hearth:not(.psng-calm) .ps-ym-core {
-	animation: psng-yt-core 0.45s ease-in-out infinite alternate;
-	animation-delay: calc(0s - var(--psng-t));
-}
-
-/* Calm: the tongues and the core flicker by opacity instead of dancing, each on its own beat (the user,
- * 2026-11-16; ps-yurt.md §11.3: the dance's transforms cost a calm phone far more than its flickers). */
-#theme-scene.psng.psng-m-hearth.psng-calm .ps-ym-tongue.ps-ym-t1 {
-	animation: psng-yt-flick-b 1.3s ease-in-out infinite;
-	animation-delay: calc(-0.2s - var(--psng-t));
-}
-
-#theme-scene.psng.psng-m-hearth.psng-calm .ps-ym-tongue.ps-ym-t2 {
+#theme-scene.psng.psng-m-hearth .ps-ym-fback {
 	animation: psng-yt-flick 1.9s ease-in-out infinite;
-	animation-delay: calc(-0.7s - var(--psng-t));
+	animation-delay: calc(0s - var(--psng-t));
 }
 
-#theme-scene.psng.psng-m-hearth.psng-calm .ps-ym-tongue.ps-ym-t3 {
-	animation: psng-yt-flick-b 1.1s ease-in-out infinite;
-	animation-delay: calc(-0.5s - var(--psng-t));
-}
-
-#theme-scene.psng.psng-m-hearth.psng-calm .ps-ym-core {
-	animation: psng-yt-flick 0.9s ease-in-out infinite;
-	animation-delay: calc(-0.3s - var(--psng-t));
-}
-
-#theme-scene.psng.psng-m-hearth:not(.psng-calm) .ps-ym-spark {
-	animation: psng-yt-rise var(--sd) linear infinite;
-	animation-delay: calc(var(--sdl) - var(--psng-t));
+#theme-scene.psng.psng-m-hearth .ps-ym-fembers {
+	animation: psng-yt-embers 2.8s ease-in-out infinite alternate;
+	animation-delay: calc(0s - var(--psng-t));
 }
 
 #theme-scene.psng.psng-m-steam .ps-ym-steam i {
@@ -245,81 +250,30 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 	animation-delay: calc(var(--twl) - var(--psng-t));
 }
 
-/* A tongue stretches and leans about its foot; the core breathes; a spark drifts up the door and fades. */
-@keyframes psng-yt-lick-a {
-	0%,
+/* A pose of the fire fades in, holds and fades out; the embers glow and dim (1 written 0.999, 0 as 0.001). */
+@keyframes psng-yt-flow {
+	0% {
+		opacity: 0.001;
+	}
+
+	16.667%,
+	33.333% {
+		opacity: 0.999;
+	}
+
+	50%,
 	100% {
-		transform: scale(1, 0.9) skewX(2deg);
-	}
-
-	30% {
-		transform: scale(0.94, 1.12) skewX(-6deg);
-	}
-
-	60% {
-		transform: scale(1.04, 0.84) skewX(4deg);
+		opacity: 0.001;
 	}
 }
 
-@keyframes psng-yt-lick-b {
-	0%,
-	100% {
-		transform: scale(1, 1) skewX(-2deg);
-	}
-
-	25% {
-		transform: scale(0.92, 1.14) skewX(5deg);
-	}
-
-	55% {
-		transform: scale(1.05, 0.88) skewX(-5deg);
-	}
-
-	80% {
-		transform: scale(0.97, 1.06) skewX(3deg);
-	}
-}
-
-@keyframes psng-yt-lick-c {
-	0%,
-	100% {
-		transform: scale(1, 0.95) skewX(-3deg);
-	}
-
-	40% {
-		transform: scale(0.95, 1.16) skewX(6deg);
-	}
-
-	70% {
-		transform: scale(1.03, 0.86) skewX(-2deg);
-	}
-}
-
-@keyframes psng-yt-core {
+@keyframes psng-yt-embers {
 	from {
-		transform: scale(0.9, 0.92);
-		opacity: 0.85;
+		opacity: 0.62;
 	}
 
 	to {
-		transform: scale(1.08, 1.1);
 		opacity: 0.999;
-	}
-}
-
-@keyframes psng-yt-rise {
-	0% {
-		transform: translate(0, 0);
-		opacity: 0.001;
-	}
-
-	12% {
-		opacity: 0.999;
-	}
-
-	100% {
-		transform: translate(6cqw, -62cqh);
-		opacity: 0.001;
 	}
 }
 
@@ -336,11 +290,6 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 #theme-scene.psng:not(.psng-m-hearth) .ps-ym-fire,
 #theme-scene.psng:not(.psng-m-hearth) .ps-ym-lamp,
 #theme-scene.psng:not(.psng-m-steam) .ps-ym-steam {
-	display: none;
-}
-
-/* Calm keeps no sparks; its flames flicker instead (above; §16). */
-#theme-scene.psng.psng-calm .ps-ym-spark {
 	display: none;
 }
 

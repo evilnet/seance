@@ -100,65 +100,71 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 		expect(rule(".psng-m-hearth ", "ps-yt-still-hearth", NONE), "swapped").to.equal(true);
 	});
 
-	it("hearth: the tongues and the core dance in phase with psng-m-hearth, at full only (§16)", function () {
-		const beats: Array<[string, RegExp]> = [
-			["ps-ym-t1", /animation:\s*psng-yt-lick-a 0\.95s ease-in-out infinite/],
-			["ps-ym-t2", /animation:\s*psng-yt-lick-b 1\.2s ease-in-out infinite/],
-			["ps-ym-t3", /animation:\s*psng-yt-lick-c 0\.8s ease-in-out infinite/],
-			["ps-ym-core", /animation:\s*psng-yt-core 0\.45s ease-in-out infinite alternate/],
-		];
-		const FULL = ".psng-m-hearth:not(.psng-calm) ";
-
-		for (const [c, beat] of beats) {
-			expect(rule(FULL, c, PHASED), `${c} in phase`).to.equal(true);
-			expect(rule(FULL, c, beat), `${c} on its beat`).to.equal(true);
-			// No dance outside full: every rule that licks or breathes is scoped away from calm.
-			expect(
-				rules.some(
-					([sel, b]) =>
-						/psng-yt-(lick-[abc]|core)\b/.test(b) &&
-						sel
-							.split(",")
-							.some((x) => x.includes(`.${c}`) && !x.includes(":not(.psng-calm)"))
-				),
-				`${c} dances in calm`
-			).to.equal(false);
-		}
-	});
-
-	it("calm: the tongues and the core flicker by opacity instead, each on its own beat (the user, 2026-11-16)", function () {
-		const CALM = ".psng-m-hearth.psng-calm ";
-		const beats = new Set<string>();
-
-		for (const c of ["ps-ym-t1", "ps-ym-t2", "ps-ym-t3", "ps-ym-core"]) {
-			expect(rule(CALM, c, PHASED), `${c} in phase`).to.equal(true);
-			const body = rules.find(
-				([sel, b]) =>
-					sel.includes(CALM.trim()) && sel.includes(`.${c}`) && /animation:/.test(b)
-			)?.[1];
-			const m = /animation:\s*(psng-yt-flick(?:-b)?) ([0-9.]+s)/.exec(body ?? "");
-			expect(m, `${c} flickers`).to.not.equal(null);
-			beats.add(`${m?.[2]} ${/animation-delay:\s*([^;]+)/.exec(body ?? "")?.[1]}`);
-		}
-
-		expect(beats.size, "four beats, not one pulse").to.equal(4);
-	});
-
-	it("the sparks rise at full and rest in calm (§16)", function () {
+	it("hearth: every pose of the fire flows on psng-yt-flow at its layer's beat, in phase, the same at full and in calm (the user, 2026-11-21)", function () {
 		expect(
-			rule(".psng-m-hearth:not(.psng-calm) ", "ps-ym-spark", PHASED),
-			"in phase at full"
+			rule(
+				".psng-m-hearth ",
+				"ps-ym-fpose",
+				/animation:\s*psng-yt-flow var\(--fb\) ease-in-out infinite/
+			),
+			"the flow"
 		).to.equal(true);
 		expect(
 			rule(
-				".psng-m-hearth:not(.psng-calm) ",
-				"ps-ym-spark",
-				/animation:\s*psng-yt-rise var\(--sd\) linear infinite/
+				".psng-m-hearth ",
+				"ps-ym-fpose",
+				/animation-delay:\s*calc\(var\(--fb\) \* var\(--fk\) \/ -6 - var\(--psng-t\)\)/
 			),
-			"on their own beats"
+			"each pose a sixth of its beat on, in phase"
 		).to.equal(true);
-		expect(rule("", "ps-ym-spark", /opacity:\s*0\.001/), "resting").to.equal(true);
-		expect(rule(".psng-calm ", "ps-ym-spark", NONE), "out in calm").to.equal(true);
+		const beats = Object.fromEntries(
+			["outer", "mid", "inner"].map((l) => [
+				l,
+				(rules.find(([sel]) => sel === `#theme-scene .ps-ym-fl-${l}`)?.[1] ?? "").match(
+					/--fb:\s*([0-9.]+s)/
+				)?.[1],
+			])
+		);
+		expect(beats).to.deep.equal({outer: "3.6s", mid: "2.7s", inner: "2.1s"});
+
+		for (const c of ["ps-ym-hotcore", "ps-ym-fback", "ps-ym-fembers"]) {
+			expect(rule(".psng-m-hearth ", c, PHASED), `${c} in phase`).to.equal(true);
+		}
+
+		// Nothing in the fire is scoped by the tier: calm shows the same fire.
+		expect(
+			rules.some(
+				([sel]) =>
+					/psng-calm/.test(sel) && /ps-ym-(fpose|hotcore|fback|fembers|fl)/.test(sel)
+			)
+		).to.equal(false);
+	});
+
+	it("moves nothing in the fire by transform: its keyframes fade only (the cheap path, §11.3)", function () {
+		const css = strip(ROOM_MOTION_CSS);
+		const names = rules
+			.filter(([sel]) => /ps-ym-(fpose|hotcore|fback|fembers)/.test(sel))
+			.flatMap(([, b]) => [...b.matchAll(/animation:\s*([\w-]+)/g)].map((m) => m[1]));
+		expect(names).to.include.members(["psng-yt-flow", "psng-yt-embers"]);
+
+		for (const name of new Set(names)) {
+			const block =
+				new RegExp(`@keyframes ${name}\\s*\\{((?:[^{}]*\\{[^{}]*\\})*[^{}]*)\\}`).exec(
+					css
+				)?.[1] ?? "";
+			expect(block, name)
+				.to.match(/opacity/)
+				.and.not.match(/transform/);
+			[...block.matchAll(/opacity:\s*([0-9.]+)/g)]
+				.map((m) => Number(m[1]))
+				.forEach((v) => expect(v, name).to.be.above(0).and.below(1));
+		}
+	});
+
+	it("blends the mid and inner flames and the core as light over the outer flame", function () {
+		for (const c of ["ps-ym-fl-mid", "ps-ym-fl-inner", "ps-ym-hotcore"]) {
+			expect(rule("", c, /mix-blend-mode:\s*screen/), c).to.equal(true);
+		}
 	});
 
 	it("the fire's strength and size follow the burn (§16)", function () {
@@ -190,27 +196,6 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 			expect(values.length, name).to.be.greaterThan(3);
 			values.forEach((v) => expect(v, name).to.be.above(0).and.below(1));
 			expect(block?.[1], name).to.not.match(/transform/);
-		}
-	});
-
-	it("the licks move by transform alone; the core and the sparks fade, never at exactly 1 or 0 (§16)", function () {
-		const block = (name: string) =>
-			(new RegExp(`@keyframes ${name}\\s*\\{((?:[^{}]*\\{[^{}]*\\})*[^{}]*)\\}`).exec(
-				strip(ROOM_MOTION_CSS)
-			) ?? ["", ""])[1];
-
-		for (const name of ["psng-yt-lick-a", "psng-yt-lick-b", "psng-yt-lick-c"]) {
-			expect(block(name), name).to.match(/transform/);
-			expect(block(name), name).to.not.match(/opacity/);
-		}
-
-		for (const name of ["psng-yt-core", "psng-yt-rise"]) {
-			const values = [...block(name).matchAll(/opacity:\s*([0-9.]+)/g)].map((m) =>
-				Number(m[1])
-			);
-			expect(values.length, name).to.be.at.least(2);
-			values.forEach((v) => expect(v, name).to.be.above(0).and.below(1));
-			expect(block(name), name).to.match(/transform/);
 		}
 	});
 
