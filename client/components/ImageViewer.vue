@@ -41,6 +41,7 @@
 				:class="{loading: !loaded}"
 				:style="computeImageStyles"
 				@load="onImageLoad"
+				@error="onImageLoad"
 				@mousedown="onImageMouseDown"
 				@dblclick="onImageDoubleClick"
 			/>
@@ -152,29 +153,36 @@ export default defineComponent({
 		const reduceMotion = () => document.documentElement.hasAttribute("data-reduce-motion");
 
 		let settleTimer: ReturnType<typeof setTimeout> | undefined;
+		// What runs once the picture has come to rest (a swipe's close or step).
+		let afterSettle: (() => void) | null = null;
+
+		// The transition is over, or cut short: what it was for happens now.
+		// A swipe that flew the picture out has decided, so a finger that
+		// comes down before it lands does not take the step back.
+		const finishSettling = () => {
+			clearTimeout(settleTimer);
+			settling.value = false;
+			const then = afterSettle;
+			afterSettle = null;
+			then?.();
+			// Whether it ran one: the picture may be on its way out.
+			return !!then;
+		};
 
 		// Move the picture to `view` under the transition, then run `then`.
 		// With reduced motion it jumps there and `then` runs at once.
 		const settle = (view: Partial<View>, then?: () => void) => {
-			clearTimeout(settleTimer);
+			finishSettling();
 			Object.assign(transform.value, view);
+			afterSettle = then ?? null;
 
 			if (reduceMotion()) {
-				settling.value = false;
-				then?.();
+				finishSettling();
 				return;
 			}
 
 			settling.value = true;
-			settleTimer = setTimeout(() => {
-				settling.value = false;
-				then?.();
-			}, SETTLE_MS);
-		};
-
-		const stopSettling = () => {
-			clearTimeout(settleTimer);
-			settling.value = false;
+			settleTimer = setTimeout(finishSettling, SETTLE_MS);
 		};
 
 		let tapTimer: ReturnType<typeof setTimeout> | undefined;
@@ -188,7 +196,10 @@ export default defineComponent({
 
 			clearTimeout(tapTimer);
 			lastTap = null;
-			stopSettling();
+			// Closing anyway: whatever a transition was for is moot.
+			clearTimeout(settleTimer);
+			afterSettle = null;
+			settling.value = false;
 			// A menu opened on the picture goes with it.
 			eventbus.emit("contextmenu:cancel");
 			channel.value = null;
@@ -285,14 +296,13 @@ export default defineComponent({
 			}
 
 			const {width, height} = contentBox(viewerEl);
-			const scale = Math.min(1, width / imageEl.width, height / imageEl.height);
+			// A picture that failed to load has no size: shown as it is.
+			const scale = Math.min(1, width / imageEl.width, height / imageEl.height) || 1;
 
-			stopSettling();
 			position.value.x = Math.floor(-imageEl.naturalWidth / 2);
 			position.value.y = Math.floor(-imageEl.naturalHeight / 2);
 			fitScale = Math.max(scale, 0.1);
 			Object.assign(transform.value, fittedView());
-			dim.value = 1;
 			loaded.value = true;
 		};
 
@@ -330,7 +340,8 @@ export default defineComponent({
 
 		// The picture kept where it belongs (after a resize, a wheel pan).
 		const correctPosition = () => {
-			if (!viewer.value || link.value === null) {
+			// Not yet loaded: its load fits it.
+			if (!viewer.value || link.value === null || !loaded.value) {
 				return;
 			}
 
@@ -362,7 +373,7 @@ export default defineComponent({
 			if (animate) {
 				settle(rest);
 			} else {
-				stopSettling();
+				finishSettling();
 				Object.assign(transform.value, rest);
 			}
 		};
@@ -502,8 +513,10 @@ export default defineComponent({
 			axis: Axis | null;
 			samples: Sample[];
 			pressTimer: ReturnType<typeof setTimeout> | undefined;
-			// The long press opened the menu: the rest of the touch is its.
-			pressed: boolean;
+			// Nothing more to do with this touch but swallow it: its long
+			// press opened the menu, or it landed as a swipe's step or close
+			// went ahead.
+			spent: boolean;
 			target: EventTarget | null;
 		};
 		let gesture: Gesture | null = null;
@@ -522,7 +535,7 @@ export default defineComponent({
 
 		const pressed = (g: Gesture) => {
 			cancelPress(g);
-			g.pressed = true;
+			g.spent = true;
 			openMenu({...g.origin, target: g.target});
 		};
 
@@ -582,8 +595,16 @@ export default defineComponent({
 			}
 
 			const box = contentBox(viewerEl);
-			const last = g.samples[g.samples.length - 1];
-			const distance = last ? last[axis] - g.from[axis] : 0;
+			// The finger as it lifts: one that stopped before lifting has no
+			// speed left, however fast it went before.
+			const now = Date.now();
+			g.samples.push({x: g.last.x, y: g.last.y, at: now});
+
+			while (g.samples.length > 2 && now - g.samples[0].at > VELOCITY_WINDOW_MS) {
+				g.samples.shift();
+			}
+
+			const distance = g.last[axis] - g.from[axis];
 			const outcome = swipeOutcome({
 				axis,
 				distance,
@@ -599,7 +620,11 @@ export default defineComponent({
 				dim.value = 0;
 				settle({y: rest.y + away * box.height}, closeViewer);
 			} else if (outcome === "next" || outcome === "previous") {
-				settle({x: rest.x + away * box.width}, outcome === "next" ? next : previous);
+				// The step is for the picture that flew out: a key or an
+				// arrow may have stepped already.
+				const from = link.value;
+				const step = outcome === "next" ? next : previous;
+				settle({x: rest.x + away * box.width}, () => link.value === from && step());
 			} else {
 				dim.value = 1;
 				settle(rest);
@@ -609,7 +634,7 @@ export default defineComponent({
 		const onTouchMove = (e: TouchEvent) => {
 			const g = gesture;
 
-			if (!g || g.pressed) {
+			if (!g || g.spent) {
 				return;
 			}
 
@@ -695,7 +720,7 @@ export default defineComponent({
 			gesture = null;
 			cancelPress(g);
 
-			if (g.pressed) {
+			if (g.spent) {
 				return;
 			}
 
@@ -750,7 +775,7 @@ export default defineComponent({
 			e.stopImmediatePropagation();
 
 			if (gesture) {
-				if (gesture.pressed) {
+				if (gesture.spent) {
 					return;
 				}
 
@@ -773,9 +798,10 @@ export default defineComponent({
 				return;
 			}
 
-			// A finger on the picture as it comes to rest takes it from there.
-			stopSettling();
-
+			// A finger on the picture as it comes to rest takes it from there;
+			// one that lands as a swipe's step or close goes ahead is spent
+			// (the picture it would move is on its way out).
+			const ended = finishSettling();
 			const first = reduceTouches(e.touches);
 			const g: Gesture = {
 				from: first,
@@ -790,11 +816,11 @@ export default defineComponent({
 				axis: null,
 				samples: [{x: first.x, y: first.y, at: Date.now()}],
 				pressTimer: undefined,
-				pressed: false,
+				spent: ended,
 				target: e.target,
 			};
 
-			if (!g.multi && menuEnabled() && e.target === image.value) {
+			if (!g.spent && !g.multi && menuEnabled() && e.target === image.value) {
 				g.pressTimer = setTimeout(() => {
 					if (gesture === g && !g.multi && g.moved < TAP_SLOP_PX) {
 						pressed(g);
@@ -816,8 +842,14 @@ export default defineComponent({
 			e.preventDefault();
 
 			if (gesture) {
-				// A long press the platform noticed before our timer did.
-				if (!gesture.pressed && !gesture.multi && gesture.moved < TAP_SLOP_PX) {
+				// A long press on the picture the platform noticed before our
+				// timer did.
+				if (
+					gesture.target === image.value &&
+					!gesture.spent &&
+					!gesture.multi &&
+					gesture.moved < TAP_SLOP_PX
+				) {
 					pressed(gesture);
 				}
 
@@ -850,7 +882,7 @@ export default defineComponent({
 				return;
 			}
 
-			stopSettling();
+			finishSettling();
 
 			const startX = e.clientX;
 			const startY = e.clientY;
@@ -989,8 +1021,6 @@ export default defineComponent({
 					gesture = null;
 				}
 
-				stopSettling();
-				dim.value = 1;
 				controlsHidden.value = false;
 				loaded.value = false;
 				setImageViewerClose(null);
@@ -999,6 +1029,10 @@ export default defineComponent({
 				unbindKeys();
 				return;
 			}
+
+			// A click's pending close (or a tap's) was for the last picture.
+			clearTimeout(tapTimer);
+			lastTap = null;
 
 			// A new picture is shown once it has loaded and been fitted; the
 			// same picture again (another preview of it) loads no more.
@@ -1011,6 +1045,8 @@ export default defineComponent({
 			setPrevNextImages();
 
 			if (!oldLink) {
+				// A swipe that closed it left the backdrop faded.
+				dim.value = 1;
 				setImageViewerClose(closeViewer);
 				eventbus.on("escapekey", onEscape);
 				eventbus.on("resize", correctPosition);

@@ -375,6 +375,38 @@ async function touchChecks(page) {
 	await page.sleep(300);
 	page.check("a swipe right goes back", (await page.evaluate(SRC)) === first);
 
+	// A finger that lands while the picture is still flying out does not
+	// undo the step.
+	await touch(page, "touchStart", [finger(cx + 100, cy)]);
+
+	for (let i = 1; i <= 8; i++) {
+		await page.sleep(16);
+		await touch(page, "touchMove", [finger(cx + 100 - i * 25, cy)]);
+	}
+
+	await touch(page, "touchEnd", []);
+	await page.sleep(60);
+	await tapAt(page, cx, cy, 500);
+	page.check(
+		"a tap during the fly-out keeps the step",
+		/b\.png/.test(await page.evaluate(SRC)) && (await page.evaluate(OPEN))
+	);
+	await drag(page, cx - 100, cy, 200, 0);
+	await page.sleep(300);
+
+	// A drag that stops before the finger lifts is not a flick.
+	await touch(page, "touchStart", [finger(cx, cy)]);
+
+	for (let i = 1; i <= 4; i++) {
+		await page.sleep(16);
+		await touch(page, "touchMove", [finger(cx, cy + i * 15)]);
+	}
+
+	await page.sleep(400);
+	await touch(page, "touchEnd", []);
+	await page.sleep(450);
+	page.check("a quick drag down held before lifting springs back", await page.evaluate(OPEN));
+
 	// A short, slow drag down springs back; a long one closes.
 	await drag(page, cx, cy, 0, 50, 10, 60);
 	page.check("a short swipe down leaves it open", await page.evaluate(OPEN));

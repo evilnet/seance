@@ -17,9 +17,8 @@
 //
 // A close request is for the topmost layer: with a menu open on the picture
 // (ImageViewer.vue, in the app shells) it closes the menu, and the viewer
-// takes a fresh watcher for the next one. Chromium's watcher hears Escape
-// too, after the keydown that already closed the menu, whose element is
-// still in the page then: that request is the menu's as well.
+// takes a fresh watcher for the next one. Escape never gets here: App.vue
+// cancels its keydown whenever a layer is up, the viewer included.
 
 import {emitEscape, topEscapeLayer} from "./escapeLayer";
 
