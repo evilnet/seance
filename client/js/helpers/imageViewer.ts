@@ -14,6 +14,14 @@
 // on it, and from there the left edge has a page to go back to. Where there
 // is no CloseWatcher (Safari) an edge swipe does nothing to an open image;
 // ✕, a tap and Escape close it.
+//
+// A close request is for the topmost layer: with a menu open on the picture
+// (ImageViewer.vue, in the app shells) it closes the menu, and the viewer
+// takes a fresh watcher for the next one. Chromium's watcher hears Escape
+// too, after the keydown that already closed the menu, whose element is
+// still in the page then: that request is the menu's as well.
+
+import {emitEscape, topEscapeLayer} from "./escapeLayer";
 
 interface CloseWatcherLike {
 	onclose: (() => void) | null;
@@ -33,7 +41,17 @@ function watchForClose(): void {
 	}
 
 	watcher = new Ctor();
-	watcher.onclose = () => closeOpenImage();
+	watcher.onclose = () => {
+		const layer = topEscapeLayer();
+
+		if (close && layer !== null && layer !== "image-viewer") {
+			emitEscape();
+			watchForClose();
+			return;
+		}
+
+		closeOpenImage();
+	};
 }
 
 function stopWatching(): void {
