@@ -20,6 +20,8 @@
 // beside a zoomed image does, a tap at the fitted size does; on a desktop,
 // that a mouse pan let go over the backdrop is not a click. SEANCE_APP overrides the app's origin.
 
+import {finger, key, mouse, tapAt, touch} from "./lib/input.mjs";
+
 const app = process.env.SEANCE_APP || "http://localhost:8000";
 
 export const url = `${app}/?host=localhost&port=8443&tls=true&nick=backbot&join=%23seance`;
@@ -62,13 +64,6 @@ async function openLastImage(page) {
 	await page.sleep(400);
 }
 
-async function key(page, key, code, keyCode) {
-	const base = {key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode};
-	await page.send("Input.dispatchKeyEvent", {type: "rawKeyDown", ...base});
-	await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...base});
-	await page.sleep(500);
-}
-
 /** The viewer's box and the fitted image's, in CSS px. */
 async function boxes(page) {
 	return JSON.parse(
@@ -77,10 +72,6 @@ async function boxes(page) {
 			img: document.querySelector("#image-viewer img").getBoundingClientRect(),
 		})`)
 	);
-}
-
-async function mouse(page, type, x, y, extra) {
-	await page.send("Input.dispatchMouseEvent", {type, x, y, ...extra});
 }
 
 // Counts the close watchers the viewer makes and destroys, and keeps the last.
@@ -113,21 +104,6 @@ const BACKDROP_SPOT = `(() => {
 			)) return JSON.stringify({x, y});
 	return "null";
 })()`;
-
-function finger(x, y, id) {
-	return {x, y, id, radiusX: 12, radiusY: 12, force: 1};
-}
-
-async function touch(page, type, points) {
-	await page.send("Input.dispatchTouchEvent", {type, touchPoints: points});
-}
-
-async function tapAt(page, x, y) {
-	await touch(page, "touchStart", [finger(x, y, 0)]);
-	await page.sleep(60);
-	await touch(page, "touchEnd", []);
-	await page.sleep(500);
-}
 
 /** Two fingers spreading from around (x, y), lifted one after the other. */
 async function pinchOut(page, x, y) {
@@ -227,9 +203,17 @@ export default async function run(page) {
 		);
 		page.check("a two-finger pan leaves the viewer open", await page.evaluate(OPEN));
 
-		// 4. A tap while zoomed in does not close it.
+		// 4. A tap while zoomed in does not close it: it puts the buttons
+		// away, and the next brings them back.
 		await tapAt(page, midX, viewer.y + viewer.height / 2);
 		page.check("a tap on a zoomed image leaves it open", await page.evaluate(OPEN));
+		await tapAt(page, midX, viewer.y + viewer.height / 2);
+		page.check(
+			"a second tap brings the buttons back",
+			!(await page.evaluate(
+				`document.querySelector("#image-viewer.controls-hidden") !== null`
+			))
+		);
 
 		// 4b. But a tap on the backdrop beside a zoomed image does: zoomed a
 		// little, from a fresh open, so there is backdrop left beside it.
@@ -282,7 +266,9 @@ export default async function run(page) {
 		const cy = viewer.y + viewer.height / 2;
 
 		for (let i = 0; i < 30 && (await boxes(page)).img.height <= viewer.height; i++) {
-			await mouse(page, "mouseWheel", cx, cy, {deltaX: 0, deltaY: 100});
+			// A trackpad pinch's small steps (ctrl): the wheel's own are too
+			// coarse to stop just past the height.
+			await mouse(page, "mouseWheel", cx, cy, {deltaX: 0, deltaY: -10, modifiers: 2});
 			await page.sleep(20);
 		}
 
@@ -316,7 +302,8 @@ export default async function run(page) {
 		page.check("a mouse pan leaves the viewer open", await page.evaluate(OPEN));
 		page.check("the pan moved the image", (await boxes(page)).img.y !== yBefore);
 
-		// 4. A plain click on the image still closes it, as it always has.
+		// 4. A plain click on the image still closes it, as it always has (once
+		// the double-click wait is over).
 		const now = (await boxes(page)).img;
 		await mouse(page, "mousePressed", cx, cy, {button: "left", buttons: 1, clickCount: 1});
 		await mouse(page, "mouseReleased", cx, cy, {button: "left", buttons: 0, clickCount: 1});
