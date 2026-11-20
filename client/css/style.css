@@ -979,9 +979,6 @@ p {
 .context-menu-oper-clones::before { content: "\f24d"; /* https://fontawesome.com/icons/clone?style=solid */ }
 .context-menu-oper-who::before { content: "\f0c0"; /* https://fontawesome.com/icons/users?style=solid */ }
 .context-menu-oper-copy::before { content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */ }
-.context-menu-image-open::before { content: "\f35d"; /* https://fontawesome.com/icons/external-link-alt?style=solid */ }
-.context-menu-image-copy::before { content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */ }
-.context-menu-image-share::before { content: "\f1e0"; /* https://fontawesome.com/icons/share-alt?style=solid */ }
 .context-menu-oper-target::before { content: "\f05b"; /* https://fontawesome.com/icons/crosshairs?style=solid */ }
 .context-menu-oper-route-kind::before { content: "\f0f3"; /* https://fontawesome.com/icons/bell?style=solid */ }
 .context-menu-oper-route-active::before { content: "\f075"; /* https://fontawesome.com/icons/comment?style=solid */ }

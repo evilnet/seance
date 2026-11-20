@@ -11,12 +11,10 @@
 // pinch keeps the part of the picture between the fingers there; a pinch
 // past the maximum or below fitted springs back; a swipe left or right goes
 // to the next or previous picture (mirrored right to left), and toward no
-// picture springs back; a short swipe down springs back, a long one closes;
-// a long press opens the picture's menu only in an app shell. On a desktop:
-// a wheel zooms about the pointer, a double click zooms in and out, a click
-// on the picture still closes it. Both: + and 0 zoom by key, and Escape with
-// the menu open closes the menu, not the viewer. `SEANCE_PORT` serves the
-// app from another port.
+// picture springs back; a short swipe down springs back, a long one closes.
+// On a desktop: a wheel zooms about the pointer, a double click zooms in and
+// out, a click on the picture still closes it. Both: + and 0 zoom by key, →
+// steps, Escape closes. `SEANCE_PORT` serves the app from another port.
 
 import http from "node:http";
 import {clickAt, finger, key, mouse, tapAt, touch} from "./lib/input.mjs";
@@ -88,7 +86,6 @@ const OPEN = `document.querySelector("#image-viewer.opened") !== null`;
 const SRC = `(document.querySelector("#image-viewer img")?.getAttribute("src") || "")`;
 const SCALE = `Number((document.querySelector("#image-viewer img")?.style.transform.match(/scale3d\\(([\\d.]+)/) || [])[1] || 0)`;
 const HIDDEN = `document.querySelector("#image-viewer.controls-hidden") !== null`;
-const MENU = `document.querySelector("#context-menu") !== null`;
 
 let mobile = false;
 
@@ -359,16 +356,6 @@ async function touchChecks(page) {
 	);
 	await close(page);
 	await page.evaluate(`document.documentElement.dir = "ltr"`);
-
-	// A long press: the browser's own menu in a browser, ours in a shell.
-	await openImage(page, 0);
-	box = await imgBox(page);
-	await touch(page, "touchStart", [finger(box.x + box.width / 2, box.y + box.height / 2)]);
-	await page.sleep(700);
-	page.check("in a browser a long press opens no menu of ours", !(await page.evaluate(MENU)));
-	await touch(page, "touchEnd", []);
-	await page.sleep(400);
-	await close(page);
 }
 
 async function mouseChecks(page) {
@@ -411,12 +398,6 @@ async function mouseChecks(page) {
 	await page.sleep(500);
 	page.check("a second double click goes back to fitted", (await page.evaluate(SCALE)) === fit);
 
-	// A right click is the browser's.
-	await mouse(page, "mousePressed", at.x, at.y, {button: "right", buttons: 2, clickCount: 1});
-	await mouse(page, "mouseReleased", at.x, at.y, {button: "right", buttons: 0, clickCount: 1});
-	await page.sleep(300);
-	page.check("in a browser a right click opens no menu of ours", !(await page.evaluate(MENU)));
-
 	box = await imgBox(page);
 	await clickAt(page, box.x + box.width / 2, box.y + box.height / 2);
 	await page.sleep(600);
@@ -438,30 +419,6 @@ async function bothChecks(page) {
 	await key(page, "ArrowRight", "ArrowRight", 39);
 	page.check("→ goes to the next picture", /c\.png/.test(await page.evaluate(SRC)));
 
-	// In an app shell the picture has a menu; Escape closes it, not the viewer.
-	await page.evaluate(
-		`window.seanceShell = {platform: "android", call: () => Promise.reject({code: "unimplemented"}), listen() {}}`
-	);
-	const box = await imgBox(page);
-	const x = box.x + box.width / 2;
-	const y = box.y + box.height / 2;
-	await mouse(page, "mousePressed", x, y, {button: "right", buttons: 2, clickCount: 1});
-	await mouse(page, "mouseReleased", x, y, {button: "right", buttons: 0, clickCount: 1});
-	await page.sleep(400);
-	page.check("in a shell the picture has a menu", await page.evaluate(MENU));
-	const items = await page.evaluate(
-		`[...document.querySelectorAll("#context-menu li")].map((li) => li.textContent.trim()).join(" | ")`
-	);
-	console.log(`  menu: ${items}`);
-	page.check(
-		"…with Open and Copy link",
-		/Open in browser/.test(items) && /Copy link/.test(items)
-	);
-	await page.screenshot("7-menu");
 	await key(page, "Escape", "Escape", 27);
-	page.check("Escape closes the menu", !(await page.evaluate(MENU)));
-	page.check("…and leaves the viewer open", await page.evaluate(OPEN));
-	await key(page, "Escape", "Escape", 27);
-	page.check("a second Escape closes the viewer", !(await page.evaluate(OPEN)));
-	await page.evaluate(`delete window.seanceShell`);
+	page.check("Escape closes the viewer", !(await page.evaluate(OPEN)));
 }

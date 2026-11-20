@@ -22,8 +22,6 @@ export const TAP_MAX_MS = 400;
 /** A second tap this soon after the first, this close to it, is a double tap. */
 export const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_SLOP_PX = 30;
-/** A finger held this long without moving is a long press. */
-export const LONG_PRESS_MS = 500;
 
 /** Within this of the fitted scale the picture counts as fitted. */
 const FITTED_TOLERANCE = 1.05;

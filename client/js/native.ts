@@ -307,8 +307,8 @@ export function installNativeHooks(): void {
 
 	// Android back button: whatever is open on top goes first — anything that
 	// closes on Escape, the image viewer included (every such overlay marks
-	// itself `data-escape-close` while it is up, and the topmost goes: a menu
-	// open on an image before the image), then the phone's sidebar or
+	// itself `data-escape-close` while it is up, and the topmost goes), then
+	// the phone's sidebar or
 	// user-list overlay — then a standalone page gives way to the
 	// conversation it came from, and with nothing left to close the app
 	// minimizes (overrides the default). Not `router.back()`: the history is

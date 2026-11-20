@@ -3511,24 +3511,6 @@ msgctxt "image.close"
 msgid "Close"
 msgstr "閉じる"
 
-#. Image viewer (a picture shown over the whole screen): an entry of the menu a long press or right click on the picture opens, in the app. Copies the picture's web address.
-#: client/components/ImageViewer.vue
-msgctxt "image.menu.copyLink"
-msgid "Copy link"
-msgstr "リンクをコピー"
-
-#. Image viewer (a picture shown over the whole screen): an entry of the menu a long press or right click on the picture opens, in the app. Opens the picture's link in the web browser.
-#: client/components/ImageViewer.vue
-msgctxt "image.menu.open"
-msgid "Open in browser"
-msgstr "ブラウザで開く"
-
-#. Image viewer (a picture shown over the whole screen): an entry of the menu a long press or right click on the picture opens, in the app. Opens the system's share sheet with the picture's link. Keep the ellipsis.
-#: client/components/ImageViewer.vue
-msgctxt "image.menu.share"
-msgid "Share…"
-msgstr "共有…"
-
 #. aria-label of the forward arrow of the image viewer; clicking shows the next image from the conversation.
 #: client/components/ImageViewer.vue
 msgctxt "image.next"

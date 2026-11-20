@@ -14,7 +14,6 @@
 		@touchend.stop="onTouchEnd"
 		@touchcancel.stop="onTouchCancel"
 		@click="onClick"
-		@contextmenu="onContextMenu"
 	>
 		<template v-if="link !== null">
 			<button class="close-btn" :aria-label="closeAria"></button>
@@ -57,11 +56,6 @@ import {useI18n} from "../js/i18n";
 import {useStore} from "../js/store";
 import {isPreviewRevealed} from "../js/helpers/mediaTrust";
 import {setImageViewerOpen} from "../js/helpers/imageViewer";
-import {isShell} from "../js/helpers/shell";
-import {openExternal} from "../js/helpers/openLink";
-import {writeClipboard} from "../js/clipboard";
-import {nudge} from "../js/helpers/haptics";
-import type {ContextMenuItem} from "../js/helpers/contextMenu";
 import {
 	type Axis,
 	type Box,
@@ -76,7 +70,6 @@ import {
 	isFitted,
 	isForward,
 	lockAxis,
-	LONG_PRESS_MS,
 	MAX_SCALE,
 	DOUBLE_TAP_MS,
 	pinch,
@@ -206,8 +199,6 @@ export default defineComponent({
 			// Closing anyway: a departure is moot.
 			departure = null;
 			finishSettling();
-			// A menu opened on the picture goes with it.
-			eventbus.emit("contextmenu:cancel");
 			channel.value = null;
 			previousImage.value = null;
 			nextImage.value = null;
@@ -399,50 +390,6 @@ export default defineComponent({
 		const zoomOut = () => zoomTo(transform.value.scale / ZOOM_STEP, boxCentre(), true);
 		const zoomReset = () => zoomTo(fitScale, boxCentre(), true);
 
-		// The picture's menu at a point on screen: Open, Copy link and, where
-		// the platform has a share sheet, Share. Only in the app shells
-		// (isShell): a browser's own menu (Safari's long-press callout,
-		// Chrome's image menu, a desktop's right click) can save and copy the
-		// picture itself, which a page cannot do for an image from another site.
-		const openMenu = (at: Point) => {
-			const current = link.value;
-
-			if (!current) {
-				return;
-			}
-
-			const items: ContextMenuItem[] = [
-				{
-					label: t("image.menu.open"),
-					type: "item",
-					class: "image-open",
-					action: () => openExternal(current.link),
-				},
-				{
-					label: t("image.menu.copyLink"),
-					type: "item",
-					class: "image-copy",
-					action: () => void writeClipboard(current.link),
-				},
-			];
-
-			if (typeof navigator.share === "function") {
-				items.push({
-					label: t("image.menu.share"),
-					type: "item",
-					class: "image-share",
-					action() {
-						// Dismissed or refused: nothing to report.
-						navigator.share({url: current.link}).catch(() => {});
-					},
-				});
-			}
-
-			// The menu opens where its event was.
-			const event = new MouseEvent("contextmenu", {clientX: at.x, clientY: at.y});
-			eventbus.emit("contextmenu:items", {event, items});
-		};
-
 		// Reduce multiple touch points into a single x/y/spread, in the
 		// viewer's coordinates (`offset`: the viewer's own top left on screen).
 		const reduceTouches = (touches: TouchList, offset: Point): Fingers => {
@@ -488,7 +435,6 @@ export default defineComponent({
 		// - A tap on the backdrop closes at once; a tap on the picture shows
 		//   or hides the buttons, unless a second tap follows, which zooms
 		//   in on that point (or back out to fitted).
-		// - A long press on the picture opens its menu (in the app shells).
 		// The touchend is cancelled, so the compatibility mouse events (whose
 		// mouseup would pan) and the click never follow; a touch on a button
 		// starts no gesture and keeps its click. No touch leaves the viewer:
@@ -515,11 +461,8 @@ export default defineComponent({
 			swipe: boolean;
 			axis: Axis | null;
 			samples: Tap[];
-			// Set while a long press on the picture could still open its menu.
-			pressTimer: ReturnType<typeof setTimeout> | undefined;
-			// Nothing more to do with this touch but swallow it: its long
-			// press opened the menu, or it landed as a swipe's step or close
-			// went ahead.
+			// Nothing more to do with this touch but swallow it: it landed as
+			// a swipe's step or close went ahead.
 			spent: boolean;
 		};
 		let gesture: Gesture | null = null;
@@ -529,18 +472,6 @@ export default defineComponent({
 			g.from = reduceTouches(touches, g.offset);
 			g.base = {...transform.value};
 			g.fingers = touches.length;
-		};
-
-		const cancelPress = (g: Gesture) => {
-			clearTimeout(g.pressTimer);
-			g.pressTimer = undefined;
-		};
-
-		const pressed = (g: Gesture) => {
-			cancelPress(g);
-			g.spent = true;
-			nudge();
-			openMenu(g.origin);
 		};
 
 		// Keep the finger's last moments, to read its speed from.
@@ -661,10 +592,6 @@ export default defineComponent({
 
 			if (!g.multi) {
 				g.moved = Math.max(g.moved, Math.hypot(touch.x - g.from.x, touch.y - g.from.y));
-
-				if (g.moved >= TAP_SLOP_PX) {
-					cancelPress(g);
-				}
 			}
 
 			if (g.swipe) {
@@ -712,7 +639,6 @@ export default defineComponent({
 		// what the gesture was is decided.
 		const release = (g: Gesture, cancelled: boolean) => {
 			gesture = null;
-			cancelPress(g);
 
 			if (g.spent) {
 				return;
@@ -779,7 +705,6 @@ export default defineComponent({
 				// Another finger joins, wherever it lands: a pinch, never a tap
 				// or a swipe. A swipe under way gives the picture back first.
 				gesture.multi = true;
-				cancelPress(gesture);
 
 				if (gesture.swipe && gesture.axis) {
 					unswipe(false);
@@ -806,7 +731,7 @@ export default defineComponent({
 			const rect = viewerEl.getBoundingClientRect();
 			const offset = {x: rect.left, y: rect.top};
 			const first = reduceTouches(e.touches, offset);
-			const g: Gesture = {
+			gesture = {
 				from: first,
 				last: first,
 				base: {...transform.value},
@@ -822,42 +747,8 @@ export default defineComponent({
 				swipe: e.touches.length === 1 && isFitted(transform.value.scale, fitScale),
 				axis: null,
 				samples: [{x: first.x, y: first.y, at: Date.now()}],
-				pressTimer: undefined,
 				spent: departing,
 			};
-
-			// Cleared by everything that makes it no long press: a second
-			// finger, a move past the slop, the finger lifting.
-			if (!g.spent && !g.multi && isShell() && e.target === image.value) {
-				g.pressTimer = setTimeout(() => pressed(g), LONG_PRESS_MS);
-			}
-
-			gesture = g;
-		};
-
-		// The platform's own long press (Android's WebView fires contextmenu)
-		// and a right click. In a browser its own menu stands; in the app
-		// shells the picture's menu replaces it.
-		const onContextMenu = (e: MouseEvent) => {
-			if (!isShell()) {
-				return;
-			}
-
-			e.preventDefault();
-
-			if (gesture) {
-				// A long press on the picture the platform noticed before our
-				// timer did.
-				if (gesture.pressTimer !== undefined) {
-					pressed(gesture);
-				}
-
-				return;
-			}
-
-			if (e.target === image.value) {
-				openMenu({x: e.clientX, y: e.clientY});
-			}
 		};
 
 		// A mouse pan just ended; its click is not a close.
@@ -990,8 +881,8 @@ export default defineComponent({
 			closeViewer();
 		};
 
-		// Escape (and Android's back, native.ts) closes the topmost layer
-		// only: a menu open on the picture before the viewer under it.
+		// Escape, Android's back (native.ts) and a close request
+		// (helpers/imageViewer.ts) close the topmost layer only.
 		const onEscape = (layer: string | null) => {
 			if (layer === "image-viewer") {
 				closeViewer();
@@ -1014,10 +905,7 @@ export default defineComponent({
 			if (newLink === null) {
 				// Closed under a finger (Android's back, Escape): the <img> it
 				// rested on is gone, so its touchend never reaches the viewer.
-				if (gesture) {
-					cancelPress(gesture);
-					gesture = null;
-				}
+				gesture = null;
 
 				controlsHidden.value = false;
 				loaded.value = false;
@@ -1074,7 +962,6 @@ export default defineComponent({
 			onGestureStart,
 			onGestureChange,
 			onClick,
-			onContextMenu,
 			onTouchStart,
 			onTouchMove,
 			onTouchEnd,
