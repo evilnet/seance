@@ -210,7 +210,41 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		);
 	});
 
-	it("draws the stove's flames to dance: three tongues, a core and four sparks, clipped to the door (§16)", function () {
+	describe("the bed (the user, 2026-11-20: a visual pass on its proportions)", function () {
+		const at = markup.indexOf('<g class="ps-yt-p-bed">');
+		const bed = markup.slice(at, markup.indexOf('class="ps-yt-p-', at + 20));
+		const points = (poly: string) =>
+			poly.split(" ").map((p) => p.split(",").map(Number) as [number, number]);
+
+		it("stands on its four corner posts, with no leg beside a post", function () {
+			const posts = [...bed.matchAll(/<g class="ps-yt-bedpost">(.*?)<\/g>/g)].map(
+				(m) => m[1]
+			);
+			expect(posts.length, "four posts").to.equal(4);
+			const inPosts = posts.join("").split("ps-yt-c-furnD").length - 1;
+			expect(
+				bed.split("ps-yt-c-furnD").length - 1,
+				"every dark-wood face is a post's"
+			).to.equal(inPosts);
+		});
+
+		it("turns the quilt's sheet down its side to the hem, not a block at its top", function () {
+			const cuff = points(
+				(/<polygon points="([^"]+)" class="ps-yt-c-sheetSide"/.exec(bed) ?? ["", ""])[1]
+			);
+			const drape = [...bed.matchAll(/<polygon points="([^"]+)" class="ps-yt-c-blue"/g)]
+				.map((m) => points(m[1]))
+				.find((l) => l.length > 40);
+			expect(drape, "the quilt's drape").to.not.equal(undefined);
+			const right = Math.max(...cuff.map(([x]) => x));
+			const hem = Math.max(
+				...(drape ?? []).filter(([x]) => x <= right + 1).map(([, y]) => y)
+			);
+			expect(Math.max(...cuff.map(([, y]) => y)), "down to the hem").to.be.closeTo(hem, 1.5);
+		});
+	});
+
+	it("draws the stove's fire soft and flowing: three blurred layers of six poses, a white-hot core, the embers and the firebox's glow, clipped to the door (the user, 2026-11-21)", function () {
 		const top = markup.slice(markup.indexOf('<div class="ps-ym-top">'));
 		const style = (/<div class="ps-ym-fire" style="([^"]+)">/.exec(top) ?? ["", ""])[1];
 		const clip = (/clip-path:polygon\(([^)]*)\)/.exec(style) ?? ["", ""])[1];

@@ -463,10 +463,12 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 				orn(N)
 			);
 		};
-		/** A corner post to the floor with a brass finial: four of them, at the wall and at the front. */
+		/** A corner post to the floor with a brass finial: four of them, at the wall and at the front; they are its legs. */
 		const post = (a0: number, a1: number, b0: number, h: number) =>
+			`<g class="ps-yt-bedpost">` +
 			box(fr, [a0, a1], [b0, b0 + 0.1], [0, h], "furnD") +
-			sprite(fr.pt((a0 + a1) / 2, b0 + 0.05, h), SPR.finial, 0.008);
+			sprite(fr.pt((a0 + a1) / 2, b0 + 0.05, h), SPR.finial, 0.008) +
+			`</g>`;
 		const headboard =
 			board(
 				HEAD - T,
@@ -499,9 +501,7 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 			s += footboard;
 		}
 
-		s +=
-			box(fr, [HEAD + 0.01, HEAD + 0.09], [D - 0.1, D - 0.02], [0, 0.14], "furnD") +
-			box(fr, [FOOT - 0.09, FOOT - 0.01], [D - 0.1, D - 0.02], [0, 0.14], "furnD");
+		// The frame between the posts, which are its legs (two leg boxes beside the posts stood out as stubs).
 		s += box(fr, [HEAD, FOOT], [0.02, D], [0.14, 0.4], "furn", {
 			front: (S) =>
 				S.rect(
@@ -580,11 +580,12 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 
 		s += Qtop.poly(roundRect(QA, 0.02, QA + 0.16, QB, 0.04, 0.05), cls("sheet"));
 		const Qf = surface((a, c) => fr.pt(a, QB, c));
+		const hemAt = (a: number) => 0.3 + 0.016 * Math.sin(a * 6.5);
 		const hem: Array<[number, number]> = [];
 
 		for (let i = 0; i <= 48; i++) {
 			const a = QF - ((QF - QA) * i) / 48;
-			hem.push([a, 0.3 + 0.016 * Math.sin(a * 6.5)]);
+			hem.push([a, hemAt(a)]);
 		}
 
 		s += Qf.poly([[QA, QT], [QF, QT], ...hem], cls("blue"));
@@ -592,13 +593,14 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 			hem.filter(([a]) => a > QA + 0.18).map(([a, c]) => [a, c + 0.07] as [number, number]),
 			`${cls(undefined, "cream")} stroke-width="${strokeAt(Qf, 0, 0.4, 0.016)}"`
 		);
+		// The turned-down fold hangs down the side with the quilt, its lining showing to the hem (it was a
+		// short block at the top, the user, 2026-11-20).
 		s += Qf.poly(
 			[
 				[QA, QT],
 				[QA + 0.16, QT],
-				[QA + 0.16, 0.57],
-				[QA + 0.08, 0.555],
-				[QA, 0.565],
+				[QA + 0.16, hemAt(QA + 0.16)],
+				...hem.filter(([a]) => a < QA + 0.16),
 			],
 			cls("sheetSide")
 		);
