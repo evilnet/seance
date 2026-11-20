@@ -122,16 +122,16 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 }
 
 #theme-scene .ps-ym-fl-outer {
-	--fb: 3.6s;
+	--fb: 1.8s;
 }
 
 #theme-scene .ps-ym-fl-mid {
-	--fb: 2.7s;
+	--fb: 1.35s;
 	mix-blend-mode: screen;
 }
 
 #theme-scene .ps-ym-fl-inner {
-	--fb: 2.1s;
+	--fb: 1s;
 	mix-blend-mode: screen;
 }
 
@@ -179,17 +179,17 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 }
 
 #theme-scene.psng.psng-m-hearth .ps-ym-hotcore {
-	animation: psng-yt-flick-b 1.6s ease-in-out infinite;
+	animation: psng-yt-flick-b 0.8s ease-in-out infinite;
 	animation-delay: calc(0s - var(--psng-t));
 }
 
 #theme-scene.psng.psng-m-hearth .ps-ym-fback {
-	animation: psng-yt-flick 1.9s ease-in-out infinite;
+	animation: psng-yt-flick 1.2s ease-in-out infinite;
 	animation-delay: calc(0s - var(--psng-t));
 }
 
 #theme-scene.psng.psng-m-hearth .ps-ym-fembers {
-	animation: psng-yt-embers 2.8s ease-in-out infinite alternate;
+	animation: psng-yt-embers 2s ease-in-out infinite alternate;
 	animation-delay: calc(0s - var(--psng-t));
 }
 

@@ -125,10 +125,16 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 				)?.[1],
 			])
 		);
-		expect(beats).to.deep.equal({outer: "3.6s", mid: "2.7s", inner: "2.1s"});
+		// Quick as real fire flickers (the user, 2026-11-22: "would look better if it cycled faster").
+		expect(beats).to.deep.equal({outer: "1.8s", mid: "1.35s", inner: "1s"});
 
-		for (const c of ["ps-ym-hotcore", "ps-ym-fback", "ps-ym-fembers"]) {
+		for (const [c, beat] of [
+			["ps-ym-hotcore", /animation:\s*psng-yt-flick-b 0\.8s /],
+			["ps-ym-fback", /animation:\s*psng-yt-flick 1\.2s /],
+			["ps-ym-fembers", /animation:\s*psng-yt-embers 2s /],
+		] as const) {
 			expect(rule(".psng-m-hearth ", c, PHASED), `${c} in phase`).to.equal(true);
+			expect(rule(".psng-m-hearth ", c, beat), `${c} on its quicker beat`).to.equal(true);
 		}
 
 		// Nothing in the fire is scoped by the tier: calm shows the same fire.

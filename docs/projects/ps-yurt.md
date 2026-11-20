@@ -492,9 +492,9 @@ Shown side by side in an Artifact; the user picked A:
 - **Three layers of flame:** red outside, then orange, then yellow. Each is a body joining the feet of two to four tongues. Each tongue has a bulging foot, a pinched waist and a curling, pointed tip, and sometimes a smaller fork.
 - **Blur:** each layer is blurred in its own svg, the outer most (1.7 units), then 1.15 and 0.7. The blur is rasterized once, when the room is built.
 - **Light:** a white-hot core sits between the outer flame and the two inner ones. The mid flame, the inner flame and the core are screen-blended over the outer, so they add light to it.
-- **Embers and glow:** behind the flames, the firebox glows (`psng-yt-flick`, 1.9 s) and the embers pulse (`psng-yt-embers`, 2.8 s, alternate).
+- **Embers and glow:** behind the flames, the firebox glows (`psng-yt-flick`, 1.2 s) and the embers pulse (`psng-yt-embers`, 2 s, alternate).
 - **Six poses a layer:** drawn as one loop, so each tongue's height, lean, sway and fork follow slow waves through it. A pose differs only a little from the next, and the loop wraps.
-- **The flow:** each pose fades in over a sixth of its layer's beat, holds for a sixth, and fades out over a sixth while its neighbours fade (`psng-yt-flow`). One pose is always at full, so the flames morph without a break. The outer layer turns over every 3.6 s, the mid every 2.7 s and the inner every 2.1 s, so the whole never visibly repeats.
+- **The flow:** each pose fades in over a sixth of its layer's beat, holds for a sixth, and fades out over a sixth while its neighbours fade (`psng-yt-flow`). One pose is always at full, so the flames morph without a break. The outer layer turns over every 1.8 s, the mid every 1.35 s and the inner every 1 s, so a shape changes every 0.17 to 0.3 s, as quick as real fire flickers, and the whole never visibly repeats. It was built at 3.6, 2.7 and 2.1 s; the user, 2026-11-22: "the flames transition animation would look better if it cycled faster, more like real fire".
 - **Opacity only:** nothing in the fire moves by transform.
 - **The flat flame space:** 60 by 54 units, with the flames standing at 50. It is stretched over the door's opening and clipped to it, so the fire still follows the burn: its strength and height.
 - **Tiers:**
