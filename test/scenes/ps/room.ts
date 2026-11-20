@@ -1,8 +1,9 @@
 import {expect} from "chai";
 import {WEATHERS} from "../../../client/js/scenes/ps/engine";
 import {roomCss} from "../../../client/js/scenes/ps/indoor";
-import {DESIGN_FRAME} from "../../../client/js/scenes/ps/yurt";
+import {DESIGN_FRAME, project, ROOM_GEOMETRY} from "../../../client/js/scenes/ps/yurt";
 import {
+	CURTAIN_ROD,
 	ROOM_PIECES,
 	roomMarkup,
 	WINDOW_CLIPS,
@@ -159,6 +160,54 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		);
 		expect(boxes.length).to.be.at.least(4);
 		boxes.forEach((b) => expect(b).to.equal(`${f.x} ${f.y} ${f.width} ${f.height}`));
+	});
+
+	it("draws each crown post's pole after its base and its cap: above the eye, the pole covers the cap's underside (the user, 2026-11-19)", function () {
+		const starts = [...markup.matchAll(/<g class="ps-yt-p-post">/g)].map((m) => m.index ?? 0);
+		expect(starts.length, "two posts").to.equal(2);
+
+		for (const at of starts) {
+			const next = markup.indexOf('class="ps-yt-p-', at + 20);
+			const post = markup.slice(at, next < 0 ? undefined : next);
+			expect(post.lastIndexOf("ps-yt-c-furnD"), "the cap before the pole").to.be.below(
+				post.indexOf("ps-yt-c-pole")
+			);
+		}
+	});
+
+	it("hangs the back curtains' rod on the wall: under the lattice's top, across the curtains' heads, ending just past them on finials and brackets (the user, 2026-11-19)", function () {
+		// The curtains' heads are at 2.0 m, their outer edges at ±1.87 m (curtainOutline).
+		const {height, end, depth} = CURTAIN_ROD;
+		const R = ROOM_GEOMETRY.radius;
+		expect(end, "just past the curtains").to.be.above(1.87).and.below(2.0);
+		expect(depth, "in front of the wall at its ends").to.be.below(Math.sqrt(R * R - end * end));
+
+		for (const x of [-end, 0, end]) {
+			const rodY = project([x, height, depth])[1];
+			const latticeTop = project([x, ROOM_GEOMETRY.wallHeight, Math.sqrt(R * R - x * x)])[1];
+			expect(rodY, `under the lattice's top on screen at x ${x}`).to.be.above(
+				latticeTop + 0.5
+			);
+		}
+
+		const curtainsAt = markup.indexOf('<g class="ps-yt-p-curtains">');
+		const rodAt = markup.indexOf('<g class="ps-yt-rod">');
+		expect(rodAt, "in front of the curtains, drawn after them").to.be.above(
+			markup.lastIndexOf(
+				"ps-yt-c-curtain",
+				markup.indexOf('class="ps-yt-p-', curtainsAt + 20)
+			)
+		);
+		expect(markup.split('class="ps-yt-rod"').length - 1).to.equal(1);
+		const rod = markup.slice(rodAt, markup.indexOf('class="ps-yt-p-', rodAt));
+		expect(rod.split("ps-yt-c-gold").length - 1, "a finial at each end").to.equal(2);
+		const windowBack = markup.slice(
+			markup.indexOf('<g class="ps-yt-p-window-back">'),
+			curtainsAt
+		);
+		expect(windowBack, "no rod left floating with the window").to.not.contain(
+			'stroke-linecap="round"'
+		);
 	});
 
 	it("draws the stove's flames to dance: three tongues, a core and four sparks, clipped to the door (§16)", function () {

@@ -74,6 +74,13 @@ const WY0 = 0.45;
 const WY1 = 1.9;
 const FR = 0.08;
 const ZW = Math.sqrt(R * R - WX * WX) - 0.02;
+
+/**
+ * The back curtains' rod (the user, 2026-11-19: it floated): across the curtains' heads, under the
+ * lattice's top on screen, a finial just past each curtain, on two brackets to the wall. The wall curves
+ * forward of the window's plane past the window, so the rod stands forward enough to clear it there.
+ */
+export const CURTAIN_ROD = {height: 1.95, end: 1.95, depth: 3.45} as const;
 const STOVE_R = 0.38;
 
 /** The clips of the three windows' panes, which the windows' weather (task 5) is clipped to. */
@@ -1327,12 +1334,6 @@ export function roomMarkup(): string {
 	back +=
 		sprite([-WX + 0.32, WY0, ZW - 0.08], SPR.plant, 0.0085) +
 		sprite([WX - 0.4, WY0, ZW - 0.08], SPR.jug, 0.0075);
-	back += line3(
-		[-WX - 0.55, 2.04, ZW - 0.06],
-		[WX + 0.55, 2.04, ZW - 0.06],
-		`${cls(undefined, "woodD")} stroke-linecap="round"`,
-		0.04
-	);
 	let curtains = "";
 
 	for (const m of [1, -1]) {
@@ -1371,6 +1372,30 @@ export function roomMarkup(): string {
 			.join("");
 		curtains += Cp.ellipse((-1.22 - o) * m, 1.15, 0.1, 0.04, cls("gold"));
 	}
+
+	// The rod, in front of the curtains' heads: its brackets back to the wall, the rod, its finials.
+	const {height: RH, end: RE, depth: RZ} = CURTAIN_ROD;
+	const Rd = surface((s, t) => [s, t, RZ]);
+	curtains +=
+		`<g class="ps-yt-rod">` +
+		[-1, 1]
+			.map((m) =>
+				abox(
+					[m * 1.9 - 0.015, m * 1.9 + 0.015],
+					[RH - 0.035, RH + 0.01],
+					[RZ, Math.sqrt(R * R - 1.9 * 1.9)],
+					"woodD"
+				)
+			)
+			.join("") +
+		line3(
+			[-RE, RH, RZ],
+			[RE, RH, RZ],
+			`${cls(undefined, "woodD")} stroke-linecap="round"`,
+			0.035
+		) +
+		[-1, 1].map((m) => Rd.circle(m * RE, RH, 0.028, cls("gold"))).join("") +
+		`</g>`;
 
 	let sideWindows = "";
 
@@ -1550,15 +1575,22 @@ export function roomMarkup(): string {
 						)
 				)
 				.join("");
+		// The base, below the eye, before the pole that stands on it; the cap, above the eye, before the pole
+		// too, so the pole covers its underside (the user, 2026-11-19).
 		return piece(
 			"post",
 			abox([x - 0.09, x + 0.09], [0, 0.15], [-0.09, 0.09], "furnD") +
+				abox(
+					[x - 0.09, x + 0.09],
+					[CROWN_H - 0.2, CROWN_H - 0.08],
+					[-0.09, 0.09],
+					"furnD"
+				) +
 				abox([x - 0.06, x + 0.06], [0.15, CROWN_H - 0.2], [-0.06, 0.06], "pole", {
 					front: (S) => bands(S, x - 0.06, x + 0.06),
 					left: (S) => bands(S, -0.06, 0.06),
 					right: (S) => bands(S, -0.06, 0.06),
-				}) +
-				abox([x - 0.09, x + 0.09], [CROWN_H - 0.2, CROWN_H - 0.08], [-0.09, 0.09], "furnD")
+				})
 		);
 	};
 
