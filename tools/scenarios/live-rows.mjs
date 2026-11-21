@@ -100,10 +100,11 @@ export default async function run(page) {
 			)
 		);
 
-		// The arrival is over: the attribute is gone, so nothing can replay it.
-		await page.sleep(1500);
+		// The arrival is over (LIVE_HOLD_MS, 3 s): the attribute is gone, so
+		// nothing can replay it.
+		await page.sleep(3300);
 		page.check(
-			"a second on: the row drops data-live",
+			"three seconds on: the row drops data-live",
 			(await page.evaluate(LIVE("hello"))) === null
 		);
 
