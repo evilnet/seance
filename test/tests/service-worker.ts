@@ -4025,7 +4025,7 @@ describe("service worker away on close", function () {
 });
 
 describe("service worker theme stylesheets (themes.md, pwa.md § Offline cold start)", function () {
-	it("offline, a theme from an older build's tab is matched without its ?v=", async function () {
+	it("offline, a theme from an older build's tab is matched exactly first, then without its ?v=", async function () {
 		const sw = makeSW();
 		const asked: Array<{url: string; ignoreSearch: boolean}> = [];
 
@@ -4033,8 +4033,12 @@ describe("service worker theme stylesheets (themes.md, pwa.md § Offline cold st
 		sw.sandbox.caches.open = (): Promise<any> =>
 			Promise.resolve({
 				match(request: {url: string}, options?: {ignoreSearch?: boolean}) {
-					asked.push({url: request.url, ignoreSearch: options?.ignoreSearch === true});
-					return Promise.resolve(new Response("x", {status: 200}));
+					const ignoreSearch = options?.ignoreSearch === true;
+					asked.push({url: request.url, ignoreSearch});
+					// Only another build's copy is cached: the exact lookup misses.
+					return Promise.resolve(
+						ignoreSearch ? new Response("x", {status: 200}) : undefined
+					);
 				},
 				put: (): Promise<void> => Promise.resolve(),
 			});
@@ -4059,8 +4063,11 @@ describe("service worker theme stylesheets (themes.md, pwa.md § Offline cold st
 		await serveTheme(`${SCOPE}themes/ps.css?v=older`);
 		await serveTheme(`${SCOPE}themes/coffee.css`);
 		await serveTheme(`${SCOPE}css/style.css?v=older`);
+		// The exact URL first, then (a theme only) any version of it.
 		expect(asked).to.deep.equal([
+			{url: `${SCOPE}themes/ps.css?v=older`, ignoreSearch: false},
 			{url: `${SCOPE}themes/ps.css?v=older`, ignoreSearch: true},
+			{url: `${SCOPE}themes/coffee.css`, ignoreSearch: false},
 			{url: `${SCOPE}themes/coffee.css`, ignoreSearch: true},
 			// Anything else keeps its version: only a theme stands in for another build's.
 			{url: `${SCOPE}css/style.css?v=older`, ignoreSearch: false},

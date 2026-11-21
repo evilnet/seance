@@ -445,13 +445,16 @@ async function fromNetworkOrCache(event) {
 		throw new Error(`Request failed with HTTP ${response.status}`);
 	} catch (e) {
 		const cache = await caches.open(shellCache);
-		// A theme is matched without its `?v=`: a tab left open across a
-		// deploy still asks for its own build's version (or none, from before
-		// themes carried one), and the new build's copy of the same theme is
-		// a better answer offline than no stylesheet at all.
-		let matching = await cache.match(request, {
-			ignoreSearch: navigation || isThemeStylesheet(request.url),
-		});
+		let matching = await cache.match(request, {ignoreSearch: navigation});
+
+		// A theme the cache has under no exact URL is matched without its
+		// `?v=`: a tab left open across a deploy still asks for its own
+		// build's version (or none, from before themes carried one), and this
+		// build's copy of the same theme is a better answer offline than no
+		// stylesheet at all. An exact entry always wins.
+		if (!matching && isThemeStylesheet(request.url)) {
+			matching = await cache.match(request, {ignoreSearch: true});
+		}
 
 		if (!matching && navigation) {
 			matching = await cache.match(shellUrl);
