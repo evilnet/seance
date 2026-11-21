@@ -237,10 +237,47 @@ function scopedByMotion(list: Rule[]): Rule[] {
 	});
 }
 
-const rules = scopedByMotion(rulesIn(css));
+/**
+ * Reduced transparency is keyed the same way (`data-reduce-transparency`,
+ * helpers/systemAccessibility.ts): WebKit has no media query for it, so the
+ * shells report it. The attribute rides on the selector's `:root` or `html`;
+ * a rule whose every selector carries it is filed under REDUCED_TRANSPARENCY
+ * and its selectors are read as they would be without it.
+ */
+const REDUCED_TRANSPARENCY = "[data-reduce-transparency]";
+
+function scopedByTransparency(list: Rule[]): Rule[] {
+	const strip = (sel: string): string | null => {
+		for (const root of [":root", "html"]) {
+			const prefix = root + REDUCED_TRANSPARENCY;
+
+			if (sel.startsWith(prefix)) {
+				const rest = sel.slice(prefix.length);
+				return rest.startsWith(" ") ? rest.trim() : root + rest;
+			}
+		}
+
+		return null;
+	};
+
+	return list.map((r) => {
+		const stripped = r.selectors.map(strip);
+
+		if (stripped.every((sel) => sel !== null)) {
+			return {
+				...r,
+				at: [r.at, REDUCED_TRANSPARENCY].filter(Boolean).join(" "),
+				selectors: stripped as string[],
+			};
+		}
+
+		return r;
+	});
+}
+
+const rules = scopedByTransparency(scopedByMotion(rulesIn(css)));
 const DAY = ":root";
 const NIGHT = ':root[data-ps-light="night"]';
-const REDUCED_TRANSPARENCY = "@media (prefers-reduced-transparency: reduce)";
 
 /** The declarations every top-level rule naming `selector` gives it, in source order. */
 function declsOf(selector: string, at = "", list = rules): Array<[string, string]> {
@@ -1033,7 +1070,7 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 		).to.deep.equal([]);
 	});
 
-	it("turns the glass solid under prefers-reduced-transparency: no blur, --ps-g-solid, by day and at night", function () {
+	it("turns the glass solid under reduced transparency (data-reduce-transparency): no blur, --ps-g-solid, by day and at night", function () {
 		for (const selector of GLASS_SURFACES) {
 			for (const s of [selector, `${NIGHT} ${selector}`]) {
 				expect(valueOf(s, "background-color", REDUCED_TRANSPARENCY), s).to.equal(
@@ -1066,10 +1103,14 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 		};
 		// A shorthand sets the colour too; only the solid itself agrees with the solid.
 		const PAINTS = [...Object.keys(SOLID), "background"];
+		// The solid rule, then an own row's card (its fill alone, so the
+		// Highlighted row band stays on it): ps.css's last two rules.
 		const solid = rules.filter((r) => r.at === REDUCED_TRANSPARENCY);
-		expect(solid.length, "one reduced-transparency rule").to.equal(1);
-		const last = rules.indexOf(solid[0]);
-		expect(last, "the reduced-transparency rule is ps.css's last").to.equal(rules.length - 1);
+		expect(solid.length, "two reduced-transparency rules").to.equal(2);
+		expect(
+			solid.map((r) => rules.indexOf(r)),
+			"the reduced-transparency rules are ps.css's last"
+		).to.deep.equal([rules.length - 2, rules.length - 1]);
 
 		for (const [property, value] of Object.entries(SOLID)) {
 			for (const selector of GLASS_SURFACES) {
@@ -3069,8 +3110,29 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 		const band =
 			"linear-gradient(var(--own-bg, color-mix(in srgb, currentcolor 7%, transparent)) 0 0)";
 		expect(valueOf(own, "background-image")).to.equal(band);
-		// The solid rule names the card rows at a lower specificity, so the band's image stays over the solid card.
-		expect(rules.filter((r) => r.at === REDUCED_TRANSPARENCY)[0].selectors).to.not.include(own);
+		// Under reduced transparency the own row's card turns solid by its fill
+		// alone: a rule there that took the image away would outrank the band
+		// (the attribute adds to its specificity) and erase it, day or night.
+		const card = `${BUBBLES} #chat .chat .msg.self:is([data-type="message"], [data-type="action"])`;
+		const cardNight = `${BUBBLES_NIGHT} #chat .chat .msg.self:is([data-type="message"], [data-type="action"])`;
+
+		for (const sel of [card, cardNight]) {
+			const solid = rules.filter(
+				(r) => r.at === REDUCED_TRANSPARENCY && r.selectors.includes(sel)
+			);
+			expect(solid, sel).to.have.lengthOf.at.least(1);
+
+			for (const r of solid) {
+				expect(
+					r.decls.map(([p]) => p),
+					sel
+				).to.not.include("background-image");
+			}
+
+			expect(valueOf(sel, "background-color", REDUCED_TRANSPARENCY)).to.equal(
+				"var(--ps-g-solid)"
+			);
+		}
 	});
 
 	it("bubbles anchors the message toolbar to the row's start, so a short card never carries it off the column", function () {
@@ -3206,7 +3268,7 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 		}
 	});
 
-	it("turns every surface solid under reduced transparency: the card, the pills, the glass column and the scrim, by day and at night, in the file's last rule", function () {
+	it("turns every surface solid under reduced transparency: the card, the pills, the glass column and the scrim, by day and at night, in the file's last two rules", function () {
 		const own = (root: string) =>
 			`${root} #chat .chat .msg.self:is([data-type="message"], [data-type="action"])`;
 		const wash = (root: string, type: string) =>
@@ -3232,14 +3294,28 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 			`:root[dir="rtl"][data-ps-light="night"][data-ps-words="scrim"] ${COLUMN}`,
 		];
 		const solid = rules.filter((r) => r.at === REDUCED_TRANSPARENCY);
-		expect(solid.length).to.equal(1);
-		expect(rules.indexOf(solid[0])).to.equal(rules.length - 1);
+		expect(solid.map((r) => rules.indexOf(r))).to.deep.equal([
+			rules.length - 2,
+			rules.length - 1,
+		]);
+		// An own row's card is the second rule's alone, its fill and nothing
+		// else: the attribute raises its specificity over the Highlighted row
+		// band's, which a background-image there would erase. The first rule's
+		// .msg selector already takes its blur away.
+		const ownRows = new Set([own(BUBBLES), own(BUBBLES_NIGHT)]);
 
 		for (const s of surfaces) {
-			expect(solid[0].selectors, s).to.include(s);
+			const r = ownRows.has(s) ? solid[1] : solid[0];
+			expect(r.selectors, s).to.include(s);
 			expect(valueOf(s, "background-color", REDUCED_TRANSPARENCY), s).to.equal(
 				"var(--ps-g-solid)"
 			);
+
+			if (ownRows.has(s)) {
+				expect(valueOf(s, "background-image", REDUCED_TRANSPARENCY), s).to.equal(undefined);
+				continue;
+			}
+
 			expect(valueOf(s, "background-image", REDUCED_TRANSPARENCY), s).to.equal("none");
 			expect(valueOf(s, "backdrop-filter", REDUCED_TRANSPARENCY), s).to.equal("none");
 		}

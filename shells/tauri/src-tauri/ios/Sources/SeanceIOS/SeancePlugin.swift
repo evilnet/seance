@@ -68,6 +68,12 @@ final class SeancePlugin: Plugin {
         on(.NSProcessInfoPowerStateDidChange) { [weak self] _ in
             self?.emit("Power", "changed", ["lowPower": ProcessInfo.processInfo.isLowPowerModeEnabled], retain: false)
         }
+
+        // Reduce Transparency, for the glass (client/js/helpers/systemAccessibility.ts):
+        // WebKit has no prefers-reduced-transparency, so the page cannot see it.
+        on(UIAccessibility.reduceTransparencyStatusDidChangeNotification) { [weak self] _ in
+            self?.emit("Transparency", "changed", ["reduce": UIAccessibility.isReduceTransparencyEnabled], retain: false)
+        }
     }
 
     @objc func setEventHandler(_ invoke: Invoke) throws {
@@ -120,6 +126,8 @@ final class SeancePlugin: Plugin {
             return [:]
         case ("Power", "status"):
             return ["lowPower": ProcessInfo.processInfo.isLowPowerModeEnabled]
+        case ("Transparency", "status"):
+            return ["reduce": UIAccessibility.isReduceTransparencyEnabled]
         case ("LocalNotifications", _) where Notifications.methods.contains(method):
             return try await notifications.call(method, options)
         case ("AppleTranslate", _) where AppleTranslate.methods.contains(method):
