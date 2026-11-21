@@ -111,14 +111,9 @@ export default async function run(page) {
 		// is opened at once, inside LIVE_MS, so a note wrongly taken for a
 		// channel not on screen would still be fresh.
 		say("alice", "somewhere else", OTHER);
-		await page.waitFor(
-			`${item(OTHER)}?.classList.contains("unread") || !!${item(
-				OTHER
-			)}?.querySelector(".badge")`,
-			{
-				label: "the line lands in the other channel",
-			}
-		);
+		await page.waitFor(`!!${item(OTHER)}?.classList.contains("has-unread")`, {
+			label: "the line lands in the other channel",
+		});
 		await page.evaluate(`${item(OTHER)}.click()`);
 		await shows("somewhere else");
 		await liveIs("somewhere else", null, "a line read later in its channel");
