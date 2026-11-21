@@ -175,7 +175,7 @@ export function historyLimit(client: IrcClient, wanted: number): number {
 	return cap !== undefined && cap > 0 ? Math.min(wanted, cap) : wanted;
 }
 
-function canRequest(client: IrcClient, chan: Channel): boolean {
+export function canRequest(client: IrcClient, chan: Channel): boolean {
 	return (
 		historyEnabled(client) &&
 		client.isWelcomed && // before 001 it is `451 Register first.`
@@ -374,14 +374,16 @@ export function requestFill(
 		return false;
 	}
 
-	if (pendingOf(client).some((r) => r.chan === chan && r.fill !== undefined)) {
-		return true; // one fill per channel at a time
+	// One fill per channel at a time: another marker's control is released
+	// as it was (the caller), to be pressed again.
+	if (chan.filling !== undefined) {
+		return chan.filling === id;
 	}
 
 	// The floor: the newest line the server stamped below the marker.
 	const floor = chan.newestServerRefBefore(ref.time.getTime(), ref);
 
-	return (
+	const sent =
 		requestHistory(client, chan, {
 			subcommand: "BEFORE",
 			ref,
@@ -391,8 +393,13 @@ export function requestFill(
 			floor,
 			held: new Set(chan.msgids),
 			fill: id,
-		}) !== undefined
-	);
+		}) !== undefined;
+
+	if (sent) {
+		chan.filling = id;
+	}
+
+	return sent;
 }
 
 /**
@@ -465,7 +472,18 @@ export function abortHistory(client: IrcClient): void {
 	// line, nor the cursor saved with the close), so the next connection
 	// walks the same gap from the same floor. Landing its newest pages would
 	// have moved it, and that walk would stop at them with the older part
-	// never fetched.
+	// never fetched. What says so is the marker: the one kept on the first
+	// line that arrived during the walk is now shown, and a marked gap that
+	// was being loaded gets its control back.
+	for (const chan of client.channels) {
+		client.settleWalkGap(chan, true);
+
+		if (chan.filling !== undefined) {
+			const id = chan.filling;
+			chan.filling = undefined;
+			client.setGap(chan, id, true);
+		}
+	}
 }
 
 /**
@@ -630,7 +648,9 @@ function deliverPrepend(
 		// line we have seen; noteCursor only ever moves forward.
 		client.noteCursor(msg);
 
-		client.keep(chan, msg); // added only when the device does not hold it
+		if (!device) {
+			client.keep(chan, msg); // added only when the device does not hold it
+		}
 	});
 
 	if (!chan.newestRef && lastRef) {
@@ -840,18 +860,22 @@ function deliverAppend(
  * everything held gets the gap marker (SharedMsg.gapBefore): the lines
  * between it and the one before are not here, and the marker's control asks
  * for them ({@link requestFill}). The window is then complete down to the
- * marker, which is all `historyFilled` vouches for.
+ * marker, which is all `historyFilled` vouches for. `lost`: the server
+ * never answered.
  */
 function finishWalk(
 	client: IrcClient,
 	chan: Channel,
 	walk: {held?: ReadonlySet<string>; ids?: IdBlock; fill?: number; floor?: MsgRef},
 	gap: SharedMsg[],
-	complete: boolean
+	complete: boolean,
+	lost = false
 ): void {
 	const held = walk.held ?? new Set(chan.msgids);
 
 	if (walk.fill !== undefined) {
+		chan.filling = undefined;
+
 		// Filling a marked gap: every line is older than the marked one and
 		// goes in by time. Stopped short again, the marker moves up to the
 		// oldest line brought; nothing brought, it stays where it is.
@@ -886,6 +910,9 @@ function finishWalk(
 		chan.historyFilled = true;
 	}
 
+	// What it brought ends where the lines relayed meanwhile begin: the
+	// marker kept on the first of those goes, unless nothing came at all.
+	client.settleWalkGap(chan, lost && !complete && gap.length === 0);
 	deliverAppend(client, chan, gap, walk.ids, held);
 	client.noteFilled(chan);
 }
@@ -1029,7 +1056,14 @@ function resolve(
 		// newer pages already received. Only a walk that met what we hold, or
 		// that the server said is the end, vouches for the whole gap: the page
 		// cap stops it short.
-		finishWalk(client, chan, request, request.gap, answered && (reached || end));
+		finishWalk(
+			client,
+			chan,
+			request,
+			request.gap,
+			answered && (reached || end),
+			outcome === "timeout"
+		);
 		runAfter(request.gapAfter);
 		return;
 	}

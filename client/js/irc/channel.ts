@@ -238,6 +238,16 @@ export class Channel {
 	replayCovered = false;
 	/** A page of older lines is being read from the device (history.ts requestMore). */
 	deviceMore = false;
+	/**
+	 * A reconnect's catch-up is owed or under way, with lines missing below
+	 * whatever arrives meanwhile: `true` until a live line does, then that
+	 * line's id. The device keeps the line marked (SharedMsg.gapBefore)
+	 * until the walk lands, so a page that goes away mid-walk leaves the
+	 * hole marked for the next one (IrcClient.settleWalkGap).
+	 */
+	walkGap: true | number | undefined = undefined;
+	/** The marked gap being loaded, by the id of its line (history.ts requestFill). */
+	filling: number | undefined = undefined;
 	/** A `more` page the connection died on; asked again once we are back (history.ts). */
 	lostMore: HistorySpec | undefined = undefined;
 	/**

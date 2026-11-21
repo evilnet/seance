@@ -696,6 +696,29 @@ export function get(uuid: string): SavedNetwork | undefined {
 	return read().find((net) => net.uuid === uuid);
 }
 
+let saved: {raw: string | null; uuids: Set<string>} | undefined;
+
+/**
+ * Whether `uuid` is a saved network. Asked for every line kept
+ * (conversationStore.ts), so the list is parsed only when its stored text
+ * changed.
+ */
+export function isSaved(uuid: string): boolean {
+	let raw: string | null;
+
+	try {
+		raw = backend.get(STORAGE_KEY);
+	} catch {
+		return false;
+	}
+
+	if (saved?.raw !== raw) {
+		saved = {raw, uuids: new Set(read().map((net) => net.uuid))};
+	}
+
+	return saved.uuids.has(uuid);
+}
+
 /**
  * Insert or update an entry (matched by `uuid`). Returns what was stored,
  * i.e. without the password unless `rememberPassword` is set.
