@@ -1,6 +1,7 @@
 <template>
 	<div
 		:id="'msg-' + message.id"
+		ref="rowEl"
 		:class="[
 			'msg',
 			{
@@ -258,8 +259,8 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, onUnmounted, PropType, ref, watch} from "vue";
-import {liveRows} from "../js/liveRows";
+import {computed, defineComponent, onMounted, onUnmounted, PropType, ref, watch} from "vue";
+import {LIVE_HOLD_MAX_MS, LIVE_MS, liveRows, type LiveKind} from "../js/liveRows";
 
 import Username from "./Username.vue";
 import LinkPreview from "./LinkPreview.vue";
@@ -368,8 +369,35 @@ export default defineComponent({
 		const store = useStore();
 
 		// Taken once, as the row mounts: a row mounted again later (another
-		// conversation and back, a past view closed) is not new.
-		const live = (props.inChat && liveRows.take(props.message.id)) || undefined;
+		// conversation and back, a past view closed) is not new. The attribute
+		// then stays only while the arrival lasts: LIVE_MS, and whatever the
+		// theme's animation on it still has to run (at most LIVE_HOLD_MAX_MS),
+		// so turning Reduce Motion off or loading a stylesheet later finds no
+		// old row to animate.
+		const live = ref<LiveKind | undefined>(
+			(props.inChat && liveRows.take(props.message.id)) || undefined
+		);
+		const rowEl = ref<HTMLElement | null>(null);
+		let liveTimer: number | undefined;
+
+		onMounted(() => {
+			if (!live.value) {
+				return;
+			}
+
+			liveTimer = window.setTimeout(() => {
+				const running = rowEl.value?.getAnimations?.({subtree: true}) ?? [];
+				const finished = Promise.allSettled(running.map((a) => a.finished));
+				const cap = new Promise((resolve) => {
+					liveTimer = window.setTimeout(resolve, LIVE_HOLD_MAX_MS - LIVE_MS);
+				});
+
+				void Promise.race([finished, cap]).then(() => {
+					window.clearTimeout(liveTimer);
+					live.value = undefined;
+				});
+			}, LIVE_MS);
+		});
 		const {t, locale} = useI18n();
 
 		// On a touch device the toolbar opens on a long press, as it does in
@@ -565,6 +593,7 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
+			window.clearTimeout(liveTimer);
 			cancelPress();
 			document.removeEventListener("click", closeFromOutside, true);
 
@@ -789,6 +818,7 @@ export default defineComponent({
 
 		return {
 			live,
+			rowEl,
 			quoteButton,
 			store,
 			actionsOpen,

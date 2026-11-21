@@ -6,7 +6,9 @@
  * note once, when it mounts, and carries it as `data-live="message|mention|join"`
  * for a theme's CSS to select on. Nothing else is ever marked: history,
  * catch-up, placed lines, notices rerouted into the open window, edits, pending
- * copies, our own lines, or anything while the page is hidden.
+ * copies, our own lines, lines buffered behind a past view, joins under hidden
+ * status messages, or anything while the page is hidden. The row drops the
+ * attribute once LIVE_MS has passed and its animations have finished.
  *
  * Rows are keyed by message id, but every row is mounted again when the open
  * conversation changes, a past view closes or the status-message setting
@@ -23,6 +25,10 @@ export type LiveKind = "message" | "mention" | "join";
 
 /** How long after its arrival a line's row may still claim the note. */
 export const LIVE_MS = 1000;
+
+/** The longest a row keeps `data-live` after it mounts, for a theme's
+ * animation on it to finish (Message.vue); an endless one is cut here. */
+export const LIVE_HOLD_MAX_MS = 10000;
 
 /** What a message arriving in the open conversation is, if anything. */
 export function liveKindOf(msg: {

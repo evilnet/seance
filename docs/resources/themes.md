@@ -112,7 +112,7 @@ What a theme may rely on, and what is checked. A theme is plain CSS loaded after
 
 ## Live rows
 
-A theme can tell a line that just arrived from one it is drawing again, without shipping code (`client/js/liveRows.ts`). When someone else's message, mention or join arrives live in the open conversation, its row in the chat list carries `data-live="message"` (or `mention`, `join`) from the moment it is drawn, so an entry animation keyed on it plays once, for that row:
+A theme can tell a line that just arrived from one it is drawing again, without shipping code (`client/js/liveRows.ts`). When someone else's message, mention or join arrives live in the open conversation, its row in the chat list carries `data-live="message"` (or `mention`, `join`) from the moment it is drawn until the arrival is over (one second, and then whatever animation the theme runs on it, at most ten seconds in all), so an entry animation keyed on it plays once, for that row, and nothing replays later when Reduce Motion is turned off or a stylesheet changes:
 
 ```css
 html:not([data-reduce-motion]) #chat .msg[data-live] {
@@ -120,9 +120,9 @@ html:not([data-reduce-motion]) #chat .msg[data-live] {
 }
 ```
 
-Nothing is marked for history, catch-up, a placed line, a notice rerouted to the open window, an edit, a pending copy or our own lines (`socket-events/msg.ts`, `liveKindOf`), nor while the page is hidden. `mention` is the message's own highlight, so it does not follow the highlightMessages setting or a jump's focus the way the row's `.highlight` class does.
+Nothing is marked for history, catch-up, a placed line, a notice rerouted to the open window, an edit, a pending copy or our own lines (`socket-events/msg.ts`, `liveKindOf`), nor while the page is hidden, a past view holds the live lines out of sight, or status messages are hidden (a join then has no row). `mention` is the message's own highlight, so it does not follow the highlightMessages setting or a jump's focus the way the row's `.highlight` class does.
 
-The note is held outside the store and taken once, by the row's first mount within `LIVE_MS` (1 s) of the line's arrival (`Message.vue`, `in-chat` from `MessageList.vue`). Rows are keyed by message id, but the whole list is drawn again on a conversation switch, a past view closing or a status-message setting changing, and a flag stored on the message would replay every live row's animation on each of those; a row drawn later (behind a past view, under hidden status messages) or not as a row of its own (a join folded into a condensed group) is never marked. The search results and other lists of `Message` rows never take a note.
+The note is held outside the store and taken once, by the row's first mount within `LIVE_MS` (1 s) of the line's arrival (`Message.vue`, `in-chat` from `MessageList.vue`). Rows are keyed by message id, but the whole list is drawn again on a conversation switch or a past view closing (a status-message setting change regroups the status rows), and a flag stored on the message would replay every live row's animation on each of those; a row drawn later or not as a row of its own (a join folded into a condensed group) is never marked. The search results and other lists of `Message` rows never take a note.
 
 `style.css` animates nothing on it: whether rows move is the theme's choice, and a period theme may want them still. Anything that moves goes behind `:not([data-reduce-motion])`, and a theme can answer reduced motion with something still (a colour, a border) on the same attribute.
 
@@ -154,7 +154,7 @@ html:not([data-reduce-motion])
   content: "♥ ♥ ♥" / "";
   position: absolute;
   inset-inline-end: 1.5rem;
-  bottom: 0.25rem;
+  inset-block-end: 0.25rem;
   color: #ff5fa2;
   pointer-events: none;
   animation: my-hearts 2.4s ease-out forwards;

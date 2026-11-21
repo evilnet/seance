@@ -100,9 +100,25 @@ export default async function run(page) {
 			)
 		);
 
-		// Elsewhere, then back: nothing drawn again is live.
-		say("alice", "somewhere else", OTHER);
+		// The arrival is over: the attribute is gone, so nothing can replay it.
 		await page.sleep(1500);
+		page.check(
+			"a second on: the row drops data-live",
+			(await page.evaluate(LIVE("hello"))) === null
+		);
+
+		// Elsewhere, then back: nothing drawn again is live. The other channel
+		// is opened at once, inside LIVE_MS, so a note wrongly taken for a
+		// channel not on screen would still be fresh.
+		say("alice", "somewhere else", OTHER);
+		await page.waitFor(
+			`${item(OTHER)}?.classList.contains("unread") || !!${item(
+				OTHER
+			)}?.querySelector(".badge")`,
+			{
+				label: "the line lands in the other channel",
+			}
+		);
 		await page.evaluate(`${item(OTHER)}.click()`);
 		await shows("somewhere else");
 		await liveIs("somewhere else", null, "a line read later in its channel");
@@ -121,7 +137,7 @@ export default async function run(page) {
 		await liveIs("still here", "message", "reduced motion");
 		page.check(
 			"style.css animates nothing on it",
-			(await page.evaluate(`getComputedStyle(${ROW("hello")}).animationName`)) === "none"
+			(await page.evaluate(`getComputedStyle(${ROW("still here")}).animationName`)) === "none"
 		);
 	} finally {
 		await ircd.close();
