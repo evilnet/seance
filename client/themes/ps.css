@@ -3085,6 +3085,11 @@ html[data-contrast="more"]:root[data-ps-light="night"]:is(:not([data-ps-words]),
 	background-color: rgb(12 17 32 / var(--ps-g-tint-a));
 }
 
+/* Reduce Transparency: the headings solid like the list they head. */
+:root[data-reduce-transparency] #chat .userlist .user-mode::before {
+	background-color: var(--ps-g-solid);
+}
+
 /* The chips are chrome standing in the column (the mockup's .chip): the
  * glass, its ink with no shadow under it (the column's halo and outline are
  * for words on the open plains), the edge for a border. They follow the

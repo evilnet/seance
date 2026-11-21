@@ -59,6 +59,18 @@ export default async function run(page) {
 			"reduced transparency: the sidebar's glass is solid",
 			(await page.evaluate(cs("#sidebar", "backdropFilter"))) === "none"
 		);
+		// No blur, and no see-through fill either: the colour's alpha reaches 1
+		// once ps's light flip (a transition) has run.
+		const opaque = `/^rgb\\(/.test(${cs("#sidebar", "backgroundColor")})`;
+		await page
+			.waitFor(opaque, {label: "the sidebar's fill turns opaque", timeout: 5000})
+			.catch(() => {});
+		page.check(
+			`reduced transparency: the sidebar's fill is opaque (${await page.evaluate(
+				cs("#sidebar", "backgroundColor")
+			)})`,
+			await page.evaluate(opaque)
+		);
 		await media([]);
 		await page.waitFor(`!document.documentElement.hasAttribute("data-reduce-transparency")`, {
 			label: "data-reduce-transparency cleared",
@@ -108,6 +120,35 @@ export default async function run(page) {
 		page.check(
 			`forced colours: a keyboard focus is a ring (${ring.tag} ${ring.style})`,
 			ring.style === "solid"
+		);
+		// The context menu keeps focus on itself (aria-activedescendant): the
+		// row the arrow keys reach is marked in the system's selection colours.
+		await page.evaluate(
+			`document.querySelector('${item}').dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, cancelable: true, clientX: 40, clientY: 40}))`
+		);
+		await page.waitFor(`!!document.querySelector("#context-menu")`, {
+			label: "the context menu",
+		});
+		await page.evaluate(
+			`document.querySelector("#context-menu").dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowDown", bubbles: true}))`
+		);
+		await page.waitFor(`!!document.querySelector("#context-menu .context-menu-item.active")`, {
+			label: "an active row",
+		});
+		const marks = JSON.parse(
+			await page.evaluate(`(() => {
+				const probe = document.createElement("div");
+				probe.style.backgroundColor = "highlight";
+				document.body.append(probe);
+				const want = getComputedStyle(probe).backgroundColor;
+				probe.remove();
+				const row = document.querySelector("#context-menu .context-menu-item.active");
+				return JSON.stringify({want, got: getComputedStyle(row).backgroundColor});
+			})()`)
+		);
+		page.check(
+			`forced colours: the menu's active row is the system selection (${marks.got})`,
+			marks.got === marks.want
 		);
 		await page.screenshot("forced-colors-ps");
 		await media([]);

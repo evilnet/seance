@@ -179,12 +179,20 @@ function applyTransparency(reduceTransparency: boolean): void {
 	apply({...current, reduceTransparency});
 }
 
-function fromAppleShell(status: TransparencyStatus | null | undefined): void {
+/** A change the Apple shell reported; it outranks the startup status reply,
+ * which may have been read before the change and arrive after it. */
+let appleChangeSeen = false;
+
+function fromAppleShell(
+	status: TransparencyStatus | null | undefined,
+	kind: "status" | "changed"
+): void {
 	// A shell built before the plugin answers nothing.
-	if (typeof status?.reduce !== "boolean") {
+	if (typeof status?.reduce !== "boolean" || (kind === "status" && appleChangeSeen)) {
 		return;
 	}
 
+	appleChangeSeen ||= kind === "changed";
 	transparencyFromShell = true;
 	applyTransparency(status.reduce);
 }
@@ -202,7 +210,13 @@ function fromAndroidShell(status: AndroidSystemStatus): void {
 	}
 
 	fromShell = true;
-	applyMotionContrast(fromAndroidSettings({highTextContrast, contrast, animatorDurationScale}));
+	const settings = fromAndroidSettings({highTextContrast, contrast, animatorDurationScale});
+	applyMotionContrast(settings);
+	// Chromium on Android answers prefers-reduced-transparency from the same
+	// high-contrast signal, and WebView reads it only at startup, so the
+	// shell's live report stands in for the query here too.
+	transparencyFromShell = true;
+	applyTransparency(settings.highContrast);
 }
 
 /** Start following the system. Synchronous for the first value: call it
@@ -234,9 +248,14 @@ export function followSystemAccessibility(): void {
 	const platform = nativePlatform();
 
 	if (platform === "ios" || platform === "macos") {
-		nativeListen("Transparency", "changed", fromAppleShell);
-		nativeCall<TransparencyStatus>("Transparency", "status").then(fromAppleShell, () => {
-			// An older shell: the query stands, which WebKit never matches.
-		});
+		nativeListen("Transparency", "changed", (status: TransparencyStatus | null | undefined) =>
+			fromAppleShell(status, "changed")
+		);
+		nativeCall<TransparencyStatus>("Transparency", "status").then(
+			(status) => fromAppleShell(status, "status"),
+			() => {
+				// An older shell: the query stands, which WebKit never matches.
+			}
+		);
 	}
 }
