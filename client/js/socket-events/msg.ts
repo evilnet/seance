@@ -17,6 +17,7 @@ import {forgetTranslations} from "../translate/reader";
 import {nativeAlertsAvailable, requestAttention, showNativeAlert} from "../helpers/nativeAlerts";
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
+import {liveKindOf, liveRows} from "../liveRows";
 
 socket.on("msg", function (data) {
 	const receivingChannel = store.getters.findChannel(data.chan);
@@ -80,6 +81,27 @@ socket.on("msg", function (data) {
 	// bottom until their echo settles them, so everything else goes in
 	// ahead of them.
 	insertMessage(channel.messages, data.msg);
+
+	// A live line in the open conversation, for a theme's CSS (liveRows.ts):
+	// never history, catch-up, a placed line or a notice rerouted here, and
+	// only while the list it goes into is the one on screen. A past view
+	// buffers live lines out of sight ("Jump to present" draws them later),
+	// and a join under hidden status messages has no row until the setting
+	// changes, so neither is noted: a note is for a row drawn as it arrives.
+	if (
+		isActiveChannel &&
+		!rerouted &&
+		!data.replay &&
+		!data.placed &&
+		!channel.past &&
+		document.visibilityState === "visible"
+	) {
+		const kind = liveKindOf(data.msg);
+
+		if (kind && !(kind === "join" && store.state.settings.statusMessages === "hidden")) {
+			liveRows.mark(data.msg.id, kind);
+		}
+	}
 
 	// The edit of a line in a past view; a pending copy waits for its echo.
 	if (channel.past && data.msg.editOf && !data.msg.pending) {

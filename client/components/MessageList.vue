@@ -85,6 +85,7 @@
 					:keep-scroll-position="keepScrollPosition"
 					:is-previous-source="isPreviousSource(message, id)"
 					:focused="message.id === focused"
+					in-chat
 				/>
 			</template>
 		</div>

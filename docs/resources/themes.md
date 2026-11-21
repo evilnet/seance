@@ -110,6 +110,59 @@ What a theme may rely on, and what is checked. A theme is plain CSS loaded after
 
 **Checked without a browser** by `test/tests/themeContract.ts`, in CI: every custom property a theme declares is read by `client/` (ps's switched-off animal slots excepted; the check pools every file under `client/`, so it does not yet tell a token read by another theme only), and each theme's resolved tokens, light and dark, hold their floors on the surfaces the app paints them on: text, muted text and links at 4.5:1 on the window and the chat, text on a highlighted row, the rail's text on both ends of the rail's gradient (ps's rail is clear, so its text is measured on the glass's solid colour, `--body-bg-color`, not on the glass the browser draws), the join line at 3:1. A token that resolves to no colour (an empty value, a missing `var()`) fails. A translucent surface is measured over what it is painted on (a highlighted row over the window, the window, the chat and the rail over the page's own background), and a surface with nothing opaque under it in CSS must be named in the test as see-through. Besides `:root`, every block that re-maps either side of a pair is checked as its own surface, with the blocks it sits inside, that qualify it, or that match wherever it does (ps's light words under the outline, rim and glow settings): a `:root` under a width query (a phone's palette), zelenzy's dialogs and the same dialogs under Increase Contrast, ps by night and its night chat. Two kinds of block are named in the test and left out: ps's light words, painted on the scene rather than on a token, and the chat's own surfaces (the chat pane, a highlighted row) in a block scoped away from `#chat`. Glass and pictures are not a flat colour, so ps is measured in the browser as well (`tools/scenarios/theme-ps.mjs`); `tools/scenarios/themes.mjs` measures the themes it lists, which leaves out `macos` (its material needs the Mac app, `html[data-platform="macos"]`) and `zelenzy`. Known exceptions are listed in the test with their own floor, today's ratio, so the colour stays as it is and anything worse fails: `day`'s link green is TheLounge's own (3.0:1). Not checked yet: muted text and links on a highlighted row, which several themes miss today (day, princess, morning, creama, frost).
 
+## Live rows
+
+A theme can tell a line that just arrived from one it is drawing again, without shipping code (`client/js/liveRows.ts`). When someone else's message, mention or join arrives live in the open conversation, its row in the chat list carries `data-live="message"` (or `mention`, `join`) for three seconds from the moment it is drawn (`LIVE_HOLD_MS`; an arrival animation keyed on it must finish within that), so an entry animation keyed on it plays once, for that row, and an old row has nothing to replay when Reduce Motion is turned off or a stylesheet changes later:
+
+```css
+html:not([data-reduce-motion]) #chat .msg[data-live] {
+  animation: my-arrive 0.35s ease-out;
+}
+```
+
+Nothing is marked for history, catch-up, a placed line, a notice rerouted to the open window, an edit, a pending copy or our own lines (`socket-events/msg.ts`, `liveKindOf`), nor while the page is hidden, a past view holds the live lines out of sight, or status messages are hidden (a join then has no row). `mention` is the message's own highlight, so it does not follow the highlightMessages setting or a jump's focus the way the row's `.highlight` class does.
+
+The note is held outside the store and taken once, by the row's first mount within `LIVE_MS` (1 s) of the line's arrival (`Message.vue`, `in-chat` from `MessageList.vue`). Rows are keyed by message id, but the whole list is drawn again on a conversation switch or a past view closing (a status-message setting change regroups the status rows), and a flag stored on the message would replay every live row's animation on each of those; a row drawn later is never marked, and a join folded into a condensed group has its note taken by the group, so a regrouping does not mark it either. The search results and other lists of `Message` rows never take a note.
+
+`style.css` animates nothing on it: whether rows move is the theme's choice, and a period theme may want them still. Anything that moves goes behind `:not([data-reduce-motion])`, and a theme can answer reduced motion with something still (a colour, a border) on the same attribute.
+
+A user's own stylesheet can use it too. The greeting the chat-cue draft (#318) shipped for two nicks, as a user stylesheet:
+
+```css
+@keyframes my-hearts {
+  0% {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-2.5rem) scale(1.15);
+  }
+}
+
+html:not([data-reduce-motion])
+  #chat
+  .msg[data-live]:is(
+    [data-from="ps" i]:has(.content .user[data-name="Keeki" i]),
+    [data-from="Keeki" i]:has(.content .user[data-name="ps" i]),
+    .msg[data-from="ps" i] + [data-from="Keeki" i],
+    .msg[data-from="Keeki" i] + [data-from="ps" i]
+  )::after {
+  content: "♥ ♥ ♥" / "";
+  position: absolute;
+  inset-inline-end: 1.5rem;
+  inset-block-end: 0.25rem;
+  color: #ff5fa2;
+  pointer-events: none;
+  animation: my-hearts 2.4s ease-out forwards;
+}
+```
+
+Tests `test/tests/liveRows.ts`; browser check `tools/scenarios/live-rows.mjs` (no ircd: `lib/tiny-ircd.mjs`).
+
 ## Checking a theme
 
 `pnpm test` never loads a stylesheet. Build, serve `public/`, and look (`docs/resources/browser-testing.md`); the Appearance dropdown switches live. `tools/scenarios/themes.mjs` drives that dropdown through the themes in its list (all but `macos` and `zelenzy`) against the dev ircd, checks the stylesheet link, the stored name and the browser chrome colour, measures the pairs above on the four handoff themes (text, timestamps, links, the join line, a nick on a highlighted row at ≥ 4.5:1; icons and the placeholder at ≥ 3:1) from computed styles, and leaves a screenshot of the chat under each theme.
