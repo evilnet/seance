@@ -23,9 +23,12 @@ const away: Handler = (client, msg) => {
 	}
 
 	if (client.isSelf(nick)) {
-		// Our own star (another connection of the account, typically) is the
-		// attention signal, not something to announce.
-		if (raw !== AWAY_STAR) {
+		// Our own star and the bare AWAY that ends it (this page coming back,
+		// or another connection of the account) are the attention signal,
+		// not something to announce: a self line shows only its text, so
+		// they would print a clock beside nothing. A /back typed here is
+		// confirmed by its 305.
+		if (text) {
 			client.pushMessage(client.lobby, {type, time, text, self: true}, true);
 		}
 
