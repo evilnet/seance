@@ -14,6 +14,7 @@
  */
 import {rainTiles} from "../psng/rain";
 import {WEATHERS, type Weather} from "./engine";
+import {FLAME_CORE, FLAME_LAYERS, FLAME_POSES, FLAME_SPACE, flameShape, flameSvg} from "./flames";
 import {FIREBOX_BURNING, type RoomColour} from "./indoor";
 import {
 	abox,
@@ -74,6 +75,13 @@ const WY0 = 0.45;
 const WY1 = 1.9;
 const FR = 0.08;
 const ZW = Math.sqrt(R * R - WX * WX) - 0.02;
+
+/**
+ * The back curtains' rod (the user, 2026-11-19: it floated): across the curtains' heads, under the
+ * lattice's top on screen, a finial just past each curtain, on two brackets to the wall. The wall curves
+ * forward of the window's plane past the window, so the rod stands forward enough to clear it there.
+ */
+export const CURTAIN_ROD = {height: 1.95, end: 1.95, depth: 3.45} as const;
 const STOVE_R = 0.38;
 
 /** The clips of the three windows' panes, which the windows' weather (task 5) is clipped to. */
@@ -456,10 +464,12 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 				orn(N)
 			);
 		};
-		/** A corner post to the floor with a brass finial: four of them, at the wall and at the front. */
+		/** A corner post to the floor with a brass finial: four of them, at the wall and at the front; they are its legs. */
 		const post = (a0: number, a1: number, b0: number, h: number) =>
+			`<g class="ps-yt-bedpost">` +
 			box(fr, [a0, a1], [b0, b0 + 0.1], [0, h], "furnD") +
-			sprite(fr.pt((a0 + a1) / 2, b0 + 0.05, h), SPR.finial, 0.008);
+			sprite(fr.pt((a0 + a1) / 2, b0 + 0.05, h), SPR.finial, 0.008) +
+			`</g>`;
 		const headboard =
 			board(
 				HEAD - T,
@@ -492,9 +502,7 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 			s += footboard;
 		}
 
-		s +=
-			box(fr, [HEAD + 0.01, HEAD + 0.09], [D - 0.1, D - 0.02], [0, 0.14], "furnD") +
-			box(fr, [FOOT - 0.09, FOOT - 0.01], [D - 0.1, D - 0.02], [0, 0.14], "furnD");
+		// The frame between the posts, which are its legs (two leg boxes beside the posts stood out as stubs).
 		s += box(fr, [HEAD, FOOT], [0.02, D], [0.14, 0.4], "furn", {
 			front: (S) =>
 				S.rect(
@@ -573,11 +581,12 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 
 		s += Qtop.poly(roundRect(QA, 0.02, QA + 0.16, QB, 0.04, 0.05), cls("sheet"));
 		const Qf = surface((a, c) => fr.pt(a, QB, c));
+		const hemAt = (a: number) => 0.3 + 0.016 * Math.sin(a * 6.5);
 		const hem: Array<[number, number]> = [];
 
 		for (let i = 0; i <= 48; i++) {
 			const a = QF - ((QF - QA) * i) / 48;
-			hem.push([a, 0.3 + 0.016 * Math.sin(a * 6.5)]);
+			hem.push([a, hemAt(a)]);
 		}
 
 		s += Qf.poly([[QA, QT], [QF, QT], ...hem], cls("blue"));
@@ -585,13 +594,14 @@ const PIECES: Record<Piece, (fr: Frame, lights: Lights) => {d: number; svg: stri
 			hem.filter(([a]) => a > QA + 0.18).map(([a, c]) => [a, c + 0.07] as [number, number]),
 			`${cls(undefined, "cream")} stroke-width="${strokeAt(Qf, 0, 0.4, 0.016)}"`
 		);
+		// The turned-down fold hangs down the side with the quilt, its lining showing to the hem (it was a
+		// short block at the top, the user, 2026-11-20).
 		s += Qf.poly(
 			[
 				[QA, QT],
 				[QA + 0.16, QT],
-				[QA + 0.16, 0.57],
-				[QA + 0.08, 0.555],
-				[QA, 0.565],
+				[QA + 0.16, hemAt(QA + 0.16)],
+				...hem.filter(([a]) => a < QA + 0.16),
 			],
 			cls("sheetSide")
 		);
@@ -1327,12 +1337,6 @@ export function roomMarkup(): string {
 	back +=
 		sprite([-WX + 0.32, WY0, ZW - 0.08], SPR.plant, 0.0085) +
 		sprite([WX - 0.4, WY0, ZW - 0.08], SPR.jug, 0.0075);
-	back += line3(
-		[-WX - 0.55, 2.04, ZW - 0.06],
-		[WX + 0.55, 2.04, ZW - 0.06],
-		`${cls(undefined, "woodD")} stroke-linecap="round"`,
-		0.04
-	);
 	let curtains = "";
 
 	for (const m of [1, -1]) {
@@ -1371,6 +1375,30 @@ export function roomMarkup(): string {
 			.join("");
 		curtains += Cp.ellipse((-1.22 - o) * m, 1.15, 0.1, 0.04, cls("gold"));
 	}
+
+	// The rod, in front of the curtains' heads: its brackets back to the wall, the rod, its finials.
+	const {height: RH, end: RE, depth: RZ} = CURTAIN_ROD;
+	const Rd = surface((s, t) => [s, t, RZ]);
+	curtains +=
+		`<g class="ps-yt-rod">` +
+		[-1, 1]
+			.map((m) =>
+				abox(
+					[m * 1.9 - 0.015, m * 1.9 + 0.015],
+					[RH - 0.035, RH + 0.01],
+					[RZ, Math.sqrt(R * R - 1.9 * 1.9)],
+					"woodD"
+				)
+			)
+			.join("") +
+		line3(
+			[-RE, RH, RZ],
+			[RE, RH, RZ],
+			`${cls(undefined, "woodD")} stroke-linecap="round"`,
+			0.035
+		) +
+		[-1, 1].map((m) => Rd.circle(m * RE, RH, 0.028, cls("gold"))).join("") +
+		`</g>`;
 
 	let sideWindows = "";
 
@@ -1470,45 +1498,56 @@ export function roomMarkup(): string {
 		`<g class="ps-yt-still-steam ps-yt-burn">${SPR.steam}</g>`,
 		0.0055
 	);
-	// The still fire in the door (plan 1): its body, and its tongues with the glow along the door's foot;
-	// the moving fire is .ps-ym-top's flames (below).
-	// The door's opening: its sides, its foot and the arch's rise, on the door's surface.
+	// The door's opening: its sides, its foot and the arch's rise, on the door's surface; and its outline,
+	// the foot sampled as it curves round the stove.
 	const OPEN = {s0: -0.125, s1: 0.125, t0: 0.33, t1: 0.48, rise: 0.06};
-	const fireBody = Dr.arched(
-		OPEN.s0,
-		OPEN.s1,
-		OPEN.t0,
-		OPEN.t1,
-		OPEN.rise,
-		`fill="url(#ps-yt-fire)" ${LIT}`
-	);
-	const fireTongues =
-		Dr.poly(
-			[
-				[-0.09, 0.34],
-				[-0.11, 0.4],
-				[-0.06, 0.46],
-				[-0.05, 0.51],
-				[-0.01, 0.45],
-				[0.0, 0.39],
-				[-0.02, 0.34],
-			],
-			`fill="#fff6c4" opacity=".9" ${LIT}`
-		) +
-		Dr.poly(
-			[
-				[0.02, 0.34],
-				[0.0, 0.41],
-				[0.05, 0.47],
-				[0.07, 0.52],
-				[0.1, 0.45],
-				[0.11, 0.39],
-				[0.09, 0.34],
-			],
-			`fill="#fff6c4" opacity=".9" ${LIT}`
-		) +
-		Dr.rect(-0.125, 0.33, 0.125, 0.36, `fill="#ffcf6a" opacity=".55" ${LIT}`);
-	const fire = fireBody + fireTongues;
+	const doorOutline: Array<[number, number]> = [];
+
+	for (let i = 0; i <= 4; i++) {
+		doorOutline.push([OPEN.s0 + ((OPEN.s1 - OPEN.s0) * i) / 4, OPEN.t0]);
+	}
+
+	doorOutline.push([OPEN.s1, OPEN.t1]);
+
+	for (let i = 1; i < 12; i++) {
+		const u = i / 12;
+		doorOutline.push([
+			OPEN.s1 + (OPEN.s0 - OPEN.s1) * u,
+			OPEN.t1 + OPEN.rise * Math.sin(Math.PI * u),
+		]);
+	}
+
+	doorOutline.push([OPEN.s0, OPEN.t1]);
+	// The still fire (still, reduced motion, the drawer): one frame of the moving fire (flames.ts), the flat
+	// flame space stretched over the opening's box on screen and clipped to the opening.
+	const doorOnScreen = doorOutline.map(([s, t]) => project(doorMap(s, t)));
+	const doorXs = doorOnScreen.map((q) => q[0]);
+	const doorYs = doorOnScreen.map((q) => q[1]);
+	const ob = {
+		x: Math.min(...doorXs),
+		y: Math.min(...doorYs),
+		w: Math.max(...doorXs) - Math.min(...doorXs),
+		h: Math.max(...doorYs) - Math.min(...doorYs),
+	};
+	const cb = FLAME_CORE.box;
+	const coreStill =
+		`<radialGradient id="ps-yt-sfl-core">${FLAME_CORE.stops
+			.map(([o, c, op]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${op}"/>`)
+			.join("")}</radialGradient>` +
+		`<ellipse cx="${(cb.x0 + cb.x1) / 2}" cy="${(cb.y0 + cb.y1) / 2}" rx="${
+			(cb.x1 - cb.x0) / 2
+		}" ry="${(cb.y1 - cb.y0) / 2}" fill="url(#ps-yt-sfl-core)"/>`;
+	const fire =
+		`<clipPath id="ps-yt-door"><polygon points="${pts(doorOnScreen)}"/></clipPath>` +
+		`<g clip-path="url(#ps-yt-door)"><svg x="${n(ob.x)}" y="${n(ob.y)}" width="${n(
+			ob.w
+		)}" height="${n(ob.h)}" viewBox="0 0 ${FLAME_SPACE.width} ${
+			FLAME_SPACE.height
+		}" preserveAspectRatio="none">` +
+		FLAME_LAYERS.map(
+			(L, li) => (li === 1 ? coreStill : "") + flameShape(L, 0, `ps-yt-sfl-${L.name}`)
+		).join("") +
+		`</svg></g>`;
 	// The firebox behind the door and its coal bed at the foot (§16), room colours the legibility sweep sees
 	// (indoor.ts): dull embers, always drawn, the fire burning over them; by day, with the stove out, the dark
 	// door and a few embers are all it shows, and by night the hour's shade darkens it behind the flames.
@@ -1550,15 +1589,22 @@ export function roomMarkup(): string {
 						)
 				)
 				.join("");
+		// The base, below the eye, before the pole that stands on it; the cap, above the eye, before the pole
+		// too, so the pole covers its underside (the user, 2026-11-19).
 		return piece(
 			"post",
 			abox([x - 0.09, x + 0.09], [0, 0.15], [-0.09, 0.09], "furnD") +
+				abox(
+					[x - 0.09, x + 0.09],
+					[CROWN_H - 0.2, CROWN_H - 0.08],
+					[-0.09, 0.09],
+					"furnD"
+				) +
 				abox([x - 0.06, x + 0.06], [0.15, CROWN_H - 0.2], [-0.06, 0.06], "pole", {
 					front: (S) => bands(S, x - 0.06, x + 0.06),
 					left: (S) => bands(S, -0.06, 0.06),
 					right: (S) => bands(S, -0.06, 0.06),
-				}) +
-				abox([x - 0.09, x + 0.09], [CROWN_H - 0.2, CROWN_H - 0.08], [-0.09, 0.09], "furnD")
+				})
 		);
 	};
 
@@ -1724,7 +1770,6 @@ export function roomMarkup(): string {
 		)}/></linearGradient>` +
 		`<linearGradient id="ps-yt-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color: var(--ps-sky-top)"/><stop offset=".55" style="stop-color: var(--ps-sky-mid)"/><stop offset="1" style="stop-color: var(--ps-sky-hor)"/></linearGradient>` +
 		`<radialGradient id="ps-yt-sun-glow"><stop offset="0" stop-color="#ffe2a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffb060" stop-opacity="0"/></radialGradient>` +
-		`<radialGradient id="ps-yt-fire" cx=".5" cy=".85" r=".8"><stop offset="0" stop-color="#fff6c0"/><stop offset=".4" stop-color="#ffb347"/><stop offset=".8" stop-color="#e2582a"/><stop offset="1" stop-color="#9c2f1a"/></radialGradient>` +
 		`<radialGradient id="ps-yt-g-fire"><stop offset="0" stop-color="#ffa040" stop-opacity=".85"/><stop offset=".45" stop-color="#ff7a2a" stop-opacity=".32"/><stop offset="1" stop-color="#ff6a20" stop-opacity="0"/></radialGradient>` +
 		`<radialGradient id="ps-yt-g-lamp"><stop offset="0" stop-color="#ffd08a" stop-opacity=".8"/><stop offset="1" stop-color="#ffb060" stop-opacity="0"/></radialGradient>` +
 		`<radialGradient id="ps-yt-g-screen"><stop offset="0" stop-color="#9fbaff" stop-opacity=".55"/><stop offset="1" stop-color="#7f9fff" stop-opacity="0"/></radialGradient>` +
@@ -1869,24 +1914,7 @@ export function roomMarkup(): string {
 		const [x, y] = project(doorMap(s, t));
 		return [((x - fireBox.x) / fireBox.w) * 100, ((y - fireBox.y) / fireBox.h) * 100];
 	};
-	const outline: Array<[number, number]> = [];
-
-	for (let i = 0; i <= 4; i++) {
-		outline.push([OPEN.s0 + ((OPEN.s1 - OPEN.s0) * i) / 4, OPEN.t0]);
-	}
-
-	outline.push([OPEN.s1, OPEN.t1]);
-
-	for (let i = 1; i < 12; i++) {
-		const u = i / 12;
-		outline.push([
-			OPEN.s1 + (OPEN.s0 - OPEN.s1) * u,
-			OPEN.t1 + OPEN.rise * Math.sin(Math.PI * u),
-		]);
-	}
-
-	outline.push([OPEN.s0, OPEN.t1]);
-	const clip = outline
+	const clip = doorOutline
 		.map(([s, t]) =>
 			inBox(s, t)
 				.map((v) => `${n(v)}%`)
@@ -1894,62 +1922,52 @@ export function roomMarkup(): string {
 		)
 		.join(",");
 
-	// The dancing flames (§16; the approved Artifact's variant A): three teardrop tongues standing on the
-	// coal bed, the middle one tallest and drawn last, a pale core, and four sparks rising from the coals.
-	// One of the Artifact's units is a sixtieth of the opening's width, on the door's surface.
-	const U = (OPEN.s1 - OPEN.s0) / 60;
-	const FOOT = 0.35;
-	const at = (left: number, width: number, height: number) => {
-		const s0 = OPEN.s0 + left * U;
-		const s1 = s0 + width * U;
-		const [x0] = inBox(s0, FOOT);
-		const [x1] = inBox(s1, FOOT);
-		const [, y0] = inBox((s0 + s1) / 2, FOOT);
-		const [, yTop] = inBox((s0 + s1) / 2, FOOT + height * U);
-		return `left:${n(x0)}%;bottom:${n(100 - y0)}%;width:${n(x1 - x0)}%;height:${n(y0 - yTop)}%`;
-	};
-	const tongue = (id: string, outer: string, mid: string, inner: string) =>
-		`<svg viewBox="0 0 20 40" preserveAspectRatio="none"><defs><radialGradient id="${id}" cx="50%" cy="85%" r="70%"><stop offset="0" stop-color="${inner}"/><stop offset=".45" stop-color="${mid}"/><stop offset="1" stop-color="${outer}" stop-opacity=".85"/></radialGradient></defs><path d="M10 0C13 9 19 16 19 26C19 34 15 40 10 40C5 40 1 34 1 26C1 18 7 12 10 0Z" fill="url(#${id})"/></svg>`;
+	// The fire (§16; the user, 2026-11-21: "soft firelight, flowing"): the firebox's glow and the embers'
+	// pulse behind three blurred layers of flame, each six poses that fade into one another (room-motion.ts),
+	// the white-hot core between the outer flame and the two that add their light to it. The flat flame
+	// space is stretched over the opening's box, in percent of the fire's box.
+	const corners = doorOutline.map(([s, t]) => inBox(s, t));
+	const aL = Math.min(...corners.map((c) => c[0]));
+	const aT = Math.min(...corners.map((c) => c[1]));
+	const aW = Math.max(...corners.map((c) => c[0])) - aL;
+	const aH = Math.max(...corners.map((c) => c[1])) - aT;
+	const inSpace = (x0: number, y0: number, x1: number, y1: number) =>
+		`left:${n(aL + (aW * x0) / FLAME_SPACE.width)}%;top:${n(
+			aT + (aH * y0) / FLAME_SPACE.height
+		)}%;width:${n((aW * (x1 - x0)) / FLAME_SPACE.width)}%;height:${n(
+			(aH * (y1 - y0)) / FLAME_SPACE.height
+		)}%`;
+	const whole = inSpace(0, 0, FLAME_SPACE.width, FLAME_SPACE.height);
 	const flames =
-		`<div class="ps-ym-tongue ps-ym-t1" style="${at(6, 20, 34)}">${tongue(
-			"ps-yt-tongue-1",
-			"#e2582a",
-			"#ffb347",
-			"#ffe7a0"
-		)}</div>` +
-		`<div class="ps-ym-tongue ps-ym-t3" style="${at(34, 20, 31)}">${tongue(
-			"ps-yt-tongue-3",
-			"#e2582a",
-			"#ffb347",
-			"#ffe7a0"
-		)}</div>` +
-		`<div class="ps-ym-tongue ps-ym-t2" style="${at(19, 22, 42)}">${tongue(
-			"ps-yt-tongue-2",
-			"#d9481f",
-			"#ffa33a",
-			"#fff2c2"
-		)}</div>` +
-		`<div class="ps-ym-core" style="${at(22, 16, 20)}">${tongue(
-			"ps-yt-core",
-			"#ffcf6a",
-			"#ffe7a0",
-			"#fff6c0"
-		)}</div>` +
-		(
-			[
-				[18, 2.2, -0.3],
-				[30, 2.6, -1.1],
-				[40, 1.9, -1.8],
-				[25, 2.4, -0.7],
-			] as const
-		)
-			.map(([left, sd, sdl]) => {
-				const [x, y] = inBox(OPEN.s0 + left * U, 0.36);
-				return `<div class="ps-ym-spark" style="left:${n(x)}%;bottom:${n(
-					100 - y
-				)}%;--sd:${sd}s;--sdl:${sdl}s"></div>`;
-			})
-			.join("");
+		`<div class="ps-ym-fback" style="${whole}"></div>` +
+		`<div class="ps-ym-fembers" style="${inSpace(
+			0,
+			45,
+			FLAME_SPACE.width,
+			FLAME_SPACE.height
+		)}"></div>` +
+		FLAME_LAYERS.map(
+			(L, li) =>
+				(li === 1
+					? `<div class="ps-ym-hotcore" style="${inSpace(
+							cb.x0,
+							cb.y0,
+							cb.x1,
+							cb.y1
+					  )}"></div>`
+					: "") +
+				`<div class="ps-ym-fl ps-ym-fl-${L.name}" style="${whole}">` +
+				Array.from(
+					{length: FLAME_POSES},
+					(_, k) =>
+						`<div class="ps-ym-fpose" style="--fk:${k}">${flameSvg(
+							L,
+							k,
+							`ps-yt-fl-${L.name}-${k}`
+						)}</div>`
+				).join("") +
+				`</div>`
+		).join("");
 	let moving =
 		`<div class="ps-ym-fire" style="${place(fireBox)};clip-path:polygon(${clip})">` +
 		`<div class="ps-ym-flames">${flames}</div>` +
