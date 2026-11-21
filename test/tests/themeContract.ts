@@ -118,7 +118,14 @@ function surfaces(theme: string, scheme: "light" | "dark", names: Set<string>): 
 
 	for (const css of themeCss) {
 		for (const b of blocks(css)) {
-			if (b.prelude !== ":root" && !b.prelude.startsWith("@") && inScheme(b.at, scheme)) {
+			// :root under another condition (a width query, a contrast or platform
+			// attribute is a selector of its own) is a variant too: a phone's
+			// palette must hold its floors like the desk's.
+			const scoped =
+				b.prelude !== ":root" ||
+				!!b.at.replace(/@media \(prefers-color-scheme: (light|dark)\)/g, "").trim();
+
+			if (scoped && !b.prelude.startsWith("@") && inScheme(b.at, scheme)) {
 				const where = b.at ? `${b.at} ${b.prelude}` : b.prelude;
 				byWhere.set(where, {...byWhere.get(where), ...customProperties(b.body)});
 			}
@@ -128,11 +135,15 @@ function surfaces(theme: string, scheme: "light" | "dark", names: Set<string>): 
 	for (const [where, props] of byWhere) {
 		if (Object.keys(props).some((n) => names.has(n))) {
 			// A block scoped inside another variant's selector (ps's night
-			// chat under its night :root) inherits that variant's tokens too.
+			// chat under its night :root) inherits that variant's tokens too,
+			// and so does one that qualifies it from above (zelenzy's dialogs
+			// under Increase Contrast, `html[data-contrast="more"] <dialogs>`).
 			const outer = [...byWhere.keys()]
 				.filter(
 					(w) =>
-						w !== where && where.startsWith(w) && /^[\s:[]/.test(where.slice(w.length))
+						w !== where &&
+						((where.startsWith(w) && /^[\s:[]/.test(where.slice(w.length))) ||
+							(where.endsWith(w) && /\s$/.test(where.slice(0, -w.length))))
 				)
 				.sort((a, b) => a.length - b.length)
 				.map((w) => byWhere.get(w));
@@ -273,12 +284,17 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			["--chat-bg", "--chat-fg", 4.5],
 			["--chat-bg", "--chat-fg-muted", 4.5],
 			["--chat-bg", "--event-join", 3],
+			// The rail is a gradient between these two: both ends hold.
 			["--rail-bg-top", "--rail-fg", 4.5],
+			["--rail-bg-bottom", "--rail-fg", 4.5],
 		];
 		// Known and recorded, not to be copied: day is TheLounge's original
 		// light theme, kept as it was (docs/projects/accessibility.md).
-		const KNOWN: Record<string, string> = {
-			"day --link-color on --window-bg-color": "TheLounge's own link green, 3.0:1",
+		// Each is a floor of its own, at today's ratio: the exception keeps the
+		// colour as it is, and anything worse still fails.
+		const KNOWN: Record<string, number> = {
+			// TheLounge's own link green, 3.0:1.
+			"day --link-color on --window-bg-color": 2.95,
 		};
 
 		// What each surface is painted over, out to the page's own canvas: a
@@ -288,11 +304,21 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			"--window-bg-color": "--body-bg-color",
 			"--chat-bg": "--body-bg-color",
 			"--rail-bg-top": "--body-bg-color",
+			"--rail-bg-bottom": "--body-bg-color",
 		};
 		// Surfaces with nothing opaque under them in CSS (a shell's material or a
 		// scene would show through) have no ratio to compute from the files. None
 		// do today; one added here is a decision, not an accident.
 		const SEE_THROUGH = new Set<string>();
+		// Blocks whose text is painted on a picture, not on the surface tokens:
+		// ps's light words sit on the scene, and tools/scenarios/theme-ps.mjs
+		// measures them there. Named, so any other block that re-maps one side
+		// of a pair is measured against what it inherits.
+		const ON_A_PICTURE = [/^ps .*\[data-ps-text="light"\]/];
+		// The chat's own surfaces are painted inside #chat only (style.css's
+		// `#chat … .msg.highlight`, the chat pane), so a block scoped away from
+		// it (zelenzy's dialogs) has none of them.
+		const CHAT_ONLY = new Set(["--chat-bg", "--highlight-bg-color"]);
 		const LOUNGE_ONLY = new Set(["day", "morning"]);
 		const names = new Set(PAIRS.flatMap(([surface, ink]) => [surface, ink]));
 
@@ -306,11 +332,11 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 					for (const {where, tokens, own} of surfaces(theme, scheme, names)) {
 						const colour = (token: string) => {
 							const value = resolve(tokens, tokens[token]);
-							const rgba = value && toRGBA(value);
+							const rgba = value ? toRGBA(value) : undefined;
 							expect(
-								rgba,
-								`${theme} ${token} in ${where} resolves (${value})`
-							).to.not.equal(undefined);
+								Array.isArray(rgba) && rgba.every((n) => Number.isFinite(n)),
+								`${theme} ${token} in ${where} resolves to a colour (${value})`
+							).to.equal(true);
 							return rgba as RGBA;
 						};
 						// The surface laid over its grounds; undefined if it stays see-through.
@@ -345,7 +371,15 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 							// A block that re-maps only one side of a pair is painted over
 							// something this file cannot see (ps's light words go on the
 							// scene), so it is measured only where it sets both.
-							if (own && !(own.has(surface) && own.has(ink))) {
+							if (own && !own.has(surface) && !own.has(ink)) {
+								continue;
+							}
+
+							if (
+								own &&
+								(ON_A_PICTURE.some((re) => re.test(`${theme} ${where}`)) ||
+									(CHAT_ONLY.has(surface) && where.includes(":not(#chat)")))
+							) {
 								continue;
 							}
 
@@ -358,9 +392,13 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 							}
 
 							const ratio = contrast(over(colour(ink), bg), bg);
+							expect(
+								Number.isFinite(ratio),
+								`${label} (${where}) is a number`
+							).to.equal(true);
 							checked++;
 
-							if (ratio < floor && !KNOWN[label]) {
+							if (ratio < (KNOWN[label] ?? floor)) {
 								failures.push(
 									`${label} (${scheme}, ${where}): ${ratio.toFixed(2)} < ${floor}`
 								);
