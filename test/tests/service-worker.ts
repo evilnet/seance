@@ -4023,3 +4023,98 @@ describe("service worker away on close", function () {
 		expect(second.bornAt).to.be.greaterThan(first.quitAt as number);
 	});
 });
+
+describe("service worker theme stylesheets (themes.md, pwa.md § Offline cold start)", function () {
+	it("offline, a theme from an older build's tab is matched without its ?v=", async function () {
+		const sw = makeSW();
+		const asked: Array<{url: string; ignoreSearch: boolean}> = [];
+
+		sw.sandbox.fetch = (): Promise<never> => Promise.reject(new TypeError("Failed to fetch"));
+		sw.sandbox.caches.open = (): Promise<any> =>
+			Promise.resolve({
+				match(request: {url: string}, options?: {ignoreSearch?: boolean}) {
+					asked.push({url: request.url, ignoreSearch: options?.ignoreSearch === true});
+					return Promise.resolve(new Response("x", {status: 200}));
+				},
+				put: (): Promise<void> => Promise.resolve(),
+			});
+
+		const serve = async (url: string) => {
+			let responded: Promise<unknown> = Promise.resolve();
+
+			for (const handler of sw.handlers.fetch ?? []) {
+				handler({
+					request: {url, method: "GET", mode: "no-cors", destination: "style"},
+					clientId: "",
+					respondWith(p: Promise<unknown>) {
+						responded = p;
+					},
+					waitUntil: () => undefined,
+				});
+			}
+
+			await responded;
+		};
+
+		await serve(`${SCOPE}themes/ps.css?v=older`);
+		await serve(`${SCOPE}themes/coffee.css`);
+		await serve(`${SCOPE}css/style.css?v=older`);
+		expect(asked).to.deep.equal([
+			{url: `${SCOPE}themes/ps.css?v=older`, ignoreSearch: true},
+			{url: `${SCOPE}themes/coffee.css`, ignoreSearch: true},
+			// Anything else keeps its version: only a theme stands in for another build's.
+			{url: `${SCOPE}css/style.css?v=older`, ignoreSearch: false},
+		]);
+	});
+
+	it("one failed fetch does not end the install before the rest of the shell is stored", async function () {
+		const sw = makeSW();
+		const stored: string[] = [];
+		const held: Array<() => void> = [];
+		let skipped = false;
+
+		// The push harness never needed URL; precacheShell builds every path with it.
+		sw.sandbox.URL = URL;
+
+		sw.sandbox.skipWaiting = (): Promise<void> => {
+			skipped = true;
+			return Promise.resolve();
+		};
+		// Every theme's fetch fails at once; everything else waits until released.
+		sw.sandbox.fetch = (url: string): Promise<any> =>
+			/\/themes\//.test(url)
+				? Promise.reject(new TypeError("Failed to fetch"))
+				: new Promise((resolve) =>
+						held.push(() =>
+							resolve({
+								ok: true,
+								status: 200,
+								clone: () => ({}),
+								headers: {get: () => null},
+							})
+						)
+				  );
+		sw.sandbox.caches.open = (): Promise<any> =>
+			Promise.resolve({
+				match: (): Promise<undefined> => Promise.resolve(undefined),
+				put(key: string): Promise<void> {
+					stored.push(key);
+					return Promise.resolve();
+				},
+			});
+
+		const waits: Promise<unknown>[] = [];
+
+		for (const handler of sw.handlers.install ?? []) {
+			handler({waitUntil: (p: Promise<unknown>) => waits.push(p)});
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(skipped, "still installing while the shell is being written").to.equal(false);
+		expect(held.length).to.be.greaterThan(0);
+		held.forEach((release) => release());
+		await Promise.all(waits);
+		expect(skipped).to.equal(true);
+		expect(stored).to.include(SCOPE);
+	});
+});

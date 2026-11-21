@@ -91,8 +91,9 @@ function networkOfScope(scope) {
 // Everything a cold start needs, so that an installed app opens offline
 // straight after the first visit (rather than only after a second load has
 // filled the runtime cache). Versioned assets use the same `?v=` query as
-// index.html so the keys match the requests. Other themes, sounds and icons
-// are cached on first use.
+// index.html so the keys match the requests. Every theme's stylesheet is
+// here too (below); sounds, icons and a theme's own art are cached on first
+// use.
 const shellPaths = [
 	"",
 	"index.html",
@@ -203,7 +204,11 @@ async function precacheShell() {
 	try {
 		const cache = await caches.open(shellCache);
 
-		await Promise.all(
+		// Every path settles before install goes on: one failed fetch (a theme
+		// the network dropped) must not end the wait while the rest of the
+		// shell is still being written, or skipWaiting() would let this
+		// worker sweep the last complete cache for an incomplete one.
+		const results = await Promise.allSettled(
 			shellPaths.map(async (path) => {
 				const response = await fetch(new URL(path, shellUrl).href, {
 					cache: "no-cache",
@@ -215,12 +220,28 @@ async function precacheShell() {
 				}
 			})
 		);
+		const failed = results.filter((r) => r.status === "rejected");
+
+		if (failed.length) {
+			// eslint-disable-next-line no-console
+			console.warn(
+				`Failed to precache ${failed.length} shell file(s):`,
+				failed[0].reason?.message
+			);
+		}
 	} catch (e) {
 		// A failed precache must not prevent the worker from installing; the
 		// runtime cache will fill in on the first successful online load.
 		// eslint-disable-next-line no-console
 		console.warn("Failed to precache app shell:", e.message);
 	}
+}
+
+function isThemeStylesheet(url) {
+	return (
+		url.startsWith(shellUrl) &&
+		/^themes\/[\w-]+\.css(\?|$)/.test(url.substring(shellUrl.length))
+	);
 }
 
 function cacheKeyFor(path) {
@@ -424,7 +445,13 @@ async function fromNetworkOrCache(event) {
 		throw new Error(`Request failed with HTTP ${response.status}`);
 	} catch (e) {
 		const cache = await caches.open(shellCache);
-		let matching = await cache.match(request, {ignoreSearch: navigation});
+		// A theme is matched without its `?v=`: a tab left open across a
+		// deploy still asks for its own build's version (or none, from before
+		// themes carried one), and the new build's copy of the same theme is
+		// a better answer offline than no stylesheet at all.
+		let matching = await cache.match(request, {
+			ignoreSearch: navigation || isThemeStylesheet(request.url),
+		});
 
 		if (!matching && navigation) {
 			matching = await cache.match(shellUrl);
