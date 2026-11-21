@@ -4039,7 +4039,7 @@ describe("service worker theme stylesheets (themes.md, pwa.md § Offline cold st
 				put: (): Promise<void> => Promise.resolve(),
 			});
 
-		const serve = async (url: string) => {
+		const serveTheme = async (url: string) => {
 			let responded: Promise<unknown> = Promise.resolve();
 
 			for (const handler of sw.handlers.fetch ?? []) {
@@ -4056,9 +4056,9 @@ describe("service worker theme stylesheets (themes.md, pwa.md § Offline cold st
 			await responded;
 		};
 
-		await serve(`${SCOPE}themes/ps.css?v=older`);
-		await serve(`${SCOPE}themes/coffee.css`);
-		await serve(`${SCOPE}css/style.css?v=older`);
+		await serveTheme(`${SCOPE}themes/ps.css?v=older`);
+		await serveTheme(`${SCOPE}themes/coffee.css`);
+		await serveTheme(`${SCOPE}css/style.css?v=older`);
 		expect(asked).to.deep.equal([
 			{url: `${SCOPE}themes/ps.css?v=older`, ignoreSearch: true},
 			{url: `${SCOPE}themes/coffee.css`, ignoreSearch: true},
