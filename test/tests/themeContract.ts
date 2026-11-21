@@ -143,19 +143,109 @@ function surfaces(theme: string, scheme: "light" | "dark", names: Set<string>): 
 					(w) =>
 						w !== where &&
 						((where.startsWith(w) && /^[\s:[]/.test(where.slice(w.length))) ||
-							(where.endsWith(w) && /\s$/.test(where.slice(0, -w.length))))
+							(where.endsWith(w) && /\s$/.test(where.slice(0, -w.length))) ||
+							narrows(where, w))
 				)
-				.sort((a, b) => a.length - b.length)
-				.map((w) => byWhere.get(w));
-			variants.push({
-				where,
-				tokens: Object.assign({}, root, ...outer, props),
-				own: new Set(Object.keys(props)),
-			});
+				.sort((a, b) => a.length - b.length);
+			// Custom properties inherit their computed values: a block on a
+			// descendant (zelenzy's dialogs) gets the values :root resolved, not
+			// its declarations, while a block on <html> itself (a width query's
+			// :root, ps by night) is cascaded with :root's and resolved with it.
+			// The blocks on <html> cascade with :root and resolve there; the
+			// blocks below it (this one, and those it sits in or that qualify
+			// it) start from those computed values and resolve among themselves.
+			const layers = [...outer, where];
+			const atRoot = Object.assign(
+				{},
+				root,
+				...layers.filter(onRoot).map((w) => byWhere.get(w))
+			);
+			const below = layers.filter((w) => !onRoot(w)).map((w) => byWhere.get(w));
+			const resolved = below.length
+				? resolveAll(Object.assign(resolveAll(atRoot), ...below))
+				: resolveAll(atRoot);
+
+			variants.push({where, tokens: resolved, own: new Set(Object.keys(props))});
 		}
 	}
 
 	return [{where: ":root", tokens: root}, ...variants];
+}
+
+/** The selector without its at-rule conditions, split at its top-level commas. */
+function branches(where: string): string[] {
+	return topLevel(where.replace(/^(@[^{]*?\)\s*)+/, ""), ",");
+}
+
+/** Split at top-level occurrences of `sep` (a space or a comma), brackets and parens kept whole. */
+function topLevel(text: string, sep: string): string[] {
+	const out: string[] = [];
+	let depth = 0;
+	let start = 0;
+
+	for (let i = 0; i < text.length; i++) {
+		const c = text[i];
+		depth += c === "(" || c === "[" ? 1 : c === ")" || c === "]" ? -1 : 0;
+
+		if (c === sep && depth === 0) {
+			out.push(text.slice(start, i).trim());
+			start = i + 1;
+		}
+	}
+
+	out.push(text.slice(start).trim());
+	return out.filter(Boolean);
+}
+
+const SIMPLE = /:{1,2}[\w-]+(?:\((?:[^()]|\([^()]*\))*\))?|\[[^\]]*\]|[.#]?[\w-]+|\*/g;
+
+/** Whether `where` is `outer` with more qualifiers on the same elements: the same at-rule
+ * conditions, one branch each, the same compounds, and each of `outer`'s compounds contained
+ * in `where`'s (ps's `:root[data-ps-text="light"] #chat .chat` under its shadow family's
+ * `:root:is(…)[data-ps-text="light"] #chat .chat`). Whatever matches `where` matches `outer`. */
+function narrows(where: string, outer: string): boolean {
+	const at = (w: string) => /^(@[^{]*?\)\s*)+/.exec(w)?.[0].trim() ?? "";
+
+	if (at(where) !== at(outer)) {
+		return false;
+	}
+
+	const [inner] = branches(where);
+	const [wide] = branches(outer);
+
+	if (branches(where).length !== 1 || branches(outer).length !== 1) {
+		return false;
+	}
+
+	const a = topLevel(inner, " ");
+	const b = topLevel(wide, " ");
+
+	return (
+		a.length === b.length &&
+		b.every((compound, i) => {
+			const have = new Set(a[i].match(SIMPLE) ?? []);
+			return (compound.match(SIMPLE) ?? []).every((s) => have.has(s));
+		})
+	);
+}
+
+/** Whether a block's selector names <html> itself (no descendant in any branch). */
+function onRoot(where: string): boolean {
+	return branches(where).every((b) =>
+		/^(:root|html)\S*$/.test(b.replace(/\[[^\]]*\]|\([^)]*\)/g, ""))
+	);
+}
+
+/** Every token with its var()s resolved where it is declared; a value that does not resolve is
+ * kept as written, so the check that reads it reports it. */
+function resolveAll(tokens: Record<string, string>): Record<string, string> {
+	const out: Record<string, string> = {};
+
+	for (const [name, value] of Object.entries(tokens)) {
+		out[name] = resolve(tokens, value) ?? value;
+	}
+
+	return out;
 }
 
 /** A value with every var() replaced, fallbacks included; undefined if one is missing. */
@@ -293,8 +383,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 		// Each is a floor of its own, at today's ratio: the exception keeps the
 		// colour as it is, and anything worse still fails.
 		const KNOWN: Record<string, number> = {
-			// TheLounge's own link green, 3.0:1.
-			"day --link-color on --window-bg-color": 2.95,
+			// TheLounge's own link green, 3.03:1.
+			"day --link-color on --window-bg-color": 3.03,
 		};
 
 		// What each surface is painted over, out to the page's own canvas: a
@@ -375,11 +465,17 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 								continue;
 							}
 
-							if (
-								own &&
-								(ON_A_PICTURE.some((re) => re.test(`${theme} ${where}`)) ||
-									(CHAT_ONLY.has(surface) && where.includes(":not(#chat)")))
-							) {
+							// Painted on the scene: a block that sets the ink and leaves
+							// the surface. One that sets both paints its own surface.
+							const onPicture =
+								ON_A_PICTURE.some((re) => re.test(`${theme} ${where}`)) &&
+								!own?.has(surface);
+							// Scoped away from the chat in every branch of its selector.
+							const outsideChat =
+								CHAT_ONLY.has(surface) &&
+								branches(where).every((b) => b.includes(":not(#chat)"));
+
+							if (own && (onPicture || outsideChat)) {
 								continue;
 							}
 
@@ -398,9 +494,13 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 							).to.equal(true);
 							checked++;
 
-							if (ratio < (KNOWN[label] ?? floor)) {
+							const effective = KNOWN[label] ?? floor;
+
+							if (ratio < effective) {
 								failures.push(
-									`${label} (${scheme}, ${where}): ${ratio.toFixed(2)} < ${floor}`
+									`${label} (${scheme}, ${where}): ${ratio.toFixed(
+										2
+									)} < ${effective}`
 								);
 							}
 						}
