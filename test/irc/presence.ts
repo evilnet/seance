@@ -323,6 +323,27 @@ describe("attention and AWAY * (presence.ts)", function () {
 		);
 	});
 
+	it("prints nothing for the bare AWAY that echoes its own return, but shows a real away text", function () {
+		const h = connect();
+		const lobby = h.client.lobby;
+		const before = lobby.shared.totalMessages;
+
+		h.client.setAttended(false);
+		h.sent();
+		h.transport.line(":alice!alice@host AWAY :*");
+		h.client.setAttended(true);
+		h.sent();
+
+		// The self away-notify echo of the automatic AWAY: no text to show,
+		// so a line would be a clock beside nothing.
+		h.transport.line(":alice!alice@host AWAY");
+		expect(lobby.shared.totalMessages, "the bare AWAY echo is noise").to.equal(before);
+
+		// Another connection of the account setting a real away is news.
+		h.transport.line(":alice!alice@host AWAY :lunch");
+		expect(lobby.shared.totalMessages, "a self away with text is shown").to.equal(before + 1);
+	});
+
 	it("shows another user's AWAY * as away without a reason, and says nothing about it", function () {
 		const h = connect();
 		joined(h);
