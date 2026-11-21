@@ -150,6 +150,33 @@ export default async function run(page) {
 			`forced colours: the menu's active row is the system selection (${marks.got})`,
 			marks.got === marks.want
 		);
+		// A selected tab whose button paints its own label (Settings): the
+		// label and icon take the selection's text colour, not the theme's.
+		await page.evaluate(
+			`document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
+		);
+		await page.evaluate(`document.querySelector("#sidebar .icon.settings").click()`);
+		await page.waitFor(
+			`!!document.querySelector('li[role="tab"][aria-selected="true"] button')`,
+			{
+				label: "Settings, with a selected tab",
+			}
+		);
+		const tab = JSON.parse(
+			await page.evaluate(`(() => {
+				const probe = document.createElement("div");
+				probe.style.color = "highlighttext";
+				document.body.append(probe);
+				const want = getComputedStyle(probe).color;
+				probe.remove();
+				const button = document.querySelector('li[role="tab"][aria-selected="true"] button');
+				return JSON.stringify({want, got: getComputedStyle(button).color});
+			})()`)
+		);
+		page.check(
+			`forced colours: the selected Settings tab's label is the selection's text (${tab.got})`,
+			tab.got === tab.want
+		);
 		await page.screenshot("forced-colors-ps");
 		await media([]);
 	} finally {

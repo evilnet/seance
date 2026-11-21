@@ -98,8 +98,18 @@ export function onAndroidSystemStatus(listener: (status: AndroidSystemStatus) =>
 	}
 
 	bridged = true;
-	nativeListen("SystemAccessibility", "changed", fanOut);
-	void nativeCall<AndroidSystemStatus>("SystemAccessibility", "status").then(fanOut);
+	// A change outranks the startup status reply, which may have been read
+	// before it and arrive after it (as on the Apple side, fromAppleShell).
+	let changeSeen = false;
+	nativeListen("SystemAccessibility", "changed", (status: AndroidSystemStatus | null) => {
+		changeSeen ||= !!status;
+		fanOut(status);
+	});
+	void nativeCall<AndroidSystemStatus>("SystemAccessibility", "status").then((status) => {
+		if (!changeSeen) {
+			fanOut(status);
+		}
+	});
 }
 
 const REDUCE_MOTION_QUERY = "(prefers-reduced-motion: reduce)";

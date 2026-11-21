@@ -4197,9 +4197,10 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	pointer-events: none;
 }
 
-/* Reduce Transparency: the toolbar on a solid fill, no blur of the picture. */
-html[data-reduce-transparency] #chat .media-tools {
-	background: rgb(0 0 0 / 85%);
+/* Reduce Transparency: the toolbar over a picture on a solid fill, with no
+ * blur of it (an audio preview's sits on the row itself: below). */
+html[data-reduce-transparency] #chat .toggle-content:not(.toggle-type-audio) .media-tools {
+	background: #000;
 	backdrop-filter: none;
 }
 
@@ -4280,6 +4281,12 @@ html[data-reduce-transparency] #chat .media-tools {
 		opacity: 0.85;
 		transform: none;
 		pointer-events: auto;
+	}
+}
+
+@media (hover: none) {
+	html[data-reduce-transparency] #chat .media-tools {
+		opacity: 1;
 	}
 }
 
@@ -10522,6 +10529,12 @@ html[data-reduce-motion] *::after {
 
 		/* Over the themes' own row fills (ps's menu, a segment's chosen look). */
 		background-color: highlight !important;
+		color: highlighttext !important;
+	}
+
+	/* What paints the label and icon inside it (a Settings or Oper tab's
+	 * button, which sets its own colour) takes the selection's text colour too. */
+	:is([aria-selected="true"], [role="radio"][aria-checked="true"], [aria-pressed="true"]) * {
 		color: highlighttext !important;
 	}
 
