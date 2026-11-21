@@ -120,6 +120,9 @@ importers:
       gemoji:
         specifier: 8.1.0
         version: 8.1.0
+      lightningcss:
+        specifier: 1.33.0
+        version: 1.33.0
       mocha:
         specifier: 12.0.3
         version: 12.0.3
