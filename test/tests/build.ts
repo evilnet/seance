@@ -343,8 +343,47 @@ describe("public folder", function () {
 			"panasync",
 			"day",
 			"morning",
+			"macos",
+			"ps",
 		]) {
 			expect(fs.existsSync(path.join(publicFolder, "themes", `${theme}.css`))).to.be.true;
+		}
+	});
+
+	it("each theme ships as one file: its @import chain bundled in (vite.config.mts bundleTheme)", function () {
+		const sources = fs
+			.readdirSync(path.join(__dirname, "..", "..", "client", "themes"))
+			.filter((f) => f.endsWith(".css"));
+		expect(sources.length).to.be.greaterThan(1);
+
+		for (const file of sources) {
+			const built = fs.readFileSync(path.join(publicFolder, "themes", file), "utf8");
+			expect(built, file).not.to.match(/@import\b/);
+		}
+
+		// What a theme imports is in it: frost's chain ends at day.css's frame,
+		// and macos.css has the frame by day and by night.
+		const frost = fs.readFileSync(path.join(publicFolder, "themes", "frost.css"), "utf8");
+		expect(frost).to.include("#viewport");
+		// macos imports coffee by dark and creama (which imports coffee again)
+		// by light: inlined as the browser would, each half keeps the frame.
+		const macos = fs.readFileSync(path.join(publicFolder, "themes", "macos.css"), "utf8");
+		const halves = macos.split(/@media\s*\(prefers-color-scheme:\s*(?:dark|light)\)/);
+		expect(halves.length, "a block for each scheme").to.be.at.least(3);
+		expect(halves[1], "day.css's frame by dark").to.include("#viewport");
+		expect(halves.slice(2).join(""), "day.css's frame by light").to.include("#viewport");
+	});
+
+	it("every theme is precached, under the build's version (service-worker.js THEMES)", function () {
+		const sw = fs.readFileSync(path.join(publicFolder, "service-worker.js"), "utf8");
+		expect(sw).not.to.include("__THEMES__");
+
+		for (const file of fs.readdirSync(path.join(publicFolder, "themes"))) {
+			if (file.endsWith(".css")) {
+				// Minified, the worker may quote the names with backticks.
+				const name = file.replace(/\.css$/, "");
+				expect(sw, file).to.match(new RegExp(`["'\`]${name}["'\`]`));
+			}
 		}
 	});
 
@@ -377,6 +416,19 @@ describe("public folder", function () {
 		expect(contents).not.to.include("__THEME_PAIRS__");
 		const pairs = JSON.stringify(THEME_PAIRS);
 		expect(contents.includes(pairs) || contents.includes(pairs.replace(/"/g, "`"))).to.be.true;
+	});
+
+	it("loading-error-handlers.js keeps index.html's version on the theme it picks", function () {
+		// Without the query the pre-boot theme misses the precache and
+		// loadTheme (themeHref) loads the theme a second time.
+		const source = fs.readFileSync(
+			path.join(__dirname, "..", "..", "client", "js", "loading-error-handlers.js"),
+			"utf8"
+		);
+		expect(source).to.include(
+			'const version = (themeEl.getAttribute("href") ?? "").replace(/^[^?]*/, "");'
+		);
+		expect(source).to.match(/const href = `themes\/\$\{theme\}\.css\$\{version\}`;/);
 	});
 
 	it("manifest carries the installed-app fields Chrome needs", function () {
@@ -485,6 +537,9 @@ describe("public folder", function () {
 		const inHtml = [...html.matchAll(/\?v=([^"&]+)"/g)].map((m) => m[1]);
 		expect(inHtml).to.not.be.empty;
 		expect(new Set(inHtml)).to.deep.equal(new Set([token]));
+		// The default theme under the same version as the precache key and
+		// themeHref (helpers/themeHref.ts).
+		expect(html).to.include(`themes/coffee.css?v=${token}"`);
 
 		// Oxc's minifier may write the string as a template literal.
 		expect(hasString(bundle, token), "the bundle carries the token").to.be.true;

@@ -150,7 +150,7 @@ async function runPass(page, theme, tag, {desktop}) {
 	});
 
 	const href = await page.evaluate(
-		`document.getElementById("theme")?.getAttribute("href") ?? null`
+		`document.getElementById("theme")?.getAttribute("href")?.replace(/\\?.*$/, "") ?? null`
 	);
 	page.check(
 		`${theme}${tag}: theme link swapped to themes/${theme}.css (${href})`,
