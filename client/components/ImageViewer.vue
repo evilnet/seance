@@ -312,8 +312,19 @@ export default defineComponent({
 			loaded.value = true;
 		};
 
-		const onImageLoad = () => {
-			prepareImage();
+		// The Mac app's WebKit can share the chat preview's decode of the same
+		// URL, made at the preview's small size, and report that size as the
+		// picture's own when `load` fires: a 2496×1664 picture measured as
+		// 384×256 opened at a sixth of the size it fits at. Asking for the
+		// picture decoded first gets its real size; should the size still
+		// change after, the observer below fits it again.
+		const onImageLoad = async () => {
+			const imageEl = image.value;
+			await imageEl?.decode().catch(() => {});
+
+			if (image.value === imageEl) {
+				prepareImage();
+			}
 		};
 
 		// The scale and place the picture comes to rest at from `view`:
@@ -344,7 +355,8 @@ export default defineComponent({
 			dim.value = 1;
 		};
 
-		// The picture kept where it belongs (after a resize, a wheel pan).
+		// The picture kept where it belongs (after a resize, a wheel pan, the
+		// picture's own size coming in late).
 		const correctPosition = () => {
 			// Not yet loaded: its load fits it.
 			if (!viewer.value || link.value === null || !loaded.value) {
@@ -966,6 +978,22 @@ export default defineComponent({
 			Mousetrap.unbind(["left", "right", "plus", "=", "-", "0"]);
 		};
 
+		// The window resized, or the picture's laid-out size changed under it
+		// (its real size arriving after a small shared decode): fit again.
+		const resized = new ResizeObserver(() => correctPosition());
+		const follow = (el?: Element, old?: Element) => {
+			if (old) {
+				resized.unobserve(old);
+			}
+
+			if (el) {
+				resized.observe(el);
+			}
+		};
+
+		watch(viewer, follow);
+		watch(image, follow);
+
 		watch(link, (newLink, oldLink) => {
 			if (newLink === null) {
 				// Closed under a finger (Android's back, Escape): the <img> it
@@ -976,7 +1004,6 @@ export default defineComponent({
 				loaded.value = false;
 				setImageViewerOpen(false);
 				eventbus.off("escapekey", onEscape);
-				eventbus.off("resize", correctPosition);
 				unbindKeys();
 				return;
 			}
@@ -999,7 +1026,6 @@ export default defineComponent({
 				dim.value = 1;
 				setImageViewerOpen(true);
 				eventbus.on("escapekey", onEscape);
-				eventbus.on("resize", correctPosition);
 				bindKeys();
 			}
 		});
