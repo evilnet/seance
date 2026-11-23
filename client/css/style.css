@@ -3921,9 +3921,11 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 	cursor: zoom-in;
 }
 
+/* Inset: .toggle-content clips its overflow, so a ring outside the box
+ * would never show. */
 #chat .toggle-thumbnail:focus-visible {
 	outline: 2px solid var(--button-color);
-	outline-offset: 1px;
+	outline-offset: -2px;
 }
 
 /* The still an animation holds after its one play (LinkPreview.vue); it is
