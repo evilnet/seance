@@ -3,7 +3,8 @@
  * side. While a logged-in user's session is "held", a dropped connection
  * leaves no channel: the next connection with the same account resumes the
  * session and, right behind the MOTD, the server replays the membership it
- * kept as a `BATCH +ref draft/persistence` of JOIN (with the original
+ * kept as a `BATCH +ref draft/persistence` (or, once nefarious2 moves it,
+ * the vendor name in {@link PERSISTENCE_NAMES}) of JOIN (with the original
  * `@time`/`msgid`), 332/333, MARKREAD and NAMES per channel
  * (`bouncer_session.c` `bounce_send_channel_state`). A client that
  * requested the cap is also told between 005 and the MOTD end whether it is
@@ -46,12 +47,31 @@ import {presenceResumed} from "./presence";
 /** The persistence cap, and the profile every account has implicitly. */
 export const PERSISTENCE_CAP = "draft/persistence";
 export const PERSISTENCE_PROFILE = "default";
+/**
+ * The vendor capability nefarious2 moved its extras to (ATTACH, DETACH,
+ * LIST, PROFILE, REPLAY, the `attach-cursor` token and the session's
+ * restoration batch), leaving `draft/persistence` exactly as the spec defines
+ * it (`ircv3.2-upgrade` from befea9a6, N027). Since fa9ecc20 its
+ * `PERSISTENCE_DRAFT_EXTRAS` defaults off, so a client without this cap gets
+ * no `attach-cursor`, no restoration batch and no bouncer-replay wrapper. Both
+ * names are read, for servers built before the move or with the flag on: the
+ * cap's value for the `attach-cursor` token, and either name as the
+ * restoration batch's type.
+ */
+export const PERSISTENCE_EXT_CAP = "evilnet.github.io/persistence";
+/**
+ * Both persistence names, old first: the caps whose value may carry the
+ * `attach-cursor` token, and the batch types a server opens to restore a
+ * held session.
+ */
+export const PERSISTENCE_NAMES: readonly string[] = [PERSISTENCE_CAP, PERSISTENCE_EXT_CAP];
 /** CAP 302 token that says `PERSISTENCE ATTACH` takes a catch-up cursor. */
 export const ATTACH_CURSOR_TOKEN = "attach-cursor";
 /** nefarious2 stores the cursor in `con_attach_cursor[64]`, so 63 bytes fit. */
 export const MAX_CURSOR_BYTES = 63;
 /** Outer batch type wrapping the server-driven catch-up (`ircd/replay.c`). */
 export const BOUNCER_REPLAY_BATCH = "evilnet.github.io/bouncer-replay";
+const BOUNCER_REPLAY_TYPES: readonly string[] = [BOUNCER_REPLAY_BATCH];
 /** The NOTICE `replay_send_summary` closes that replay with. */
 const REPLAY_SUMMARY = /^Session resumed\. (?:Replayed \d+ message|You are in \d+ channel)/;
 
@@ -149,7 +169,7 @@ export function noteRestorationActivity(client: IrcClient): void {
  */
 function restorationBatchOpen(client: IrcClient): boolean {
 	for (const open of openBatchesOf(client).values()) {
-		if (open.type === PERSISTENCE_CAP) {
+		if (PERSISTENCE_NAMES.includes(open.type)) {
 			return true;
 		}
 	}
@@ -191,7 +211,8 @@ function clearWait(state: RestoreState): void {
 }
 
 /**
- * The `draft/persistence` batch: run its lines through the normal handlers
+ * The session's restoration batch (`draft/persistence`, or its vendor name,
+ * {@link PERSISTENCE_NAMES}): run its lines through the normal handlers
  * in restoring mode (state only, no lines), then JOIN whatever the server
  * did not give back — if the autojoin was waiting for this.
  */
@@ -222,18 +243,17 @@ export const persistenceBatch: BatchHandler = (client, batch) => {
 
 /**
  * True when the server takes a catch-up cursor on `PERSISTENCE ATTACH`
- * (`draft/persistence=attach,detach,list,attach-cursor`, `ircd.c`). The
- * value is a comma-separated token list and unknown tokens are expected, so
- * only the exact token counts.
+ * (`draft/persistence=attach,detach,list,attach-cursor`, `ircd.c`; later the
+ * same token on {@link PERSISTENCE_EXT_CAP}), on a cap the server enabled.
+ * The value is a comma-separated token list and unknown tokens are expected,
+ * so only the exact token counts.
  */
 export function supportsAttachCursor(caps: CapNegotiator): boolean {
-	const value = caps.value(PERSISTENCE_CAP);
-
-	if (value === undefined) {
-		return false;
-	}
-
-	return value.split(",").some((token) => token.trim() === ATTACH_CURSOR_TOKEN);
+	return PERSISTENCE_NAMES.some(
+		(cap) =>
+			caps.hasCapability(cap) &&
+			(caps.value(cap) ?? "").split(",").some((token) => token.trim() === ATTACH_CURSOR_TOKEN)
+	);
 }
 
 /**
@@ -322,17 +342,17 @@ export function persistenceFailed(client: IrcClient, msg: IrcMessage): boolean {
 
 /** True when `batch` is, or is nested in, the server's bouncer-replay wrapper. */
 export function inBouncerReplay(batch: OpenBatch): boolean {
-	return within(batch, BOUNCER_REPLAY_BATCH);
+	return within(batch, BOUNCER_REPLAY_TYPES);
 }
 
 /** True when `batch` is, or is nested in, the server's session restoration. */
 export function inRestoration(batch: OpenBatch): boolean {
-	return within(batch, PERSISTENCE_CAP);
+	return within(batch, PERSISTENCE_NAMES);
 }
 
-function within(batch: OpenBatch, type: string): boolean {
+function within(batch: OpenBatch, types: readonly string[]): boolean {
 	for (let b: OpenBatch | undefined = batch; b; b = b.parent) {
-		if (b.type === type) {
+		if (types.includes(b.type)) {
 			return true;
 		}
 	}
@@ -387,11 +407,11 @@ export function isRoutineReplayNotice(client: IrcClient, msg: IrcMessage): boole
  * is already on its way. That is the point of the cursor: one server-driven
  * batch instead of `TARGETS` + N × `CHATHISTORY`.
  *
- * Only for the server's own restoration JOINs (inside the `draft/persistence`
- * batch, or while the autojoin is still held for an unbatched burst) and only
- * for a channel we already hold messages for, complete up to its newest line
- * (`Channel.historyFilled`; after a page load that is what the device kept,
- * conversationStore.ts). A channel the autojoin had to
+ * Only for the server's own restoration JOINs (inside the restoration batch,
+ * either name, or while the autojoin is still held for an unbatched burst) and
+ * only for a channel we already hold messages for, complete up to its newest
+ * line (`Channel.historyFilled`; after a page load that is what the device
+ * kept, conversationStore.ts). A channel the autojoin had to
  * JOIN itself was not in the session when the replay ran, and a channel we
  * have nothing for (a fresh page load) still needs its `CHATHISTORY LATEST`
  * fill — the replay only carries the gap since the cursor, which can be

@@ -30,10 +30,15 @@ function joinBurst(topic: string, tag = ""): string[] {
 	];
 }
 
-/** The `draft/persistence` batch restoring #seance (and optionally more channels). */
-function restore(h: Harness, topic: string, extra: string[] = []): void {
+/** The restoration batch (`type`: `draft/persistence` or its vendor name) restoring #seance (and optionally more channels). */
+function restore(
+	h: Harness,
+	topic: string,
+	extra: string[] = [],
+	type = "draft/persistence"
+): void {
 	const tag = "@batch=p1 ";
-	h.transport.line(":irc.test BATCH +p1 draft/persistence");
+	h.transport.line(`:irc.test BATCH +p1 ${type}`);
 	h.transport.line(
 		"@batch=p1;time=2026-08-20T10:00:00.000Z;msgid=j1 :alice!alice@host JOIN #seance alice :Alice"
 	);
@@ -229,6 +234,20 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(sent.filter((l) => l.includes("#other"))).to.deep.equal(["JOIN #other"]);
 		});
 
+		it("takes the restoration batch under its vendor name too", function () {
+			const h = setup({join: "#seance,#other"});
+			const seance = h.client.findChannel("#seance")!;
+			register(h, `${CAPS} evilnet.github.io/persistence`, HOLD);
+			expect(awaitingRestoration(h.client)).to.equal(true);
+			restore(h, "Welcome", [], "evilnet.github.io/persistence");
+
+			expect(seance.state).to.equal(ChanState.JOINED);
+			expect(seance.shared.topic).to.equal("Welcome");
+			expect(types(h, seance.id)).to.deep.equal([]);
+			expect(awaitingRestoration(h.client)).to.equal(false);
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
+		});
+
 		it("a drop and a resumed session: nothing is shown, history is fetched from LATEST back to the newest line", function () {
 			const h = setup();
 			const seance = h.client.findChannel("#seance")!;
@@ -415,26 +434,28 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
 		});
 
-		it("holds the autojoin through a pause inside an open restoration batch", function () {
-			// A retransmit on a phone: the batch is open, nothing arrives for
-			// longer than the quiet period, then the rest comes.
-			const h = setup({join: "#seance,#other"});
-			register(h, CAPS, HOLD);
-			clock.tick(RESTORE_WAIT_MS - RESTORE_QUIET_MS);
-			h.transport.lines(
-				":irc.test BATCH +p1 draft/persistence",
-				"@batch=p1 :alice!alice@host JOIN #seance alice :Alice"
-			);
-			clock.tick(RESTORE_QUIET_MS * 3);
-			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
-			expect(awaitingRestoration(h.client)).to.equal(true);
+		for (const type of ["draft/persistence", "evilnet.github.io/persistence"]) {
+			it(`holds the autojoin through a pause inside an open restoration batch (${type})`, function () {
+				// A retransmit on a phone: the batch is open, nothing arrives for
+				// longer than the quiet period, then the rest comes.
+				const h = setup({join: "#seance,#other"});
+				register(h, CAPS, HOLD);
+				clock.tick(RESTORE_WAIT_MS - RESTORE_QUIET_MS);
+				h.transport.lines(
+					`:irc.test BATCH +p1 ${type}`,
+					"@batch=p1 :alice!alice@host JOIN #seance alice :Alice"
+				);
+				clock.tick(RESTORE_QUIET_MS * 3);
+				expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+				expect(awaitingRestoration(h.client)).to.equal(true);
 
-			h.transport.lines(
-				"@batch=p1 :irc.test 366 alice #seance :End of /NAMES list.",
-				":irc.test BATCH -p1"
-			);
-			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
-		});
+				h.transport.lines(
+					"@batch=p1 :irc.test 366 alice #seance :End of /NAMES list.",
+					":irc.test BATCH -p1"
+				);
+				expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
+			});
+		}
 
 		it("keeps holding the autojoin while another restoration batch is still open", function () {
 			const h = setup({join: "#seance,#other"});
