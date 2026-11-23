@@ -148,7 +148,7 @@
 				<dl v-else>
 					<template v-for="row in rows" :key="row.label">
 						<dt>{{ row.label }}</dt>
-						<dd :dir="row.ltr ? 'ltr' : undefined" :class="{mono: row.mono}">
+						<dd :dir="row.ltr ? 'ltr' : undefined" :class="{'oper-mono': row.mono}">
 							{{ row.value }}
 						</dd>
 					</template>
@@ -165,13 +165,13 @@
 					{{ t("avatar.stopPerson", {nick: data.nick}) }}
 				</button>
 				<span v-else-if="answeredAt" class="user-card-updated">{{
-					t("profile.updated", {time: updatedText})
+					t("profile.updated", {time: formatRelativeTime(answeredAt)})
 				}}</span>
 				<button
 					v-if="status !== 'loading'"
 					type="button"
 					class="btn btn-sm user-card-refresh"
-					@click="lookUp"
+					@click="lookUp(true)"
 				>
 					{{ t("profile.refresh") }}
 				</button>
@@ -427,11 +427,6 @@ button.user-card-avatar {
 	overflow-wrap: anywhere;
 }
 
-.user-card-section dd.mono {
-	font-family: monospace;
-	font-size: 0.75rem;
-}
-
 .user-card-skeleton {
 	display: flex;
 	flex-direction: column;
@@ -464,10 +459,6 @@ button.user-card-avatar {
 	border-block-start: 1px solid rgb(128 128 128 / 20%);
 	font-size: 0.75rem;
 	color: var(--body-color-muted);
-}
-
-.user-card-foot > :first-child {
-	flex: 1;
 }
 
 .user-card-foot .user-card-refresh {
@@ -520,7 +511,7 @@ button.user-card-avatar {
 // a veiled picture loads only when asked.
 import {computed, defineComponent, inject, nextTick, onMounted, onUnmounted, ref} from "vue";
 import {useRouter} from "vue-router";
-import type {WhoisData, WhoisProfileStatus} from "../../shared/types/whois";
+import type {WhoisData, WhoisProfileAnswer, WhoisProfileStatus} from "../../shared/types/whois";
 import {
 	avatarsEnabled,
 	isPersonTrusted,
@@ -531,13 +522,17 @@ import {
 } from "../js/avatars/prefs";
 import {accountFor, viewFor} from "../js/avatars/view";
 import eventbus from "../js/eventbus";
+import {channelByName} from "../js/helpers/channelByName";
 import colorClass from "../js/helpers/colorClass";
+import {focusInput} from "../js/helpers/compose";
 import {queryUser} from "../js/helpers/contextMenu";
+import findChannels from "../js/helpers/ircmessageparser/findChannels";
 import {trustHost} from "../js/helpers/mediaTrust";
 import {useI18n} from "../js/i18n";
 import {KEEP} from "../js/i18n/core";
 import {formatRelativeTime} from "../js/i18n/dates";
 import {namesEqual} from "../js/irc/casemap";
+import {AWAY_STAR} from "../js/irc/presence";
 import {switchToChannel} from "../js/router";
 import socket from "../js/socket";
 import {useStore} from "../js/store";
@@ -607,11 +602,10 @@ export default defineComponent({
 			const list: {kind: string; text: string}[] = [];
 
 			if (w?.away !== undefined) {
-				// "*" is draft/pre-away's "away, no reason given" (handlers/whois.ts).
 				list.push({
 					kind: "away",
 					text:
-						w.away === "*"
+						w.away === AWAY_STAR
 							? t("profile.awayNoMessage")
 							: t("profile.away", {message: w.away}),
 				});
@@ -649,19 +643,13 @@ export default defineComponent({
 				return {shared, others};
 			}
 
-			const symbols = network.serverOptions.PREFIX.symbols;
+			const text = whois.value.channels;
+			const {CHANTYPES, PREFIX} = network.serverOptions;
 
-			for (const entry of whois.value.channels.split(" ").filter(Boolean)) {
-				let cut = 0;
-
-				while (cut < entry.length - 1 && symbols.includes(entry[cut])) {
-					cut++;
-				}
-
-				const name = entry.slice(cut);
-
-				if (network.channels.some((c) => sameNick(c.name, name))) {
-					shared.push({name, prefix: entry.slice(0, cut)});
+			for (const {channel: name, start} of findChannels(text, CHANTYPES, PREFIX.symbols)) {
+				if (channelByName(network, name)) {
+					const prefix = text.slice(text.lastIndexOf(" ", start - 1) + 1, start);
+					shared.push({name, prefix});
 				} else {
 					others.push(name);
 				}
@@ -674,15 +662,15 @@ export default defineComponent({
 			const w = whois.value;
 			const list: Row[] = [];
 
-			if (!w) {
-				if (data.value?.address) {
-					list.push({label: t("profile.address"), value: data.value.address, ltr: true});
-				}
+			const address = w ? `${w.ident}@${w.hostname}` : data.value?.address;
 
-				return list;
+			if (address) {
+				list.push({label: t("profile.address"), value: address, ltr: true});
 			}
 
-			list.push({label: t("profile.address"), value: `${w.ident}@${w.hostname}`, ltr: true});
+			if (!w) {
+				return list;
+			}
 
 			if (w.actual_ip || w.actual_hostname) {
 				const real = [w.actual_hostname, w.actual_ip].filter(Boolean).join(" ");
@@ -718,11 +706,7 @@ export default defineComponent({
 			return list;
 		});
 
-		const updatedText = computed(() =>
-			answeredAt.value ? formatRelativeTime(answeredAt.value) : ""
-		);
-
-		const lookUp = () => {
+		const lookUp = (fresh = false) => {
 			if (!data.value) {
 				return;
 			}
@@ -731,15 +715,11 @@ export default defineComponent({
 			socket.emit("whois:profile:ask", {
 				network: data.value.network.uuid,
 				nick: data.value.nick,
+				fresh,
 			});
 		};
 
-		const onProfile = (answer: {
-			network: string;
-			nick: string;
-			status: WhoisProfileStatus;
-			whois?: WhoisData;
-		}) => {
+		const onProfile = (answer: WhoisProfileAnswer) => {
 			if (
 				!data.value ||
 				answer.network !== data.value.network.uuid ||
@@ -829,14 +809,16 @@ export default defineComponent({
 				return;
 			}
 
+			// At the start, the nick-postfix setting follows it as Tab completion's does.
 			const chan = current.channel;
 			const draft = chan.pendingMessage;
+			const postfix = store.state.settings.nickPostfix || ": ";
 			chan.pendingMessage =
-				draft === ""
-					? `${current.nick}: `
+				draft.trim() === ""
+					? `${current.nick}${postfix}`
 					: `${draft.replace(/\s*$/, " ")}${current.nick} `;
 			switchToChannel(chan);
-			eventbus.emit("input:focus");
+			void nextTick(focusInput);
 		};
 
 		// The user menu (Ignore, op actions, Whois in the chat …) where the button is.
@@ -848,10 +830,10 @@ export default defineComponent({
 				return;
 			}
 
-			const user = current.channel.users.find((u) => sameNick(u.nick, current.nick));
+			// ContextMenu finds the user's modes in the channel itself.
 			eventbus.emit("contextmenu:user", {
 				event,
-				user: user ?? {nick: current.nick, modes: []},
+				user: {nick: current.nick, modes: []},
 				network: current.network,
 				channel: current.channel,
 				address: current.address,
@@ -896,7 +878,7 @@ export default defineComponent({
 			status,
 			whois,
 			answeredAt,
-			updatedText,
+			formatRelativeTime,
 			badges,
 			channels,
 			rows,

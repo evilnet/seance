@@ -172,11 +172,11 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 	});
 
 	// The user profile (UserCard.vue): a quiet WHOIS, answered as `whois:profile`.
-	bus.handle("whois:profile:ask", ({network, nick}) => {
+	bus.handle("whois:profile:ask", ({network, nick, fresh}) => {
 		const client = registry.clientForNetwork(network);
 
 		if (client) {
-			client.requestProfile(nick);
+			client.requestProfile(nick, fresh);
 		} else {
 			bus.dispatch("whois:profile", {network, nick, status: "unavailable"});
 		}

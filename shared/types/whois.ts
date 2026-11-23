@@ -54,3 +54,11 @@ export interface WhoisData {
  * nick, `unavailable` when the server could not be asked or did not answer.
  */
 export type WhoisProfileStatus = "online" | "offline" | "unavailable";
+
+/** The `whois:profile` payload. */
+export type WhoisProfileAnswer = {
+	network: string;
+	nick: string;
+	status: WhoisProfileStatus;
+	whois?: WhoisData;
+};

@@ -17,8 +17,6 @@ import {AWAY_STAR} from "../presence";
 import {isIp} from "../profiles/report";
 import {pendingLabelSpent} from "../pending";
 
-export type {WhoisData};
-
 const pending = new WeakMap<IrcClient, Map<string, WhoisData>>();
 
 /**
@@ -99,21 +97,23 @@ function finish(client: IrcClient, msg: IrcMessage, whowas: boolean): void {
 	const data = map.get(key);
 	map.delete(key);
 
-	if (collecting) {
-		if (data && data.ident !== undefined) {
-			if (whowas) {
-				data.whowas = true;
-			}
+	const found = data && data.ident !== undefined ? data : null;
 
-			stamp(data);
-			collecting.done = data;
+	if (found) {
+		if (whowas) {
+			found.whowas = true;
 		}
 
+		stamp(found);
+	}
+
+	if (collecting) {
+		collecting.done = found;
 		return;
 	}
 
 	// Errors never open windows: the nick may contain illegal characters.
-	if (!data || data.ident === undefined) {
+	if (!found) {
 		client.pushMessage(client.lobby, {
 			type: MessageType.ERROR,
 			time: client.timeOf(msg),
@@ -123,15 +123,10 @@ function finish(client: IrcClient, msg: IrcMessage, whowas: boolean): void {
 		return;
 	}
 
-	if (whowas) {
-		data.whowas = true;
-	}
-
-	stamp(data);
 	client.pushMessage(client.lobby, {
 		type: MessageType.WHOIS,
 		time: client.timeOf(msg),
-		whois: data,
+		whois: found,
 		showInActive: true,
 	});
 }
@@ -364,7 +359,7 @@ const away: Handler = (client, msg) => {
 	// It may answer a message of ours whose echo then comes unlabelled.
 	const label = msg.tags.get("label");
 
-	if (label) {
+	if (label && !collecting) {
 		pendingLabelSpent(client, label, nick);
 	}
 
@@ -377,8 +372,11 @@ const away: Handler = (client, msg) => {
 	const state = star ? AWAY_STAR : raw || t("whois.awayNoReason");
 	const inProgress = pendingFor(client).get(client.casefold(nick));
 
-	if (inProgress) {
-		inProgress.away = state;
+	if (inProgress || collecting) {
+		if (inProgress) {
+			inProgress.away = state;
+		}
+
 		return;
 	}
 
@@ -438,7 +436,6 @@ const handlers = {
  * profile's quiet lookup. Null when the reply names no such user.
  */
 export function collectWhois(client: IrcClient, lines: IrcMessage[]): WhoisData | null {
-	const previous = collecting;
 	const run = {map: new Map<string, WhoisData>(), done: null as WhoisData | null};
 	collecting = run;
 
@@ -448,7 +445,7 @@ export function collectWhois(client: IrcClient, lines: IrcMessage[]): WhoisData 
 			handler?.(client, msg);
 		}
 	} finally {
-		collecting = previous;
+		collecting = null;
 	}
 
 	return run.done;

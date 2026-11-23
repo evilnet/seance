@@ -77,7 +77,7 @@ import {bindNetwork} from "../avatars/registry";
 import {resetModeLists} from "./handlers/lists";
 import {resetWho} from "./handlers/who";
 import {collectWhois, resetWhois} from "./handlers/whois";
-import type {WhoisData, WhoisProfileStatus} from "../../../shared/types/whois";
+import type {WhoisData, WhoisProfileAnswer, WhoisProfileStatus} from "../../../shared/types/whois";
 import {CLOSED_KEY, ClosedQueries, closedQueriesKept, encodeClosed} from "./closedQueries";
 import {
 	CONCAT_LINE_TAG_BYTES,
@@ -307,6 +307,9 @@ export const SASL_TRUSTED_RETRIES = 3;
 /** Trailing throttle on writing the catch-up cursor to localStorage. */
 export const CURSOR_SAVE_INTERVAL_MS = 1000;
 
+/** How long the user profile reuses a WHOIS answer before asking again. */
+export const PROFILE_REUSE_MS = 60_000;
+
 /** `METADATA * SET <key> private :` (nefarious2's private write), the value follows. */
 function metadataSetPrefix(key: string): string {
 	return `METADATA * SET ${key} private :`;
@@ -448,6 +451,11 @@ export class IrcClient {
 	readonly channelList = new ChannelList();
 	/** The Bans window's rows, per channel (banList.ts). */
 	readonly bans = new BanLists((name) => this.casefold(name));
+	/** The user profile's lookups by folded nick: under way, or answered at `at`. */
+	private readonly profiles = new Map<
+		string,
+		{at: number; pending: boolean; answer: Promise<WhoisProfileAnswer>}
+	>();
 	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
 	 * cleared with ISUPPORT, since the next connection may be another server. */
 	learnedNickLen: number | undefined;
@@ -2179,6 +2187,7 @@ export class IrcClient {
 		resetMultiline(this);
 		// Replies the close cut off before their end numeric never end.
 		resetWhois(this);
+		this.profiles.clear();
 		resetWho(this);
 		resetModeLists(this);
 		abortHistory(this);
@@ -2642,40 +2651,64 @@ export class IrcClient {
 	/**
 	 * The user profile's lookup (`whois:profile:ask`): a labeled WHOIS, and a
 	 * WHOWAS when the nick is not online, read into a record that is
-	 * dispatched as `whois:profile` and never printed in a window. A server
-	 * without `labeled-response` cannot be asked quietly: the profile then
-	 * shows what the client already knows.
+	 * dispatched as `whois:profile` and never printed in a window. Each costs
+	 * a command of fake lag, so an answer is reused for
+	 * {@link PROFILE_REUSE_MS} unless `fresh` (Refresh), and a lookup under
+	 * way is joined, not repeated. A server without `labeled-response`
+	 * cannot be asked quietly: the profile then shows what the client knows.
 	 */
-	requestProfile(nick: string): void {
-		const answer = (status: WhoisProfileStatus, whois?: WhoisData) =>
-			this.bus.dispatch("whois:profile", {network: this.uuid, nick, status, whois});
+	requestProfile(nick: string, fresh = false): void {
+		const key = this.casefold(nick);
+		const kept = this.profiles.get(key);
 
-		if (!this.isWelcomed || !canRequest(this)) {
-			answer("unavailable");
+		if (kept && (kept.pending || (!fresh && Date.now() - kept.at < PROFILE_REUSE_MS))) {
+			void kept.answer.then((answer) => this.bus.dispatch("whois:profile", answer));
 			return;
 		}
 
-		void request(this, formatLine({command: "WHOIS", params: [nick, nick]}), {
-			end: ["318"],
-		}).then(async (reply) => {
-			const online = collectWhois(this, reply.lines);
+		const entry = {at: 0, pending: true, answer: this.lookUpProfile(nick)};
+		this.profiles.set(key, entry);
+		void entry.answer.then((answer) => {
+			entry.pending = false;
+			entry.at = Date.now();
 
-			if (online) {
-				answer("online", online);
-				return;
+			if (answer.status === "unavailable" && this.profiles.get(key) === entry) {
+				this.profiles.delete(key);
 			}
 
-			if (reply.outcome === "timeout" || reply.outcome === "closed") {
-				answer("unavailable");
-				return;
-			}
-
-			const past = await request(this, formatLine({command: "WHOWAS", params: [nick, "1"]}), {
-				end: ["369"],
-			});
-			const gone = collectWhois(this, past.lines);
-			answer("offline", gone ?? undefined);
+			this.bus.dispatch("whois:profile", answer);
 		});
+	}
+
+	private async lookUpProfile(nick: string): Promise<WhoisProfileAnswer> {
+		const answer = (status: WhoisProfileStatus, whois: WhoisData | null = null) => ({
+			network: this.uuid,
+			nick,
+			status,
+			...(whois ? {whois} : {}),
+		});
+
+		if (!this.isWelcomed || !canRequest(this)) {
+			return answer("unavailable");
+		}
+
+		const reply = await request(this, formatLine({command: "WHOIS", params: [nick, nick]}), {
+			end: ["318"],
+		});
+		const online = collectWhois(this, reply.lines);
+
+		if (online) {
+			return answer("online", online);
+		}
+
+		if (reply.outcome === "timeout" || reply.outcome === "closed") {
+			return answer("unavailable");
+		}
+
+		const past = await request(this, formatLine({command: "WHOWAS", params: [nick, "1"]}), {
+			end: ["369"],
+		});
+		return answer("offline", collectWhois(this, past.lines));
 	}
 
 	/** The window's copy of a channel's bans. */

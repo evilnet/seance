@@ -18,7 +18,7 @@ import {
 	SharedServerOptions,
 } from "./network";
 import {SharedMsg, LinkPreview, TypingState} from "./msg";
-import type {WhoisData, WhoisProfileStatus} from "./whois";
+import type {WhoisProfileAnswer} from "./whois";
 import {SharedUser} from "./user";
 import {SharedChangelogData} from "./changelog";
 import {SharedConfiguration, LockedSharedConfiguration} from "./config";
@@ -287,12 +287,7 @@ interface ServerToClientEvents {
 	/** A network's channel list as the client holds it (irc/channelList.ts): on every change of its status, every PROGRESS_EVERY rows, and when the MOTD's featured channels are known. */
 	"channel:list": EventHandler<{network: string; list: SharedChannelList}>;
 	/** The user profile's quiet WHOIS (`whois:profile:ask`), never printed in a window. */
-	"whois:profile": EventHandler<{
-		network: string;
-		nick: string;
-		status: WhoisProfileStatus;
-		whois?: WhoisData;
-	}>;
+	"whois:profile": EventHandler<WhoisProfileAnswer>;
 	"channel:bans": EventHandler<{network: string; list: SharedBanList; open: boolean}>;
 	"channel:bans:changed": EventHandler<{
 		network: string;
@@ -424,8 +419,8 @@ interface ClientToServerEvents {
 	"persistence:sessions:list": EventHandler<{network?: string}>;
 	/** Ask a network for its channel list (one `LIST`, the whole answer, kept on the device); refused while one is under way or the server's delay runs. `args` are the server's own LIST arguments (`/list >10`). */
 	"channel:list:ask": EventHandler<{network: string; args?: string[]}>;
-	/** The user profile opened: WHOIS the nick quietly (a WHOWAS if it is offline); answered by `whois:profile`. */
-	"whois:profile:ask": EventHandler<{network: string; nick: string}>;
+	/** The user profile opened: WHOIS the nick quietly (a WHOWAS if it is offline), reusing an answer under a minute old unless `fresh`; answered by `whois:profile`. */
+	"whois:profile:ask": EventHandler<{network: string; nick: string; fresh?: boolean}>;
 	"channel:bans:ask": EventHandler<{network: string; channel: string}>;
 	"channel:bans:change": EventHandler<{network: string; id: string; change: BanChange}>;
 	/** End the current device's bouncer session (`PERSISTENCE DETACH`): the hold preference clears and the session is destroyed. */
