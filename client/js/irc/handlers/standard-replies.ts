@@ -25,6 +25,7 @@ import {multilineCooldown, multilineRejected} from "../multiline";
 import {failPendingLabel} from "../pending";
 import {inRestorationWindow, noteRestorationActivity, persistenceFailed} from "../persistence";
 import {isOwnMetadataKey} from "./metadata";
+import {onAvatarFail} from "../avatars";
 import type {Handler} from "../types";
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
@@ -248,6 +249,12 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 			persistenceFailed(client, msg)
 		) {
 			return; // a refused / unknown catch-up cursor: nothing for the user
+		}
+
+		if (kind === "FAIL" && command.toUpperCase() === "METADATA" && onAvatarFail(client, msg)) {
+			// The avatar's own (irc/avatars.ts): a refused SET goes to the
+			// settings that asked, a GET for a user who left is nothing.
+			return;
 		}
 
 		if (

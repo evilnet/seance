@@ -30,7 +30,7 @@ import {withoutPrivateTerms} from "../translate/channelStore";
 
 export const FILE_EXTENSION = ".seance-settings";
 export const FORMAT = "seance-settings";
-export const VERSION = 2;
+export const VERSION = 3;
 
 /**
  * The file version a key (or, ending in ".", a key prefix) first travelled
@@ -46,6 +46,7 @@ const KEY_SINCE: Record<string, number> = {
 	"thelounge.translate": 2,
 	"thelounge.scripts": 2,
 	"thelounge.script_storage.": 2,
+	"thelounge.avatars": 3,
 };
 
 /** Whether a file of `version` says anything about `key` — a missing entry
@@ -67,6 +68,7 @@ export const BACKUP_KEYS: readonly string[] = [
 	"thelounge.sort.channels",
 	"thelounge.muted",
 	"thelounge.media.trusted",
+	"thelounge.avatars",
 	"thelounge.reactions.recent",
 	"thelounge.aliases",
 	"thelounge.translate",

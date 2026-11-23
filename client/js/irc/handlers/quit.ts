@@ -9,6 +9,7 @@ import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
 import {fromIgnored} from "../../ignore";
 import {forgetBot} from "../bottrust";
+import {onAvatarGone} from "../avatars";
 
 const quit: Handler = (client, msg) => {
 	const nick = msg.source?.name ?? "";
@@ -20,6 +21,8 @@ const quit: Handler = (client, msg) => {
 
 	if (!client.replaying) {
 		forgetBot(client, nick);
+		onAvatarGone(client, nick);
+		client.forgetProfile(nick);
 
 		if (!fromIgnored(client.uuid, msg.source, client.isSelf(nick))) {
 			scriptManager.dispatchQuit({

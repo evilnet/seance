@@ -15,6 +15,13 @@
 @import "creama.css" (prefers-color-scheme: light);
 
 :root {
+	/* Avatars: the system's own monogram for a user without one, a grey
+	 * disc with a white capital (style.css § Avatars). */
+	--avatar-tile-bg: linear-gradient(#a7a7ad, #8e8e93);
+	--avatar-tile-fg: #fff;
+	--avatar-initial-transform: uppercase;
+	--avatar-dot-color: var(--mac-accent, #007aff);
+
 	color-scheme: light dark;
 
 	/* The user's accent: WebKit's own name for it on macOS, else the CSS
@@ -323,4 +330,9 @@ input[type="checkbox"] {
 :root[data-reduce-transparency] .textcomplete-menu {
 	background-color: var(--menu-bg);
 	backdrop-filter: none;
+}
+
+/* Avatars: a hairline round pictures, as the system draws them. */
+.avatar-image {
+	box-shadow: 0 0 0 0.5px rgb(0 0 0 / 20%);
 }

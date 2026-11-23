@@ -7,6 +7,261 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#. User menu: load every avatar stored on this website from now on. {host} is a host name such as pics.example.net.
+msgctxt "avatar.alwaysHost"
+msgid "Always show avatars from {host}"
+msgstr ""
+
+#. User menu: always load this person's avatar (trusted by their account, at the site it is on now).
+msgctxt "avatar.alwaysPerson"
+msgid "Always show {nick}'s avatar"
+msgstr ""
+
+#. User card: the close button's accessible name.
+#: client/components/UserCard.vue
+#, distinct
+msgctxt "avatar.cardClose"
+msgid "Close"
+msgstr ""
+
+#. User card: the person has not set an avatar.
+#: client/components/UserCard.vue
+msgctxt "avatar.cardNone"
+msgid "{nick} has no avatar."
+msgstr ""
+
+#. User card: the services account this person is logged in to.
+#: client/components/UserCard.vue
+msgctxt "avatar.cardSignedIn"
+msgid "Signed in as {account}"
+msgstr ""
+
+#. User card: the person's avatar is on a site the reader has not chosen to trust, so it is not loaded. {host} is a website's domain.
+#: client/components/UserCard.vue
+msgctxt "avatar.cardVeiled"
+msgid "{nick}'s avatar is on {host}. Loading it tells that site your IP address."
+msgstr ""
+
+#. Opens Settings → Avatar, where you upload or link your own avatar.
+#: client/components/UserCard.vue
+#: client/components/Settings/Networks.vue
+msgctxt "avatar.change"
+msgid "Change your avatar"
+msgstr ""
+
+#. Avatar settings, shown while the network is not connected.
+msgctxt "avatar.connectFirst"
+msgid "Connect to this network to change your avatar."
+msgstr ""
+
+#. Accessible label of the crop area in the avatar crop dialog.
+msgctxt "avatar.cropAria"
+msgid "Picture to crop. Drag or use the arrow keys to move it, plus and minus to zoom."
+msgstr ""
+
+#. Avatar crop dialog, under the zoom slider.
+msgctxt "avatar.cropHint"
+msgid "The picture is resized to 256 × 256 and uploaded to this network's image host. Animated pictures keep their first frame."
+msgstr ""
+
+#. Title of the avatar crop dialog.
+msgctxt "avatar.cropTitle"
+msgid "Crop your avatar"
+msgstr ""
+
+#. Label under the avatar in use, in the list of recent avatars.
+msgctxt "avatar.current"
+msgid "Current"
+msgstr ""
+
+#. Avatar crop dialog: the picture could not be encoded small enough.
+msgctxt "avatar.encodeFailed"
+msgid "This browser could not prepare the picture. Try another one."
+msgstr ""
+
+#. Avatar settings status after a failed change. {reason} is the server's or upload host's explanation.
+msgctxt "avatar.failed"
+msgid "Your avatar was not changed: {reason}"
+msgstr ""
+
+#. Button on a recent avatar that forgets it on this device.
+msgctxt "avatar.forgetRecent"
+msgid "Remove from recent avatars"
+msgstr ""
+
+#. Heading of the avatar settings for one network.
+msgctxt "avatar.heading"
+msgid "Your avatar"
+msgstr ""
+
+#. Avatar settings, explaining who sees the avatar.
+msgctxt "avatar.help"
+msgid "Everyone who shares a channel with you on {network} can see it. It is kept with your account, so other devices and IRC apps show it too."
+msgstr ""
+
+#. Avatar settings, under the link field, when the link points somewhere other than the network's image host.
+msgctxt "avatar.linkElsewhere"
+msgid "{host} is not this network's image host, so people using Seance see your initial until they choose to load pictures from that site."
+msgstr ""
+
+#. Avatar settings: the typed link cannot be used.
+msgctxt "avatar.linkInvalid"
+msgid "That doesn't look like a link to a picture."
+msgstr ""
+
+#. Label of the avatar link field.
+msgctxt "avatar.linkLabel"
+msgid "Link to a picture"
+msgstr ""
+
+#. Avatar settings: the typed link is not https.
+msgctxt "avatar.linkNotHttps"
+msgid "The link must start with https://"
+msgstr ""
+
+#. Avatar settings, under the link field.
+msgctxt "avatar.linkRules"
+msgid "https only: a PNG, JPEG, WebP or GIF picture, up to 300 characters."
+msgstr ""
+
+#. Avatar settings: the typed link is an SVG file.
+msgctxt "avatar.linkSvg"
+msgid "SVG pictures can't be used as avatars."
+msgstr ""
+
+#. Avatar settings: the typed link is too long.
+msgctxt "avatar.linkTooLong"
+msgid "The link is longer than the 300 characters the network keeps."
+msgstr ""
+
+#. Avatar crop dialog: the chosen file is not an image.
+msgctxt "avatar.notImage"
+msgid "That file isn't a picture this browser can read."
+msgstr ""
+
+#. Heading of the list of avatars used before on this network.
+msgctxt "avatar.recent"
+msgid "Recent avatars"
+msgstr ""
+
+#. Note under the list of recent avatars.
+msgctxt "avatar.recentNote"
+msgid "Kept on this device, for this network only."
+msgstr ""
+
+#. Button that clears your avatar on this network.
+msgctxt "avatar.remove"
+msgid "Remove"
+msgstr ""
+
+#. Avatar settings status after removing the avatar.
+msgctxt "avatar.removed"
+msgid "Your avatar was removed."
+msgstr ""
+
+#. Avatar settings note. {count} is the number of days the network's image host keeps a file.
+msgctxt "avatar.retentionNote"
+msgid "This network's image host deletes files after {count} day. This device keeps your picture and uploads it again a week before, whenever you're connected."
+msgid_plural "This network's image host deletes files after {count} days. This device keeps your picture and uploads it again a week before, whenever you're connected."
+msgstr[0] ""
+msgstr[1] ""
+
+#. Button that saves the avatar link.
+msgctxt "avatar.save"
+msgid "Save"
+msgstr ""
+
+#. Avatar settings status after a successful change.
+msgctxt "avatar.saved"
+msgid "Your avatar was changed."
+msgstr ""
+
+#. Avatar settings status while a change is sent.
+msgctxt "avatar.saving"
+msgid "Saving…"
+msgstr ""
+
+#. Switch that turns avatars on or off for one network.
+msgctxt "avatar.showOnNetwork"
+msgid "Show avatars on {network}"
+msgstr ""
+
+#. User menu: load this person's avatar once, on this page only.
+msgctxt "avatar.showOnce"
+msgid "Show avatar"
+msgstr ""
+
+#. User menu: undo "Always show {nick}'s avatar".
+msgctxt "avatar.stopPerson"
+msgid "Stop always showing {nick}'s avatar"
+msgstr ""
+
+#. Stands in for a network's name in avatar.help when it has none yet.
+msgctxt "avatar.thisNetwork"
+msgid "this network"
+msgstr ""
+
+#. Avatar crop dialog: the chosen file is too large to read.
+msgctxt "avatar.tooLarge"
+msgid "That file is larger than 20 MB."
+msgstr ""
+
+#. Avatar crop dialog: the chosen picture is too small. {size} is a number of pixels.
+msgctxt "avatar.tooSmall"
+msgid "The picture must be at least {size} × {size} pixels."
+msgstr ""
+
+#. Warning in the avatar settings when your avatar stopped loading.
+msgctxt "avatar.unavailableText"
+msgid "The picture at {host} has not loaded for a while, so others see your initial instead."
+msgstr ""
+
+#. Title of the warning in the avatar settings when your avatar stopped loading.
+msgctxt "avatar.unavailableTitle"
+msgid "Your avatar can't be loaded"
+msgstr ""
+
+#. Avatar settings, when the server has no draft/metadata-2.
+msgctxt "avatar.unsupported"
+msgid "This network does not support avatars."
+msgstr ""
+
+#. Button that picks a picture to upload as your avatar.
+msgctxt "avatar.upload"
+msgid "Upload picture"
+msgstr ""
+
+#. Button in the "can't be loaded" warning that uploads the kept picture again.
+msgctxt "avatar.uploadAgain"
+msgid "Upload again"
+msgstr ""
+
+#. Confirm button of the avatar crop dialog.
+msgctxt "avatar.uploadAndUse"
+msgid "Upload and use"
+msgstr ""
+
+#. Button that opens the field to set your avatar from a link.
+msgctxt "avatar.useLink"
+msgid "Use a link"
+msgstr ""
+
+#. Accessible label of a recent avatar. {date} is a short date.
+msgctxt "avatar.useRecent"
+msgid "Use the avatar from {date}"
+msgstr ""
+
+#. User card: open this person's avatar at full size in the image viewer.
+#: client/components/UserCard.vue
+msgctxt "avatar.view"
+msgid "View avatar"
+msgstr ""
+
+#. Label of the zoom slider in the avatar crop dialog.
+msgctxt "avatar.zoom"
+msgid "Zoom"
+msgstr ""
+
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the same mask is already on the list.
 #: client/components/BanDialog.vue
 msgctxt "ban.alreadySet"
@@ -4675,6 +4930,12 @@ msgstr ""
 #: client/js/helpers/contextMenu.ts
 msgctxt "menu.operPanel"
 msgid "Oper panel…"
+msgstr ""
+
+#. User menu: opens the person's user card (avatar, account, Message, Whois).
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.profile"
+msgid "Profile"
 msgstr ""
 
 #. Context-menu item that takes an IRC channel role away from a user; {name} is the role's name ('operator'), {mode} the bare mode letter (e.g. o) — the - before it is part of the text, so the item reads (-o).
@@ -12426,6 +12687,144 @@ msgctxt "presence.sameAsGlobalNow"
 msgid "Same as global ({mode})"
 msgstr ""
 
+#. The user profile card, opened by tapping a nick or avatar: row label: the user's ident@host
+#: client/components/UserCard.vue
+msgctxt "profile.address"
+msgid "Address"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: the user's other channels, a comma-separated list
+#: client/components/UserCard.vue
+msgctxt "profile.alsoIn"
+msgid "Also in {channels}"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: badge for a user who is away, with their away message
+#: client/components/UserCard.vue
+msgctxt "profile.away"
+msgid "Away: {message}"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: badge for a user who is away without a message
+#: client/components/UserCard.vue
+msgctxt "profile.awayNoMessage"
+msgid "Away"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: badge: the user is a bot
+#: client/components/UserCard.vue
+msgctxt "profile.bot"
+msgid "Bot"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: row label: the user's client certificate fingerprint
+#: client/components/UserCard.vue
+msgctxt "profile.certificate"
+msgid "Certificate"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: heading over the user's connection details
+#: client/components/UserCard.vue
+msgctxt "profile.connection"
+msgid "Connection"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: heading over the channels you share with the user
+#: client/components/UserCard.vue
+msgctxt "profile.inCommon"
+msgid "In common"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: row label; the value is a relative time such as 3 minutes ago
+#: client/components/UserCard.vue
+msgctxt "profile.lastActive"
+msgid "Last active"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: row label for an offline user; the value is the server's own time text
+#: client/components/UserCard.vue
+msgctxt "profile.lastSeen"
+msgid "Last seen"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: screen-reader text while the details load
+#: client/components/UserCard.vue
+msgctxt "profile.loading"
+msgid "Looking them up…"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: button that puts the nick into the message box
+#: client/components/UserCard.vue
+msgctxt "profile.mention"
+msgid "Mention"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: button that opens a private conversation with the user
+#: client/components/UserCard.vue
+msgctxt "profile.message"
+msgid "Message"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: button that opens the menu of further actions on the user
+#: client/components/UserCard.vue
+msgctxt "profile.more"
+msgid "More"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: note when the user is not connected
+#: client/components/UserCard.vue
+msgctxt "profile.offline"
+msgid "{nick} isn't online."
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: badge: the user is a network operator
+#: client/components/UserCard.vue
+msgctxt "profile.oper"
+msgid "IRC operator"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: row label: the user's real host and IP, shown to operators
+#: client/components/UserCard.vue
+msgctxt "profile.realAddress"
+msgid "Real address"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: button that looks the user up again
+#: client/components/UserCard.vue
+msgctxt "profile.refresh"
+msgid "Refresh"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: badge: the user is connected with TLS
+#: client/components/UserCard.vue
+msgctxt "profile.secure"
+msgid "Secure connection"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: row label: the IRC server the user is connected to
+#: client/components/UserCard.vue
+msgctxt "profile.server"
+msgid "Server"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: row label; the value is a relative time such as 5 hours ago
+#: client/components/UserCard.vue
+msgctxt "profile.signedOn"
+msgid "Signed on"
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: note when the lookup could not be done
+#: client/components/UserCard.vue
+msgctxt "profile.unavailable"
+msgid "This server can't look them up quietly. Whois prints the full reply in the chat."
+msgstr ""
+
+#. The user profile card, opened by tapping a nick or avatar: footer; time is a relative time such as just now
+#: client/components/UserCard.vue
+msgctxt "profile.updated"
+msgid "Updated {time}"
+msgstr ""
+
 #. Body of the push opt-in prompt; explains what allowing push does and that it is chosen per network.
 #: client/components/PushPrompt.vue
 msgctxt "push.enableBody"
@@ -13511,6 +13910,57 @@ msgctxt "settings.appearance.autocomplete"
 msgid "Enable autocomplete"
 msgstr ""
 
+#. Avatar loading choice.
+msgctxt "settings.appearance.avatarsAny"
+msgid "Any site"
+msgstr ""
+
+#. Explains the "Any site" avatar loading choice.
+msgctxt "settings.appearance.avatarsAnyHint"
+msgid "Every avatar loads. Anyone sharing a channel with you can learn your IP address from the site their picture is on."
+msgstr ""
+
+#. Heading of the avatar section in Settings, Appearance.
+msgctxt "settings.appearance.avatarsHeading"
+msgid "Avatars"
+msgstr ""
+
+#. Settings → Avatar: explains why avatars from untrusted sites are not loaded by themselves.
+#: client/components/Settings/Avatars.vue
+msgctxt "settings.appearance.avatarsHelp"
+msgid "Loading someone's avatar tells the site it is stored on your IP address and that you are looking at the chat. Pictures from sites you don't trust show as an initial until you load them from the person's profile (tap their avatar)."
+msgstr ""
+
+#. Avatar loading choice: no avatar pictures are loaded.
+msgctxt "settings.appearance.avatarsNone"
+msgid "Nowhere"
+msgstr ""
+
+#. Explains the "Nowhere" avatar loading choice.
+msgctxt "settings.appearance.avatarsNoneHint"
+msgid "Everyone shows as an initial. Nothing is fetched."
+msgstr ""
+
+#. Heading of the list of people trusted for avatars.
+msgctxt "settings.appearance.avatarsPeople"
+msgid "People whose avatar always shows"
+msgstr ""
+
+#. Where a trusted person's avatar is trusted: their network and the site of the picture.
+msgctxt "settings.appearance.avatarsPersonWhere"
+msgid "{network}, from {host}"
+msgstr ""
+
+#. Avatar loading choice.
+msgctxt "settings.appearance.avatarsTrusted"
+msgid "Trusted sites only (recommended)"
+msgstr ""
+
+#. Explains the "Trusted sites only" avatar loading choice.
+msgctxt "settings.appearance.avatarsTrustedHint"
+msgid "The network's own image host, sites your network lists, and the sites and people you trust."
+msgstr ""
+
 #. Checkbox in Settings > Appearance; when ticked, each user's name in chat is drawn in its own consistent color.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.coloredNicks"
@@ -14031,6 +14481,19 @@ msgstr ""
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.visualAids"
 msgid "Visual Aids"
+msgstr ""
+
+#. Settings → Avatar, when no network is connected.
+#: client/components/Settings/Avatars.vue
+msgctxt "settings.avatars.connectFirst"
+msgid "Connect to a network to set your avatar there."
+msgstr ""
+
+#. Settings → Avatar: heading over your own avatar on each connected network.
+#: client/components/Settings/Avatars.vue
+#, distinct
+msgctxt "settings.avatars.yours"
+msgid "Your avatar"
 msgstr ""
 
 #. Heading of the away section in Settings > General, and the visually hidden label of the away-message input beneath it; names the setting that marks you away with a message when the app is closed.
@@ -14933,6 +15396,12 @@ msgstr ""
 #: client/components/Settings/Navigation.vue
 msgctxt "settings.tabs.aria"
 msgid "Settings tabs"
+msgstr ""
+
+#. Settings tab holding your own avatar and the choice of whose avatars load.
+#: client/js/hooks/use-settings-tabs.ts
+msgctxt "settings.tabs.avatar"
+msgid "Avatar"
 msgstr ""
 
 #. Label of the Settings modal's General tab (tab strip); switching tabs navigates to the General settings pane.

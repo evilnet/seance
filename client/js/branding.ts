@@ -277,6 +277,27 @@ export interface BrandingConfig {
 	uploads?: BrandingUploads;
 	/** Client-side translation; absent means defaults. */
 	translation?: BrandingTranslation;
+	/** Avatars (avatars/policy.ts); absent means defaults. */
+	avatars?: BrandingAvatars;
+}
+
+/**
+ * Avatars: where they may load from without asking, and how long the
+ * network's image host keeps an upload.
+ */
+export interface BrandingAvatars {
+	/** Hosts whose avatars load without asking, besides the network's own FILEHOST host. */
+	trustedHosts?: string[];
+	/**
+	 * An image proxy the deploy runs, as an `https:` URL with `{url}` where
+	 * the avatar's URL goes (encoded). With one, every avatar loads, through it.
+	 */
+	proxy?: string;
+	/**
+	 * Days the network's image host keeps an upload (default 30). An avatar
+	 * this device uploaded is uploaded again a week before; 0 = kept forever.
+	 */
+	retentionDays?: number;
 }
 
 /** Upload size limit applied when `uploads.maxSizeBytes` is unset. */
@@ -661,6 +682,35 @@ function normalizeStringList(value: unknown): string[] | undefined {
 	return list.length > 0 ? list : undefined;
 }
 
+function normalizeAvatars(value: unknown): BrandingAvatars | undefined {
+	if (!isRecord(value)) {
+		return undefined;
+	}
+
+	const avatars: BrandingAvatars = {};
+	const hosts = normalizeStringList(value.trustedHosts)
+		?.map((host) => host.trim().toLowerCase().replace(/\.+$/, ""))
+		.filter((host) => /^[a-z0-9.-]+$/.test(host));
+
+	if (hosts && hosts.length > 0) {
+		avatars.trustedHosts = hosts;
+	}
+
+	const proxy = optionalString(value.proxy);
+
+	if (proxy?.startsWith("https://") && proxy.includes("{url}")) {
+		avatars.proxy = proxy;
+	}
+
+	const days = value.retentionDays;
+
+	if (typeof days === "number" && Number.isFinite(days) && days >= 0) {
+		avatars.retentionDays = days;
+	}
+
+	return Object.keys(avatars).length > 0 ? avatars : undefined;
+}
+
 function normalizeUploads(value: unknown): BrandingUploads | undefined {
 	if (!isRecord(value)) {
 		return undefined;
@@ -992,6 +1042,7 @@ export function normalizeBranding(
 	const themeColor = optionalString(source.themeColor) ?? defaults.themeColor;
 	const uploads = normalizeUploads(source.uploads) ?? defaults.uploads;
 	const translation = normalizeTranslation(source.translation) ?? defaults.translation;
+	const avatars = normalizeAvatars(source.avatars) ?? defaults.avatars;
 
 	if (shortName !== undefined) {
 		config.shortName = shortName;
@@ -1015,6 +1066,10 @@ export function normalizeBranding(
 
 	if (translation !== undefined) {
 		config.translation = translation;
+	}
+
+	if (avatars !== undefined) {
+		config.avatars = avatars;
 	}
 
 	return config;

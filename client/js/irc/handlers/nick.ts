@@ -9,6 +9,7 @@ import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
 import {fromIgnored} from "../../ignore";
 import {forgetBot} from "../bottrust";
+import {onAvatarNick} from "../avatars";
 
 const nick: Handler = (client, msg) => {
 	const oldNick = msg.source?.name ?? "";
@@ -22,6 +23,10 @@ const nick: Handler = (client, msg) => {
 		// A services bot's nick, left or newly taken, is someone to ask about again.
 		forgetBot(client, oldNick);
 		forgetBot(client, newNick);
+		onAvatarNick(client, oldNick, newNick);
+		// The old nick is free for someone else; the new one's profile is someone else's.
+		client.forgetProfile(oldNick);
+		client.forgetProfile(newNick);
 		const self = client.isSelf(oldNick) || client.isSelf(newNick);
 
 		if (!fromIgnored(client.uuid, msg.source, self)) {

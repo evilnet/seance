@@ -26,6 +26,8 @@ import {forgetOperPrefs} from "./operprefs";
 import {forgetMuteMemory} from "./muteMemory";
 import {forgetPresenceSync} from "./presenceSync";
 import {forgetUserAway} from "./userAwayStore";
+import {forgetNetworkAvatars} from "../avatars/own";
+import {forgetNetworkAvatarPrefs} from "../avatars/prefs";
 import {forgetLogin} from "./saslTrust";
 import {forgetIgnoreList} from "../ignore";
 import type {ConnectOptions} from "./types";
@@ -761,6 +763,8 @@ export function remove(uuid: string): void {
 	forgetMuteMemory(uuid); // and what this device wrote to its push mute list
 	forgetPresenceSync(uuid); // and when it was last in sync with the shared presence
 	forgetUserAway(uuid); // and the /away it would declare at the next registration
+	void forgetNetworkAvatars(uuid); // and its recent avatars
+	forgetNetworkAvatarPrefs(uuid); // and whom it trusted for avatars
 	forgetLogin(uuid); // and the SASL login that worked on it
 	// Its channel order and ignore list too: keyed by a random uuid, nothing
 	// would ever read them again, yet both travel in every settings backup.

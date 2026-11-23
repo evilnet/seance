@@ -46,7 +46,7 @@
 .settings-menu button {
 	color: var(--body-color-muted);
 	white-space: nowrap;
-	padding: 0.55em 0.7em;
+	padding: 0.55em 0.6em;
 	border-bottom: 2px solid transparent;
 }
 
@@ -62,6 +62,10 @@
 
 .settings-menu .appearance::before {
 	content: "\f108"; /* http://fontawesome.io/icon/desktop/ */
+}
+
+.settings-menu .avatars::before {
+	content: "\f2bd"; /* https://fontawesome.com/icons/circle-user?style=solid */
 }
 
 .settings-menu .messages::before {
@@ -98,10 +102,10 @@
 	cursor: default;
 }
 
-/* Six labelled tabs need roughly 45rem; below that every tab is its icon
+/* Seven labelled tabs need roughly 50rem; below that every tab is its icon
  * alone (the names stay as aria-label and title, and the modal's title
  * names the open tab). */
-@container settings (max-width: 46rem) {
+@container settings (max-width: 50.5rem) {
 	.settings-menu button .tab-label {
 		display: none;
 	}

@@ -62,6 +62,13 @@ export function useSettingsTabs(): {
 
 		list.push(
 			{
+				// Your own avatar and whose avatars load (Settings/Avatars.vue).
+				name: "Avatars",
+				label: t("settings.tabs.avatar"),
+				className: "avatars",
+				to: "avatar",
+			},
+			{
 				name: "Appearance",
 				label: t("settings.tabs.appearance"),
 				className: "appearance",

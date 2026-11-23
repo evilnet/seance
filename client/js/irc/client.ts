@@ -65,9 +65,19 @@ import {scriptManager} from "./scripting/manager";
 import {FILEHOST_SERVICE, TokenRequests, filehostUrlOf} from "./authtoken";
 import {interceptBatchLine, resetBatches} from "./handlers/batch";
 import {PAYLOAD_KEY} from "./handlers/metadata";
+import {
+	AVATAR_KEY,
+	avatarSubKeys,
+	avatarsClosed,
+	avatarsWelcomed,
+	expectOwnAvatar,
+} from "./avatars";
+import {avatarsEnabled} from "../avatars/prefs";
+import {bindNetwork} from "../avatars/registry";
 import {resetModeLists} from "./handlers/lists";
 import {resetWho} from "./handlers/who";
-import {resetWhois} from "./handlers/whois";
+import {collectWhois, resetWhois} from "./handlers/whois";
+import type {WhoisData, WhoisProfileAnswer, WhoisProfileStatus} from "../../../shared/types/whois";
 import {CLOSED_KEY, ClosedQueries, closedQueriesKept, encodeClosed} from "./closedQueries";
 import {
 	CONCAT_LINE_TAG_BYTES,
@@ -297,6 +307,9 @@ export const SASL_TRUSTED_RETRIES = 3;
 /** Trailing throttle on writing the catch-up cursor to localStorage. */
 export const CURSOR_SAVE_INTERVAL_MS = 1000;
 
+/** How long the user profile reuses a WHOIS answer before asking again. */
+export const PROFILE_REUSE_MS = 60_000;
+
 /** `METADATA * SET <key> private :` (nefarious2's private write), the value follows. */
 function metadataSetPrefix(key: string): string {
 	return `METADATA * SET ${key} private :`;
@@ -438,6 +451,11 @@ export class IrcClient {
 	readonly channelList = new ChannelList();
 	/** The Bans window's rows, per channel (banList.ts). */
 	readonly bans = new BanLists((name) => this.casefold(name));
+	/** The user profile's lookups by folded nick: under way, or answered at `at` (pruned past {@link PROFILE_REUSE_MS}). */
+	private readonly profiles = new Map<
+		string,
+		{at: number; pending: boolean; answer: Promise<WhoisProfileAnswer>}
+	>();
 	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
 	 * cleared with ISUPPORT, since the next connection may be another server. */
 	learnedNickLen: number | undefined;
@@ -772,6 +790,7 @@ export class IrcClient {
 
 		this.noticeLog = new NoticeLog(this.uuid, () => isSavedNetwork(this.uuid));
 		this.closed = new ClosedQueries(this.uuid, (s) => this.casefold(s));
+		bindNetwork(this.uuid, (s) => this.casefold(s));
 
 		for (const window of this.conversations.windows()) {
 			const {name} = window;
@@ -852,6 +871,7 @@ export class IrcClient {
 		this.connectionSerial++;
 
 		this.fakeLag.start();
+		avatarsWelcomed(this); // the join burst brings the avatars again
 		this.background.pump(); // anything queued before 001 can go now
 		this.flushPayloadTier(); // a tier asked for before 001
 	}
@@ -1936,7 +1956,12 @@ export class IrcClient {
 					Math.max(this.syncLineAt ?? -Infinity, lastInSync(this.uuid) ?? -Infinity),
 					Date.now()
 				);
-				lines.push(`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`);
+				lines.push(
+					[
+						`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`,
+						...avatarSubKeys(this),
+					].join(" ")
+				);
 			}
 
 			// Bound to one of a bouncer's networks (bouncer.ts): said before CAP END.
@@ -2113,6 +2138,7 @@ export class IrcClient {
 		this.welcomed = false;
 		this.fakeLag.stop();
 		this.background.clear();
+		avatarsClosed(this);
 
 		this.clearMuteRead();
 
@@ -2161,6 +2187,7 @@ export class IrcClient {
 		resetMultiline(this);
 		// Replies the close cut off before their end numeric never end.
 		resetWhois(this);
+		this.forgetProfile();
 		resetWho(this);
 		resetModeLists(this);
 		abortHistory(this);
@@ -2619,6 +2646,114 @@ export class IrcClient {
 		} else {
 			this.send(line);
 		}
+	}
+
+	/**
+	 * The user profile's lookup (`whois:profile:ask`): a labeled WHOIS, and a
+	 * WHOWAS when the nick is not online, read into a record that is
+	 * dispatched as `whois:profile` and never printed in a window. Each costs
+	 * a command of fake lag, so an answer is reused for
+	 * {@link PROFILE_REUSE_MS} unless `fresh` (Refresh), and a lookup under
+	 * way is joined, not repeated. A server without `labeled-response`
+	 * cannot be asked quietly: the profile then shows what the client knows.
+	 */
+	requestProfile(nick: string, fresh = false): void {
+		const key = this.casefold(nick);
+		const now = Date.now();
+
+		for (const [k, kept] of this.profiles) {
+			if (!kept.pending && now - kept.at >= PROFILE_REUSE_MS) {
+				this.profiles.delete(k);
+			}
+		}
+
+		const kept = this.profiles.get(key);
+
+		if (kept && (kept.pending || !fresh)) {
+			void kept.answer.then((answer) => {
+				if (this.profiles.get(key) === kept) {
+					this.bus.dispatch("whois:profile", answer);
+				}
+			});
+			return;
+		}
+
+		const entry = {at: 0, pending: true, answer: this.lookUpProfile(nick)};
+		this.profiles.set(key, entry);
+		void entry.answer.then((answer) => {
+			// Forgotten while under way (the nick changed hands, the socket
+			// closed): the profile asks again rather than show it.
+			if (this.profiles.get(key) !== entry) {
+				return;
+			}
+
+			entry.pending = false;
+			entry.at = answer.at;
+
+			if (answer.status === "unavailable") {
+				this.profiles.delete(key);
+			}
+
+			this.bus.dispatch("whois:profile", answer);
+		});
+	}
+
+	/**
+	 * What a profile knows of `nick` (every nick when absent) no longer holds:
+	 * it quit, changed nick or the socket closed. An open profile asks again.
+	 */
+	forgetProfile(nick?: string): void {
+		if (nick === undefined) {
+			this.profiles.clear();
+		} else {
+			this.profiles.delete(this.casefold(nick));
+		}
+
+		this.bus.dispatch("whois:profile:stale", {network: this.uuid, nick});
+	}
+
+	private async lookUpProfile(nick: string): Promise<WhoisProfileAnswer> {
+		const answer = (status: WhoisProfileStatus, whois: WhoisData | null = null) => ({
+			network: this.uuid,
+			nick,
+			status,
+			at: Date.now(),
+			...(whois ? {whois} : {}),
+		});
+
+		if (!this.isWelcomed || !canRequest(this)) {
+			return answer("unavailable");
+		}
+
+		const opts = {quiet: true};
+		const reply = await request(this, formatLine({command: "WHOIS", params: [nick, nick]}), {
+			...opts,
+			end: ["318"],
+		});
+		const online = collectWhois(this, reply.lines);
+
+		if (online) {
+			return answer("online", online);
+		}
+
+		// Offline only when the server says so (401); a 263 (try again), a
+		// FAIL, a timeout or anything else is a lookup that did not work.
+		if (!reply.lines.some((msg) => msg.command === "401")) {
+			return answer("unavailable");
+		}
+
+		const past = await request(this, formatLine({command: "WHOWAS", params: [nick, "1"]}), {
+			...opts,
+			end: ["369"],
+		});
+		const gone = collectWhois(this, past.lines);
+
+		// 406: the server remembers no one by that name; still offline.
+		if (gone || past.lines.some((msg) => msg.command === "406")) {
+			return answer("offline", gone);
+		}
+
+		return answer("unavailable");
 	}
 
 	/** The window's copy of a channel's bans. */
@@ -3523,7 +3658,25 @@ export class IrcClient {
 	private scheduleMuteRead(): void {
 		this.clearMuteRead();
 
-		if (!this.caps.hasCapability("draft/metadata-2") || !this.account) {
+		if (!this.caps.hasCapability("draft/metadata-2")) {
+			return;
+		}
+
+		// Without an account only the avatar key is ours to hear (irc/avatars.ts).
+		if (!this.account) {
+			if (!this.metadataSubscribed && avatarsEnabled(this.uuid)) {
+				this.muteReadTimer = setTimeout(() => {
+					this.muteReadTimer = null;
+
+					// Not metadataSubscribed: that is the shared keys', which a
+					// login later on this connection still has to subscribe.
+					if (this.isWelcomed && !this.metadataSubscribed) {
+						this.send(`METADATA * SUB ${AVATAR_KEY}`);
+					}
+				}, MUTE_READ_DELAY_MS);
+				(this.muteReadTimer as {unref?: () => void}).unref?.();
+			}
+
 			return;
 		}
 
@@ -3538,15 +3691,28 @@ export class IrcClient {
 				if (!this.metadataSubscribed) {
 					this.metadataSubscribed = true;
 					this.send(
-						`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`
+						[
+							`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`,
+							...avatarSubKeys(this),
+						].join(" ")
 					);
+				}
+
+				// Our own avatar (Settings → Account) rides along: its reply is state.
+				const avatar = avatarSubKeys(this);
+
+				if (avatar.length > 0) {
+					expectOwnAvatar(this);
 				}
 
 				// The payload tier rides along: an account that wrote it public
 				// before it was written private (WHOIS listed it) is told so in
 				// the answer, and handlers/metadata.ts rewrites it private.
 				this.send(
-					`METADATA * GET ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${PAYLOAD_KEY} ${CLOSED_KEY}`
+					[
+						`METADATA * GET ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${PAYLOAD_KEY} ${CLOSED_KEY}`,
+						...avatar,
+					].join(" ")
 				);
 			}
 		}, MUTE_READ_DELAY_MS);

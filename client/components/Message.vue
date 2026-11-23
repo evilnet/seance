@@ -134,7 +134,14 @@
 			<span v-if="message.type === 'message'" class="from">
 				<template v-if="message.from && message.from.nick">
 					<span class="only-copy" aria-hidden="true">&lt;</span>
-					<Username :user="message.from" :network="network" :channel="channel" />
+					<Username
+						:user="message.from"
+						:network="network"
+						:channel="channel"
+						:avatar-uuid="showAvatar ? network.uuid : undefined"
+						:avatar-account="message.fromAccount"
+						:avatar-self="message.self"
+					/>
 					<span class="only-copy" aria-hidden="true">&gt;&nbsp;</span>
 				</template>
 			</span>
@@ -154,6 +161,9 @@
 						:network="network"
 						:channel="channel"
 						:data-label="message.type === 'notice' ? noticeLabel : undefined"
+						:avatar-uuid="showAvatar ? network.uuid : undefined"
+						:avatar-account="message.fromAccount"
+						:avatar-self="message.self"
 					/>
 					<span class="only-copy" aria-hidden="true">-&nbsp;</span>
 				</template>
@@ -366,6 +376,12 @@ export default defineComponent({
 	},
 	setup(props) {
 		const store = useStore();
+
+		// A user's line gets their avatar (Avatar.vue hides it where the
+		// network has avatars off); a server's notice does not.
+		const showAvatar = computed(
+			() => !!props.message.from?.nick && !props.message.from.nick.includes(".")
+		);
 
 		// Taken once, as the row mounts: a row mounted again later (another
 		// conversation and back, a past view closed) is not new. The attribute
@@ -803,6 +819,7 @@ export default defineComponent({
 		};
 
 		return {
+			showAvatar,
 			live,
 			quoteButton,
 			store,

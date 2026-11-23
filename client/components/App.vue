@@ -22,6 +22,7 @@
 		<Mentions />
 		<ImageViewer ref="imageViewer" />
 		<ContextMenu ref="contextMenu" />
+		<UserCard />
 		<ConfirmDialog ref="confirmDialog" />
 		<UploadPreview />
 		<InvestigateCard />
@@ -45,6 +46,7 @@ import isIgnoredKeybind from "../js/helpers/isIgnoredKeybind";
 
 import Sidebar from "./Sidebar.vue";
 import ImageViewer from "./ImageViewer.vue";
+import UserCard from "./UserCard.vue";
 import ContextMenu from "./ContextMenu.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import UploadPreview from "./UploadPreview.vue";
@@ -79,6 +81,7 @@ export default defineComponent({
 	components: {
 		Sidebar,
 		ImageViewer,
+		UserCard,
 		ContextMenu,
 		ConfirmDialog,
 		UploadPreview,

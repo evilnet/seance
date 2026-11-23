@@ -19,6 +19,9 @@
 @import "mardam.css";
 
 :root {
+	/* Avatars sit on the character grid: squared, not round (style.css § Avatars). */
+	--avatar-radius: 0.1875rem;
+
 	color-scheme: dark;
 
 	/* Luna. */

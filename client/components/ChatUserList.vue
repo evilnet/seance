@@ -42,6 +42,8 @@
 						:on-hover="hoverUser"
 						:active="user === activeUser"
 						:user="user"
+						:avatar-uuid="networkUuid"
+						avatar-size="list"
 					/>
 				</template>
 			</div>
@@ -75,6 +77,8 @@ export default defineComponent({
 	},
 	props: {
 		channel: {type: Object as PropType<ClientChan>, required: true},
+		/** The network's uuid, for the avatars. */
+		networkUuid: {type: String, required: false},
 	},
 	setup(props) {
 		const {t, tCount} = useI18n();
