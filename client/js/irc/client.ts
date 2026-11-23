@@ -451,7 +451,7 @@ export class IrcClient {
 	readonly channelList = new ChannelList();
 	/** The Bans window's rows, per channel (banList.ts). */
 	readonly bans = new BanLists((name) => this.casefold(name));
-	/** The user profile's lookups by folded nick: under way, or answered at `at`. */
+	/** The user profile's lookups by folded nick: under way, or answered at `at` (pruned past {@link PROFILE_REUSE_MS}). */
 	private readonly profiles = new Map<
 		string,
 		{at: number; pending: boolean; answer: Promise<WhoisProfileAnswer>}
@@ -2187,7 +2187,7 @@ export class IrcClient {
 		resetMultiline(this);
 		// Replies the close cut off before their end numeric never end.
 		resetWhois(this);
-		this.profiles.clear();
+		this.forgetProfile();
 		resetWho(this);
 		resetModeLists(this);
 		abortHistory(this);
@@ -2659,20 +2659,38 @@ export class IrcClient {
 	 */
 	requestProfile(nick: string, fresh = false): void {
 		const key = this.casefold(nick);
+		const now = Date.now();
+
+		for (const [k, kept] of this.profiles) {
+			if (!kept.pending && now - kept.at >= PROFILE_REUSE_MS) {
+				this.profiles.delete(k);
+			}
+		}
+
 		const kept = this.profiles.get(key);
 
-		if (kept && (kept.pending || (!fresh && Date.now() - kept.at < PROFILE_REUSE_MS))) {
-			void kept.answer.then((answer) => this.bus.dispatch("whois:profile", answer));
+		if (kept && (kept.pending || !fresh)) {
+			void kept.answer.then((answer) => {
+				if (this.profiles.get(key) === kept) {
+					this.bus.dispatch("whois:profile", answer);
+				}
+			});
 			return;
 		}
 
 		const entry = {at: 0, pending: true, answer: this.lookUpProfile(nick)};
 		this.profiles.set(key, entry);
 		void entry.answer.then((answer) => {
-			entry.pending = false;
-			entry.at = Date.now();
+			// Forgotten while under way (the nick changed hands, the socket
+			// closed): the profile asks again rather than show it.
+			if (this.profiles.get(key) !== entry) {
+				return;
+			}
 
-			if (answer.status === "unavailable" && this.profiles.get(key) === entry) {
+			entry.pending = false;
+			entry.at = answer.at;
+
+			if (answer.status === "unavailable") {
 				this.profiles.delete(key);
 			}
 
@@ -2680,11 +2698,26 @@ export class IrcClient {
 		});
 	}
 
+	/**
+	 * What a profile knows of `nick` (every nick when absent) no longer holds:
+	 * it quit, changed nick or the socket closed. An open profile asks again.
+	 */
+	forgetProfile(nick?: string): void {
+		if (nick === undefined) {
+			this.profiles.clear();
+		} else {
+			this.profiles.delete(this.casefold(nick));
+		}
+
+		this.bus.dispatch("whois:profile:stale", {network: this.uuid, nick});
+	}
+
 	private async lookUpProfile(nick: string): Promise<WhoisProfileAnswer> {
 		const answer = (status: WhoisProfileStatus, whois: WhoisData | null = null) => ({
 			network: this.uuid,
 			nick,
 			status,
+			at: Date.now(),
 			...(whois ? {whois} : {}),
 		});
 
@@ -2692,7 +2725,9 @@ export class IrcClient {
 			return answer("unavailable");
 		}
 
+		const opts = {quiet: true};
 		const reply = await request(this, formatLine({command: "WHOIS", params: [nick, nick]}), {
+			...opts,
 			end: ["318"],
 		});
 		const online = collectWhois(this, reply.lines);
@@ -2701,14 +2736,24 @@ export class IrcClient {
 			return answer("online", online);
 		}
 
-		if (reply.outcome === "timeout" || reply.outcome === "closed") {
+		// Offline only when the server says so (401); a 263 (try again), a
+		// FAIL, a timeout or anything else is a lookup that did not work.
+		if (!reply.lines.some((msg) => msg.command === "401")) {
 			return answer("unavailable");
 		}
 
 		const past = await request(this, formatLine({command: "WHOWAS", params: [nick, "1"]}), {
+			...opts,
 			end: ["369"],
 		});
-		return answer("offline", collectWhois(this, past.lines));
+		const gone = collectWhois(this, past.lines);
+
+		// 406: the server remembers no one by that name; still offline.
+		if (gone || past.lines.some((msg) => msg.command === "406")) {
+			return answer("offline", gone);
+		}
+
+		return answer("unavailable");
 	}
 
 	/** The window's copy of a channel's bans. */

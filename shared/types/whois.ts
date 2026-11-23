@@ -60,5 +60,7 @@ export type WhoisProfileAnswer = {
 	network: string;
 	nick: string;
 	status: WhoisProfileStatus;
+	/** When the lookup answered (epoch ms): a reused answer keeps its own. */
+	at: number;
 	whois?: WhoisData;
 };

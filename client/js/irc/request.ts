@@ -60,7 +60,18 @@ export interface RequestOptions {
 	/** Numerics the server sends without the label (#120): 270, 302, 303, 340. */
 	untagged?: string[];
 	timeoutMs?: number;
+	/**
+	 * Nothing of the answer may reach the normal handlers, even late: what
+	 * arrives under the label after the request resolved (a batch closing
+	 * past the timeout, a line after the error that ended an unbatched
+	 * answer) is dropped. For a lookup nobody typed (the user profile's
+	 * WHOIS), whose reply would otherwise be printed.
+	 */
+	quiet?: boolean;
 }
+
+/** Labels of resolved quiet requests whose late lines are dropped; capped. */
+const MAX_RETIRED = 32;
 
 interface PendingRequest {
 	label: string;
@@ -74,6 +85,7 @@ interface PendingRequest {
 interface Registry {
 	next: number;
 	pending: PendingRequest[];
+	retired: Set<string>;
 }
 
 const registries = new WeakMap<IrcClient, Registry>();
@@ -82,7 +94,7 @@ function registryOf(client: IrcClient): Registry {
 	let registry = registries.get(client);
 
 	if (!registry) {
-		registry = {next: 0, pending: []};
+		registry = {next: 0, pending: [], retired: new Set()};
 		registries.set(client, registry);
 	}
 
@@ -144,6 +156,16 @@ function finish(client: IrcClient, entry: PendingRequest, outcome: ReplyOutcome)
 
 	registry.pending.splice(index, 1);
 	clearTimeout(entry.timer);
+
+	// A batch or an ACK has closed the answer; anything else may still trail.
+	if (entry.opts.quiet && (outcome === "timeout" || outcome === "lines")) {
+		registry.retired.add(entry.label);
+
+		if (registry.retired.size > MAX_RETIRED) {
+			registry.retired.delete(registry.retired.values().next().value as string);
+		}
+	}
+
 	entry.resolve({lines: entry.lines, outcome});
 }
 
@@ -177,7 +199,21 @@ function openLabeledBatch(client: IrcClient): OpenBatch | undefined {
 export function interceptRequestLine(client: IrcClient, msg: IrcMessage): boolean {
 	const registry = registries.get(client);
 
-	if (!registry || registry.pending.length === 0 || msg.command === "BATCH") {
+	if (!registry || msg.command === "BATCH") {
+		return false;
+	}
+
+	const late = msg.tags.get("label");
+
+	if (late !== undefined && registry.retired.has(late)) {
+		if (msg.command === "ACK") {
+			registry.retired.delete(late);
+		}
+
+		return true;
+	}
+
+	if (registry.pending.length === 0) {
 		return false;
 	}
 
@@ -249,6 +285,13 @@ export const labeledBatch: BatchHandler = (client, batch) => {
 		return;
 	}
 
+	// A quiet request's answer closing after it gave up: dropped whole.
+	const late = batch.tags.get("label");
+
+	if (late !== undefined && registries.get(client)?.retired.delete(late)) {
+		return;
+	}
+
 	// The echo of a quiet line (quiet.ts) wrapped in a batch: dropped, but
 	// a 401 in it (the bot is not online) goes on to the services layer.
 	if (takeQuietLabel(client, batch.tags.get("label"))) {
@@ -287,4 +330,6 @@ export function resetRequests(client: IrcClient): void {
 	for (const entry of [...registry.pending]) {
 		finish(client, entry, "closed");
 	}
+
+	registry.retired.clear();
 }

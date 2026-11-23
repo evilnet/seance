@@ -178,7 +178,7 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		if (client) {
 			client.requestProfile(nick, fresh);
 		} else {
-			bus.dispatch("whois:profile", {network, nick, status: "unavailable"});
+			bus.dispatch("whois:profile", {network, nick, status: "unavailable", at: Date.now()});
 		}
 	});
 

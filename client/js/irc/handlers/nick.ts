@@ -24,6 +24,9 @@ const nick: Handler = (client, msg) => {
 		forgetBot(client, oldNick);
 		forgetBot(client, newNick);
 		onAvatarNick(client, oldNick, newNick);
+		// The old nick is free for someone else; the new one's profile is someone else's.
+		client.forgetProfile(oldNick);
+		client.forgetProfile(newNick);
 		const self = client.isSelf(oldNick) || client.isSelf(newNick);
 
 		if (!fromIgnored(client.uuid, msg.source, self)) {

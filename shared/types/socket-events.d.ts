@@ -288,6 +288,8 @@ interface ServerToClientEvents {
 	"channel:list": EventHandler<{network: string; list: SharedChannelList}>;
 	/** The user profile's quiet WHOIS (`whois:profile:ask`), never printed in a window. */
 	"whois:profile": EventHandler<WhoisProfileAnswer>;
+	/** What the profile knows of `nick` (every nick on the network when absent) no longer holds: it quit, changed nick or the socket closed. */
+	"whois:profile:stale": EventHandler<{network: string; nick?: string}>;
 	"channel:bans": EventHandler<{network: string; list: SharedBanList; open: boolean}>;
 	"channel:bans:changed": EventHandler<{
 		network: string;

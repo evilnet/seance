@@ -1,4 +1,5 @@
 import {expect} from "chai";
+import sinon from "sinon";
 import {MessageType} from "../../shared/types/msg";
 import type {WhoisProfileAnswer} from "../../shared/types/whois";
 import {setup, register, type Harness} from "./support";
@@ -126,6 +127,76 @@ describe("the user profile's quiet WHOIS", function () {
 		await settle();
 		expect(h.sent()).to.be.empty;
 		expect(profiles(h).map((p) => p.status)).to.deep.equal(["unavailable"]);
+	});
+
+	it("keeps a batch that closes after the timeout out of the chat", async function () {
+		const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout", "Date"]});
+
+		try {
+			const h = welcomed();
+			h.client.requestProfile("bob");
+			await settle();
+			const label = lastLabel(h);
+			clock.tick(30_001);
+			await settle();
+			expect(profiles(h).map((p) => p.status)).to.deep.equal(["unavailable"]);
+
+			h.transport.lines(
+				`@label=${label} :irc.test BATCH +late labeled-response`,
+				...BOB.map((line) => `@batch=late ${line}`),
+				":irc.test BATCH -late"
+			);
+			await settle();
+			expect(h.messages()).to.be.empty;
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("calls a 263 unavailable, not offline", async function () {
+		const h = welcomed();
+		h.client.requestProfile("bob");
+		await settle();
+		reply(h, "t", ":irc.test 263 alice WHOIS :Server load is temporarily too heavy");
+		await settle();
+		expect(h.transport.sent.some((l) => l.includes("WHOWAS"))).to.equal(false);
+		expect(profiles(h).map((p) => p.status)).to.deep.equal(["unavailable"]);
+	});
+
+	it("forgets a nick that changes hands, dropping a lookup under way", async function () {
+		const h = welcomed();
+		h.client.requestProfile("bob");
+		await settle();
+		const label = lastLabel(h);
+		h.transport.line(":bob!bobby@example.net NICK robert");
+		expect(h.payloads("whois:profile:stale")).to.deep.include({
+			network: h.client.uuid,
+			nick: "bob",
+		});
+
+		h.transport.lines(
+			`@label=${label} :irc.test BATCH +w labeled-response`,
+			...BOB.map((line) => `@batch=w ${line}`),
+			":irc.test BATCH -w"
+		);
+		await settle();
+		expect(profiles(h)).to.be.empty;
+
+		h.client.requestProfile("bob");
+		await settle();
+		expect(h.transport.sent.filter((l) => l.includes("WHOIS"))).to.have.length(2);
+	});
+
+	it("keeps the time of a reused answer", async function () {
+		const h = welcomed();
+		h.client.requestProfile("bob");
+		await settle();
+		reply(h, "w", ...BOB);
+		await settle();
+		h.client.requestProfile("bob");
+		await settle();
+		const [first, again] = profiles(h);
+		expect(again.at).to.equal(first.at);
 	});
 
 	it("leaves a typed /whois printing as before", function () {

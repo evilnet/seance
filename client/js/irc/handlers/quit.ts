@@ -22,6 +22,7 @@ const quit: Handler = (client, msg) => {
 	if (!client.replaying) {
 		forgetBot(client, nick);
 		onAvatarGone(client, nick);
+		client.forgetProfile(nick);
 
 		if (!fromIgnored(client.uuid, msg.source, client.isSelf(nick))) {
 			scriptManager.dispatchQuit({

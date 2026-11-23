@@ -14,6 +14,7 @@
 			aria-modal="true"
 			aria-labelledby="user-card-nick"
 			tabindex="-1"
+			@keydown.tab="onTab"
 		>
 			<div class="user-card-banner">
 				<span :class="['user-card-tint', 'user', nickColor]"></span>
@@ -101,7 +102,12 @@
 				<button type="button" class="btn btn-confirm" @click="showOnce">
 					{{ t("avatar.showOnce") }}
 				</button>
-				<button v-if="account" type="button" class="user-card-link" @click="alwaysPerson">
+				<button
+					v-if="avatarAccount"
+					type="button"
+					class="user-card-link"
+					@click="alwaysPerson"
+				>
 					{{ t("avatar.alwaysPerson", {nick: data.nick}) }}
 				</button>
 				<button type="button" class="user-card-link" @click="alwaysHost">
@@ -168,9 +174,9 @@
 					t("profile.updated", {time: formatRelativeTime(answeredAt)})
 				}}</span>
 				<button
-					v-if="status !== 'loading'"
 					type="button"
 					class="btn btn-sm user-card-refresh"
+					:disabled="status === 'loading'"
 					@click="lookUp(true)"
 				>
 					{{ t("profile.refresh") }}
@@ -181,6 +187,12 @@
 </template>
 
 <style>
+/* Visible at once as it opens (it fades out as the others do), so the
+   dialog can take focus in the same tick. */
+#user-card-overlay.opened {
+	transition: opacity 0.2s;
+}
+
 #user-card {
 	background: var(--window-bg-color);
 	color: var(--body-color);
@@ -528,6 +540,7 @@ import {focusInput} from "../js/helpers/compose";
 import {queryUser} from "../js/helpers/contextMenu";
 import findChannels from "../js/helpers/ircmessageparser/findChannels";
 import {trustHost} from "../js/helpers/mediaTrust";
+import {trapTab} from "../js/helpers/trapTab";
 import {useI18n} from "../js/i18n";
 import {KEEP} from "../js/i18n/core";
 import {formatRelativeTime} from "../js/i18n/dates";
@@ -578,10 +591,11 @@ export default defineComponent({
 		const view = computed(() =>
 			subject.value ? viewFor(store, subject.value) : ({kind: "none"} as const)
 		);
+		// The account the avatar is trusted and loaded under (avatars/view.ts);
+		// the WHOIS one, when there is one, is only shown.
+		const avatarAccount = computed(() => (subject.value ? accountFor(subject.value) : null));
 		const account = computed(
-			() =>
-				(whois.value?.whowas ? undefined : whois.value?.account) ??
-				(subject.value ? accountFor(subject.value) : null)
+			() => (whois.value?.whowas ? undefined : whois.value?.account) ?? avatarAccount.value
 		);
 		const avatarsOn = computed(() => !!data.value && avatarsEnabled(data.value.network.uuid));
 		const nickColor = computed(() =>
@@ -592,8 +606,8 @@ export default defineComponent({
 				!!data.value &&
 				!self.value &&
 				view.value.kind === "image" &&
-				!!account.value &&
-				isPersonTrusted(data.value.network.uuid, account.value, view.value.host)
+				!!avatarAccount.value &&
+				isPersonTrusted(data.value.network.uuid, avatarAccount.value, view.value.host)
 		);
 
 		// Only what is true shows; a missing account says nothing.
@@ -730,14 +744,55 @@ export default defineComponent({
 
 			status.value = answer.status;
 			whois.value = answer.whois ?? null;
-			answeredAt.value = Date.now();
+			answeredAt.value = answer.status === "unavailable" ? 0 : answer.at;
+		};
+
+		// The nick quit, changed hands or the socket closed: look again.
+		const onStale = (stale: {network: string; nick?: string}) => {
+			if (
+				data.value &&
+				stale.network === data.value.network.uuid &&
+				(stale.nick === undefined || sameNick(stale.nick, data.value.nick))
+			) {
+				whois.value = null;
+				answeredAt.value = 0;
+				lookUp();
+			}
+		};
+
+		// Focus: into the card as it opens, round inside it on Tab, and back
+		// to what opened it as it closes, unless an action has taken it since.
+		let opener: HTMLElement | null = null;
+
+		const onTab = (event: KeyboardEvent) => {
+			if (card.value) {
+				trapTab(event, card.value);
+			}
 		};
 
 		const close = () => {
+			if (!data.value) {
+				return;
+			}
+
 			data.value = null;
+			const back = opener;
+			opener = null;
+			void nextTick(() => {
+				const now = document.activeElement;
+
+				if ((!now || now === document.body) && back?.isConnected) {
+					back.focus();
+				}
+			});
 		};
 
 		const open = (next: CardData) => {
+			if (!data.value) {
+				const active = document.activeElement;
+				opener = active instanceof HTMLElement && active !== document.body ? active : null;
+			}
+
 			data.value = next;
 			whois.value = null;
 			answeredAt.value = 0;
@@ -752,8 +807,8 @@ export default defineComponent({
 		};
 
 		const alwaysPerson = () => {
-			if (data.value && account.value && view.value.kind === "veiled") {
-				trustPerson(data.value.network.uuid, account.value, view.value.host);
+			if (data.value && avatarAccount.value && view.value.kind === "veiled") {
+				trustPerson(data.value.network.uuid, avatarAccount.value, view.value.host);
 			}
 		};
 
@@ -764,8 +819,10 @@ export default defineComponent({
 		};
 
 		const stopTrusting = () => {
-			if (data.value && account.value && view.value.kind === "image") {
-				untrustPerson(personKey(data.value.network.uuid, account.value, view.value.host));
+			if (data.value && avatarAccount.value && view.value.kind === "image") {
+				untrustPerson(
+					personKey(data.value.network.uuid, avatarAccount.value, view.value.host)
+				);
 			}
 		};
 
@@ -856,12 +913,14 @@ export default defineComponent({
 			eventbus.on("usercard:open", open);
 			eventbus.on("escapekey", onEscape);
 			socket.on("whois:profile", onProfile);
+			socket.on("whois:profile:stale", onStale);
 		});
 
 		onUnmounted(() => {
 			eventbus.off("usercard:open", open);
 			eventbus.off("escapekey", onEscape);
 			socket.off("whois:profile", onProfile);
+			socket.off("whois:profile:stale", onStale);
 		});
 
 		return {
@@ -871,7 +930,7 @@ export default defineComponent({
 			card,
 			self,
 			view,
-			account,
+			avatarAccount,
 			avatarsOn,
 			nickColor,
 			personTrusted,
@@ -883,6 +942,7 @@ export default defineComponent({
 			channels,
 			rows,
 			close,
+			onTab,
 			lookUp,
 			showOnce,
 			alwaysPerson,
