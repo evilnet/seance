@@ -3714,16 +3714,13 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	box-shadow: 0 0 0 0.125em var(--window-bg-color, #fff);
 }
 
-/* The nick column makes room for the avatar, and a run of one sender's
- * lines shows it once, on the first (the nick stays on every line where
- * the theme shows it). */
+/* The nick column makes room for the avatar. The avatar goes wherever the
+ * nick goes: a theme that shows the nick on every line of a run shows the
+ * avatar there too, and one that drops the nick from follow-up lines (ps)
+ * drops the avatar with it. Hiding it alone left a gap before the nick. */
 #chat.avatars-on .from {
 	flex-basis: calc(12ch + 1.625rem);
 	min-width: calc(9ch + 1.625rem);
-}
-
-#chat .msg.previous-source .from .avatar {
-	visibility: hidden;
 }
 
 /* A query in the sidebar: the avatar stands in for the speech-bubble icon. */
