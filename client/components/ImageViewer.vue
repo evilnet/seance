@@ -40,7 +40,7 @@
 				:class="{loading: !loaded}"
 				:style="computeImageStyles"
 				@load="onImageLoad"
-				@error="prepareImage"
+				@error="onImageLoad"
 				@mousedown="onImageMouseDown"
 				@dblclick="onImageDoubleClick"
 			/>
@@ -327,20 +327,24 @@ export default defineComponent({
 		// change after, the observer below fits it again. A decode that never
 		// settles is not waited on for long, and one that settles after the
 		// <img> moved on to the next picture (whose own load fits it) is moot.
+		// Each load, and each change of picture, outdates the one before.
+		let loadSeq = 0;
+
 		const onImageLoad = async () => {
 			const imageEl = image.value;
+			const seq = ++loadSeq;
 
 			if (!imageEl) {
 				return;
 			}
 
-			const src = imageEl.currentSrc;
+			// A broken picture rejects at once and is shown as it is.
 			await Promise.race([
 				imageEl.decode().catch(() => {}),
 				new Promise((resolve) => setTimeout(resolve, DECODE_WAIT_MS)),
 			]);
 
-			if (image.value === imageEl && imageEl.currentSrc === src && imageEl.complete) {
+			if (seq === loadSeq) {
 				prepareImage();
 			}
 		};
@@ -1034,8 +1038,10 @@ export default defineComponent({
 				return;
 			}
 
-			// A click's pending close (or a tap's) was for the last picture.
+			// A click's pending close (or a tap's) was for the last picture, and
+			// so is a decode still under way.
 			cancelTap();
+			loadSeq++;
 
 			// A new picture is shown once it has loaded and been fitted; the
 			// same picture again (another preview of it) loads no more.
