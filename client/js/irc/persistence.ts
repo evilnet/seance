@@ -48,12 +48,15 @@ import {presenceResumed} from "./presence";
 export const PERSISTENCE_CAP = "draft/persistence";
 export const PERSISTENCE_PROFILE = "default";
 /**
- * The vendor capability nefarious2 is to move its extras to (ATTACH, DETACH,
+ * The vendor capability nefarious2 moved its extras to (ATTACH, DETACH,
  * LIST, PROFILE, REPLAY, the `attach-cursor` token and the session's
  * restoration batch), leaving `draft/persistence` exactly as the spec defines
- * it. Until a server ships it, both names are read: the cap's value for the
- * `attach-cursor` token, and either name as the restoration batch's type.
- * Provisional: the name is not settled upstream yet.
+ * it (`ircv3.2-upgrade` from befea9a6, N027). Since fa9ecc20 its
+ * `PERSISTENCE_DRAFT_EXTRAS` defaults off, so a client without this cap gets
+ * no `attach-cursor`, no restoration batch and no bouncer-replay wrapper. Both
+ * names are read, for servers built before the move or with the flag on: the
+ * cap's value for the `attach-cursor` token, and either name as the
+ * restoration batch's type.
  */
 export const PERSISTENCE_EXT_CAP = "evilnet.github.io/persistence";
 /**

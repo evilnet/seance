@@ -61,7 +61,8 @@ describe("irc/caps", function () {
 
 			const requested = reqCaps(second.send[0]);
 			// Everything wanted that nefarious2 offers: all but soju's own names
-			// and the vendor persistence cap no server offers yet.
+			// and the vendor persistence cap, which this transcript (a build
+			// before it) does not offer.
 			const notOffered = [
 				"soju.im/webpush",
 				"soju.im/bouncer-networks",
