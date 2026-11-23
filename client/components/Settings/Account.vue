@@ -40,7 +40,14 @@
 				</button>
 			</div>
 		</div>
-		<AvatarSettings v-if="live" :uuid="live.uuid" />
+		<router-link
+			v-if="live"
+			:to="{name: 'Avatars', query: {network: live.uuid}}"
+			class="network-settings-avatar"
+			><Avatar :uuid="live.uuid" :nick="live.nick" :self="true" size="list" />{{
+				t("avatar.change")
+			}}</router-link
+		>
 	</div>
 </template>
 
@@ -56,7 +63,7 @@ import {navigate, router} from "../../js/router";
 import socket from "../../js/socket";
 import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
-import AvatarSettings from "./AvatarSettings.vue";
+import Avatar from "../Avatar.vue";
 
 /**
  * Settings → Networks on a sign-in deploy that keeps its network as it set
@@ -66,7 +73,7 @@ import AvatarSettings from "./AvatarSettings.vue";
  */
 export default defineComponent({
 	name: "AccountSettings",
-	components: {AvatarSettings},
+	components: {Avatar},
 	setup() {
 		const store = useStore();
 		const {t} = useI18n();

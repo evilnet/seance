@@ -152,74 +152,6 @@
 				</p>
 			</div>
 		</div>
-		<h2 id="label-avatars">{{ t("settings.appearance.avatarsHeading") }}</h2>
-		<div role="group" aria-labelledby="label-avatars" class="avatar-load-options">
-			<p class="avatar-load-help">{{ t("settings.appearance.avatarsHelp") }}</p>
-			<label class="opt">
-				<input
-					:checked="avatarLoad === 'trusted'"
-					type="radio"
-					name="avatarLoad"
-					value="trusted"
-				/>
-				<span>
-					{{ t("settings.appearance.avatarsTrusted") }}
-					<span class="avatar-load-hint">{{
-						t("settings.appearance.avatarsTrustedHint")
-					}}</span>
-				</span>
-			</label>
-			<label class="opt">
-				<input :checked="avatarLoad === 'any'" type="radio" name="avatarLoad" value="any" />
-				<span>
-					{{ t("settings.appearance.avatarsAny") }}
-					<span class="avatar-load-hint">{{
-						t("settings.appearance.avatarsAnyHint")
-					}}</span>
-				</span>
-			</label>
-			<label class="opt">
-				<input
-					:checked="avatarLoad === 'none'"
-					type="radio"
-					name="avatarLoad"
-					value="none"
-				/>
-				<span>
-					{{ t("settings.appearance.avatarsNone") }}
-					<span class="avatar-load-hint">{{
-						t("settings.appearance.avatarsNoneHint")
-					}}</span>
-				</span>
-			</label>
-			<div
-				v-if="avatarLoad === 'trusted' && trustedAvatarPeople.length > 0"
-				class="trusted-hosts"
-			>
-				<div class="trusted-hosts-head">
-					<span class="trusted-hosts-title">{{
-						t("settings.appearance.avatarsPeople")
-					}}</span>
-				</div>
-				<ul class="trusted-host-list">
-					<li
-						v-for="person in trustedAvatarPeople"
-						:key="person.key"
-						class="trusted-host trusted-account"
-					>
-						<span class="trusted-host-name">{{ person.account }}</span>
-						<span class="trusted-host-network">{{ person.where }}</span>
-						<button
-							type="button"
-							class="trusted-host-remove"
-							:aria-label="untrustLabel('account', person.account)"
-							:title="untrustLabel('account', person.account)"
-							@click="untrustAvatarPerson(person.key)"
-						></button>
-					</li>
-				</ul>
-			</div>
-		</div>
 		<h2 id="label-status-messages">
 			{{ t("settings.appearance.statusHeading") }}
 			<span class="tooltipped tooltipped-n tooltipped-no-delay" :aria-label="statusHelpLabel">
@@ -454,19 +386,6 @@
 </template>
 
 <style>
-/* Avatars: the three choices carry a line each on what they mean. */
-.avatar-load-help,
-.avatar-load-hint {
-	display: block;
-	font-size: 0.8125rem;
-	color: var(--body-color-muted);
-	line-height: 1.4;
-}
-
-.avatar-load-help {
-	margin: 0 0 0.5rem;
-}
-
 textarea#user-specified-css-input {
 	height: 100px;
 }
@@ -591,8 +510,6 @@ import {
 	untrust,
 	type TrustKind,
 } from "../../js/helpers/mediaTrust";
-import {normalizeAvatarLoad} from "../../js/avatars/policy";
-import {splitPersonKey, trustedPeople, untrustPerson} from "../../js/avatars/prefs";
 
 type TrustedEntry = {key: string; name: string; network: string};
 
@@ -635,24 +552,6 @@ export default defineComponent({
 				const {network, name} = splitKey(key);
 				return {key, name, network: network ? networkName(network) : ""};
 			});
-
-		// Avatars (avatars/policy.ts): where they load from, and the people
-		// whose avatar always loads (account at the host it was on).
-		const avatarLoad = computed(() => normalizeAvatarLoad(store.state.settings.avatarLoad));
-		const trustedAvatarPeople = computed(() =>
-			trustedPeople().map((key) => {
-				const {network, account, host} = splitPersonKey(key);
-				const name = network ? networkName(network) : "";
-				return {
-					key,
-					account,
-					where: name
-						? t("settings.appearance.avatarsPersonWhere", {network: name, host})
-						: host,
-				};
-			})
-		);
-		const untrustAvatarPerson = (key: string) => untrustPerson(key);
 
 		const trustedGroups = computed(() => [
 			{
@@ -845,9 +744,6 @@ export default defineComponent({
 		);
 
 		return {
-			avatarLoad,
-			trustedAvatarPeople,
-			untrustAvatarPerson,
 			KEEP,
 			sceneMotions: SCENE_MOTIONS,
 			psAnimation,

@@ -20,6 +20,7 @@ import {store} from "./store";
 import socket from "./socket";
 
 import AppearanceSettings from "../components/Settings/Appearance.vue";
+import AvatarsSettings from "../components/Settings/Avatars.vue";
 import GeneralSettings from "../components/Settings/General.vue";
 import NotificationSettings from "../components/Settings/Notifications.vue";
 import TranslationSettings from "../components/Settings/Translation.vue";
@@ -100,6 +101,11 @@ const router = createRouter({
 					name: "Appearance",
 					path: "appearance",
 					component: AppearanceSettings,
+				},
+				{
+					name: "Avatars",
+					path: "avatar",
+					component: AvatarsSettings,
 				},
 				{
 					name: "Notifications",

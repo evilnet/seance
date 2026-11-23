@@ -249,7 +249,7 @@ Because that service strips EXIF itself (`strip_exif=1`), the "Attempt to remove
 
 ## Avatars
 
-Seance shows the IRCv3 `draft/metadata-2` `avatar` key (a URL) beside each nick, in the user list and on query entries in the sidebar; people without one get their initial on a tile in their nick colour. Loading someone's avatar tells the site that stores it the reader's IP address and that they are reading, and the avatar's owner picks that site, so by default (Settings → Appearance → Avatars: "Trusted sites only") a picture loads by itself only from the network's own upload host (`draft/FILEHOST`), from `avatars.trustedHosts`, from hosts the reader trusts for media previews, or for a person the reader chose to trust (account and host together). Anything else shows the initial with a dot until the reader picks "Show avatar" in that person's menu. A deploy that runs an image proxy sets `avatars.proxy` and every avatar loads through it instead.
+Seance shows the IRCv3 `draft/metadata-2` `avatar` key (a URL) beside each nick, in the user list and on query entries in the sidebar; people without one get their initial on a tile in their nick colour. Loading someone's avatar tells the site that stores it the reader's IP address and that they are reading, and the avatar's owner picks that site, so by default (Settings → Avatar: "Trusted sites only") a picture loads by itself only from the network's own upload host (`draft/FILEHOST`), from `avatars.trustedHosts`, from hosts the reader trusts for media previews, or for a person the reader chose to trust (account and host together). Anything else shows the initial with a dot until the reader picks "Show avatar" on that person's card or menu. A deploy that runs an image proxy sets `avatars.proxy` and every avatar loads through it instead.
 
 ```json
 "avatars": {
@@ -259,7 +259,7 @@ Seance shows the IRCv3 `draft/metadata-2` `avatar` key (a URL) beside each nick,
 }
 ```
 
-Users upload their own avatar from Settings (under each connected network, or Settings → Account on a sign-in deploy): it is cropped to 256 × 256, encoded as WebP (JPEG where the browser cannot), kept under 64 KiB and sent to the network's `draft/FILEHOST` host, so uploading needs an account on a network that advertises one; a link can be set anywhere `draft/metadata-2` is offered. Hosts like PASTE's `filehost.php` delete files after 30 days by default, so the device keeps the picture and uploads it again a week before `avatars.retentionDays` runs out, whenever it is connected; when the picture stops loading anyway, the settings say so and offer to upload it again.
+Users set their own avatar in Settings → Avatar (also reached from their own user card and from each network in Settings → Networks or Account): it is cropped to 256 × 256, encoded as WebP (JPEG where the browser cannot), kept under 64 KiB and sent to the network's `draft/FILEHOST` host, so uploading needs an account on a network that advertises one; a link can be set anywhere `draft/metadata-2` is offered. Hosts like PASTE's `filehost.php` delete files after 30 days by default, so the device keeps the picture and uploads it again a week before `avatars.retentionDays` runs out, whenever it is connected; when the picture stops loading anyway, the settings say so and offer to upload it again.
 
 ## Translation
 

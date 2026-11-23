@@ -39,29 +39,34 @@
 						{{ t("settings.networks.delete") }}
 					</button>
 				</div>
-				<details v-if="live(network.uuid)" class="network-settings-avatar">
-					<summary>{{ t("avatar.heading") }}</summary>
-					<AvatarSettings :uuid="network.uuid" />
-				</details>
+				<router-link
+					v-if="live(network.uuid)"
+					:to="{name: 'Avatars', query: {network: network.uuid}}"
+					class="network-settings-avatar"
+					><Avatar
+						:uuid="network.uuid"
+						:nick="live(network.uuid)?.nick ?? ''"
+						:self="true"
+						size="list"
+					/>{{ t("avatar.change") }}</router-link
+				>
 			</li>
 		</ul>
 	</div>
 </template>
 
 <style>
-/* A live network's own avatar (AvatarSettings.vue), folded under its row. */
+/* A live network's row links to its avatar on the Avatar tab. */
 .network-settings-item {
 	flex-wrap: wrap;
 }
 
 .network-settings-avatar {
 	flex: 1 0 100%;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
 	font-size: 0.875rem;
-}
-
-.network-settings-avatar > summary {
-	cursor: pointer;
-	color: var(--body-color-muted);
 	padding-block: 0.25rem;
 }
 
@@ -168,7 +173,7 @@
 import {computed, defineComponent, ref} from "vue";
 import {brandingFeatures} from "../../js/branding";
 import AccountSettings from "./Account.vue";
-import AvatarSettings from "./AvatarSettings.vue";
+import Avatar from "../Avatar.vue";
 import eventbus from "../../js/eventbus";
 import {createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
@@ -183,7 +188,7 @@ export default defineComponent({
 	name: "NetworkSettings",
 	components: {
 		AccountSettings,
-		AvatarSettings,
+		Avatar,
 	},
 	setup() {
 		const store = useStore();

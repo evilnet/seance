@@ -962,6 +962,7 @@ p {
 .context-menu-list::before { content: "\f03a"; /* http://fontawesome.io/icon/list/ */ }
 .context-menu-disconnect::before { content: "\f127"; /* https://fontawesome.com/icons/unlink?style=solid */ }
 .context-menu-connect::before { content: "\f0c1"; /* https://fontawesome.com/icons/link?style=solid */ }
+.context-menu-action-profile::before { content: "\f2c2"; /* https://fontawesome.com/icons/id-card?style=solid */ }
 .context-menu-action-whois::before { content: "\f05a"; /* http://fontawesome.io/icon/info-circle/  */ }
 .context-menu-action-ignore::before { content: "\f506"; /* https://fontawesome.com/icons/user-slash?style=solid  */ }
 .context-menu-action-unignore::before { content: "\f4fc"; /* https://fontawesome.com/icons/user-check?style=solid  */ }
@@ -3667,6 +3668,12 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	height: 1.5rem;
 	font-size: 0.75rem;
 	margin-inline-end: 0.5rem;
+}
+
+.avatar-card {
+	width: 4rem;
+	height: 4rem;
+	font-size: 1.75rem;
 }
 
 .avatar-large {
@@ -8629,6 +8636,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #upload-preview-overlay,
 #oper-action-overlay,
 #ban-overlay,
+#user-card-overlay,
 #avatar-crop-overlay,
 #upload-overlay,
 #image-viewer,
@@ -8647,6 +8655,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #upload-preview-overlay,
 #oper-action-overlay,
 #ban-overlay,
+#user-card-overlay,
 #avatar-crop-overlay,
 #upload-overlay,
 #image-viewer {
@@ -8702,6 +8711,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #upload-preview-overlay.opened,
 #oper-action-overlay.opened,
 #ban-overlay.opened,
+#user-card-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {
 	visibility: visible;

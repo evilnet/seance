@@ -46,7 +46,7 @@ export default defineComponent({
 		/** The line's account-tag, when shown beside a line. */
 		account: {type: String, required: false},
 		self: Boolean,
-		size: {type: String as PropType<"line" | "list" | "large">, default: "line"},
+		size: {type: String as PropType<"line" | "list" | "card" | "large">, default: "line"},
 	},
 	setup(props) {
 		const store = useStore();

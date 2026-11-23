@@ -17,6 +17,38 @@ msgctxt "avatar.alwaysPerson"
 msgid "Always show {nick}'s avatar"
 msgstr ""
 
+#. User card: the close button's accessible name.
+#: client/components/UserCard.vue
+#, distinct
+msgctxt "avatar.cardClose"
+msgid "Close"
+msgstr ""
+
+#. User card: the person has not set an avatar.
+#: client/components/UserCard.vue
+msgctxt "avatar.cardNone"
+msgid "{nick} has no avatar."
+msgstr ""
+
+#. User card: the services account this person is logged in to.
+#: client/components/UserCard.vue
+msgctxt "avatar.cardSignedIn"
+msgid "Signed in as {account}"
+msgstr ""
+
+#. User card: the person's avatar is on a site the reader has not chosen to trust, so it is not loaded. {host} is a website's domain.
+#: client/components/UserCard.vue
+msgctxt "avatar.cardVeiled"
+msgid "{nick}'s avatar is on {host}. Loading it tells that site your IP address."
+msgstr ""
+
+#. Opens Settings → Avatar, where you upload or link your own avatar.
+#: client/components/UserCard.vue
+#: client/components/Settings/Networks.vue
+msgctxt "avatar.change"
+msgid "Change your avatar"
+msgstr ""
+
 #. Avatar settings, shown while the network is not connected.
 msgctxt "avatar.connectFirst"
 msgid "Connect to this network to change your avatar."
@@ -217,6 +249,12 @@ msgstr ""
 #. Accessible label of a recent avatar. {date} is a short date.
 msgctxt "avatar.useRecent"
 msgid "Use the avatar from {date}"
+msgstr ""
+
+#. User card: open this person's avatar at full size in the image viewer.
+#: client/components/UserCard.vue
+msgctxt "avatar.view"
+msgid "View avatar"
 msgstr ""
 
 #. Label of the zoom slider in the avatar crop dialog.
@@ -4892,6 +4930,12 @@ msgstr ""
 #: client/js/helpers/contextMenu.ts
 msgctxt "menu.operPanel"
 msgid "Oper panel…"
+msgstr ""
+
+#. User menu: opens the person's user card (avatar, account, Message, Whois).
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.profile"
+msgid "Profile"
 msgstr ""
 
 #. Context-menu item that takes an IRC channel role away from a user; {name} is the role's name ('operator'), {mode} the bare mode letter (e.g. o) — the - before it is part of the text, so the item reads (-o).
@@ -13743,9 +13787,10 @@ msgctxt "settings.appearance.avatarsHeading"
 msgid "Avatars"
 msgstr ""
 
-#. Introduction to the avatar loading choices.
+#. Settings → Avatar: explains why avatars from untrusted sites are not loaded by themselves.
+#: client/components/Settings/Avatars.vue
 msgctxt "settings.appearance.avatarsHelp"
-msgid "Loading someone's avatar tells the site it is stored on your IP address and that you are looking at the chat. Pictures from sites you don't trust show as an initial until you load them from the person's menu."
+msgid "Loading someone's avatar tells the site it is stored on your IP address and that you are looking at the chat. Pictures from sites you don't trust show as an initial until you load them from the person's profile (tap their avatar)."
 msgstr ""
 
 #. Avatar loading choice: no avatar pictures are loaded.
@@ -14298,6 +14343,19 @@ msgstr ""
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.visualAids"
 msgid "Visual Aids"
+msgstr ""
+
+#. Settings → Avatar, when no network is connected.
+#: client/components/Settings/Avatars.vue
+msgctxt "settings.avatars.connectFirst"
+msgid "Connect to a network to set your avatar there."
+msgstr ""
+
+#. Settings → Avatar: heading over your own avatar on each connected network.
+#: client/components/Settings/Avatars.vue
+#, distinct
+msgctxt "settings.avatars.yours"
+msgid "Your avatar"
 msgstr ""
 
 #. Heading of the away section in Settings > General, and the visually hidden label of the away-message input beneath it; names the setting that marks you away with a message when the app is closed.
@@ -15200,6 +15258,12 @@ msgstr ""
 #: client/components/Settings/Navigation.vue
 msgctxt "settings.tabs.aria"
 msgid "Settings tabs"
+msgstr ""
+
+#. Settings tab holding your own avatar and the choice of whose avatars load.
+#: client/js/hooks/use-settings-tabs.ts
+msgctxt "settings.tabs.avatar"
+msgid "Avatar"
 msgstr ""
 
 #. Label of the Settings modal's General tab (tab strip); switching tabs navigates to the General settings pane.

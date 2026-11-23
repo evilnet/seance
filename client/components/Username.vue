@@ -79,7 +79,15 @@ export default defineComponent({
 		};
 
 		const openContextMenu = (event: Event) => {
+			// A click or tap on the avatar opens the user card (UserCard.vue);
+			// the nick, and a right-click anywhere, the menu.
+			const onAvatar =
+				event.type === "click" &&
+				event.target instanceof Element &&
+				!!event.target.closest(".avatar");
+
 			eventbus.emit("contextmenu:user", {
+				card: onAvatar,
 				event: event,
 				user: props.user,
 				network: props.network,

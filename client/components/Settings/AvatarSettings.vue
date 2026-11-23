@@ -19,7 +19,7 @@
 		<div class="avatar-settings-main">
 			<Avatar v-if="nick && enabled" :uuid="uuid" :nick="nick" :self="true" size="large" />
 			<div class="avatar-settings-body">
-				<h3 :id="'avatar-settings-' + uuid">{{ t("avatar.heading") }}</h3>
+				<h3 :id="'avatar-settings-' + uuid">{{ heading || t("avatar.heading") }}</h3>
 				<p class="avatar-settings-help">{{ helpText }}</p>
 				<p v-if="retentionNote" class="avatar-settings-note">{{ retentionNote }}</p>
 				<div v-if="editable" class="avatar-settings-buttons">
@@ -339,6 +339,8 @@ export default defineComponent({
 	components: {Avatar, AvatarCrop},
 	props: {
 		uuid: {type: String, required: true},
+		/** Replaces "Your avatar" as the heading (the network's name, on the Avatar tab). */
+		heading: {type: String, required: false},
 	},
 	setup(props) {
 		const {t, tCount} = useI18n();

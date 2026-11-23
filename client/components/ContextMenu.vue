@@ -57,6 +57,7 @@
 <script lang="ts">
 import {
 	generateUserContextMenu,
+	openUserCard,
 	generateChannelContextMenu,
 	generateInlineChannelContextMenu,
 	ContextMenuItem,
@@ -265,6 +266,8 @@ export default defineComponent({
 			network?: ClientNetwork;
 			channel?: ClientChan;
 			address?: string;
+			/** The avatar was clicked: the user card, not the menu. */
+			card?: boolean;
 		}) => {
 			// The network the nick was shown for (an oper card, a notice), not
 			// the active one: a card can be open for another network, and its
@@ -286,6 +289,11 @@ export default defineComponent({
 			const user = channel.users.find((u) =>
 				namesEqual(u.nick, data.user.nick, network.serverOptions.CASEMAPPING)
 			);
+			if (data.card) {
+				openUserCard(network, channel, user?.nick ?? data.user.nick, data.address);
+				return;
+			}
+
 			const newItems = generateUserContextMenu(
 				store,
 				channel,
