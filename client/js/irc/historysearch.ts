@@ -207,7 +207,7 @@ export function pendingSearches(client: IrcClient): readonly PendingSearch[] {
 
 /**
  * The spec's single parameter: `key=value` joined by `;`, values escaped like
- * message tags. nefarious2 spells it differently (its profile's `searchParams`).
+ * message tags, as soju reads it. nefarious2 reads it too (evilnet/nefarious2#152).
  */
 export function specSearchParams(attrs: SearchAttrs): string[] {
 	const escape = (value: string) =>
@@ -373,7 +373,7 @@ function askNext(client: IrcClient, group: SearchGroup): void {
 		{kind: "results", requestId: group.requestId, attrs: part, group},
 		true,
 		"SEARCH",
-		client.profile.searchParams?.(part) ?? specSearchParams(part),
+		specSearchParams(part),
 		// A bouncer answers SEARCH from its own store: no ircd charges for it.
 		!client.behindBouncer
 	);
@@ -471,7 +471,7 @@ export function requestSearch(client: IrcClient, requestId: number, attrs: Searc
 		{kind: "results", requestId, attrs},
 		available,
 		"SEARCH",
-		client.profile.searchParams?.(attrs) ?? specSearchParams(attrs)
+		specSearchParams(attrs)
 	);
 }
 
