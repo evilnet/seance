@@ -66,11 +66,12 @@ import {
 	clampCentre,
 	clampScale,
 	doubleTapScale,
+	fitScaleOf,
 	isDoubleTap,
 	isFitted,
 	isForward,
 	lockAxis,
-	MAX_SCALE,
+	maxScale,
 	DOUBLE_TAP_MS,
 	pinch,
 	rubber,
@@ -290,12 +291,10 @@ export default defineComponent({
 			return view ? {x: view.x, y: view.y} : {x: 0, y: 0};
 		};
 
-		// The scale that fits the picture in the box, never past its own pixels.
+		// The scale that fits the picture in the box (viewerGesture.ts fitScaleOf).
 		const measureFit = (viewerEl: HTMLElement, imageEl: HTMLImageElement) => {
 			const {width, height} = contentBox(viewerEl);
-			// A picture that failed to load has no size: shown as it is.
-			const scale = Math.min(1, width / imageEl.width, height / imageEl.height) || 1;
-			return Math.max(scale, 0.1);
+			return fitScaleOf(width, height, imageEl.width, imageEl.height);
 		};
 
 		const prepareImage = () => {
@@ -325,7 +324,7 @@ export default defineComponent({
 				return view;
 			}
 
-			const scale = clampScale(view.scale, fitScale, MAX_SCALE);
+			const scale = clampScale(view.scale, fitScale, maxScale(fitScale));
 			const zoomed = scale === view.scale ? view : zoomAbout(view, scale, anchor);
 			return {...clampCentre(zoomed, imageSize(), contentBox(viewer.value)), scale};
 		};
@@ -620,7 +619,7 @@ export default defineComponent({
 			}
 
 			const raw = pinch(g.base, g.from, touch, (s) => s);
-			const view = zoomAbout(raw, softScale(raw.scale, fitScale, MAX_SCALE), touch);
+			const view = zoomAbout(raw, softScale(raw.scale, fitScale, maxScale(fitScale)), touch);
 			g.raw = raw;
 			Object.assign(transform.value, {...softCentre(view, g.size, g.box), scale: view.scale});
 		};
