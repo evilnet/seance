@@ -3914,6 +3914,18 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 	cursor: zoom-in;
 }
 
+/* The thumbnail is a button (LinkPreview.vue): a block, so it hugs the image. */
+#chat .toggle-thumbnail {
+	display: block;
+	max-width: 100%;
+	cursor: zoom-in;
+}
+
+#chat .toggle-thumbnail:focus-visible {
+	outline: 2px solid var(--button-color);
+	outline-offset: 1px;
+}
+
 /* The still an animation holds after its one play (LinkPreview.vue); it is
  * drawn at the image's measured size, so it takes the image's box exactly. */
 #chat .toggle-content .media-still {

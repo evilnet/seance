@@ -168,7 +168,7 @@ const rawImage = (src) => `new Promise((resolve) => {
 
 const previewState = `(() => {
 	const link = Array.from(document.querySelectorAll("#chat .preview .toggle-thumbnail"))
-		.find((a) => a.href.includes("preview.png"));
+		.find((a) => a.dataset.url.includes("preview.png"));
 	const img = link?.querySelector("img");
 	if (!img) return null;
 	const r = img.getBoundingClientRect();

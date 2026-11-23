@@ -55,11 +55,15 @@
 				@mouseleave="hovered = false"
 			>
 				<template v-if="link.type === 'image'">
-					<a
-						:href="link.link"
+					<!-- A button, not a link: a link-redirecting extension (Open in
+					Firefox and the like) catches clicks on <a href> before the
+					page's handler can cancel them, so a link here opened the image
+					elsewhere instead of the viewer. The ↗ tool is the link out. -->
+					<button
+						type="button"
 						class="toggle-thumbnail"
-						target="_blank"
-						rel="noopener"
+						:data-url="link.link"
+						:aria-label="viewAria"
 						@click="onThumbnailClick"
 					>
 						<!-- An animation plays once, then this still of it stands in
@@ -85,7 +89,7 @@
 							@error="onPreviewError"
 							@abort="onPreviewError"
 						/>
-					</a>
+					</button>
 				</template>
 				<!-- Shown on `loadedmetadata`, not `canplay`: iOS Safari does not
 				fire `canplay` for `preload="metadata"` until playback starts, so a
@@ -252,6 +256,7 @@ export default defineComponent({
 		const previewActionsAria = computed(() => t("link.previewActions"));
 		const hideAria = computed(() => t("link.hide"));
 		const openAria = computed(() => t("link.openNewTab"));
+		const viewAria = computed(() => t("link.viewImage"));
 		const imageViewer = inject(imageViewerKey);
 
 		onBeforeRouteUpdate(() => {
@@ -558,9 +563,7 @@ export default defineComponent({
 			eventbus.emit("contextmenu:items", {event: at, items});
 		};
 
-		const onThumbnailClick = (e: MouseEvent) => {
-			e.preventDefault();
-
+		const onThumbnailClick = () => {
 			if (!imageViewer?.value) {
 				return;
 			}
@@ -601,6 +604,7 @@ export default defineComponent({
 			previewActionsAria,
 			hideAria,
 			openAria,
+			viewAria,
 			content,
 			container,
 			failed,
