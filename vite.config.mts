@@ -7,6 +7,7 @@
 import * as path from "path";
 import {globSync, mkdirSync, readFileSync, statSync, writeFileSync} from "fs";
 import {build, defineConfig, minifySync, type Plugin} from "vite";
+import {transform as transformCss, type Targets} from "lightningcss";
 import vue from "@vitejs/plugin-vue";
 import {
 	branding,
@@ -67,6 +68,8 @@ type Copy = {
 	from: string;
 	to: (file: string) => string;
 	transform?: (content: string) => string;
+	/** Builds the output from the file's path instead (a theme's bundle). */
+	build?: (abs: string) => string;
 	/** Files the glob matches that are not copied. */
 	skip?: (file: string) => boolean;
 };
@@ -110,11 +113,21 @@ const copies: Copy[] = [
 		transform: (c) =>
 			c
 				.replace("__HASH__", buildToken)
-				.replace('"__APP_NAME__"', JSON.stringify(branding.appName)),
+				.replace('"__APP_NAME__"', JSON.stringify(branding.appName))
+				.replace(
+					'"__THEMES__"',
+					JSON.stringify(
+						globSync("client/themes/*.css", {cwd: root})
+							.map((f) => base(f).replace(/\.css$/, ""))
+							.sort()
+					)
+				),
 	},
 	{from: "client/audio/*", to: (f) => `audio/${base(f)}`},
 	{from: "client/img/*", to: (f) => `img/${base(f)}`},
-	{from: "client/themes/*.css", to: (f) => `themes/${base(f)}`},
+	// Each theme as one file: its @import chain inlined, minified in
+	// production, for the bundle's browsers (bundleTheme below).
+	{from: "client/themes/*.css", to: (f) => `themes/${base(f)}`, build: bundleTheme},
 	{from: "client/themes/ps/*", to: (f) => `themes/ps/${base(f)}`},
 	// The compiled locale catalogs, for the service worker's notifications:
 	// the worker composes its copy through the same i18n runtime
@@ -138,6 +151,88 @@ const copies: Copy[] = [
 // (tsconfig.json, tsconfig.worker.json, …).
 const rootIgnore =
 	/(^index\.html|^service-worker\.js|^manifest\.webmanifest|\.d\.ts|^tsconfig(\.[\w-]+)?\.json)$/;
+
+// Lightning CSS's version for a build.target entry such as "safari16.4":
+// major << 16 | minor << 8. Engines it does not take (es2023) are left out.
+const CSS_ENGINES: Record<string, keyof Targets> = {
+	chrome: "chrome",
+	edge: "edge",
+	firefox: "firefox",
+	safari: "safari",
+	ios: "ios_saf",
+	opera: "opera",
+};
+
+function cssTargets(targets: string[]): Targets {
+	const out: Targets = {};
+
+	for (const target of targets) {
+		const m = /^([a-z]+)(\d+)(?:\.(\d+))?/.exec(target);
+		const engine = m && CSS_ENGINES[m[1]];
+
+		if (m && engine) {
+			out[engine] = (Number(m[2]) << 16) | (Number(m[3] ?? 0) << 8);
+		}
+	}
+
+	return out;
+}
+
+// A theme is authored as plain CSS that @imports the theme it builds on
+// (frost → cobalt → coffee → day); the browser would fetch that chain one
+// file at a time. The build inlines it, so every theme is one request, and
+// minifies it in production like style.css. Relative url()s (themes/ps/…)
+// stay relative: the bundle is written to themes/ beside its sources'
+// copies. docs/resources/themes.md (the opening section).
+//
+// The inlining is the browser's own: each import in place, under its media
+// condition, as often as it is imported. Lightning CSS's bundle() keeps a
+// file reached twice once, under the first condition alone, which dropped
+// day.css's frame from macos.css by light (it imports coffee by dark and
+// creama, which imports coffee again, by light).
+const IMPORT = /^@import\s+"([^"]+)"\s*([^;]*);[^\S\n]*$/gm;
+
+function inlineImports(abs: string, trail: string[] = []): string {
+	if (trail.includes(abs)) {
+		throw new Error(`${path.relative(root, abs)}: an @import cycle`);
+	}
+
+	const css = readFileSync(abs, "utf8");
+
+	return css.replace(IMPORT, (_, file: string, condition: string) => {
+		const inner = inlineImports(path.resolve(path.dirname(abs), file), [...trail, abs]);
+		const media = condition.trim();
+
+		if (/\b(layer|supports)\b/.test(media)) {
+			throw new Error(`${path.relative(root, abs)}: @import ${file} ${media} is not inlined`);
+		}
+
+		return media ? `@media ${media} {\n${inner}\n}` : inner;
+	});
+}
+
+function bundleTheme(abs: string): string {
+	const {code, warnings} = transformCss({
+		filename: abs,
+		code: Buffer.from(inlineImports(abs)),
+		minify: isProduction,
+		targets: cssTargets(scriptTarget),
+	});
+
+	// A warning is a rule Lightning CSS could not read: fail rather than ship
+	// a theme with a hole in it.
+	if (warnings.length) {
+		throw new Error(`${path.relative(root, abs)}: ${warnings[0].message}`);
+	}
+
+	const text = code.toString();
+
+	if (/@import\b/.test(text)) {
+		throw new Error(`${path.relative(root, abs)}: an @import survived bundling`);
+	}
+
+	return text;
+}
 
 // The copied scripts (the service worker, the loading-error handlers) run
 // as they are, outside the bundle; a production build minifies them like
@@ -216,7 +311,9 @@ function staticFiles(): Plugin {
 					}
 
 					const abs = path.join(root, file);
-					const content = copy.transform
+					const content = copy.build
+						? copy.build(abs)
+						: copy.transform
 						? copy.transform(stampEntry(readFileSync(abs, "utf8")))
 						: readFileSync(abs);
 					const to = copy.to(file);

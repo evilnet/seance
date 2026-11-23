@@ -55,8 +55,11 @@ ship one.
 - **Offline cold start.** On install the service worker precaches the shell:
   `index.html`, the manifest, `config.json`, the JS entry and what it imports
   statically (Rolldown's runtime chunk), the loading-error handlers, the push
-  module, `style.css`, the default theme, the FontAwesome woff2 and the splash
-  logos. So an installed
+  module, `style.css`, every theme's stylesheet (each one file, under the
+  build's `?v=`), the FontAwesome woff2 and the splash logos. One failed fetch
+  does not cut the install short: every path settles first. Offline, a theme
+  is matched without its `?v=`, so a tab left open across a deploy still gets
+  its theme (the new build's copy) after it switches theme. So an installed
   app launched with no connectivity still opens to the UI (saved networks show
   as disconnected and reconnect with backoff when the host comes back) instead
   of Chrome's error page. Runtime fetches are network-first with a cache

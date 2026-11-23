@@ -17,7 +17,8 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, PropType, ref} from "vue";
+import {computed, defineComponent, PropType, ref, watch} from "vue";
+import {liveRows} from "../js/liveRows";
 import {condensedTypes} from "../../shared/irc";
 import {MessageType} from "../../shared/types/msg";
 import {ClientMessage, ClientNetwork} from "../js/types";
@@ -44,6 +45,15 @@ export default defineComponent({
 	},
 	setup(props) {
 		const {t, tCount} = useI18n();
+
+		// A join folded in here has no row of its own: its live note is taken
+		// and dropped, so the row a regrouping draws later is not new
+		// (liveRows.ts).
+		watch(
+			() => props.messages.map((m) => m.id),
+			(ids) => ids.forEach((id) => liveRows.take(id)),
+			{immediate: true}
+		);
 
 		const isCollapsed = ref(true);
 

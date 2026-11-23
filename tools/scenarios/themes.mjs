@@ -58,7 +58,8 @@ export const url =
 	`&tls=${TARGET.protocol === "wss:"}&nick=${NICK}` +
 	`&join=${encodeURIComponent(CHANNEL)}`;
 
-const THEME_HREF = `document.getElementById("theme").getAttribute("href")`;
+// The link without the build's `?v=` (helpers/themeHref.ts).
+const THEME_HREF = `document.getElementById("theme").getAttribute("href").replace(/\\?.*$/, "")`;
 const STORED = `JSON.parse(localStorage.getItem("settings") ?? "{}").theme ?? null`;
 const META = `document.querySelector('meta[name="theme-color"]').content`;
 

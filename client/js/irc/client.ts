@@ -182,6 +182,7 @@ import {shellSocketCtor, type SocketBridge, type UntrustedCertificate} from "./s
 import {
 	channelOrder,
 	get as getSavedNetwork,
+	isSaved as isSavedNetwork,
 	MAX_TRUSTED_CERTIFICATES,
 	NetworkCursor,
 	setBouncerSettled,
@@ -766,10 +767,10 @@ export class IrcClient {
 		this.conversations = new ConversationStore(
 			this.uuid,
 			(s) => this.casefold(s),
-			() => getSavedNetwork(this.uuid) !== undefined
+			() => isSavedNetwork(this.uuid)
 		);
 
-		this.noticeLog = new NoticeLog(this.uuid, () => getSavedNetwork(this.uuid) !== undefined);
+		this.noticeLog = new NoticeLog(this.uuid, () => isSavedNetwork(this.uuid));
 		this.closed = new ClosedQueries(this.uuid, (s) => this.casefold(s));
 
 		for (const window of this.conversations.windows()) {
@@ -3915,19 +3916,59 @@ export class IrcClient {
 		}
 	}
 
-	/** Keep a line handed to the UI on the device (conversationStore.ts). */
-	keep(chan: Channel, msg: SharedMsg): void {
+	/** Keep a line handed to the UI on the device (conversationStore.ts); whether it was. */
+	keep(chan: Channel, msg: SharedMsg): boolean {
 		const kind = this.storeKind(chan);
 
 		if (
 			!kind ||
 			(chan.clearedAt !== undefined && new Date(msg.time).getTime() <= chan.clearedAt)
 		) {
+			return false;
+		}
+
+		// A channel we are in that the store knows nothing of (what was kept
+		// was deleted: the setting went off and on): a page load joins it
+		// again, as it would have.
+		if (
+			kind === "channel" &&
+			chan.state === ChanState.JOINED &&
+			!this.conversations.meta(chan.name)
+		) {
+			this.conversations.setJoined(chan.name, true, chan.shared.key);
+		}
+
+		const kept = this.conversations.append(chan.name, kind, msg);
+		this.conversations.setFilled(chan.name, kind, chan.historyFilled);
+		return kept;
+	}
+
+	/**
+	 * `chan`'s catch-up walk is over. The first line relayed while it was
+	 * owed is kept marked on the device (Channel.walkGap). `lost`: the walk
+	 * never delivered (the connection closed, no answer), so the lines below
+	 * that one are missing and the marker is shown; else they are here, and
+	 * the marker goes.
+	 */
+	settleWalkGap(chan: Channel, lost: boolean): void {
+		const id = chan.walkGap;
+		chan.walkGap = undefined;
+
+		if (typeof id !== "number") {
 			return;
 		}
 
-		this.conversations.append(chan.name, kind, msg);
-		this.conversations.setFilled(chan.name, kind, chan.historyFilled);
+		if (lost) {
+			this.setGap(chan, id, true);
+			return;
+		}
+
+		const ref = chan.msgRefs.get(id);
+		const key = ref?.msgid ?? ref?.key;
+
+		if (ref && key !== undefined && !ref.gap) {
+			this.conversations.setGap(chan.name, ref.time, key, false);
+		}
 	}
 
 	/**
@@ -4531,7 +4572,15 @@ export class IrcClient {
 
 		this.noteCursor(msg);
 
-		this.keep(chan, msg); // before the counting below, which may move the read point it keeps
+		// Before the counting below, which may move the read point it keeps.
+		if (this.keep(chan, msg) && chan.walkGap === true && !replay) {
+			const key = ref.msgid ?? ref.key;
+
+			if (key !== undefined) {
+				chan.walkGap = msg.id;
+				this.conversations.setGap(chan.name, ref.time, key, true);
+			}
+		}
 
 		// An original its author's edit already replaced on screen counts
 		// for nothing: the edit counted in its place (privmsg.ts counts an

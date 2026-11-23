@@ -507,6 +507,15 @@ html[data-platform="macos"] #image-viewer::before {
 	background: rgb(0 0 0 / 55%);
 }
 
+/* Reduce Transparency: the window under the picture blacked out, unblurred. */
+html[data-reduce-transparency][data-platform="macos"] #image-viewer {
+	backdrop-filter: none;
+}
+
+html[data-reduce-transparency][data-platform="macos"] #image-viewer::before {
+	background: #000;
+}
+
 html[data-platform="macos"] #image-viewer .close-btn {
 	top: var(--mac-titlebar-height);
 }
@@ -4188,6 +4197,13 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	pointer-events: none;
 }
 
+/* Reduce Transparency: the toolbar over a picture on a solid fill, with no
+ * blur of it (an audio preview's sits on the row itself: below). */
+html[data-reduce-transparency] #chat .toggle-content:not(.toggle-type-audio) .media-tools {
+	background: #000;
+	backdrop-filter: none;
+}
+
 #chat .media-frame:hover .media-tools,
 #chat .media-frame:focus-within .media-tools {
 	opacity: 1;
@@ -4265,6 +4281,12 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 		opacity: 0.85;
 		transform: none;
 		pointer-events: auto;
+	}
+}
+
+@media (hover: none) {
+	html[data-reduce-transparency] #chat .media-tools {
+		opacity: 1;
 	}
 }
 
@@ -4468,35 +4490,6 @@ html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
 #connect .btn {
 	margin-top: 15px;
 	width: 100%;
-}
-
-#settings .settings-sync-panel {
-	padding: 10px;
-	margin-bottom: 16px;
-	border-radius: 2px;
-	background-color: #d9edf7;
-	color: #31708f;
-}
-
-#settings .settings-sync-panel p:last-child {
-	margin-bottom: 0;
-}
-
-#settings .settings-sync-panel .btn {
-	color: #007bff;
-	border-color: #007bff;
-	margin-bottom: 0;
-}
-
-#settings .settings-sync-panel .btn:hover,
-#settings .settings-sync-panel .btn:focus {
-	background-color: #007bff;
-	color: #fff;
-}
-
-#settings .settings-sync-panel .btn:active,
-#settings .settings-sync-panel .btn:focus {
-	box-shadow: 0 0 0 3px rgb(0 123 255 / 50%);
 }
 
 #settings .opt {
@@ -10332,71 +10325,7 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 	color: var(--body-color);
 }
 
-/* Settings → Push Notifications: the on/off indicator dot + per-network rows */
-.push-state {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 8px;
-}
-
-.push-state-dot {
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	background: var(--body-color-muted);
-	flex: 0 0 auto;
-}
-
-.push-state-subscribed {
-	background: #2ea043;
-}
-
-.push-state-unsubscribed,
-.push-state-server-unsupported,
-.push-state-not-installed {
-	background: #9e6a03;
-}
-
-.push-state-denied,
-.push-state-blocked,
-.push-state-unsupported {
-	background: #c93c37;
-}
-
-.push-networks {
-	margin: 8px 0 12px;
-}
-
-.push-network {
-	padding: 5px 0;
-	border-bottom: 1px solid var(--body-color-muted);
-	display: flex;
-	align-items: baseline;
-	gap: 8px;
-}
-
-.push-network-state {
-	margin-inline-start: auto;
-	font-size: 0.8125rem;
-	font-weight: bold;
-	color: var(--body-color-muted);
-	white-space: nowrap;
-}
-
-.push-net-on {
-	color: #2ea043;
-}
-
-.push-net-off,
-.push-net-unsupported {
-	color: var(--body-color-muted);
-}
-
-.push-net-ready {
-	color: #9e6a03;
-}
-
+/* Settings → Notifications: the hints under its switches. */
 .push-networks-hint,
 .keepalive-hint,
 .dnd-schedule-hint {
@@ -10430,38 +10359,6 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 	padding: 0.5rem;
 	border: 1px solid var(--body-color-muted);
 	border-radius: 0.25rem;
-}
-
-.session-row {
-	padding: 6px 0;
-	border-bottom: 1px solid var(--body-color-muted);
-}
-
-.session-state {
-	display: inline-block;
-	min-width: 4rem;
-	padding: 0 6px;
-	border-radius: 3px;
-	font-size: 0.8125rem;
-	font-weight: bold;
-	text-align: center;
-	margin-inline-end: 8px;
-	color: #fff;
-	background: var(--body-color-muted);
-}
-
-.session-held {
-	background: #2ea043;
-}
-
-.session-active {
-	background: #388bfd;
-}
-
-.session-info {
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-	margin-top: 2px;
 }
 
 /* The Mac app's sizes (data-platform="macos", set before the first paint by
@@ -10579,4 +10476,81 @@ html[data-reduce-motion] *::after {
 	animation-iteration-count: 1 !important;
 	transition-duration: 0.01ms !important;
 	scroll-behavior: auto !important;
+}
+
+/* Windows' contrast themes (forced colours, in every Windows browser and the
+ * Windows app's WebView2). The system repaints text, backgrounds and borders
+ * in its own few colours and drops shadows and gradients, so everything this
+ * stylesheet and the themes say with a fill or a shadow alone is lost: the
+ * focus ring (outline 0 and a box-shadow on many controls), the open
+ * conversation, a selected segment or tab, a mention's band, a badge's
+ * shape. Those are restated here as outlines and borders in system colours.
+ * A media query, not an attribute like the rest: the mode is Windows' alone,
+ * and Chromium applies it live. The ps scene leaves the page (themeScene.ts
+ * stops its frame loop too), and no surface keeps a blur, which the system's
+ * opaque Canvas would only make dearer. */
+@media (forced-colors: active) {
+	#theme-scene {
+		display: none !important;
+	}
+
+	*,
+	*::before,
+	*::after {
+		backdrop-filter: none !important;
+	}
+
+	/* Outside the control, so it never looks like the inset marks below. */
+	:focus-visible {
+		outline: 0.125rem solid highlight !important;
+		outline-offset: 0.125rem !important;
+	}
+
+	/* The composer shows its focus on the bar (#form:focus-within), as an edge and a shadow. */
+	#form:focus-within,
+	.channel-list-item.active {
+		outline: 0.125rem solid highlight;
+		outline-offset: -0.125rem;
+	}
+
+	/* What is chosen or about to be (a selected segment or tab, the menu row
+	 * or completion Enter would take): the system's selection, its own
+	 * colours kept, so a keyboard focus on it still shows as the ring above.
+	 * The menus keep focus on their container (aria-activedescendant), so
+	 * this is the only mark of the row in hand. */
+	[aria-selected="true"],
+	[role="radio"][aria-checked="true"],
+	[aria-pressed="true"],
+	.context-menu-item.active,
+	.textcomplete-menu .active,
+	.textcomplete-item:focus,
+	#chat .userlist .user.active {
+		forced-color-adjust: none;
+
+		/* Over the themes' own row fills (ps's menu, a segment's chosen look). */
+		background-color: highlight !important;
+		color: highlighttext !important;
+	}
+
+	/* What paints the label and icon inside it (a Settings or Oper tab's
+	 * button, which sets its own colour) takes the selection's text colour too. */
+	:is([aria-selected="true"], [role="radio"][aria-checked="true"], [aria-pressed="true"]) * {
+		color: highlighttext !important;
+	}
+
+	/* A mention keeps its bar, the one mark left once the row's tint is gone. */
+	#chat .chat-view[data-type="channel"] .msg.highlight {
+		border-inline-start-color: highlight;
+	}
+
+	/* An outline, not a border, so the badge keeps its size. */
+	.badge {
+		outline: 0.0625rem solid canvastext;
+		outline-offset: -0.0625rem;
+	}
+
+	/* Away, busy and online are told apart by their colour alone. */
+	.presence-dot {
+		forced-color-adjust: none;
+	}
 }

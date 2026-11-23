@@ -50,6 +50,7 @@
  */
 
 import {applyReaction} from "../helpers/messageUpdates";
+import {casefold} from "./casemap";
 import {openDatabase} from "../idb";
 import storage from "../localStorage";
 import {MessageType, type MsgReaction, type SharedMsg} from "../../../shared/types/msg";
@@ -1138,15 +1139,17 @@ function dropLegacyLogs(): void {
 	}
 }
 
-const lower = (s: string): string => s.toLowerCase();
+/** The casemapping of a network that has not said (rfc1459, nefarious2's too). */
+const lower = (s: string): string => casefold(s);
 
 /**
  * Move the private log of before this store (`thelounge.querylog.<uuid>`)
  * in, then delete it. Lines are keyed, so two tabs migrating at once write
- * the same records. The nick is folded the plain way (the network's
- * casemapping is not known yet); the first line that arrives finds the
- * window by its own folding and, where that differs, starts a record of its
- * own beside it, which the store reads as one window.
+ * the same records. The nick is folded the default way (the network's
+ * casemapping is not known yet); where the network's own differs, the store
+ * reads the record as part of the window all the same
+ * ({@link ConvMeta.targets}). A log that cannot be written (a full disk)
+ * stays for the next page load and holds nothing else up.
  */
 async function migrateLegacyLogs(): Promise<void> {
 	for (const key of legacyKeys()) {
@@ -1194,33 +1197,37 @@ async function migrateLegacyLogs(): Promise<void> {
 			}
 		}
 
-		await backend.run("readwrite", async (tx) => {
-			const epochs = {all: await tx.getEpoch(ALL), net: await tx.getEpoch(uuid)};
-			await applyOps(tx, uuid, epochs, ops);
+		try {
+			await backend.run("readwrite", async (tx) => {
+				const epochs = {all: await tx.getEpoch(ALL), net: await tx.getEpoch(uuid)};
+				await applyOps(tx, uuid, epochs, ops);
 
-			// The msgids of edits the old log had folded in: found again as
-			// the line they became (history dedupe).
-			for (const query of queries) {
-				const c = convKey(uuid, lower(query.name));
+				// The msgids of edits the old log had folded in: found again as
+				// the line they became (history dedupe).
+				for (const query of queries) {
+					const c = convKey(uuid, lower(query.name));
 
-				for (const entry of query.messages) {
-					if (!entry.msgid || !entry.aka?.length) {
-						continue;
-					}
+					for (const entry of query.messages) {
+						if (!entry.msgid || !entry.aka?.length) {
+							continue;
+						}
 
-					const line = await tx.lineById(c, entry.msgid);
+						const line = await tx.lineById(c, entry.msgid);
 
-					if (line) {
-						const ids = new Set([
-							...(line.ids ?? []),
-							...entry.aka.map((a) => idKey(c, a)),
-						]);
-						line.ids = [...ids];
-						tx.putLine(line);
+						if (line) {
+							const ids = new Set([
+								...(line.ids ?? []),
+								...entry.aka.map((a) => idKey(c, a)),
+							]);
+							line.ids = [...ids];
+							tx.putLine(line);
+						}
 					}
 				}
-			}
-		});
+			});
+		} catch {
+			continue; // not written (a full disk): it stays for the next page load
+		}
 
 		storage.remove(key);
 	}
@@ -1354,6 +1361,13 @@ async function rereadNetwork(uuid: string): Promise<void> {
 
 /** What a client knows of one of its windows without reading a line. */
 export interface ConvMeta {
+	/**
+	 * The records the window is kept under, as their folded targets: one,
+	 * but for a window written under two foldings (a migrated log, a
+	 * casemapping that changed). New lines go to the first; what empties or
+	 * closes the window, and "show older", go to all of them.
+	 */
+	targets: string[];
 	name: string;
 	kind: ConvKind;
 	touched: number;
@@ -1367,6 +1381,9 @@ export interface ConvMeta {
 	n: number;
 	last?: {msgid: string; time: number};
 }
+
+/** Folds differently under each casemapping: tells when the network's changed. */
+const FOLD_PROBE = "[\\]~";
 
 /** Every live store, so a page going away can write them all. */
 const live = new Set<ConversationStore>();
@@ -1385,9 +1402,12 @@ export class ConversationStore {
 	 * kept, so nothing shown is taken for whole (history.ts marks the gap).
 	 */
 	readonly blind: boolean;
+	/** Per folded name, under the casemapping of {@link folding}. */
 	private readonly metas = new Map<string, ConvMeta>();
-	/** The snapshot's lines per folded target, oldest first. */
+	/** The snapshot's lines per folded name, oldest first. */
 	private readonly restored = new Map<string, LineRecord[]>();
+	/** What {@link FOLD_PROBE} folds to under the casemapping the maps are keyed by. */
+	private folding: string;
 	private queue: StoreOp[] = [];
 	/** Handed to the database, not confirmed yet. */
 	private inflight: StoreOp[] = [];
@@ -1403,6 +1423,7 @@ export class ConversationStore {
 		private readonly persist: () => boolean = () => true
 	) {
 		this.used = backend;
+		this.folding = this.fold(FOLD_PROBE);
 		const kept = enabled && this.persist();
 		const snapshot = kept ? takeSnapshot(uuid) : undefined;
 		this.blind = kept && !snapshot;
@@ -1413,38 +1434,24 @@ export class ConversationStore {
 				net: snapshot.epochs.get(uuid) ?? 0,
 			};
 
-			// The same window under two foldings (a migrated log, a casemapping
-			// that changed): one window, the lines of both.
 			for (const conv of snapshot.convs.get(uuid) ?? []) {
-				const folded = this.fold(conv.name);
-				const lines = snapshot.lines.get(conv.c) ?? [];
-				const meta = this.metas.get(folded);
-
-				if (meta) {
-					meta.touched = Math.max(meta.touched, conv.touched);
-					meta.n += conv.n;
-					meta.closed = meta.closed && !!conv.closed;
-					const merged = [...(this.restored.get(folded) ?? []), ...lines].sort(
-						(a, b) => a.t - b.t
-					);
-					this.restored.set(folded, merged.slice(-RESTORE_LINES));
-					continue;
-				}
-
-				this.metas.set(folded, {
-					name: conv.name,
-					kind: conv.kind,
-					touched: conv.touched,
-					read: conv.read,
-					filled: !!conv.filled,
-					joined: !!conv.joined,
-					key: conv.key,
-					closed: !!conv.closed,
-					clearedAt: conv.clearedAt,
-					n: conv.n,
-					last: conv.last,
-				});
-				this.restored.set(folded, lines);
+				this.adopt(
+					{
+						targets: [conv.target],
+						name: conv.name,
+						kind: conv.kind,
+						touched: conv.touched,
+						read: conv.read,
+						filled: !!conv.filled,
+						joined: !!conv.joined,
+						key: conv.key,
+						closed: !!conv.closed,
+						clearedAt: conv.clearedAt,
+						n: conv.n,
+						last: conv.last,
+					},
+					snapshot.lines.get(conv.c) ?? []
+				);
 			}
 		} else if (this.blind) {
 			this.resync();
@@ -1455,6 +1462,78 @@ export class ConversationStore {
 
 	private get on(): boolean {
 		return enabled && this.persist() && this.used === backend;
+	}
+
+	/**
+	 * The key of `name` in the maps. The network's casemapping is known only
+	 * once it has said (ISUPPORT), after the windows were restored under the
+	 * default one: when it changes, the maps are keyed again, so a name with
+	 * `[ ] \ ~` in it still finds its window.
+	 */
+	private at(name: string): string {
+		const folding = this.fold(FOLD_PROBE);
+
+		if (folding !== this.folding) {
+			this.folding = folding;
+			const metas = [...this.metas];
+			const restored = new Map(this.restored);
+			this.metas.clear();
+			this.restored.clear();
+
+			for (const [was, meta] of metas) {
+				this.adopt(meta, restored.get(was) ?? []);
+			}
+		}
+
+		return this.fold(name);
+	}
+
+	/**
+	 * Take a window into the maps. One that is there already under this
+	 * folding (a migrated log, a casemapping that changed) is the same
+	 * window: one meta, the lines of both.
+	 */
+	private adopt(meta: ConvMeta, lines: LineRecord[]): void {
+		const folded = this.fold(meta.name);
+		const held = this.metas.get(folded);
+
+		if (!held) {
+			this.metas.set(folded, meta);
+			this.restored.set(folded, lines);
+			return;
+		}
+
+		held.targets = [...new Set([...held.targets, ...meta.targets])];
+		held.touched = Math.max(held.touched, meta.touched);
+		held.n += meta.n;
+		held.closed = held.closed && meta.closed;
+		held.joined = held.joined || meta.joined;
+		held.key ??= meta.key;
+		held.filled = held.filled && meta.filled;
+
+		if (meta.read !== undefined) {
+			held.read = Math.max(held.read ?? 0, meta.read);
+		}
+
+		// Cleared in either: nothing at or before the later of the two is shown.
+		if (meta.clearedAt !== undefined) {
+			held.clearedAt = Math.max(held.clearedAt ?? 0, meta.clearedAt);
+		}
+
+		if (meta.last && (!held.last || held.last.time < meta.last.time)) {
+			held.last = meta.last;
+		}
+
+		const cleared = held.clearedAt ?? -Infinity;
+		const merged = [...(this.restored.get(folded) ?? []), ...lines]
+			.filter((line) => line.t > cleared)
+			.sort((a, b) => a.t - b.t);
+		this.restored.set(folded, merged.slice(-RESTORE_LINES));
+	}
+
+	/** The record `name`'s changes are written to: its window's, or a new one's. */
+	private target(name: string): string {
+		return this.metas.get(this.at(name))?.targets[0] ?? this.fold(name);
 	}
 
 	/**
@@ -1496,7 +1575,7 @@ export class ConversationStore {
 
 	/** What is kept of `name`, a closed window's too. */
 	meta(name: string): ConvMeta | undefined {
-		return this.on ? this.metas.get(this.fold(name)) : undefined;
+		return this.on ? this.metas.get(this.at(name)) : undefined;
 	}
 
 	/**
@@ -1518,7 +1597,7 @@ export class ConversationStore {
 
 	/** The lines the snapshot holds for `name`, oldest first, as messages without ids. */
 	restoredMessages(name: string): SharedMsg[] {
-		return (this.restored.get(this.fold(name)) ?? []).map((line) => fromStored(line.msg));
+		return (this.restored.get(this.at(name)) ?? []).map((line) => fromStored(line.msg));
 	}
 
 	/** msgids of edits folded into the restored lines of `name`, each with
@@ -1526,7 +1605,7 @@ export class ConversationStore {
 	restoredAliases(name: string): Array<[msgid: string, index: number]> {
 		const out: Array<[string, number]> = [];
 
-		(this.restored.get(this.fold(name)) ?? []).forEach((line, index) => {
+		(this.restored.get(this.at(name)) ?? []).forEach((line, index) => {
 			for (const id of line.ids ?? []) {
 				const msgid = id.slice(line.c.length + 1);
 
@@ -1542,7 +1621,7 @@ export class ConversationStore {
 	/** Whether the device holds lines older than the restored ones of `name`. */
 	hasOlder(name: string): boolean {
 		const meta = this.meta(name);
-		return !!meta && meta.n > (this.restored.get(this.fold(name))?.length ?? 0);
+		return !!meta && meta.n > (this.restored.get(this.at(name))?.length ?? 0);
 	}
 
 	/**
@@ -1550,35 +1629,51 @@ export class ConversationStore {
 	 * The caller drops what it already shows.
 	 */
 	async older(name: string, upTo: Date, limit: number): Promise<SharedMsg[]> {
-		if (!this.on || !this.metas.has(this.fold(name))) {
+		const targets = this.meta(name)?.targets;
+
+		if (!targets) {
 			return [];
 		}
 
 		await this.flush();
 
 		try {
-			const lines = await this.used.run("readonly", (tx) =>
-				tx.newest(convKey(this.uuid, this.fold(name)), limit, upTo.getTime())
-			);
-			return lines.reverse().map((line) => fromStored(line.msg));
+			const lines = await this.used.run("readonly", async (tx) => {
+				const found: LineRecord[] = [];
+
+				for (const target of targets) {
+					found.push(
+						...(await tx.newest(convKey(this.uuid, target), limit, upTo.getTime()))
+					);
+				}
+
+				return found;
+			});
+			return lines
+				.sort((a, b) => a.t - b.t)
+				.slice(-limit)
+				.map((line) => fromStored(line.msg));
 		} catch {
 			return [];
 		}
 	}
 
-	/** Keep `msg` (a line shown in `name`); what is not worth keeping is ignored. */
-	append(name: string, kind: ConvKind, msg: SharedMsg): void {
+	/**
+	 * Keep `msg` (a line shown in `name`); what is not worth keeping is
+	 * ignored. Whether it was handed on to be kept.
+	 */
+	append(name: string, kind: ConvKind, msg: SharedMsg): boolean {
 		const stored = this.on ? toStored(msg) : undefined;
 
 		if (!stored) {
-			return;
+			return false;
 		}
 
 		const t = timeOf(stored.time);
 		const meta = this.touch(name, kind);
 
 		if (meta.clearedAt !== undefined && t <= meta.clearedAt) {
-			return;
+			return false;
 		}
 
 		this.opened(name, kind, meta);
@@ -1591,40 +1686,41 @@ export class ConversationStore {
 
 		this.push({
 			op: "put",
-			target: this.fold(name),
+			target: this.target(name),
 			name,
 			kind,
 			t,
 			k: lineKey(stored, this.fold),
 			msg: stored,
 		});
+		return true;
 	}
 
 	/** The line `edit` replaces `original`: rewrite the original, drop the edit's own line. */
 	edit(name: string, original: string, edit: string): void {
 		if (this.on) {
-			this.push({op: "edit", target: this.fold(name), original, edit});
+			this.push({op: "edit", target: this.target(name), original, edit});
 		}
 	}
 
 	/** A deletion: the line is not kept (best effort: a device that never hears of it keeps it). */
 	redact(name: string, msgid: string): void {
 		if (this.on) {
-			this.push({op: "redact", target: this.fold(name), msgid, at: Date.now()});
+			this.push({op: "redact", target: this.target(name), msgid, at: Date.now()});
 		}
 	}
 
 	/** A reaction added or taken off a kept line. */
 	react(name: string, msgid: string, text: string, nick: string, remove: boolean): void {
 		if (this.on) {
-			this.push({op: "react", target: this.fold(name), msgid, text, nick, remove});
+			this.push({op: "react", target: this.target(name), msgid, text, nick, remove});
 		}
 	}
 
 	/** The line at `time` with `key` has, or no longer has, lines missing before it. */
 	setGap(name: string, time: Date, key: string, on: boolean): void {
 		if (this.on) {
-			this.push({op: "gap", target: this.fold(name), t: time.getTime(), k: key, on});
+			this.push({op: "gap", target: this.target(name), t: time.getTime(), k: key, on});
 		}
 	}
 
@@ -1634,7 +1730,7 @@ export class ConversationStore {
 
 		if (meta && (meta.read ?? -1) < time.getTime()) {
 			meta.read = time.getTime();
-			this.push({op: "meta", target: this.fold(name), name, kind, read: meta.read});
+			this.push({op: "meta", target: this.target(name), name, kind, read: meta.read});
 		}
 	}
 
@@ -1646,7 +1742,7 @@ export class ConversationStore {
 
 		if (meta && meta.filled !== value) {
 			meta.filled = value;
-			this.push({op: "meta", target: this.fold(name), name, kind, filled: value});
+			this.push({op: "meta", target: this.target(name), name, kind, filled: value});
 		}
 	}
 
@@ -1674,7 +1770,7 @@ export class ConversationStore {
 			meta.key = joined && key ? key : undefined;
 			this.push({
 				op: "meta",
-				target: this.fold(name),
+				target: this.target(name),
 				name,
 				kind: "channel",
 				create: joined,
@@ -1694,8 +1790,11 @@ export class ConversationStore {
 
 		meta.n = 0;
 		meta.clearedAt = Math.max(meta.clearedAt ?? 0, at.getTime());
-		this.restored.delete(this.fold(name));
-		this.push({op: "clear", target: this.fold(name), at: meta.clearedAt});
+		this.restored.delete(this.at(name));
+
+		for (const target of meta.targets) {
+			this.push({op: "clear", target, at: meta.clearedAt});
+		}
 	}
 
 	/**
@@ -1705,7 +1804,6 @@ export class ConversationStore {
 	 * is read: none of it counts as new then.
 	 */
 	close(name: string, at = new Date()): void {
-		const folded = this.fold(name);
 		const meta = this.meta(name);
 
 		if (!meta) {
@@ -1717,10 +1815,14 @@ export class ConversationStore {
 		meta.key = undefined;
 
 		meta.read = Math.max(meta.read ?? 0, at.getTime());
-		this.push({op: "close", target: folded, at: meta.read});
+
+		for (const target of meta.targets) {
+			this.push({op: "close", target, at: meta.read});
+		}
+
 		// What the window showed since the snapshot is read again, for when
 		// it is opened later on this page.
-		void this.flush().then(() => this.reread(folded));
+		void this.flush().then(() => this.reread(meta));
 	}
 
 	/** The user opened `name` again: it is shown from here on, a reload included. */
@@ -1780,14 +1882,21 @@ export class ConversationStore {
 	}
 
 	/** The newest kept lines of one closed window, read again. */
-	private async reread(folded: string): Promise<void> {
+	private async reread(meta: ConvMeta): Promise<void> {
 		try {
-			const lines = await this.used.run("readonly", (tx) =>
-				tx.newest(convKey(this.uuid, folded), RESTORE_LINES)
-			);
+			const lines = await this.used.run("readonly", async (tx) => {
+				const found: LineRecord[] = [];
 
-			if (this.metas.get(folded)?.closed) {
-				this.restored.set(folded, lines.reverse());
+				for (const target of meta.targets) {
+					found.push(...(await tx.newest(convKey(this.uuid, target), RESTORE_LINES)));
+				}
+
+				return found;
+			});
+			const folded = this.fold(meta.name);
+
+			if (meta.closed && this.metas.get(folded) === meta) {
+				this.restored.set(folded, lines.sort((a, b) => a.t - b.t).slice(-RESTORE_LINES));
 			}
 		} catch {
 			// the snapshot's lines stand
@@ -1795,11 +1904,20 @@ export class ConversationStore {
 	}
 
 	private touch(name: string, kind: ConvKind): ConvMeta {
-		const folded = this.fold(name);
+		const folded = this.at(name);
 		let meta = this.metas.get(folded);
 
 		if (!meta) {
-			meta = {name, kind, touched: 0, filled: false, joined: false, closed: false, n: 0};
+			meta = {
+				targets: [folded],
+				name,
+				kind,
+				touched: 0,
+				filled: false,
+				joined: false,
+				closed: false,
+				n: 0,
+			};
 			this.metas.set(folded, meta);
 		}
 
@@ -1811,7 +1929,7 @@ export class ConversationStore {
 		if (meta.closed) {
 			meta.closed = false;
 			meta.name = name;
-			this.push({op: "meta", target: this.fold(name), name, kind, open: true});
+			this.push({op: "meta", target: this.target(name), name, kind, open: true});
 		}
 	}
 

@@ -13,6 +13,7 @@ import {setClosedQueriesKept} from "./irc/closedQueries";
 import {forgetPrivateTerms, loadAll} from "./translate/channelStore";
 import {setKeepAlive} from "./helpers/keepAlive";
 import {effectiveTheme} from "./helpers/themeAppearance";
+import {themeHref} from "./helpers/themeHref";
 import {currentPlatform, PLATFORM_DEFAULTS} from "./helpers/platformDefaults";
 import {setMatchSystemTextSize} from "./helpers/systemTextSize";
 import {setScriptingEnabled} from "./irc/scripting/enabled";
@@ -50,7 +51,7 @@ function loadTheme(store: TypedStore): void {
 	void themeScene.setTheme(value);
 
 	const themeEl = document.getElementById("theme");
-	const themeUrl = `themes/${value}.css`;
+	const themeUrl = themeHref(value);
 
 	if (!(themeEl instanceof HTMLLinkElement)) {
 		throw new Error("theme element is not a link");

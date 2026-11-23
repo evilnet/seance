@@ -58,7 +58,7 @@ The dev soju (for `soju.im/bouncer-networks`) is `tools/soju-dev/` (`docker buil
 - **The suite has no browser and no DOM.** A change under `client/components/`, `client/css/` or the store is unverified by `pnpm test`; check it in a real browser (`docs/resources/browser-testing.md`). Feature sections in `docs/` name their browser scenario.
 - **Rebuild after changing `client/` or switching branches.** `public/` is gitignored and shared, and the mocha build test reads it.
 - **Size the UI in `rem`, never `px`.** Breakpoints stay px; anything that must follow the font scale uses a container query. Details: `docs/resources/client-features.md` § UI sizing.
-- **Reduced motion and high contrast** are read from `html[data-reduce-motion]` / `html[data-contrast="more"]`, never `@media`.
+- **Reduced motion, high contrast and reduced transparency** are read from `html[data-reduce-motion]` / `html[data-contrast="more"]` / `html[data-reduce-transparency]`, never `@media`; Windows' forced colours is the one media query (`docs/resources/themes.md` § Accessibility every theme inherits).
 - **Every `<input type="checkbox">` carries `v-switch`** (a test enforces it).
 - **History is one deep**: every `router.push` is a `replace`; "back" is `leavePage()`.
 - **Overlays**: whatever covers the screen carries `.screen-overlay`, and a backdrop closes through `v-backdrop`, never `@click.self` (tests enforce both).

@@ -9,6 +9,7 @@
  * the query's glass tints. Pure and Vue-free: mocha loads it directly.
  */
 import {hexRgb, mixOklab, rgbHex} from "./colour";
+import {FLAME_CORE, FLAME_LAYERS} from "./flames";
 import type {Moment} from "./engine";
 import type {SceneGround} from "./grounds";
 import {GLASS_NIGHT_AT, WEATHER, type Palette} from "./palette";
@@ -126,16 +127,22 @@ export const ROOM_COLOURS = {
 
 export type RoomColour = keyof typeof ROOM_COLOURS;
 
-/** What is never shaded: the fire's stops and flames, the glow under them, the lamp's flame, the screen at night. */
+/**
+ * What is never shaded and is no ground: the fire's flames and white-hot core (flames.ts), the embers'
+ * coals, the lamp's flame and the screen at night. The firebox's night dark (FIREBOX_BURNING) is never
+ * shaded either, but it is a ground the sweep checks, so it is not here.
+ */
 export const ROOM_LIT: readonly string[] = [
-	"#fff6c0",
-	"#ffb347",
-	"#e2582a",
-	"#9c2f1a",
-	"#fff6c4",
-	"#ffcf6a",
-	"#ffe7a0",
-	"#a9c6ff",
+	...new Set([
+		...FLAME_LAYERS.flatMap((l) => l.stops.map((stop) => stop[1])),
+		...FLAME_CORE.stops.map((stop) => stop[1]),
+		"#b5401c",
+		"#d2582a",
+		"#9c2f1a",
+		"#c04a20",
+		"#ffe7a0",
+		"#a9c6ff",
+	]),
 ];
 
 /**

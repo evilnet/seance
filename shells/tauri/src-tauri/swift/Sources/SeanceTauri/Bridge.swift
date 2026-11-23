@@ -28,6 +28,26 @@ public func seanceAppleStart(_ event: SeanceAppleEvent) {
             "localNotificationActionPerformed".withCString { n in json.withCString { d in event(p, n, d, true) } }
         }
     }
+
+    // Reduce Transparency, for the glass (client/js/helpers/systemAccessibility.ts):
+    // WebKit has no prefers-reduced-transparency, so the page cannot see it.
+    Shared.transparencyObserver = NSWorkspace.shared.notificationCenter.addObserver(
+        forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+        object: nil,
+        queue: .main
+    ) { _ in
+        let json = String(decoding: encode(Transparency.status()), as: UTF8.self)
+        "Transparency".withCString { p in
+            "changed".withCString { n in json.withCString { d in event(p, n, d, false) } }
+        }
+    }
+}
+
+/// The system's Reduce Transparency (System Settings → Accessibility → Display).
+enum Transparency {
+    static func status() -> [String: Any] {
+        ["reduce": NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency]
+    }
 }
 
 @_cdecl("seance_apple_call")
@@ -58,6 +78,8 @@ public func seanceAppleCall(
             return
         }
         run = { try await notifications.call(method, options) }
+    case "Transparency" where method == "status":
+        run = { Transparency.status() }
     case "AppleTranslate" where AppleTranslate.methods.contains(method):
         run = { try await Shared.appleTranslate.call(method, options, host: prepareHost) }
     default:
@@ -84,6 +106,7 @@ private func encode(_ value: Any) -> Data {
 private enum Shared {
     static var notifications: Notifications?
     static let appleTranslate = AppleTranslate()
+    static var transparencyObserver: NSObjectProtocol?
 }
 
 /// AppleTranslate's `prepare` question: its 1×1 SwiftUI view in the key

@@ -47,6 +47,18 @@ Where the code differs from the text below:
 | Restore 100 lines per window                                                  | As written; "show older" then reads the rest from the device                                                                                                                                                                                                         | Phase 1 alone would have shown fewer private lines than the old log (200).                                                                                                                                                       |
 | BUG-051 "already fixed"                                                       | Fixed here: `history:clear` reaches the IRC layer (`IrcClient.clearHistory`), with the same names the `seance_locke_bugs` fix uses                                                                                                                                   | That fix is not on develop.                                                                                                                                                                                                      |
 
+Since (2026-11-17, the review of #326 after it merged): a reconnect's walk
+that never lands leaves its hole marked (`Channel.walkGap`: the first line
+relayed during the walk is kept marked until the walk delivers); a gap's
+control is always given back (`Channel.filling`); the store follows the
+network's casemapping once it is known and reads records of one window
+under two foldings as one (`ConvMeta.targets`); a log that cannot be moved
+in no longer stops the boot read; a channel we are in is joined by the next
+page also after the setting went off and on; "is this network saved" no
+longer parses the saved list for every line; a page read from the device is
+not queued to be kept again. `docs/resources/irc-layer.md` § The
+conversation store.
+
 Not built, in the order I would take them:
 
 1. Private chats in the catch-up through the private rows of
@@ -58,7 +70,10 @@ Not built, in the order I would take them:
    eviction under storage pressure (a failed write is dropped and the
    server's history brings back what it has).
 4. Walk depth by absence (2.3): the walk is five pages, as on a reconnect.
-5. The boot read's cost on a slow phone is not measured; it gives up after
+5. The cursor's replay has no counterpart of `Channel.walkGap`: whether a
+   page that goes away while the server is still replaying can leave an
+   unmarked hole behind the lines relayed meanwhile has not been looked at.
+6. The boot read's cost on a slow phone is not measured; it gives up after
    1 s and the page then marks gaps instead of trusting what it shows. A size
    budget: a full disk is handled when it happens (deletions land by
    themselves, the oldest half of every long conversation goes).

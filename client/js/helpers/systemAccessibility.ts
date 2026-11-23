@@ -1,7 +1,12 @@
-// The system's Reduce Motion and Increase Contrast, as two attributes on
-// <html> that every rule reads: `data-reduce-motion` and
-// `data-contrast="more"` (style.css, keeki.css). In a browser and the iOS
-// shell they come from the media queries, live. Android's WebView answers
+// The system's Reduce Motion, Increase Contrast and Reduce Transparency, as
+// three attributes on <html> that every rule reads: `data-reduce-motion`,
+// `data-contrast="more"` (style.css, keeki.css) and `data-reduce-transparency`
+// (ps.css, macos.css). In a browser and the iOS shell the first two come
+// from the media queries, live. WebKit has no `prefers-reduced-transparency`
+// at all (bugs.webkit.org 175497), so in the iOS and macOS shells the third
+// comes from the shell's `Transparency` plugin (SeancePlugin.swift,
+// Bridge.swift), and elsewhere from the query where the engine has it
+// (Chromium, so WebView2 and Android's WebView). Android's WebView answers
 // those queries from the settings as they were when its process started and
 // never again (Chromium observes the accessibility settings in WebView only
 // behind WebViewObserveAccessibilityState, off by default for its startup
@@ -13,11 +18,12 @@
 // Imports nothing but the bridge, so boot.ts can call it before anything
 // mounts and a component can subscribe without pulling in the store.
 
-import {isAndroidShell, nativeCall, nativeListen} from "./shell";
+import {isAndroidShell, nativeCall, nativeListen, nativePlatform} from "./shell";
 
 export interface SystemAccessibility {
 	reduceMotion: boolean;
 	highContrast: boolean;
+	reduceTransparency: boolean;
 }
 
 /** What the Android shell reports: the raw settings. */
@@ -36,7 +42,9 @@ export interface AndroidAccessibilitySettings {
  * contrast is "High contrast text" or the Contrast setting at its top step,
  * and only "Remove animations" (scale 0) is reduced motion — 0.5× is not.
  */
-export function fromAndroidSettings(s: AndroidAccessibilitySettings): SystemAccessibility {
+export function fromAndroidSettings(
+	s: AndroidAccessibilitySettings
+): Omit<SystemAccessibility, "reduceTransparency"> {
 	return {
 		highContrast: s.highTextContrast === 1 || s.contrast === 1,
 		reduceMotion: s.animatorDurationScale === 0,
@@ -90,15 +98,36 @@ export function onAndroidSystemStatus(listener: (status: AndroidSystemStatus) =>
 	}
 
 	bridged = true;
-	nativeListen("SystemAccessibility", "changed", fanOut);
-	void nativeCall<AndroidSystemStatus>("SystemAccessibility", "status").then(fanOut);
+	// A change outranks the startup status reply, which may have been read
+	// before it and arrive after it (as on the Apple side, fromAppleShell).
+	let changeSeen = false;
+	nativeListen("SystemAccessibility", "changed", (status: AndroidSystemStatus | null) => {
+		changeSeen ||= !!status;
+		fanOut(status);
+	});
+	void nativeCall<AndroidSystemStatus>("SystemAccessibility", "status").then((status) => {
+		if (!changeSeen) {
+			fanOut(status);
+		}
+	});
 }
 
 const REDUCE_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const HIGH_CONTRAST_QUERY = "(prefers-contrast: more)";
+const REDUCE_TRANSPARENCY_QUERY = "(prefers-reduced-transparency: reduce)";
 
-let current: SystemAccessibility = {reduceMotion: false, highContrast: false};
+/** What the Apple shells' Transparency plugin reports. */
+export interface TransparencyStatus {
+	reduce?: boolean;
+}
+
+let current: SystemAccessibility = {
+	reduceMotion: false,
+	highContrast: false,
+	reduceTransparency: false,
+};
 let fromShell = false;
+let transparencyFromShell = false;
 let following = false;
 const listeners = new Set<(state: SystemAccessibility) => void>();
 
@@ -123,7 +152,13 @@ function apply(next: SystemAccessibility): void {
 		root.removeAttribute("data-contrast");
 	}
 
-	if (next.reduceMotion === current.reduceMotion && next.highContrast === current.highContrast) {
+	root.toggleAttribute("data-reduce-transparency", next.reduceTransparency);
+
+	if (
+		next.reduceMotion === current.reduceMotion &&
+		next.highContrast === current.highContrast &&
+		next.reduceTransparency === current.reduceTransparency
+	) {
 		return;
 	}
 
@@ -134,11 +169,42 @@ function apply(next: SystemAccessibility): void {
 	}
 }
 
-function fromMedia(): SystemAccessibility {
+function fromMedia(): Omit<SystemAccessibility, "reduceTransparency"> {
 	return {
 		reduceMotion: window.matchMedia?.(REDUCE_MOTION_QUERY).matches === true,
 		highContrast: window.matchMedia?.(HIGH_CONTRAST_QUERY).matches === true,
 	};
+}
+
+function transparencyFromMedia(): boolean {
+	return window.matchMedia?.(REDUCE_TRANSPARENCY_QUERY).matches === true;
+}
+
+/** Reduce Motion and Increase Contrast, from wherever they come now. */
+function applyMotionContrast(next: Omit<SystemAccessibility, "reduceTransparency">): void {
+	apply({...next, reduceTransparency: current.reduceTransparency});
+}
+
+function applyTransparency(reduceTransparency: boolean): void {
+	apply({...current, reduceTransparency});
+}
+
+/** A change the Apple shell reported; it outranks the startup status reply,
+ * which may have been read before the change and arrive after it. */
+let appleChangeSeen = false;
+
+function fromAppleShell(
+	status: TransparencyStatus | null | undefined,
+	kind: "status" | "changed"
+): void {
+	// A shell built before the plugin answers nothing.
+	if (typeof status?.reduce !== "boolean" || (kind === "status" && appleChangeSeen)) {
+		return;
+	}
+
+	appleChangeSeen ||= kind === "changed";
+	transparencyFromShell = true;
+	applyTransparency(status.reduce);
 }
 
 function fromAndroidShell(status: AndroidSystemStatus): void {
@@ -154,7 +220,13 @@ function fromAndroidShell(status: AndroidSystemStatus): void {
 	}
 
 	fromShell = true;
-	apply(fromAndroidSettings({highTextContrast, contrast, animatorDurationScale}));
+	const settings = fromAndroidSettings({highTextContrast, contrast, animatorDurationScale});
+	applyMotionContrast(settings);
+	// Chromium on Android answers prefers-reduced-transparency from the same
+	// high-contrast signal, and WebView reads it only at startup, so the
+	// shell's live report stands in for the query here too.
+	transparencyFromShell = true;
+	applyTransparency(settings.highContrast);
 }
 
 /** Start following the system. Synchronous for the first value: call it
@@ -165,15 +237,35 @@ export function followSystemAccessibility(): void {
 	}
 
 	following = true;
-	apply(fromMedia());
+	apply({...fromMedia(), reduceTransparency: transparencyFromMedia()});
 
 	for (const query of [REDUCE_MOTION_QUERY, HIGH_CONTRAST_QUERY]) {
 		window.matchMedia?.(query).addEventListener?.("change", () => {
 			if (!fromShell) {
-				apply(fromMedia());
+				applyMotionContrast(fromMedia());
 			}
 		});
 	}
 
+	window.matchMedia?.(REDUCE_TRANSPARENCY_QUERY).addEventListener?.("change", () => {
+		if (!transparencyFromShell) {
+			applyTransparency(transparencyFromMedia());
+		}
+	});
+
 	onAndroidSystemStatus(fromAndroidShell);
+
+	const platform = nativePlatform();
+
+	if (platform === "ios" || platform === "macos") {
+		nativeListen("Transparency", "changed", (status: TransparencyStatus | null | undefined) =>
+			fromAppleShell(status, "changed")
+		);
+		nativeCall<TransparencyStatus>("Transparency", "status").then(
+			(status) => fromAppleShell(status, "status"),
+			() => {
+				// An older shell: the query stands, which WebKit never matches.
+			}
+		);
+	}
 }
