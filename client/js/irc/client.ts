@@ -76,7 +76,8 @@ import {avatarsEnabled} from "../avatars/prefs";
 import {bindNetwork} from "../avatars/registry";
 import {resetModeLists} from "./handlers/lists";
 import {resetWho} from "./handlers/who";
-import {resetWhois} from "./handlers/whois";
+import {collectWhois, resetWhois} from "./handlers/whois";
+import type {WhoisData, WhoisProfileStatus} from "../../../shared/types/whois";
 import {CLOSED_KEY, ClosedQueries, closedQueriesKept, encodeClosed} from "./closedQueries";
 import {
 	CONCAT_LINE_TAG_BYTES,
@@ -2636,6 +2637,45 @@ export class IrcClient {
 		} else {
 			this.send(line);
 		}
+	}
+
+	/**
+	 * The user profile's lookup (`whois:profile:ask`): a labeled WHOIS, and a
+	 * WHOWAS when the nick is not online, read into a record that is
+	 * dispatched as `whois:profile` and never printed in a window. A server
+	 * without `labeled-response` cannot be asked quietly: the profile then
+	 * shows what the client already knows.
+	 */
+	requestProfile(nick: string): void {
+		const answer = (status: WhoisProfileStatus, whois?: WhoisData) =>
+			this.bus.dispatch("whois:profile", {network: this.uuid, nick, status, whois});
+
+		if (!this.isWelcomed || !canRequest(this)) {
+			answer("unavailable");
+			return;
+		}
+
+		void request(this, formatLine({command: "WHOIS", params: [nick, nick]}), {
+			end: ["318"],
+		}).then(async (reply) => {
+			const online = collectWhois(this, reply.lines);
+
+			if (online) {
+				answer("online", online);
+				return;
+			}
+
+			if (reply.outcome === "timeout" || reply.outcome === "closed") {
+				answer("unavailable");
+				return;
+			}
+
+			const past = await request(this, formatLine({command: "WHOWAS", params: [nick, "1"]}), {
+				end: ["369"],
+			});
+			const gone = collectWhois(this, past.lines);
+			answer("offline", gone ?? undefined);
+		});
 	}
 
 	/** The window's copy of a channel's bans. */

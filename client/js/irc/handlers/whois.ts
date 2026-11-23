@@ -12,58 +12,26 @@ import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 import {t} from "../../i18n/core";
 import type {Handler} from "../types";
+import type {WhoisData} from "../../../../shared/types/whois";
 import {AWAY_STAR} from "../presence";
 import {isIp} from "../profiles/report";
 import {pendingLabelSpent} from "../pending";
 
-export interface WhoisData {
-	nick: string;
-	ident?: string;
-	hostname?: string;
-	real_name?: string;
-	server?: string;
-	server_info?: string;
-	operator?: string;
-	channels?: string;
-	modes?: string;
-	/** Seconds idle, as sent by the server. */
-	idle?: string;
-	/** Epoch seconds of sign-on, as sent by the server. */
-	logon?: string;
-	registered_nick?: string;
-	actual_ip?: string;
-	actual_hostname?: string;
-	actual_username?: string;
-	secure?: boolean;
-	certfp?: string;
-	certfps?: string[];
-	account?: string;
-	special?: string[];
-	helpop?: string;
-	bot?: string;
-	away?: string;
-	country?: string;
-	country_code?: string;
-	asn?: string;
-	whowas?: boolean;
-	/** nefarious2 672 (opers only): the WebSocket origin the user connected from. */
-	websocket?: string;
-	/** nefarious2 325: the WebIRC gateway (`is connected via <description>`). */
-	webirc?: string;
-	/** nefarious2 339: marks set on the user (DNSBL, IAuth). */
-	marks?: string[];
-	/** nefarious2 343: `is Kill listed on <x>`. */
-	killListed?: string;
-	/** nefarious2 320 (opers or self): the bouncer session line. */
-	bouncer?: string;
-	/** Absolute epoch milliseconds derived from `idle` / `logon` at the end. */
-	idleTime?: number;
-	logonTime?: number;
-}
+export type {WhoisData};
 
 const pending = new WeakMap<IrcClient, Map<string, WhoisData>>();
 
+/**
+ * While {@link collectWhois} replays a reply, the records go here instead of
+ * the client's map, and a finished one is kept instead of shown.
+ */
+let collecting: {map: Map<string, WhoisData>; done: WhoisData | null} | null = null;
+
 function pendingFor(client: IrcClient): Map<string, WhoisData> {
+	if (collecting) {
+		return collecting.map;
+	}
+
 	let map = pending.get(client);
 
 	if (!map) {
@@ -131,6 +99,19 @@ function finish(client: IrcClient, msg: IrcMessage, whowas: boolean): void {
 	const data = map.get(key);
 	map.delete(key);
 
+	if (collecting) {
+		if (data && data.ident !== undefined) {
+			if (whowas) {
+				data.whowas = true;
+			}
+
+			stamp(data);
+			collecting.done = data;
+		}
+
+		return;
+	}
+
 	// Errors never open windows: the nick may contain illegal characters.
 	if (!data || data.ident === undefined) {
 		client.pushMessage(client.lobby, {
@@ -146,6 +127,17 @@ function finish(client: IrcClient, msg: IrcMessage, whowas: boolean): void {
 		data.whowas = true;
 	}
 
+	stamp(data);
+	client.pushMessage(client.lobby, {
+		type: MessageType.WHOIS,
+		time: client.timeOf(msg),
+		whois: data,
+		showInActive: true,
+	});
+}
+
+/** Absolute times from the server's relative `idle` and epoch `logon`. */
+function stamp(data: WhoisData): void {
 	if (data.idle !== undefined) {
 		data.idleTime = Date.now() - parseInt(data.idle, 10) * 1000;
 	}
@@ -153,13 +145,6 @@ function finish(client: IrcClient, msg: IrcMessage, whowas: boolean): void {
 	if (data.logon !== undefined) {
 		data.logonTime = parseInt(data.logon, 10) * 1000;
 	}
-
-	client.pushMessage(client.lobby, {
-		type: MessageType.WHOIS,
-		time: client.timeOf(msg),
-		whois: data,
-		showInActive: true,
-	});
 }
 
 // RPL_WHOISUSER / RPL_WHOWASUSER: <me> <nick> <user> <host> * :<real name>
@@ -418,7 +403,7 @@ const away: Handler = (client, msg) => {
 const endOfWhois: Handler = (client, msg) => finish(client, msg, false);
 const endOfWhowas: Handler = (client, msg) => finish(client, msg, true);
 
-export default {
+const handlers = {
 	"276": whoisCertfp,
 	"301": away,
 	"307": trailing("registered_nick"),
@@ -446,3 +431,27 @@ export default {
 	"671": whoisSecure,
 	"672": whoisWebsocket,
 };
+
+/**
+ * The record a labeled WHOIS or WHOWAS reply (request.ts) describes, built by
+ * the same handlers as a shown one but never pushed to a window: the user
+ * profile's quiet lookup. Null when the reply names no such user.
+ */
+export function collectWhois(client: IrcClient, lines: IrcMessage[]): WhoisData | null {
+	const previous = collecting;
+	const run = {map: new Map<string, WhoisData>(), done: null as WhoisData | null};
+	collecting = run;
+
+	try {
+		for (const msg of lines) {
+			const handler = (handlers as Record<string, Handler | undefined>)[msg.command];
+			handler?.(client, msg);
+		}
+	} finally {
+		collecting = previous;
+	}
+
+	return run.done;
+}
+
+export default handlers;

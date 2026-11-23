@@ -171,6 +171,17 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		registry.clientForNetwork(network)?.requestChannelList(args);
 	});
 
+	// The user profile (UserCard.vue): a quiet WHOIS, answered as `whois:profile`.
+	bus.handle("whois:profile:ask", ({network, nick}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (client) {
+			client.requestProfile(nick);
+		} else {
+			bus.dispatch("whois:profile", {network, nick, status: "unavailable"});
+		}
+	});
+
 	// The Bans window and the ban dialog (irc/banList.ts): the list, answered
 	// as `channel:bans`, and every change to it.
 	bus.handle("channel:bans:ask", ({network, channel}) => {
