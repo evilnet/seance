@@ -4,8 +4,10 @@ import {
 	clampScale,
 	DOUBLE_TAP_MS,
 	doubleTapScale,
+	fitScaleOf,
 	isDoubleTap,
 	lockAxis,
+	MAX_FIT_SCALE,
 	MAX_SCALE,
 	pinch,
 	rubber,
@@ -20,6 +22,24 @@ const box = {left: 0, top: 0, width: 400, height: 800};
 const size = {width: 1000, height: 500};
 
 describe("viewerGesture", function () {
+	describe("fitScaleOf", function () {
+		it("shrinks a large picture to fit, whole", function () {
+			expect(fitScaleOf(400, 800, 1000, 500)).to.equal(0.4);
+			expect(fitScaleOf(400, 800, 200, 1600)).to.equal(0.5);
+		});
+
+		it("enlarges a small picture to fill the box, up to the cap", function () {
+			// A phone screenshot in a desktop window: as tall as the window.
+			expect(fitScaleOf(400, 570, 340, 510)).to.be.closeTo(570 / 510, 1e-9);
+			// An icon: no more than the cap.
+			expect(fitScaleOf(400, 800, 32, 32)).to.equal(MAX_FIT_SCALE);
+		});
+
+		it("shows a picture with no size as it is", function () {
+			expect(fitScaleOf(400, 800, 0, 0)).to.equal(1);
+		});
+	});
+
 	describe("zoomAbout", function () {
 		it("keeps the point under the pointer where it was", function () {
 			const view = {x: 200, y: 400, scale: 0.4};

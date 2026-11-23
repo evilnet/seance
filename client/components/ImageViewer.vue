@@ -50,7 +50,7 @@
 
 <script lang="ts">
 import Mousetrap from "mousetrap";
-import {computed, defineComponent, ref, watch} from "vue";
+import {computed, defineComponent, onBeforeUnmount, onMounted, ref, watch} from "vue";
 import eventbus from "../js/eventbus";
 import {useI18n} from "../js/i18n";
 import {useStore} from "../js/store";
@@ -66,6 +66,7 @@ import {
 	clampCentre,
 	clampScale,
 	doubleTapScale,
+	fitScaleOf,
 	isDoubleTap,
 	isFitted,
 	isForward,
@@ -94,6 +95,8 @@ const DIM_FRACTION = 0.6;
 
 // The finger's speed is measured over this much of its last movement.
 const VELOCITY_WINDOW_MS = 100;
+/** The longest a loaded picture waits for its own decode before it is shown. */
+const DECODE_WAIT_MS = 500;
 
 export default defineComponent({
 	name: "ImageViewer",
@@ -290,12 +293,16 @@ export default defineComponent({
 			return view ? {x: view.x, y: view.y} : {x: 0, y: 0};
 		};
 
-		// The scale that fits the picture in the box, never past its own pixels.
+		// The scale that fits the picture in the box (viewerGesture.ts fitScaleOf).
 		const measureFit = (viewerEl: HTMLElement, imageEl: HTMLImageElement) => {
 			const {width, height} = contentBox(viewerEl);
-			// A picture that failed to load has no size: shown as it is.
-			const scale = Math.min(1, width / imageEl.width, height / imageEl.height) || 1;
-			return Math.max(scale, 0.1);
+			return fitScaleOf(width, height, imageEl.width, imageEl.height);
+		};
+
+		// The picture's top left, so that its centre is the transform's origin.
+		const place = (imageEl: HTMLImageElement) => {
+			position.value.x = Math.floor(-imageEl.naturalWidth / 2);
+			position.value.y = Math.floor(-imageEl.naturalHeight / 2);
 		};
 
 		const prepareImage = () => {
@@ -306,15 +313,40 @@ export default defineComponent({
 				return;
 			}
 
-			position.value.x = Math.floor(-imageEl.naturalWidth / 2);
-			position.value.y = Math.floor(-imageEl.naturalHeight / 2);
+			place(imageEl);
 			fitScale = measureFit(viewerEl, imageEl);
 			Object.assign(transform.value, fittedView());
 			loaded.value = true;
 		};
 
-		const onImageLoad = () => {
-			prepareImage();
+		// The Mac app's WebKit can share the chat preview's decode of the same
+		// URL, made at the preview's small size, and report that size as the
+		// picture's own when `load` fires: a 2496×1664 picture measured as
+		// 384×256 opened at a sixth of the size it fits at. Asking for the
+		// picture decoded first gets its real size; should the size still
+		// change after, the observer below fits it again. A decode that never
+		// settles is not waited on for long, and one that settles after the
+		// <img> moved on to the next picture (whose own load fits it) is moot.
+		// Each load, and each change of picture, outdates the one before.
+		let loadSeq = 0;
+
+		const onImageLoad = async () => {
+			const imageEl = image.value;
+			const seq = ++loadSeq;
+
+			if (!imageEl) {
+				return;
+			}
+
+			// A broken picture rejects at once and is shown as it is.
+			await Promise.race([
+				imageEl.decode().catch(() => {}),
+				new Promise((resolve) => setTimeout(resolve, DECODE_WAIT_MS)),
+			]);
+
+			if (seq === loadSeq) {
+				prepareImage();
+			}
 		};
 
 		// The scale and place the picture comes to rest at from `view`:
@@ -345,7 +377,8 @@ export default defineComponent({
 			dim.value = 1;
 		};
 
-		// The picture kept where it belongs (after a resize, a wheel pan).
+		// The picture kept where it belongs (after a resize, a wheel pan, the
+		// picture's own size coming in late).
 		const correctPosition = () => {
 			// Not yet loaded: its load fits it.
 			if (!viewer.value || link.value === null || !loaded.value) {
@@ -361,6 +394,7 @@ export default defineComponent({
 			// Zoomed, it stays zoomed, but the fitted size moved with the box
 			// (a phone turned): no smaller than the new fit, edges kept out.
 			if (image.value) {
+				place(image.value);
 				fitScale = measureFit(viewer.value, image.value);
 			}
 
@@ -967,6 +1001,29 @@ export default defineComponent({
 			Mousetrap.unbind(["left", "right", "plus", "=", "-", "0"]);
 		};
 
+		// The window resized, or the picture's laid-out size changed under it
+		// (its real size arriving after a small shared decode): fit again.
+		// Not under a finger: the gesture owns the picture until it lifts,
+		// and its release brings the picture back within bounds.
+		const resized = new ResizeObserver(() => {
+			if (!gesture) {
+				correctPosition();
+			}
+		});
+
+		onMounted(() => viewer.value && resized.observe(viewer.value));
+		onBeforeUnmount(() => resized.disconnect());
+
+		watch(image, (el, old) => {
+			if (old) {
+				resized.unobserve(old);
+			}
+
+			if (el) {
+				resized.observe(el);
+			}
+		});
+
 		watch(link, (newLink, oldLink) => {
 			if (newLink === null) {
 				// Closed under a finger (Android's back, Escape): the <img> it
@@ -977,13 +1034,14 @@ export default defineComponent({
 				loaded.value = false;
 				setImageViewerOpen(false);
 				eventbus.off("escapekey", onEscape);
-				eventbus.off("resize", correctPosition);
 				unbindKeys();
 				return;
 			}
 
-			// A click's pending close (or a tap's) was for the last picture.
+			// A click's pending close (or a tap's) was for the last picture, and
+			// so is a decode still under way.
 			cancelTap();
+			loadSeq++;
 
 			// A new picture is shown once it has loaded and been fitted; the
 			// same picture again (another preview of it) loads no more.
@@ -1000,7 +1058,6 @@ export default defineComponent({
 				dim.value = 1;
 				setImageViewerOpen(true);
 				eventbus.on("escapekey", onEscape);
-				eventbus.on("resize", correctPosition);
 				bindKeys();
 			}
 		});

@@ -26,6 +26,32 @@ const DOUBLE_TAP_SLOP_PX = 30;
 /** Within this of the fitted scale the picture counts as fitted. */
 const FITTED_TOLERANCE = 1.05;
 
+/**
+ * A picture smaller than the box is enlarged to fill it, up to this: a
+ * phone's photo or a screenshot fills a desktop window rather than sitting
+ * small in its middle, while an icon is not blown up into a blur.
+ */
+export const MAX_FIT_SCALE = 2;
+
+/**
+ * The scale that fits a `width`×`height` picture in a `boxWidth`×`boxHeight`
+ * box: whole, as large as the box allows, at most MAX_FIT_SCALE. A picture
+ * with no size (it failed to load) is shown as it is.
+ */
+export function fitScaleOf(
+	boxWidth: number,
+	boxHeight: number,
+	width: number,
+	height: number
+): number {
+	if (!(width > 0 && height > 0)) {
+		return 1;
+	}
+
+	const scale = Math.min(MAX_FIT_SCALE, boxWidth / width, boxHeight / height);
+	return Math.max(scale, 0.1);
+}
+
 export function clampScale(scale: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, scale));
 }
