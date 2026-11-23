@@ -9,7 +9,6 @@ import {
 	lockAxis,
 	MAX_FIT_SCALE,
 	MAX_SCALE,
-	maxScale,
 	pinch,
 	rubber,
 	softCentre,
@@ -38,11 +37,6 @@ describe("viewerGesture", function () {
 
 		it("shows a picture with no size as it is", function () {
 			expect(fitScaleOf(400, 800, 0, 0)).to.equal(1);
-		});
-
-		it("lets an enlarged picture still zoom in", function () {
-			expect(maxScale(0.4)).to.equal(MAX_SCALE);
-			expect(maxScale(MAX_FIT_SCALE)).to.be.above(MAX_FIT_SCALE * 1.5);
 		});
 	});
 

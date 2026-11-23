@@ -235,22 +235,14 @@ export function isDoubleTap(previous: Tap | null, now: Tap): boolean {
 /**
  * The scale a double tap (or double click) goes to: back to fitted from any
  * zoom, else close up — two and a half times the fitted size, at least the
- * picture's own pixels, at most the zoom's maximum.
+ * picture's own pixels, at most MAX_SCALE.
  */
 export function doubleTapScale(scale: number, fitScale: number): number {
 	if (!isFitted(scale, fitScale)) {
 		return fitScale;
 	}
 
-	return Math.min(maxScale(fitScale), Math.max(1, fitScale * 2.5));
-}
-
-/**
- * The most the picture is zoomed: MAX_SCALE, or for a small picture already
- * enlarged to fit, twice its fitted size.
- */
-export function maxScale(fitScale: number): number {
-	return Math.max(MAX_SCALE, fitScale * 2);
+	return Math.min(MAX_SCALE, Math.max(1, fitScale * 2.5));
 }
 
 /** The keyboard's and the wheel's zoom step. */

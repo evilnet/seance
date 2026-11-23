@@ -40,7 +40,7 @@
 				:class="{loading: !loaded}"
 				:style="computeImageStyles"
 				@load="onImageLoad"
-				@error="onImageLoad"
+				@error="prepareImage"
 				@mousedown="onImageMouseDown"
 				@dblclick="onImageDoubleClick"
 			/>
@@ -50,7 +50,7 @@
 
 <script lang="ts">
 import Mousetrap from "mousetrap";
-import {computed, defineComponent, ref, watch} from "vue";
+import {computed, defineComponent, onBeforeUnmount, onMounted, ref, watch} from "vue";
 import eventbus from "../js/eventbus";
 import {useI18n} from "../js/i18n";
 import {useStore} from "../js/store";
@@ -71,7 +71,7 @@ import {
 	isFitted,
 	isForward,
 	lockAxis,
-	maxScale,
+	MAX_SCALE,
 	DOUBLE_TAP_MS,
 	pinch,
 	rubber,
@@ -95,6 +95,8 @@ const DIM_FRACTION = 0.6;
 
 // The finger's speed is measured over this much of its last movement.
 const VELOCITY_WINDOW_MS = 100;
+/** The longest a loaded picture waits for its own decode before it is shown. */
+const DECODE_WAIT_MS = 500;
 
 export default defineComponent({
 	name: "ImageViewer",
@@ -297,6 +299,12 @@ export default defineComponent({
 			return fitScaleOf(width, height, imageEl.width, imageEl.height);
 		};
 
+		// The picture's top left, so that its centre is the transform's origin.
+		const place = (imageEl: HTMLImageElement) => {
+			position.value.x = Math.floor(-imageEl.naturalWidth / 2);
+			position.value.y = Math.floor(-imageEl.naturalHeight / 2);
+		};
+
 		const prepareImage = () => {
 			const viewerEl = viewer.value;
 			const imageEl = image.value;
@@ -305,8 +313,7 @@ export default defineComponent({
 				return;
 			}
 
-			position.value.x = Math.floor(-imageEl.naturalWidth / 2);
-			position.value.y = Math.floor(-imageEl.naturalHeight / 2);
+			place(imageEl);
 			fitScale = measureFit(viewerEl, imageEl);
 			Object.assign(transform.value, fittedView());
 			loaded.value = true;
@@ -317,12 +324,23 @@ export default defineComponent({
 		// picture's own when `load` fires: a 2496×1664 picture measured as
 		// 384×256 opened at a sixth of the size it fits at. Asking for the
 		// picture decoded first gets its real size; should the size still
-		// change after, the observer below fits it again.
+		// change after, the observer below fits it again. A decode that never
+		// settles is not waited on for long, and one that settles after the
+		// <img> moved on to the next picture (whose own load fits it) is moot.
 		const onImageLoad = async () => {
 			const imageEl = image.value;
-			await imageEl?.decode().catch(() => {});
 
-			if (image.value === imageEl) {
+			if (!imageEl) {
+				return;
+			}
+
+			const src = imageEl.currentSrc;
+			await Promise.race([
+				imageEl.decode().catch(() => {}),
+				new Promise((resolve) => setTimeout(resolve, DECODE_WAIT_MS)),
+			]);
+
+			if (image.value === imageEl && imageEl.currentSrc === src && imageEl.complete) {
 				prepareImage();
 			}
 		};
@@ -335,7 +353,7 @@ export default defineComponent({
 				return view;
 			}
 
-			const scale = clampScale(view.scale, fitScale, maxScale(fitScale));
+			const scale = clampScale(view.scale, fitScale, MAX_SCALE);
 			const zoomed = scale === view.scale ? view : zoomAbout(view, scale, anchor);
 			return {...clampCentre(zoomed, imageSize(), contentBox(viewer.value)), scale};
 		};
@@ -372,6 +390,7 @@ export default defineComponent({
 			// Zoomed, it stays zoomed, but the fitted size moved with the box
 			// (a phone turned): no smaller than the new fit, edges kept out.
 			if (image.value) {
+				place(image.value);
 				fitScale = measureFit(viewer.value, image.value);
 			}
 
@@ -631,7 +650,7 @@ export default defineComponent({
 			}
 
 			const raw = pinch(g.base, g.from, touch, (s) => s);
-			const view = zoomAbout(raw, softScale(raw.scale, fitScale, maxScale(fitScale)), touch);
+			const view = zoomAbout(raw, softScale(raw.scale, fitScale, MAX_SCALE), touch);
 			g.raw = raw;
 			Object.assign(transform.value, {...softCentre(view, g.size, g.box), scale: view.scale});
 		};
@@ -980,8 +999,18 @@ export default defineComponent({
 
 		// The window resized, or the picture's laid-out size changed under it
 		// (its real size arriving after a small shared decode): fit again.
-		const resized = new ResizeObserver(() => correctPosition());
-		const follow = (el?: Element, old?: Element) => {
+		// Not under a finger: the gesture owns the picture until it lifts,
+		// and its release brings the picture back within bounds.
+		const resized = new ResizeObserver(() => {
+			if (!gesture) {
+				correctPosition();
+			}
+		});
+
+		onMounted(() => viewer.value && resized.observe(viewer.value));
+		onBeforeUnmount(() => resized.disconnect());
+
+		watch(image, (el, old) => {
 			if (old) {
 				resized.unobserve(old);
 			}
@@ -989,10 +1018,7 @@ export default defineComponent({
 			if (el) {
 				resized.observe(el);
 			}
-		};
-
-		watch(viewer, follow);
-		watch(image, follow);
+		});
 
 		watch(link, (newLink, oldLink) => {
 			if (newLink === null) {
