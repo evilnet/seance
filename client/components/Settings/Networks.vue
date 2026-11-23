@@ -39,12 +39,32 @@
 						{{ t("settings.networks.delete") }}
 					</button>
 				</div>
+				<details v-if="live(network.uuid)" class="network-settings-avatar">
+					<summary>{{ t("avatar.heading") }}</summary>
+					<AvatarSettings :uuid="network.uuid" />
+				</details>
 			</li>
 		</ul>
 	</div>
 </template>
 
 <style>
+/* A live network's own avatar (AvatarSettings.vue), folded under its row. */
+.network-settings-item {
+	flex-wrap: wrap;
+}
+
+.network-settings-avatar {
+	flex: 1 0 100%;
+	font-size: 0.875rem;
+}
+
+.network-settings-avatar > summary {
+	cursor: pointer;
+	color: var(--body-color-muted);
+	padding-block: 0.25rem;
+}
+
 .network-settings-heading,
 .network-settings-item,
 .network-settings-actions {
@@ -148,6 +168,7 @@
 import {computed, defineComponent, ref} from "vue";
 import {brandingFeatures} from "../../js/branding";
 import AccountSettings from "./Account.vue";
+import AvatarSettings from "./AvatarSettings.vue";
 import eventbus from "../../js/eventbus";
 import {createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
@@ -162,6 +183,7 @@ export default defineComponent({
 	name: "NetworkSettings",
 	components: {
 		AccountSettings,
+		AvatarSettings,
 	},
 	setup() {
 		const store = useStore();
@@ -249,6 +271,7 @@ export default defineComponent({
 
 		return {
 			editable,
+			live,
 			networks,
 			canAddNetwork,
 			isConnecting,

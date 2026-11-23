@@ -65,6 +65,15 @@ import {scriptManager} from "./scripting/manager";
 import {FILEHOST_SERVICE, TokenRequests, filehostUrlOf} from "./authtoken";
 import {interceptBatchLine, resetBatches} from "./handlers/batch";
 import {PAYLOAD_KEY} from "./handlers/metadata";
+import {
+	AVATAR_KEY,
+	avatarSubKeys,
+	avatarsClosed,
+	avatarsWelcomed,
+	expectOwnAvatar,
+} from "./avatars";
+import {avatarsEnabled} from "../avatars/prefs";
+import {bindNetwork} from "../avatars/registry";
 import {resetModeLists} from "./handlers/lists";
 import {resetWho} from "./handlers/who";
 import {resetWhois} from "./handlers/whois";
@@ -772,6 +781,7 @@ export class IrcClient {
 
 		this.noticeLog = new NoticeLog(this.uuid, () => isSavedNetwork(this.uuid));
 		this.closed = new ClosedQueries(this.uuid, (s) => this.casefold(s));
+		bindNetwork(this.uuid, (s) => this.casefold(s));
 
 		for (const window of this.conversations.windows()) {
 			const {name} = window;
@@ -852,6 +862,7 @@ export class IrcClient {
 		this.connectionSerial++;
 
 		this.fakeLag.start();
+		avatarsWelcomed(this); // the join burst brings the avatars again
 		this.background.pump(); // anything queued before 001 can go now
 		this.flushPayloadTier(); // a tier asked for before 001
 	}
@@ -1936,7 +1947,12 @@ export class IrcClient {
 					Math.max(this.syncLineAt ?? -Infinity, lastInSync(this.uuid) ?? -Infinity),
 					Date.now()
 				);
-				lines.push(`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`);
+				lines.push(
+					[
+						`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`,
+						...avatarSubKeys(this),
+					].join(" ")
+				);
 			}
 
 			// Bound to one of a bouncer's networks (bouncer.ts): said before CAP END.
@@ -2113,6 +2129,7 @@ export class IrcClient {
 		this.welcomed = false;
 		this.fakeLag.stop();
 		this.background.clear();
+		avatarsClosed(this);
 
 		this.clearMuteRead();
 
@@ -3523,7 +3540,25 @@ export class IrcClient {
 	private scheduleMuteRead(): void {
 		this.clearMuteRead();
 
-		if (!this.caps.hasCapability("draft/metadata-2") || !this.account) {
+		if (!this.caps.hasCapability("draft/metadata-2")) {
+			return;
+		}
+
+		// Without an account only the avatar key is ours to hear (irc/avatars.ts).
+		if (!this.account) {
+			if (!this.metadataSubscribed && avatarsEnabled(this.uuid)) {
+				this.muteReadTimer = setTimeout(() => {
+					this.muteReadTimer = null;
+
+					// Not metadataSubscribed: that is the shared keys', which a
+					// login later on this connection still has to subscribe.
+					if (this.isWelcomed && !this.metadataSubscribed) {
+						this.send(`METADATA * SUB ${AVATAR_KEY}`);
+					}
+				}, MUTE_READ_DELAY_MS);
+				(this.muteReadTimer as {unref?: () => void}).unref?.();
+			}
+
 			return;
 		}
 
@@ -3538,15 +3573,28 @@ export class IrcClient {
 				if (!this.metadataSubscribed) {
 					this.metadataSubscribed = true;
 					this.send(
-						`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`
+						[
+							`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`,
+							...avatarSubKeys(this),
+						].join(" ")
 					);
+				}
+
+				// Our own avatar (Settings → Account) rides along: its reply is state.
+				const avatar = avatarSubKeys(this);
+
+				if (avatar.length > 0) {
+					expectOwnAvatar(this);
 				}
 
 				// The payload tier rides along: an account that wrote it public
 				// before it was written private (WHOIS listed it) is told so in
 				// the answer, and handlers/metadata.ts rewrites it private.
 				this.send(
-					`METADATA * GET ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${PAYLOAD_KEY} ${CLOSED_KEY}`
+					[
+						`METADATA * GET ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${PAYLOAD_KEY} ${CLOSED_KEY}`,
+						...avatar,
+					].join(" ")
 				);
 			}
 		}, MUTE_READ_DELAY_MS);

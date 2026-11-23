@@ -14,7 +14,7 @@ to a friend who wants the same setup. Code: `client/js/helpers/settingsBackup.ts
 ```json
 {
   "format": "seance-settings",
-  "version": 2,
+  "version": 3,
   "exportedAt": "2026-09-09T10:00:00.000Z",
   "app": "Seance",
   "platform": "web",
@@ -33,7 +33,8 @@ the gzip magic). `version` is bumped when the covered keys change or a restore
 would need a migration; a file from a newer version is refused with a message.
 An **older** file is applied as far as it goes: a key added after its version
 (`KEY_SINCE` in `settingsBackup.ts` — `thelounge.translate`,
-`thelounge.scripts` and `thelounge.script_storage.*` count from version 2) is
+`thelounge.scripts` and `thelounge.script_storage.*` count from version 2,
+`thelounge.avatars` from version 3) is
 left as it is on the device rather than cleared, since that file could never
 have carried it. The scripting keys are listed although upstream's own
 version-1 files carry them: this branch's version-1 files never did, and the
@@ -59,6 +60,7 @@ do-not-disturb branch.
 | `thelounge.translate`             | per-channel translation state (what each channel reads and writes, its formality, variant, languages and terms; a query's terms are left out) |
 | `thelounge.oper`                  | oper notice routing and snomask                                                                                                               |
 | `thelounge.dnd`                   | do not disturb: the switch and its window                                                                                                     |
+| `thelounge.avatars`               | the networks with avatars switched off, and the people whose avatars always load                                                              |
 | `thelounge.scripts`               | Lua scripts (Settings → Scripts), restored switched off                                                                                       |
 | `thelounge.ignore.<uuid>`         | ignore list per network                                                                                                                       |
 | `thelounge.script_storage.<name>` | each script's own data (`seance.storage`)                                                                                                     |

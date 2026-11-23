@@ -380,6 +380,12 @@ const defaultConfig = {
 	mediaReveal: {
 		default: "click",
 	},
+	// Where others' avatars load from by themselves (avatars/policy.ts):
+	// "trusted" (the network's image host, the deploy's and the reader's
+	// trusted hosts and people), "any", or "none" (initials only).
+	avatarLoad: {
+		default: "trusted",
+	},
 	uploadCanvas: {
 		default: true,
 	},

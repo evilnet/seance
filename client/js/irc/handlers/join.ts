@@ -11,6 +11,7 @@ import {noteRestorationActivity} from "../persistence";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
 import {fromIgnored} from "../../ignore";
+import {onAvatarAccount} from "../avatars";
 
 const join: Handler = (client, msg) => {
 	const [name, account, gecos] = msg.params;
@@ -37,6 +38,11 @@ const join: Handler = (client, msg) => {
 			host: msg.source?.host,
 			self,
 		});
+	}
+
+	// extended-join: who the joiner is logged in as (the avatar trust's key).
+	if (!client.replaying && !self && account !== undefined && msg.params.length >= 3) {
+		onAvatarAccount(client, nick, account);
 	}
 
 	if (client.replaying) {

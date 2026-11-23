@@ -5,7 +5,10 @@
  * (irc/pushMute.ts: shared do not disturb). The replies for the keys this client writes itself — the
  * mute list and the webpush payload tier (webpush.ts) — stay silent; a reply
  * for any other key (a user's own `/metadata`) is shown as it always was,
- * through `unhandled`. METADATA lines for other keys stay silent.
+ * through `unhandled`. METADATA lines for other keys stay silent. The
+ * `avatar` key is anyone's and public (irc/avatars.ts): its values go to
+ * the avatar registry, and the replies to the GETs and SETs this client
+ * sends for it are kept quiet.
  *
  * Only our own entry counts. We write the key private, which the server
  * shows only to the account's own sessions; a public value is someone's
@@ -19,6 +22,7 @@ import {sharedBurstRead} from "../presence";
 import {MUTE_KEY, onMuteValue} from "../pushMute";
 import {MODE_KEY, PRESENCE_KEY, onGlobalModeValue, onPresenceValue} from "../presenceShare";
 import {CLOSED_KEY, onClosedValue} from "../closedQueries";
+import {AVATAR_KEY, isQuietAvatarReply, onAvatarValue} from "../avatars";
 // index.ts imports this module too; `unhandled` is only called at run time.
 import {unhandled} from "./index";
 
@@ -44,6 +48,12 @@ const ours = (client: Parameters<Handler>[0], target: string, visibility: string
 
 // METADATA <target> <key> <visibility> [:<value>]
 const metadata: Handler = (client, msg) => {
+	// Anyone's avatar (irc/avatars.ts): a public key, so only a public value counts.
+	if (msg.params[1] === AVATAR_KEY && msg.params[2] !== "private") {
+		onAvatarValue(client, msg.params[0] ?? "", msg.params[3] ?? "");
+		return;
+	}
+
 	if (msg.params[1] === MUTE_KEY && ours(client, msg.params[0] ?? "", msg.params[2] ?? "")) {
 		onMuteValue(client, msg.params[3] ?? "");
 	}
@@ -64,6 +74,21 @@ const metadata: Handler = (client, msg) => {
 // 761 <me> <target> <key> <visibility> :<value>: our own GET (`*` expands to our
 // nick) — never another user's value an oper asked for, private or not.
 const keyValue: Handler = (client, msg) => {
+	if (msg.params[2] === AVATAR_KEY) {
+		const target = msg.params[1] ?? "";
+		const quiet = isQuietAvatarReply(client, target);
+
+		if (msg.params[3] !== "private") {
+			onAvatarValue(client, target, msg.params[4] ?? "");
+		}
+
+		if (!quiet) {
+			unhandled(client, msg);
+		}
+
+		return;
+	}
+
 	if (!ownKey(msg.params[2])) {
 		unhandled(client, msg);
 		return;
@@ -101,6 +126,18 @@ const keyValue: Handler = (client, msg) => {
 
 // 766 <me> <target> <key> :key not set
 const keyNotSet: Handler = (client, msg) => {
+	if (msg.params[2] === AVATAR_KEY) {
+		const target = msg.params[1] ?? "";
+		const quiet = isQuietAvatarReply(client, target);
+		onAvatarValue(client, target, "");
+
+		if (!quiet) {
+			unhandled(client, msg);
+		}
+
+		return;
+	}
+
 	if (!ownKey(msg.params[2])) {
 		unhandled(client, msg);
 		return;
@@ -128,7 +165,7 @@ const subOk: Handler = (client, msg) => {
 		.flatMap((p) => p.split(" "))
 		.filter(Boolean);
 
-	if (keys.length === 0 || !keys.every(ownKey)) {
+	if (keys.length === 0 || !keys.every((key) => ownKey(key) || key === AVATAR_KEY)) {
 		unhandled(client, msg);
 	}
 };
@@ -163,4 +200,6 @@ export default {
 	"762": endOfMetadata,
 	"766": keyNotSet,
 	"770": subOk,
+	// 771 <me> <key> [<key> ...]: the UNSUB of the avatar key (Settings → Account).
+	"771": subOk,
 };

@@ -8,6 +8,7 @@ import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
 import {fromIgnored} from "../../ignore";
+import {onAvatarLeft} from "../avatars";
 
 const kick: Handler = (client, msg) => {
 	const [name, kicked, reason = ""] = msg.params;
@@ -55,6 +56,7 @@ const kick: Handler = (client, msg) => {
 		client.dispatch("channel:state", {chan: chan.id, state: chan.state});
 	} else {
 		chan.removeUser(kicked);
+		onAvatarLeft(client, kicked);
 	}
 };
 

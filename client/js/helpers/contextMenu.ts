@@ -18,6 +18,9 @@ import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
 import {ignoreListFor} from "../ignore";
 import {brandingFeatures} from "../branding";
 import {namesEqual} from "../irc/casemap";
+import {accountFor, viewFor} from "../avatars/view";
+import {isPersonTrusted, loadOnce, personKey, trustPerson, untrustPerson} from "../avatars/prefs";
+import {trustHost} from "./mediaTrust";
 
 type BaseContextMenuItem = {
 	label: string;
@@ -359,6 +362,65 @@ function ignoreItem(network: ClientNetwork, channel: ClientChan, nick: string): 
 	};
 }
 
+/**
+ * The avatar's entries in a user's menu (avatars/policy.ts): a picture not
+ * loaded can be shown once, always for this person (their account, at the
+ * host it is on now), or always from its host; a person trusted can be
+ * untrusted again.
+ */
+function avatarUserItems(
+	store: TypedStore,
+	network: ClientNetwork,
+	nick: string
+): ContextMenuItem[] {
+	const subject = {uuid: network.uuid, nick, self: namesEqual(nick, network.nick)};
+	const view = viewFor(store, subject);
+	const account = accountFor(subject);
+
+	if (view.kind === "veiled") {
+		const items: ContextMenuItem[] = [
+			{type: "divider"},
+			{
+				label: t("avatar.showOnce"),
+				type: "item",
+				class: "action-avatar",
+				action: () => loadOnce(view.href),
+			},
+		];
+
+		if (account) {
+			items.push({
+				label: t("avatar.alwaysPerson", {nick}),
+				type: "item",
+				class: "action-avatar",
+				action: () => trustPerson(network.uuid, account, view.host),
+			});
+		}
+
+		items.push({
+			label: t("avatar.alwaysHost", {host: view.host}),
+			type: "item",
+			class: "action-avatar",
+			action: () => trustHost(view.host),
+		});
+		return items;
+	}
+
+	if (view.kind === "image" && account && isPersonTrusted(network.uuid, account, view.host)) {
+		return [
+			{type: "divider"},
+			{
+				label: t("avatar.stopPerson", {nick}),
+				type: "item",
+				class: "action-avatar",
+				action: () => untrustPerson(personKey(network.uuid, account, view.host)),
+			},
+		];
+	}
+
+	return [];
+}
+
 export function generateUserContextMenu(
 	store: TypedStore,
 	channel: ClientChan,
@@ -424,6 +486,8 @@ export function generateUserContextMenu(
 			},
 		},
 	];
+
+	items.push(...avatarUserItems(store, network, user.nick));
 
 	// An opered network's oper actions close every user menu.
 	const operItems = operUserItems(network, channel.id, user.nick);

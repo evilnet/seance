@@ -14,6 +14,7 @@ import eventbus from "./eventbus";
 import {boot} from "./boot";
 
 import "./webpush";
+import "./avatars/actions";
 import "./pwa";
 import "./keybinds";
 import {setAppBadge} from "./helpers/appBadge";

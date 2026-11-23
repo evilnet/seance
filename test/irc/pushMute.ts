@@ -259,8 +259,8 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		expect(metadata()).to.deep.equal([]);
 		clock.tick(1);
 		expect(metadata()).to.deep.equal([
-			"METADATA * SUB draft/webpush/mute seance/presence seance/mode seance/closed",
-			"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed",
+			"METADATA * SUB draft/webpush/mute seance/presence seance/mode seance/closed avatar",
+			"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed avatar",
 		]);
 	});
 
@@ -268,7 +268,7 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		const h = connect();
 		clock.tick(MUTE_READ_DELAY_MS);
 		const get = h.transport.sent.find((l) => l.startsWith("METADATA * GET "));
-		expect(get).to.match(/ draft\/webpush\/payload seance\/closed$/);
+		expect(get).to.match(/ draft\/webpush\/payload seance\/closed avatar$/);
 	});
 
 	it("rewrites a public payload tier as private, keeping its value", function () {
@@ -306,13 +306,16 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		expect(h.transport.sent.filter((l) => l.includes("METADATA"))).to.deep.equal([]);
 	});
 
-	it("never touches METADATA without an account or the cap, and DND still goes away", function () {
+	it("never touches its keys without an account or the cap, and DND still goes away", function () {
 		for (const opts of [{account: false}, {metadata: false}]) {
 			const h = connect(opts);
 			h.client.setGlobalDnd(true, null);
 			clock.tick(MUTE_READ_DELAY_MS);
 			// The raw lines: sent() hides SUB and GET, the very lines this pins.
-			expect(h.transport.sent.filter((l) => l.includes("METADATA"))).to.deep.equal([]);
+			// Without an account only the avatar key, anyone's, is subscribed.
+			expect(h.transport.sent.filter((l) => l.includes("METADATA"))).to.deep.equal(
+				opts.metadata === false ? [] : ["METADATA * SUB avatar"]
+			);
 			// Its no-metadata server offers no pre-away either: a real away message there.
 			expect(h.sent()).to.include(opts.metadata === false ? "AWAY :Away" : "AWAY *");
 		}
@@ -891,7 +894,7 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		h.transport.lines(
 			":irc.test 761 alice alice avatar * :https://example.test/a.png",
 			":irc.test 766 alice alice display-name :key not set",
-			":irc.test 770 alice avatar"
+			":irc.test 770 alice display-name"
 		);
 		const shown = h.dispatch.getCalls().filter((c) => c.args[0] === "msg");
 		expect(shown).to.have.length(3);

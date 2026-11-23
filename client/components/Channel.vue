@@ -1,6 +1,12 @@
 <template>
 	<!-- TODO: investigate -->
 	<ChannelWrapper ref="wrapper" v-bind="$props">
+		<Avatar
+			v-if="channel.type === 'query'"
+			:uuid="network.uuid"
+			:nick="channel.name"
+			size="list"
+		/>
 		<span class="name"
 			><bdi>{{ channel.name }}</bdi></span
 		>
@@ -37,11 +43,13 @@ import roundBadgeNumber from "../js/helpers/roundBadgeNumber";
 import useCloseChannel from "../js/hooks/use-close-channel";
 import {ClientChan, ClientNetwork} from "../js/types";
 import ChannelWrapper from "./ChannelWrapper.vue";
+import Avatar from "./Avatar.vue";
 
 export default defineComponent({
 	name: "Channel",
 	components: {
 		ChannelWrapper,
+		Avatar,
 	},
 	props: {
 		network: {

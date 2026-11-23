@@ -19,6 +19,7 @@ import {noteListDelay} from "./list";
 import type {Handler} from "../types";
 import {fromIgnored} from "../../ignore";
 import {scriptManager} from "../scripting/manager";
+import {onLineFrom} from "../avatars";
 
 const nickRegExp = /(?:\x03[0-9]{1,2}(?:,[0-9]{1,2})?)?([\w[\]\\`^{|}-]+)/g;
 
@@ -246,6 +247,15 @@ function handleMessage(
 
 	if (account) {
 		message.fromAccount = account;
+	}
+
+	// A live line: its sender's avatar, if we have not heard it (irc/avatars.ts).
+	if (!client.replaying && !self && nick) {
+		onLineFrom(
+			client,
+			nick,
+			client.caps.hasCapability("account-tag") ? account ?? "" : undefined
+		);
 	}
 
 	if (showInActive) {

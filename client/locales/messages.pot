@@ -7,6 +7,223 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#. User menu: load every avatar stored on this website from now on. {host} is a host name such as pics.example.net.
+msgctxt "avatar.alwaysHost"
+msgid "Always show avatars from {host}"
+msgstr ""
+
+#. User menu: always load this person's avatar (trusted by their account, at the site it is on now).
+msgctxt "avatar.alwaysPerson"
+msgid "Always show {nick}'s avatar"
+msgstr ""
+
+#. Avatar settings, shown while the network is not connected.
+msgctxt "avatar.connectFirst"
+msgid "Connect to this network to change your avatar."
+msgstr ""
+
+#. Accessible label of the crop area in the avatar crop dialog.
+msgctxt "avatar.cropAria"
+msgid "Picture to crop. Drag or use the arrow keys to move it, plus and minus to zoom."
+msgstr ""
+
+#. Avatar crop dialog, under the zoom slider.
+msgctxt "avatar.cropHint"
+msgid "The picture is resized to 256 × 256 and uploaded to this network's image host. Animated pictures keep their first frame."
+msgstr ""
+
+#. Title of the avatar crop dialog.
+msgctxt "avatar.cropTitle"
+msgid "Crop your avatar"
+msgstr ""
+
+#. Label under the avatar in use, in the list of recent avatars.
+msgctxt "avatar.current"
+msgid "Current"
+msgstr ""
+
+#. Avatar crop dialog: the picture could not be encoded small enough.
+msgctxt "avatar.encodeFailed"
+msgid "This browser could not prepare the picture. Try another one."
+msgstr ""
+
+#. Avatar settings status after a failed change. {reason} is the server's or upload host's explanation.
+msgctxt "avatar.failed"
+msgid "Your avatar was not changed: {reason}"
+msgstr ""
+
+#. Button on a recent avatar that forgets it on this device.
+msgctxt "avatar.forgetRecent"
+msgid "Remove from recent avatars"
+msgstr ""
+
+#. Heading of the avatar settings for one network.
+msgctxt "avatar.heading"
+msgid "Your avatar"
+msgstr ""
+
+#. Avatar settings, explaining who sees the avatar.
+msgctxt "avatar.help"
+msgid "Everyone who shares a channel with you on {network} can see it. It is kept with your account, so other devices and IRC apps show it too."
+msgstr ""
+
+#. Avatar settings, under the link field, when the link points somewhere other than the network's image host.
+msgctxt "avatar.linkElsewhere"
+msgid "{host} is not this network's image host, so people using Seance see your initial until they choose to load pictures from that site."
+msgstr ""
+
+#. Avatar settings: the typed link cannot be used.
+msgctxt "avatar.linkInvalid"
+msgid "That doesn't look like a link to a picture."
+msgstr ""
+
+#. Label of the avatar link field.
+msgctxt "avatar.linkLabel"
+msgid "Link to a picture"
+msgstr ""
+
+#. Avatar settings: the typed link is not https.
+msgctxt "avatar.linkNotHttps"
+msgid "The link must start with https://"
+msgstr ""
+
+#. Avatar settings, under the link field.
+msgctxt "avatar.linkRules"
+msgid "https only: a PNG, JPEG, WebP or GIF picture, up to 300 characters."
+msgstr ""
+
+#. Avatar settings: the typed link is an SVG file.
+msgctxt "avatar.linkSvg"
+msgid "SVG pictures can't be used as avatars."
+msgstr ""
+
+#. Avatar settings: the typed link is too long.
+msgctxt "avatar.linkTooLong"
+msgid "The link is longer than the 300 characters the network keeps."
+msgstr ""
+
+#. Avatar crop dialog: the chosen file is not an image.
+msgctxt "avatar.notImage"
+msgid "That file isn't a picture this browser can read."
+msgstr ""
+
+#. Heading of the list of avatars used before on this network.
+msgctxt "avatar.recent"
+msgid "Recent avatars"
+msgstr ""
+
+#. Note under the list of recent avatars.
+msgctxt "avatar.recentNote"
+msgid "Kept on this device, for this network only."
+msgstr ""
+
+#. Button that clears your avatar on this network.
+msgctxt "avatar.remove"
+msgid "Remove"
+msgstr ""
+
+#. Avatar settings status after removing the avatar.
+msgctxt "avatar.removed"
+msgid "Your avatar was removed."
+msgstr ""
+
+#. Avatar settings note. {count} is the number of days the network's image host keeps a file.
+msgctxt "avatar.retentionNote"
+msgid "This network's image host deletes files after {count} day. This device keeps your picture and uploads it again a week before, whenever you're connected."
+msgid_plural "This network's image host deletes files after {count} days. This device keeps your picture and uploads it again a week before, whenever you're connected."
+msgstr[0] ""
+msgstr[1] ""
+
+#. Button that saves the avatar link.
+msgctxt "avatar.save"
+msgid "Save"
+msgstr ""
+
+#. Avatar settings status after a successful change.
+msgctxt "avatar.saved"
+msgid "Your avatar was changed."
+msgstr ""
+
+#. Avatar settings status while a change is sent.
+msgctxt "avatar.saving"
+msgid "Saving…"
+msgstr ""
+
+#. Switch that turns avatars on or off for one network.
+msgctxt "avatar.showOnNetwork"
+msgid "Show avatars on {network}"
+msgstr ""
+
+#. User menu: load this person's avatar once, on this page only.
+msgctxt "avatar.showOnce"
+msgid "Show avatar"
+msgstr ""
+
+#. User menu: undo "Always show {nick}'s avatar".
+msgctxt "avatar.stopPerson"
+msgid "Stop always showing {nick}'s avatar"
+msgstr ""
+
+#. Stands in for a network's name in avatar.help when it has none yet.
+msgctxt "avatar.thisNetwork"
+msgid "this network"
+msgstr ""
+
+#. Avatar crop dialog: the chosen file is too large to read.
+msgctxt "avatar.tooLarge"
+msgid "That file is larger than 20 MB."
+msgstr ""
+
+#. Avatar crop dialog: the chosen picture is too small. {size} is a number of pixels.
+msgctxt "avatar.tooSmall"
+msgid "The picture must be at least {size} × {size} pixels."
+msgstr ""
+
+#. Warning in the avatar settings when your avatar stopped loading.
+msgctxt "avatar.unavailableText"
+msgid "The picture at {host} has not loaded for a while, so others see your initial instead."
+msgstr ""
+
+#. Title of the warning in the avatar settings when your avatar stopped loading.
+msgctxt "avatar.unavailableTitle"
+msgid "Your avatar can't be loaded"
+msgstr ""
+
+#. Avatar settings, when the server has no draft/metadata-2.
+msgctxt "avatar.unsupported"
+msgid "This network does not support avatars."
+msgstr ""
+
+#. Button that picks a picture to upload as your avatar.
+msgctxt "avatar.upload"
+msgid "Upload picture"
+msgstr ""
+
+#. Button in the "can't be loaded" warning that uploads the kept picture again.
+msgctxt "avatar.uploadAgain"
+msgid "Upload again"
+msgstr ""
+
+#. Confirm button of the avatar crop dialog.
+msgctxt "avatar.uploadAndUse"
+msgid "Upload and use"
+msgstr ""
+
+#. Button that opens the field to set your avatar from a link.
+msgctxt "avatar.useLink"
+msgid "Use a link"
+msgstr ""
+
+#. Accessible label of a recent avatar. {date} is a short date.
+msgctxt "avatar.useRecent"
+msgid "Use the avatar from {date}"
+msgstr ""
+
+#. Label of the zoom slider in the avatar crop dialog.
+msgctxt "avatar.zoom"
+msgid "Zoom"
+msgstr ""
+
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the same mask is already on the list.
 #: client/components/BanDialog.vue
 msgctxt "ban.alreadySet"
@@ -13509,6 +13726,56 @@ msgstr ""
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.autocomplete"
 msgid "Enable autocomplete"
+msgstr ""
+
+#. Avatar loading choice.
+msgctxt "settings.appearance.avatarsAny"
+msgid "Any site"
+msgstr ""
+
+#. Explains the "Any site" avatar loading choice.
+msgctxt "settings.appearance.avatarsAnyHint"
+msgid "Every avatar loads. Anyone sharing a channel with you can learn your IP address from the site their picture is on."
+msgstr ""
+
+#. Heading of the avatar section in Settings, Appearance.
+msgctxt "settings.appearance.avatarsHeading"
+msgid "Avatars"
+msgstr ""
+
+#. Introduction to the avatar loading choices.
+msgctxt "settings.appearance.avatarsHelp"
+msgid "Loading someone's avatar tells the site it is stored on your IP address and that you are looking at the chat. Pictures from sites you don't trust show as an initial until you load them from the person's menu."
+msgstr ""
+
+#. Avatar loading choice: no avatar pictures are loaded.
+msgctxt "settings.appearance.avatarsNone"
+msgid "Nowhere"
+msgstr ""
+
+#. Explains the "Nowhere" avatar loading choice.
+msgctxt "settings.appearance.avatarsNoneHint"
+msgid "Everyone shows as an initial. Nothing is fetched."
+msgstr ""
+
+#. Heading of the list of people trusted for avatars.
+msgctxt "settings.appearance.avatarsPeople"
+msgid "People whose avatar always shows"
+msgstr ""
+
+#. Where a trusted person's avatar is trusted: their network and the site of the picture.
+msgctxt "settings.appearance.avatarsPersonWhere"
+msgid "{network}, from {host}"
+msgstr ""
+
+#. Avatar loading choice.
+msgctxt "settings.appearance.avatarsTrusted"
+msgid "Trusted sites only (recommended)"
+msgstr ""
+
+#. Explains the "Trusted sites only" avatar loading choice.
+msgctxt "settings.appearance.avatarsTrustedHint"
+msgid "The network's own image host, sites your network lists, and the sites and people you trust."
 msgstr ""
 
 #. Checkbox in Settings > Appearance; when ticked, each user's name in chat is drawn in its own consistent color.

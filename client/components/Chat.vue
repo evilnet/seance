@@ -8,6 +8,7 @@
 				'time-seconds': store.state.settings.showSeconds,
 				'time-12h': store.state.settings.use12hClock,
 				'colored-nicks': true, // TODO temporarily fixes themes, to be removed in next major version
+				'avatars-on': avatarsOn,
 				disconnected: isDisconnected,
 			}"
 		>
@@ -119,7 +120,11 @@
 					>
 						<div class="scroll-down-arrow" />
 					</button>
-					<ChatUserList v-if="channel.type === 'channel'" :channel="channel" />
+					<ChatUserList
+						v-if="channel.type === 'channel'"
+						:channel="channel"
+						:network-uuid="network.uuid"
+					/>
 					<MessageList
 						ref="messageList"
 						:network="network"
@@ -188,6 +193,7 @@ import {useI18n} from "../js/i18n";
 import {formatNumber} from "../js/i18n/numbers";
 import {channelTranslation, readTopic, readingLanguage, showOriginal} from "../js/translate/reader";
 import {topicEntryId} from "../js/translate/topic";
+import {avatarsEnabled} from "../js/avatars/prefs";
 
 export default defineComponent({
 	name: "Chat",
@@ -205,6 +211,8 @@ export default defineComponent({
 		focused: Number,
 	},
 	setup(props) {
+		// The nick column makes room for the avatars (style.css .avatars-on).
+		const avatarsOn = computed(() => avatarsEnabled(props.network.uuid));
 		const store = useStore();
 		const {t, tCount} = useI18n();
 
@@ -454,6 +462,7 @@ export default defineComponent({
 		});
 
 		return {
+			avatarsOn,
 			chatPane,
 			dragRegion: macDragRegion(),
 			leavePast,

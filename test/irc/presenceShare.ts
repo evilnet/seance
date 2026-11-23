@@ -138,8 +138,8 @@ describe("shared presence on the wire (irc/presenceShare.ts)", function () {
 		const h = registered();
 		clock.tick(MUTE_READ_DELAY_MS);
 		expect(h.sent().filter((l) => / (SUB|GET) /.test(l))).to.deep.equal([
-			`METADATA * SUB draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} seance/closed`,
-			`METADATA * GET draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} draft/webpush/payload seance/closed`,
+			`METADATA * SUB draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} seance/closed avatar`,
+			`METADATA * GET draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} draft/webpush/payload seance/closed avatar`,
 		]);
 	});
 
@@ -429,8 +429,8 @@ describe("subscribing to the shared keys (client.ts)", function () {
 		clock.restore();
 	});
 
-	const SUB = `METADATA * SUB draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} seance/closed`;
-	const GET = `METADATA * GET draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} draft/webpush/payload seance/closed`;
+	const SUB = `METADATA * SUB draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} seance/closed avatar`;
+	const GET = `METADATA * GET draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} draft/webpush/payload seance/closed avatar`;
 
 	/** A SASL login on a server offering `metadata`; returns the CAP END flush. */
 	function saslLogin(h: Harness, metadata: string, batch = "batch"): string[] {

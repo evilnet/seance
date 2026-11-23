@@ -40,6 +40,7 @@
 				</button>
 			</div>
 		</div>
+		<AvatarSettings v-if="live" :uuid="live.uuid" />
 	</div>
 </template>
 
@@ -55,6 +56,7 @@ import {navigate, router} from "../../js/router";
 import socket from "../../js/socket";
 import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
+import AvatarSettings from "./AvatarSettings.vue";
 
 /**
  * Settings → Networks on a sign-in deploy that keeps its network as it set
@@ -64,6 +66,7 @@ import webpush from "../../js/webpush";
  */
 export default defineComponent({
 	name: "AccountSettings",
+	components: {AvatarSettings},
 	setup() {
 		const store = useStore();
 		const {t} = useI18n();

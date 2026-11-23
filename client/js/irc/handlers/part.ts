@@ -8,6 +8,7 @@ import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
 import {fromIgnored} from "../../ignore";
+import {onAvatarLeft} from "../avatars";
 
 const part: Handler = (client, msg) => {
 	const [name, reason = ""] = msg.params;
@@ -47,6 +48,7 @@ const part: Handler = (client, msg) => {
 
 	if (!client.replaying) {
 		chan.removeUser(nick);
+		onAvatarLeft(client, nick);
 	}
 };
 
