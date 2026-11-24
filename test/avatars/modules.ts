@@ -11,10 +11,15 @@ import {
 	avatarOf,
 	bindNetwork,
 	clearAvatars,
+	SEEN_KEY_PREFIX,
 	forgetAvatar,
+	forgetSeen,
+	markAvatarsStale,
 	noteAccount,
 	renameAvatar,
+	saveSeen,
 	setAvatarValue,
+	useSeenBackend,
 } from "../../client/js/avatars/registry";
 import {
 	STORAGE_KEY,
@@ -227,6 +232,94 @@ describe("avatar registry (avatars/registry.ts)", function () {
 		expect(avatarKnown(uuid, "bob")).to.equal(true);
 		clearAvatars(uuid);
 		expect(avatarKnown(uuid, "bob")).to.equal(false);
+	});
+});
+
+describe("avatar registry between connections and launches", function () {
+	let mem: ReturnType<typeof memoryStorage>;
+	let n = 0;
+	let uuid = "";
+
+	beforeEach(function () {
+		mem = memoryStorage();
+		useSeenBackend(mem);
+		uuid = `seen-net-${n++}`;
+	});
+
+	afterEach(function () {
+		useSeenBackend(null);
+	});
+
+	it("a new connection keeps the pictures drawn but asks again", function () {
+		bindNetwork(uuid, (s) => s.toLowerCase());
+		setAvatarValue(uuid, "alice", "https://a.example/a.png");
+		markAvatarsStale(uuid);
+		expect(avatarOf(uuid, "alice")?.value).to.equal("https://a.example/a.png");
+		expect(avatarKnown(uuid, "alice")).to.equal(false);
+		setAvatarValue(uuid, "alice", "https://a.example/b.png");
+		expect(avatarKnown(uuid, "alice")).to.equal(true);
+	});
+
+	it("a saved network's values come back on the next launch, as not known", function () {
+		bindNetwork(
+			uuid,
+			(s) => s.toLowerCase(),
+			() => true
+		);
+		setAvatarValue(uuid, "Alice", "https://a.example/a.png");
+		noteAccount(uuid, "alice", "alice");
+		setAvatarValue(uuid, "bob", "");
+		saveSeen(uuid);
+		const kept = JSON.parse(mem.get(SEEN_KEY_PREFIX + uuid) ?? "[]");
+		expect(kept).to.deep.equal([["alice", "https://a.example/a.png", "alice"]]);
+
+		// The next launch: a fresh registry for the network reads it back.
+		const next = `${uuid}-next`;
+		mem.set(SEEN_KEY_PREFIX + next, JSON.stringify(kept));
+		bindNetwork(
+			next,
+			(s) => s.toLowerCase(),
+			() => true
+		);
+		expect(avatarOf(next, "ALICE")).to.deep.equal({
+			value: "https://a.example/a.png",
+			account: "alice",
+		});
+		expect(avatarKnown(next, "alice")).to.equal(false);
+	});
+
+	it("a network that is not saved keeps nothing; a removed one forgets", function () {
+		bindNetwork(
+			uuid,
+			(s) => s.toLowerCase(),
+			() => false
+		);
+		setAvatarValue(uuid, "alice", "x");
+		saveSeen(uuid);
+		expect(mem.get(SEEN_KEY_PREFIX + uuid)).to.equal(null);
+
+		const saved = `${uuid}-saved`;
+		bindNetwork(
+			saved,
+			(s) => s.toLowerCase(),
+			() => true
+		);
+		setAvatarValue(saved, "alice", "x");
+		saveSeen(saved);
+		expect(mem.get(SEEN_KEY_PREFIX + saved)).to.not.equal(null);
+		forgetSeen(saved);
+		expect(mem.get(SEEN_KEY_PREFIX + saved)).to.equal(null);
+	});
+
+	it("a damaged record is dropped", function () {
+		mem.set(SEEN_KEY_PREFIX + uuid, "{not json");
+		bindNetwork(
+			uuid,
+			(s) => s.toLowerCase(),
+			() => true
+		);
+		expect(avatarOf(uuid, "alice")).to.equal(undefined);
+		expect(mem.get(SEEN_KEY_PREFIX + uuid)).to.equal(null);
 	});
 });
 

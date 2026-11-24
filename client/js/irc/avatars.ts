@@ -19,6 +19,7 @@ import {
 	avatarOf,
 	clearAvatars,
 	forgetAvatar,
+	markAvatarsStale,
 	noteAccount,
 	renameAvatar,
 	setAvatarValue,
@@ -72,9 +73,13 @@ export function avatarSubKeys(client: IrcClient): string[] {
 	return avatarsEnabled(client.uuid) ? [AVATAR_KEY] : [];
 }
 
-/** 001: the burst that follows says it all again. */
+/**
+ * 001: the burst that follows says it all again. Until it does, what we
+ * knew stays drawn, so a reconnect does not flash every picture to its
+ * initial and back.
+ */
 export function avatarsWelcomed(client: IrcClient): void {
-	clearAvatars(client.uuid);
+	markAvatarsStale(client.uuid);
 	const state = stateOf(client);
 	state.asked.clear();
 	state.waiting.clear();

@@ -790,7 +790,11 @@ export class IrcClient {
 
 		this.noticeLog = new NoticeLog(this.uuid, () => isSavedNetwork(this.uuid));
 		this.closed = new ClosedQueries(this.uuid, (s) => this.casefold(s));
-		bindNetwork(this.uuid, (s) => this.casefold(s));
+		bindNetwork(
+			this.uuid,
+			(s) => this.casefold(s),
+			() => isSavedNetwork(this.uuid)
+		);
 
 		for (const window of this.conversations.windows()) {
 			const {name} = window;

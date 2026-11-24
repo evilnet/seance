@@ -655,8 +655,8 @@ strong,
  * it, where it was too small to tell anyone by (2026-11-23). Every line of
  * the run keeps the gutter, so the cards line up under the first. The time
  * moves from the row's start to beside the nick, and a later line's time,
- * still shown only when the line is pointed at or opened, to the line's end,
- * as a messenger's (the gutter is too narrow for "12:25 AM"). The avatar hangs from the row
+ * still shown only when the line is pointed at or opened, over the card's
+ * end (the gutter is too narrow for "12:25 AM"). The avatar hangs from the row
  * (`.msg`, positioned in style.css) into the gutter, so the markup is
  * unchanged. Without avatars (switched off for the network) the rows are as
  * above, the time first. */
@@ -670,8 +670,33 @@ strong,
 }
 
 #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
-	grid-template-columns: minmax(0, 1fr) auto;
-	grid-template-areas: "content time";
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-areas: "content";
+}
+
+/* A later line's time takes no room (kept in the flow, even hidden, it
+ * reserved its width and the words wrapped early): shown, it stands over
+ * the card's end on a fill of its own, so the words under it don't show through. */
+#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) > .time {
+	position: absolute;
+	grid-area: auto;
+	inset-block-start: 0;
+	inset-inline-end: 0;
+	padding-block: 0.3rem 0.125rem;
+	padding-inline: 0.5rem 0.6rem;
+	border-radius: 0.5rem;
+	background: rgb(255 251 244 / 94%);
+}
+
+:root[data-ps-light="night"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) > .time {
+	background: rgb(12 17 32 / 94%);
+}
+
+#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) > .time {
+	position: static;
+	grid-area: time;
+	padding: 0;
+	background: none;
 }
 
 #chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) {
@@ -679,6 +704,23 @@ strong,
 	grid-template-areas:
 		"from time"
 		"content content";
+}
+
+/* Under Bubbles a run with avatars is one stack, as a messenger groups a
+ * sender's messages: where two of its cards meet, the corners on the
+ * avatar's side are tight. */
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg:has(> .from .avatar):has(+ .msg.previous-source) {
+	border-end-start-radius: 0.1875rem;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.previous-source:has(> .from .avatar):not(:is(.date-marker-container, .unread-marker) + .msg) {
+	border-start-start-radius: 0.1875rem;
+}
+
+/* style.css positions the nick; the avatar hangs from the row instead, so
+ * it measures from the card's edge and not from inside its padding. */
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from:has(.avatar) {
+	position: static;
 }
 
 #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {

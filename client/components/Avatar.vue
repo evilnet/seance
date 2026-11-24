@@ -4,23 +4,31 @@
 		:class="[
 			'avatar',
 			'avatar-' + size,
-			view.kind === 'image' ? 'avatar-image' : 'avatar-tile',
-			{'avatar-veiled': view.kind === 'veiled'},
+			view.kind === 'image' && ready ? 'avatar-image' : 'avatar-tile',
+			{
+				'avatar-veiled': view.kind === 'veiled',
+				'avatar-pending': view.kind === 'image' && !ready,
+			},
 		]"
 		:data-nick="nick"
 		aria-hidden="true"
+		><span
+			v-if="view.kind !== 'image' || !ready"
+			class="avatar-initial"
+			:data-initial="initial"
+		></span
 		><img
 			v-if="view.kind === 'image'"
+			ref="img"
 			:key="view.src"
 			:src="view.src"
 			alt=""
 			referrerpolicy="no-referrer"
-			loading="lazy"
 			decoding="async"
 			draggable="false"
 			@load="onLoad"
-			@error="onError" /><span v-else class="avatar-initial" :data-initial="initial"></span
-	></span>
+			@error="onError"
+	/></span>
 </template>
 
 <script lang="ts">
@@ -30,13 +38,20 @@
 // avatars/policy.ts's call; a picture that fails, or is absurdly large,
 // falls back to the tile for the rest of the page. Decorative: the nick is
 // always next to it, so it is hidden from assistive technology.
-import {computed, defineComponent, PropType} from "vue";
+import {computed, defineComponent, onMounted, PropType, ref, watch} from "vue";
 import {avatarsEnabled, markFailed} from "../js/avatars/prefs";
 import {viewFor} from "../js/avatars/view";
 import {useStore} from "../js/store";
 
 /** Wider or taller than this, the picture is not drawn (decoding it is the cost). */
 const MAX_DIMENSION = 4096;
+
+/**
+ * Pictures that have loaded on this page: drawn at once wherever they show
+ * up next (a new line, a scroll back). One the page has not drawn yet shows
+ * the initial until it loads, then fades in, rather than popping in empty.
+ */
+const drawn = new Set<string>();
 
 export default defineComponent({
 	name: "Avatar",
@@ -74,18 +89,38 @@ export default defineComponent({
 			}
 		};
 
-		const onLoad = (event: Event) => {
-			const img = event.target as HTMLImageElement;
+		const img = ref<HTMLImageElement | null>(null);
+		const srcOf = () => (view.value.kind === "image" ? view.value.src : "");
+		const ready = ref(drawn.has(srcOf()));
 
-			if (
-				view.value.kind === "image" &&
-				(img.naturalWidth > MAX_DIMENSION || img.naturalHeight > MAX_DIMENSION)
-			) {
-				markFailed(view.value.href);
+		watch(srcOf, (src) => {
+			ready.value = drawn.has(src);
+		});
+
+		const settle = (el: HTMLImageElement) => {
+			if (view.value.kind !== "image") {
+				return;
 			}
+
+			if (el.naturalWidth > MAX_DIMENSION || el.naturalHeight > MAX_DIMENSION) {
+				markFailed(view.value.href);
+				return;
+			}
+
+			drawn.add(view.value.src);
+			ready.value = true;
 		};
 
-		return {shown, view, initial, onError, onLoad};
+		const onLoad = (event: Event) => settle(event.target as HTMLImageElement);
+
+		// Already in the browser's cache: no load event may come after mount.
+		onMounted(() => {
+			if (!ready.value && img.value?.complete && img.value.naturalWidth > 0) {
+				settle(img.value);
+			}
+		});
+
+		return {shown, view, initial, ready, img, onError, onLoad};
 	},
 });
 </script>
