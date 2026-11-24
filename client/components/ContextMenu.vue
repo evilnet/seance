@@ -167,6 +167,8 @@ export default defineComponent({
 
 		const clickItem = (item: ContextMenuItem) => {
 			close();
+			// What opened the menu over itself (the user card) steps aside too.
+			eventbus.emit("contextmenu:acted");
 
 			if ("action" in item && item.action) {
 				item.action();
