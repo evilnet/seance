@@ -7,6 +7,7 @@ import {
 	flatten,
 	isEmojiOnly,
 	isSingleEmoji,
+	leadingEmoji,
 	loadEmojiCatalog,
 	MAX_REACTION_LENGTH,
 	normalizeReaction,
@@ -170,6 +171,55 @@ describe("emoji catalog and reaction text (helpers/emoji.ts)", function () {
 			expect(isSingleEmoji("👍 ❤️")).to.equal(false);
 			expect(isSingleEmoji("lol")).to.equal(false);
 			expect(isSingleEmoji("")).to.equal(false);
+		});
+	});
+
+	describe("the emoji a topic opens with", function () {
+		it("is the first emoji, whatever follows it", function () {
+			expect(leadingEmoji("🎮 Gaming, all day")).to.equal("🎮");
+			expect(leadingEmoji("🎮Gaming")).to.equal("🎮");
+			expect(leadingEmoji("🎉🔥 party")).to.equal("🎉");
+			expect(leadingEmoji("⚡")).to.equal("⚡");
+		});
+
+		it("takes a whole sequence: a flag, a keycap, a skin tone, a ZWJ join", function () {
+			expect(leadingEmoji("🇩🇪 Deutsch")).to.equal("🇩🇪");
+			expect(leadingEmoji("🏴󠁧󠁢󠁳󠁣󠁴󠁿 Alba")).to.equal("🏴󠁧󠁢󠁳󠁣󠁴󠁿");
+			expect(leadingEmoji("1️⃣ rule one")).to.equal("1️⃣");
+			expect(leadingEmoji("☝🏽 one thing")).to.equal("☝🏽");
+			expect(leadingEmoji("👩🏽‍💻 dev talk")).to.equal("👩🏽‍💻");
+			expect(leadingEmoji("🏳️‍🌈 pride")).to.equal("🏳️‍🌈");
+		});
+
+		it("skips IRC formatting and whitespace before it", function () {
+			expect(leadingEmoji("  🎮 Gaming")).to.equal("🎮");
+			expect(leadingEmoji("\x02\x0304,01🔥\x0f hot takes")).to.equal("🔥");
+			expect(leadingEmoji("\x04ff0000❤️ love")).to.equal("❤️");
+		});
+
+		it("takes a text symbol only with the emoji selector after it", function () {
+			expect(leadingEmoji("❤️ welcome")).to.equal("❤️");
+			expect(leadingEmoji("♥️ welcome")).to.equal("♥️");
+			expect(leadingEmoji("♥ welcome")).to.equal("");
+			expect(leadingEmoji("© 2026 the ops")).to.equal("");
+			expect(leadingEmoji("™ brand")).to.equal("");
+			expect(leadingEmoji("▶ now playing")).to.equal("");
+		});
+
+		it("is empty when the topic opens with anything else", function () {
+			expect(leadingEmoji("")).to.equal("");
+			expect(leadingEmoji("Welcome 🎉")).to.equal("");
+			expect(leadingEmoji("1 rule: be nice")).to.equal("");
+			expect(leadingEmoji("#seance | docs")).to.equal("");
+			expect(leadingEmoji("★ stars ★")).to.equal("");
+			expect(leadingEmoji("[🎮] Gaming")).to.equal("");
+		});
+
+		it("gives the same answer when asked again", function () {
+			expect(leadingEmoji("🎮 a")).to.equal("🎮");
+			expect(leadingEmoji("🎮 a")).to.equal("🎮");
+			expect(leadingEmoji("x 🎮")).to.equal("");
+			expect(leadingEmoji("🎮 a")).to.equal("🎮");
 		});
 	});
 });

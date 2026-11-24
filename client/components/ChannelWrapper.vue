@@ -21,6 +21,7 @@
 		:data-name="channel.name"
 		:data-type="channel.type"
 		:data-mentioned="mentioned ? '' : undefined"
+		:data-emoji="emoji || undefined"
 		:aria-controls="'#chan-' + channel.id"
 		:aria-selected="active"
 		:style="channel.closed ? {transition: 'none', opacity: 0.4} : undefined"
@@ -41,6 +42,7 @@ import {useStore} from "../js/store";
 import {useI18n} from "../js/i18n";
 import {ChanType} from "../../shared/types/chan";
 import {switchToChannel} from "../js/router";
+import {leadingEmoji} from "../js/helpers/emoji";
 
 export default defineComponent({
 	name: "ChannelWrapper",
@@ -97,6 +99,11 @@ export default defineComponent({
 		// (socket-events/activity.ts sets it, opening the conversation ends it).
 		// style.css shows nothing for it.
 		const mentioned = computed(() => props.channel.mentionUntil > 0 && !props.active);
+		// A channel whose topic opens with an emoji: the row draws it in place
+		// of the speech bubbles (style.css, .channel-list-item[data-emoji]).
+		const emoji = computed(() =>
+			props.channel.type === ChanType.CHANNEL ? leadingEmoji(props.channel.topic) : ""
+		);
 
 		// The row's label is one whole phrase: the kind of window, its name
 		// and — at most — one count. Two tCount results are never glued
@@ -190,6 +197,7 @@ export default defineComponent({
 			isTyping,
 			hasActivity,
 			mentioned,
+			emoji,
 			getAriaLabel,
 			click,
 			openContextMenu,
