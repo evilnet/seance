@@ -358,6 +358,57 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(store.get("settings")).to.equal(JSON.stringify({theme: "day"}));
 	});
 
+	it("an older file keeps only the favorites of the networks it restores", function () {
+		// Favorites joined the format in version 4: a version-3 file leaves
+		// the device's, but one whose network the file dropped would stand
+		// nowhere.
+		store.set(
+			"thelounge.favorites",
+			JSON.stringify([
+				{network: "kept", name: "#a", type: "channel"},
+				{network: "gone", name: "#b", type: "channel"},
+			])
+		);
+		applyBackup(
+			{
+				format: FORMAT,
+				version: 3,
+				exportedAt: "",
+				entries: {"thelounge.networks": [{uuid: "kept"}]},
+			},
+			"web",
+			{}
+		);
+
+		expect(JSON.parse(store.get("thelounge.favorites") as string)).to.deep.equal([
+			{network: "kept", name: "#a", type: "channel"},
+		]);
+
+		// None left: the key goes.
+		applyBackup(
+			{format: FORMAT, version: 3, exportedAt: "", entries: {"thelounge.networks": []}},
+			"web",
+			{}
+		);
+		expect(store.has("thelounge.favorites")).to.equal(false);
+	});
+
+	it("a current file's favorites are restored as they are", function () {
+		const favorites = [{network: "elsewhere", name: "#a", type: "channel"}];
+		applyBackup(
+			{
+				format: FORMAT,
+				version: VERSION,
+				exportedAt: "",
+				entries: {"thelounge.networks": [], "thelounge.favorites": favorites},
+			},
+			"web",
+			{}
+		);
+
+		expect(JSON.parse(store.get("thelounge.favorites") as string)).to.deep.equal(favorites);
+	});
+
 	it("an older file without scripts leaves the device's scripts alone", function () {
 		// Both histories wrote version-1 files and only develop's carried
 		// scripts: a version-1 file without them says nothing about them.

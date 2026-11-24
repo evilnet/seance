@@ -29,6 +29,7 @@
 				@focus="activateSearch"
 			/>
 		</div>
+		<FavoriteList v-if="!searchText && favoriteRows.length" :rows="favoriteRows" />
 		<div v-if="searchText" class="jump-to-results">
 			<div v-if="results.length">
 				<div
@@ -112,8 +113,10 @@
 						@unchoose="onDraggableUnchoose"
 					>
 						<template v-slot:item="{element: channel, index}">
+							<!-- The lobby is the header above; a favorite is in
+							     the favorites block (FavoriteList.vue). -->
 							<Channel
-								v-if="index > 0"
+								v-if="index > 0 && !starredIds.has(channel.id)"
 								:key="channel.id"
 								:data-item="channel.id"
 								:channel="channel"
@@ -208,15 +211,17 @@ import NetworkLobby from "./NetworkLobby.vue";
 import ChannelBrowserRow from "./ChannelBrowserRow.vue";
 import Channel from "./Channel.vue";
 import DormantNetwork from "./DormantNetwork.vue";
+import FavoriteList from "./FavoriteList.vue";
 import useSavedNetworks from "../js/hooks/use-saved-networks";
 import {autoconnectPending} from "../js/irc/manager";
 
 import {sortNetworks, sortChannels} from "../js/sort";
+import {favorites} from "../js/favorites";
+import {favoriteRows as rowsOf, favoriteChannelIds} from "../js/helpers/sidebarOrder";
 import collapseNetworkHelper from "../js/helpers/collapseNetwork";
 import isIgnoredKeybind from "../js/helpers/isIgnoredKeybind";
 import {isImeComposing} from "../js/helpers/ime";
-import distance from "../js/helpers/distance";
-import eventbus from "../js/eventbus";
+import useSidebarDrag from "../js/hooks/use-sidebar-drag";
 import {ClientChan, NetChan} from "../js/types";
 import {useStore} from "../js/store";
 import {useI18n} from "../js/i18n";
@@ -227,6 +232,7 @@ export default defineComponent({
 	name: "NetworkList",
 	components: {
 		DormantNetwork,
+		FavoriteList,
 		NetworkLobby,
 		ChannelBrowserRow,
 		Channel,
@@ -250,11 +256,25 @@ export default defineComponent({
 				(net) => !store.getters.findNetwork(net.uuid) && !autoconnectPending(net)
 			)
 		);
+		// The favorites block's rows (placeholders included: a network
+		// saved but not on this page still shows its favorites), and the
+		// windows it shows, which their networks' lists leave out.
+		// A network boot is about to dial keeps its favorites' rows, as
+		// placeholders on their way (`dialling`): left out, the block would
+		// jump under a finger as the networks arrive.
+		const favoriteRows = computed(() =>
+			rowsOf(favorites.value, store.state.networks, savedNetworks.value, autoconnectPending)
+		);
+		const starredIds = computed(() => favoriteChannelIds(favoriteRows.value));
 		const activeSearchItem = ref<ClientChan | null>();
-		// Number of milliseconds a touch has to last to be considered long
-		const LONG_TOUCH_DURATION = 500;
-
-		const startDrag = ref<[number, number] | null>();
+		const {
+			LONG_TOUCH_DURATION,
+			onDraggableChoose,
+			onDraggableUnchoose,
+			onDraggableTouchStart,
+			onDraggableTouchMove,
+			onDraggableTouchEnd,
+		} = useSidebarDrag();
 		const searchInput = ref<HTMLInputElement | null>(null);
 		const networklist = ref<HTMLDivElement | null>(null);
 
@@ -328,96 +348,55 @@ export default defineComponent({
 			sortNetworks(store.state.networks.map((n) => n.uuid));
 		};
 
+		/** The channel row drawn beside `el` (`next` or previous), skipping
+		 * anything else Sortable may have put there. */
+		const drawnSibling = (el: Element, next: boolean): HTMLElement | null => {
+			let at = next ? el.nextElementSibling : el.previousElementSibling;
+
+			while (at && !(at instanceof HTMLElement && at.dataset.item)) {
+				at = next ? at.nextElementSibling : at.previousElementSibling;
+			}
+
+			return at as HTMLElement | null;
+		};
+
 		const onChannelSort = (e: Sortable.SortableEvent) => {
-			let {oldIndex, newIndex} = e;
+			const {oldIndex, newIndex} = e;
 
 			if (oldIndex === undefined || newIndex === undefined || oldIndex === newIndex) {
 				return;
 			}
 
-			// Indexes are offset by one due to the lobby
-			oldIndex += 1;
-			newIndex += 1;
-
-			const unparsedId = e.item.getAttribute("data-item");
-
-			if (!unparsedId) {
-				return;
-			}
-
-			const id = parseInt(unparsedId);
+			const id = Number(e.item.dataset.item);
 			const netChan = store.getters.findChannel(id);
 
 			if (!netChan) {
 				return;
 			}
 
-			moveItemInArray(netChan.network.channels, oldIndex, newIndex);
+			// Placed by its neighbours as drawn, not by Sortable's indexes:
+			// those count the drawn rows only, and the array also holds rows
+			// this list does not draw (the lobby, the favorites), which keep
+			// their places.
+			const channels = netChan.network.channels;
+			const from = channels.findIndex((c) => c.id === id);
+			const [moved] = channels.splice(from, 1);
+			const before = drawnSibling(e.item, true);
+			const after = drawnSibling(e.item, false);
+			const indexOf = (el: HTMLElement) =>
+				channels.findIndex((c) => c.id === Number(el.dataset.item));
+			let to = before ? indexOf(before) : after ? indexOf(after) + 1 : channels.length;
 
+			if (to < 1) {
+				// Not found, or ahead of the lobby, which stays first: put it back.
+				to = from;
+			}
+
+			channels.splice(to, 0, moved);
 			sortChannels(
 				netChan.network.uuid,
-				netChan.network.channels.map((c) => c.id)
+				channels.map((c) => c.id)
 			);
-		};
-
-		const isTouchEvent = (event: any): boolean => {
-			// This is the same way Sortable.js detects a touch event. See
-			// SortableJS/Sortable@daaefeda:/src/Sortable.js#L465
-
-			return !!(
-				(event.touches && event.touches[0]) ||
-				(event.pointerType && event.pointerType === "touch")
-			);
-		};
-
-		const onDraggableChoose = (event: any) => {
-			const original = event.originalEvent;
-
-			if (isTouchEvent(original)) {
-				// onDrag is only triggered when the user actually moves the
-				// dragged object but onChoose is triggered as soon as the
-				// item is eligible for dragging. This gives us an opportunity
-				// to tell the user they've held the touch long enough.
-				event.item.classList.add("ui-sortable-dragging-touch-cue");
-
-				if (original instanceof TouchEvent && original.touches.length > 0) {
-					startDrag.value = [original.touches[0].clientX, original.touches[0].clientY];
-				} else if (original instanceof PointerEvent) {
-					startDrag.value = [original.clientX, original.clientY];
-				}
-			}
-		};
-
-		const onDraggableUnchoose = (event: any) => {
-			event.item.classList.remove("ui-sortable-dragging-touch-cue");
-			startDrag.value = null;
-		};
-
-		const onDraggableTouchStart = (event: TouchEvent) => {
-			if (event.touches.length === 1) {
-				// This prevents an iOS long touch default behavior: selecting
-				// the nearest selectable text.
-				document.body.classList.add("force-no-select");
-			}
-		};
-
-		const onDraggableTouchMove = (event: TouchEvent) => {
-			if (startDrag.value && event.touches.length > 0) {
-				const touch = event.touches[0];
-				const currentPosition = [touch.clientX, touch.clientY];
-
-				if (distance(startDrag.value, currentPosition as [number, number]) > 10) {
-					// Context menu is shown on Android after long touch.
-					// Dismiss it now that we're sure the user is dragging.
-					eventbus.emit("contextmenu:cancel");
-				}
-			}
-		};
-
-		const onDraggableTouchEnd = (event: TouchEvent) => {
-			if (event.touches.length === 0) {
-				document.body.classList.remove("force-no-select");
-			}
 		};
 
 		const activateSearch = () => {
@@ -575,6 +554,8 @@ export default defineComponent({
 			listLabel,
 			jumpToPlaceholder,
 			dormantNetworks,
+			favoriteRows,
+			starredIds,
 			networklist,
 			searchInput,
 			searchText,

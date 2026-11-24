@@ -14,7 +14,7 @@ to a friend who wants the same setup. Code: `client/js/helpers/settingsBackup.ts
 ```json
 {
   "format": "seance-settings",
-  "version": 3,
+  "version": 4,
   "exportedAt": "2026-09-09T10:00:00.000Z",
   "app": "Seance",
   "platform": "web",
@@ -34,7 +34,8 @@ would need a migration; a file from a newer version is refused with a message.
 An **older** file is applied as far as it goes: a key added after its version
 (`KEY_SINCE` in `settingsBackup.ts` — `thelounge.translate`,
 `thelounge.scripts` and `thelounge.script_storage.*` count from version 2,
-`thelounge.avatars` from version 3) is
+`thelounge.avatars` from version 3, `thelounge.favorites` and
+`thelounge.favorites.collapsed` from version 4) is
 left as it is on the device rather than cleared, since that file could never
 have carried it. The scripting keys are listed although upstream's own
 version-1 files carry them: this branch's version-1 files never did, and the
@@ -54,6 +55,8 @@ do-not-disturb branch.
 | `thelounge.sort.networks`         | network order                                                                                                                                 |
 | `thelounge.sort.channels`         | channel order per network                                                                                                                     |
 | `thelounge.muted`                 | muted channels                                                                                                                                |
+| `thelounge.favorites`             | the starred conversations, in the favorites block's order                                                                                     |
+| `thelounge.favorites.collapsed`   | the favorites block folded                                                                                                                    |
 | `thelounge.media.trusted`         | trusted media hosts / channels / accounts                                                                                                     |
 | `thelounge.reactions.recent`      | the reaction picker's recents                                                                                                                 |
 | `thelounge.aliases`               | command aliases (Settings → Scripts → Aliases)                                                                                                |

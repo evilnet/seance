@@ -3,7 +3,7 @@
  * file they can keep, move to another device or hand to a friend.
  *
  * The file is the localStorage entries that hold preferences — the settings
- * object, the saved networks, sort orders, mutes, ignore lists, trusted media
+ * object, the saved networks, sort orders, mutes, favorites, ignore lists, trusted media
  * hosts, recent reactions, command aliases, the per-channel translation state,
  * oper notice routing and snomask, do not disturb, the Lua scripts (restored
  * switched off) and their data — wrapped in a small envelope and
@@ -30,7 +30,9 @@ import {withoutPrivateTerms} from "../translate/channelStore";
 
 export const FILE_EXTENSION = ".seance-settings";
 export const FORMAT = "seance-settings";
-export const VERSION = 3;
+export const VERSION = 4;
+
+const FAVORITES_KEY = "thelounge.favorites";
 
 /**
  * The file version a key (or, ending in ".", a key prefix) first travelled
@@ -47,6 +49,8 @@ const KEY_SINCE: Record<string, number> = {
 	"thelounge.scripts": 2,
 	"thelounge.script_storage.": 2,
 	"thelounge.avatars": 3,
+	"thelounge.favorites": 4,
+	"thelounge.favorites.collapsed": 4,
 };
 
 /** Whether a file of `version` says anything about `key` — a missing entry
@@ -67,6 +71,8 @@ export const BACKUP_KEYS: readonly string[] = [
 	"thelounge.sort.networks",
 	"thelounge.sort.channels",
 	"thelounge.muted",
+	"thelounge.favorites",
+	"thelounge.favorites.collapsed",
 	"thelounge.media.trusted",
 	"thelounge.avatars",
 	"thelounge.reactions.recent",
@@ -350,6 +356,47 @@ export function applyBackup(
 
 	for (const key of CLEARED_ON_RESTORE) {
 		backend.remove(key);
+	}
+
+	if (!coveredBy(backup.version, FAVORITES_KEY)) {
+		keepFavoritesOfSavedNetworks();
+	}
+}
+
+/**
+ * A file from before favorites leaves the device's (KEY_SINCE) but replaces
+ * its networks: a favorite of a network the file does not have would stand
+ * nowhere in the sidebar, could not be unstarred, and would travel in every
+ * later file. Kept to the networks now saved (favorites.ts reads the rest).
+ */
+function keepFavoritesOfSavedNetworks(): void {
+	let favorites: unknown;
+	let networks: unknown;
+
+	try {
+		favorites = JSON.parse(backend.get(FAVORITES_KEY) ?? "[]");
+		networks = JSON.parse(backend.get("thelounge.networks") ?? "[]");
+	} catch {
+		return;
+	}
+
+	if (!Array.isArray(favorites) || favorites.length === 0) {
+		return;
+	}
+
+	const saved = new Set(
+		(Array.isArray(networks) ? networks : []).map((n) =>
+			n && typeof n === "object" ? (n as {uuid?: unknown}).uuid : undefined
+		)
+	);
+	const kept = favorites.filter(
+		(f) => f && typeof f === "object" && saved.has((f as {network?: unknown}).network)
+	);
+
+	if (kept.length === 0) {
+		backend.remove(FAVORITES_KEY);
+	} else if (kept.length !== favorites.length) {
+		backend.set(FAVORITES_KEY, JSON.stringify(kept));
 	}
 }
 

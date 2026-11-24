@@ -4,6 +4,7 @@ import {
 	clearPendingTarget,
 	getPendingTarget,
 	isChannelTarget,
+	isCommandWord,
 	isValidTarget,
 	matchesPendingTarget,
 	setPendingTarget,
@@ -87,5 +88,15 @@ describe("pendingTarget", function () {
 
 		setPendingTarget("net-1", "alice\n/quit", 1000);
 		expect(getPendingTarget(1000)).to.equal(null);
+	});
+
+	it("takes a favorite's name as one command word: a channel's unusual characters pass", function () {
+		for (const name of ["#seance", "#日本\u3000語", "#a\u00a0b", "#\x02bold", "nick[", "#é"]) {
+			expect(isCommandWord(name), JSON.stringify(name)).to.equal(true);
+		}
+
+		for (const name of ["", "#a b", "#a,#b", "#a\r\nQUIT", "#a\tb", "#a\x07", "/quit", ":x"]) {
+			expect(isCommandWord(name), JSON.stringify(name)).to.equal(false);
+		}
 	});
 });

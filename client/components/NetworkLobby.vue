@@ -6,7 +6,7 @@
 		<div class="lobby-wrap">
 			<div class="lobby-title">
 				<button
-					v-if="network.channels.length > 1"
+					v-if="hasRows"
 					:aria-controls="'network-' + network.uuid"
 					:aria-label="getExpandLabel(network)"
 					:aria-expanded="!network.isCollapsed"
@@ -113,6 +113,8 @@ import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
 import {brandingFeatures} from "../js/branding";
 import ChannelWrapper from "./ChannelWrapper.vue";
+import {favorites} from "../js/favorites";
+import {favoriteChannelIds, favoriteRows} from "../js/helpers/sidebarOrder";
 
 import type {ClientChan, ClientNetwork} from "../js/types";
 import {modeLabel, NETWORK_MODES} from "../js/helpers/dnd";
@@ -138,6 +140,19 @@ export default defineComponent({
 
 		const channel = computed(() => {
 			return props.network.channels[0];
+		});
+
+		// Something under the header to collapse: a conversation not drawn
+		// in the favorites block instead (found as the sidebar finds them).
+		// A network collapsed already keeps the chevron that opens it, even
+		// once everything under it is starred.
+		const hasRows = computed(() => {
+			if (props.network.isCollapsed) {
+				return true;
+			}
+
+			const starred = favoriteChannelIds(favoriteRows(favorites.value, [props.network], []));
+			return props.network.channels.some((chan, i) => i > 0 && !starred.has(chan.id));
 		});
 
 		const editNetwork = () => {
@@ -315,6 +330,7 @@ export default defineComponent({
 
 		return {
 			t,
+			hasRows,
 			presenceMenuOpen,
 			presenceClass,
 			presenceText,
