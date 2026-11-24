@@ -925,6 +925,12 @@ describe("i18n toolchain", () => {
 				expect(slotVerdict("hu", "{count} G-line", "{count} G-line")).to.equal(null);
 				expect(slotVerdict("de", "Kill", "Kill")).to.equal(null);
 				expect(slotVerdict("de", "Kill this user", "Kill this user")).to.equal("unchanged");
+				// The IRC NOTICE is a loanword in 11 catalogs (tools/i18n/terms/),
+				// so the sweep must not take it back out of them.
+				expect(slotVerdict("ru", "Notice:", "Notice:")).to.equal(null);
+				expect(slotVerdict("ru", "IAuth notices", "Notice IAuth")).to.equal(null);
+				expect(slotVerdict("zh", "WHOIS notices", "WHOIS NOTICE")).to.equal(null);
+				expect(slotVerdict("de", "Server notice", "Server notice")).to.equal("unchanged");
 			});
 
 			it("refuses an answer that dropped the source's own padding", () => {

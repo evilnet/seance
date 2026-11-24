@@ -83,6 +83,12 @@ const IDENTICAL_EVERYWHERE = new Set(
 		"kill",
 		"kills",
 		"wallops",
+		// The IRC NOTICE, which 11 catalogs keep as the loanword so it never
+		// reads as a push notification (tools/i18n/terms/), and the WHOIS
+		// it can carry ("WHOIS NOTICE" in ja and zh).
+		"notice",
+		"notices",
+		"whois",
 		"snomask",
 		"privs",
 		"oper",
