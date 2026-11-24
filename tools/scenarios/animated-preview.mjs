@@ -158,7 +158,7 @@ function talker(nick) {
 /** The state of the preview whose link contains `needle`. */
 const stateOf = (needle) => `(() => {
 	const link = Array.from(document.querySelectorAll("#chat .preview .toggle-thumbnail"))
-		.find((a) => a.href.includes(${JSON.stringify(needle)}));
+		.find((a) => a.dataset.url.includes(${JSON.stringify(needle)}));
 	if (!link) return null;
 	const img = link.querySelector("img");
 	const canvas = link.querySelector("canvas.media-still");
@@ -233,7 +233,7 @@ export default async function run(page) {
 		await page.screenshot("1-held-still", {selector: "#chat .chat-content"});
 
 		// 3. Under the pointer it plays again; away, it holds again.
-		await page.hover(`#chat .toggle-thumbnail[href*="cors.gif"] canvas`);
+		await page.hover(`#chat .toggle-thumbnail[data-url*="cors.gif"] canvas`);
 		await page.sleep(300);
 		const hovered = await state("cors.gif");
 		await page.check(
@@ -251,7 +251,7 @@ export default async function run(page) {
 		// 3b. The pointer anywhere on its message plays it: the nick, far
 		//     from the image, is enough.
 		await page.evaluate(`Array.from(document.querySelectorAll("#chat .msg"))
-			.find((m) => m.querySelector('.toggle-thumbnail[href*="cors.gif"]'))
+			.find((m) => m.querySelector('.toggle-thumbnail[data-url*="cors.gif"]'))
 			.setAttribute("data-anim-row", "1")`);
 		await page.hover(`#chat .msg[data-anim-row="1"] .from`);
 		await page.sleep(300);

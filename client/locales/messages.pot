@@ -4417,6 +4417,12 @@ msgctxt "link.tryAgain"
 msgid "Click to try again"
 msgstr ""
 
+#. aria-label of an image preview in a message; clicking it opens the image large in the in-app image viewer.
+#: client/components/LinkPreview.vue
+msgctxt "link.viewImage"
+msgid "View image"
+msgstr ""
+
 #. Status message when a mode list (bans, invites, exceptions) the user asked for came back with no entries. {kind} is the list's name as an English word inserted by the app ('Ban list', 'Invite list', 'Exception list'); the matching kind keys are list.kindBans/list.kindInvites/list.kindExcepts.
 #: client/js/irc/handlers/lists.ts
 msgctxt "list.isEmpty"
