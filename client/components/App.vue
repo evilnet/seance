@@ -23,6 +23,7 @@
 		<ImageViewer ref="imageViewer" />
 		<ContextMenu ref="contextMenu" />
 		<UserCard />
+		<ChannelAvatarDialog />
 		<ConfirmDialog ref="confirmDialog" />
 		<UploadPreview />
 		<InvestigateCard />
@@ -47,6 +48,7 @@ import isIgnoredKeybind from "../js/helpers/isIgnoredKeybind";
 import Sidebar from "./Sidebar.vue";
 import ImageViewer from "./ImageViewer.vue";
 import UserCard from "./UserCard.vue";
+import ChannelAvatarDialog from "./ChannelAvatarDialog.vue";
 import ContextMenu from "./ContextMenu.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import UploadPreview from "./UploadPreview.vue";
@@ -82,6 +84,7 @@ export default defineComponent({
 		Sidebar,
 		ImageViewer,
 		UserCard,
+		ChannelAvatarDialog,
 		ContextMenu,
 		ConfirmDialog,
 		UploadPreview,

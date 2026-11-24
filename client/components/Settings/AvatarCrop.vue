@@ -6,7 +6,9 @@
 		data-escape-close="avatar-crop"
 	>
 		<div id="avatar-crop" role="dialog" aria-modal="true" aria-labelledby="avatar-crop-title">
-			<div id="avatar-crop-title" class="avatar-crop-title">{{ t("avatar.cropTitle") }}</div>
+			<div id="avatar-crop-title" class="avatar-crop-title">
+				{{ title || t("avatar.cropTitle") }}
+			</div>
 			<div class="avatar-crop-stage">
 				<canvas
 					ref="stage"
@@ -141,6 +143,8 @@ export default defineComponent({
 	name: "AvatarCrop",
 	props: {
 		file: {type: Object as PropType<File>, required: true},
+		/** Replaces "Crop your avatar" (a channel's avatar). */
+		title: {type: String, default: ""},
 	},
 	emits: ["done", "cancel"],
 	setup(props, {emit}) {

@@ -1,5 +1,5 @@
 <template>
-	<section class="avatar-settings" :aria-labelledby="'avatar-settings-' + uuid">
+	<section class="avatar-settings" :aria-labelledby="headingId">
 		<div v-if="unavailable" class="avatar-settings-warning" role="alert">
 			<div>
 				<strong>{{ t("avatar.unavailableTitle") }}</strong>
@@ -17,9 +17,15 @@
 		</div>
 
 		<div class="avatar-settings-main">
-			<Avatar v-if="nick && enabled" :uuid="uuid" :nick="nick" :self="true" size="large" />
+			<Avatar
+				v-if="subject && enabled && (!channel || current)"
+				:uuid="uuid"
+				:nick="subject"
+				:self="!channel"
+				size="large"
+			/>
 			<div class="avatar-settings-body">
-				<h3 :id="'avatar-settings-' + uuid">{{ heading || t("avatar.heading") }}</h3>
+				<h3 :id="headingId">{{ headingText }}</h3>
 				<p class="avatar-settings-help">{{ helpText }}</p>
 				<p v-if="retentionNote" class="avatar-settings-note">{{ retentionNote }}</p>
 				<div v-if="editable" class="avatar-settings-buttons">
@@ -58,10 +64,10 @@
 		</div>
 
 		<form v-if="linkOpen && editable" class="avatar-settings-link" @submit.prevent="saveLink">
-			<label :for="'avatar-link-' + uuid">{{ t("avatar.linkLabel") }}</label>
+			<label :for="linkId">{{ t("avatar.linkLabel") }}</label>
 			<div class="avatar-settings-link-row">
 				<input
-					:id="'avatar-link-' + uuid"
+					:id="linkId"
 					v-model="link"
 					class="input"
 					type="url"
@@ -115,15 +121,23 @@
 					</button>
 				</li>
 			</ul>
-			<p class="avatar-settings-note">{{ t("avatar.recentNote") }}</p>
+			<p class="avatar-settings-note">
+				{{ channel ? t("avatar.channelRecentNote") : t("avatar.recentNote") }}
+			</p>
 		</div>
 
-		<label class="avatar-settings-switch">
+		<label v-if="!channel" class="avatar-settings-switch">
 			<input v-switch type="checkbox" :checked="enabled" @change="toggle" />
 			{{ t("avatar.showOnNetwork", {network: networkName}) }}
 		</label>
 
-		<AvatarCrop v-if="cropFile" :file="cropFile" @done="onCropped" @cancel="cropFile = null" />
+		<AvatarCrop
+			v-if="cropFile"
+			:file="cropFile"
+			:title="channel ? t('avatar.channelCropTitle') : ''"
+			@done="onCropped"
+			@cancel="cropFile = null"
+		/>
 	</section>
 </template>
 
@@ -308,6 +322,8 @@
 // Settings: our own avatar on one network (draft/metadata-2 `avatar`):
 // upload a picture to the network's image host, or point at one; the
 // recent ones kept on this device; the switch for avatars on the network.
+// With `channel`, the same for that channel's avatar (ChannelAvatarDialog.vue),
+// which its half-ops and ops (and IRC operators) can change.
 import {computed, defineComponent, onBeforeUnmount, onMounted, ref, watch} from "vue";
 import Avatar from "../Avatar.vue";
 import AvatarCrop from "./AvatarCrop.vue";
@@ -321,7 +337,14 @@ import {
 	uploadAvatar,
 	useAvatar,
 } from "../../js/avatars/actions";
-import {applyAvatarsEnabled, setOwnAvatar} from "../../js/irc/avatars";
+import {
+	applyAvatarsEnabled,
+	canSetChannelAvatar,
+	setChannelAvatar,
+	setOwnAvatar,
+} from "../../js/irc/avatars";
+import {canSetBans} from "../../js/helpers/banMenu";
+import {isOperOn} from "../../js/helpers/operMenu";
 import {
 	avatarUnavailable,
 	forgetRecentAvatar,
@@ -341,6 +364,8 @@ export default defineComponent({
 		uuid: {type: String, required: true},
 		/** Replaces "Your avatar" as the heading (the network's name, on the Avatar tab). */
 		heading: {type: String, required: false},
+		/** The channel whose avatar this sets, instead of our own. */
+		channel: {type: String, required: false},
 	},
 	setup(props) {
 		const {t, tCount} = useI18n();
@@ -351,6 +376,34 @@ export default defineComponent({
 		const connected = computed(() => !!network.value?.status.connected);
 		const enabled = computed(() => avatarsEnabled(props.uuid));
 		const client = () => clientForNetwork(props.uuid);
+		/** Whose avatar: the channel's, or ours (our nick). */
+		const subject = computed(() => props.channel ?? nick.value);
+		const idSuffix = computed(() => props.uuid + (props.channel ? `-${props.channel}` : ""));
+		const headingId = computed(() => `avatar-settings-${idSuffix.value}`);
+		const linkId = computed(() => `avatar-link-${idSuffix.value}`);
+		const headingText = computed(() =>
+			props.channel
+				? t("avatar.channelHeading", {channel: props.channel})
+				: props.heading || t("avatar.heading")
+		);
+
+		// The server takes a channel's avatar from its half-ops and ops, and
+		// from IRC operators. The IRC client knows our modes in every channel
+		// (the store only in one that has been opened, where it also makes
+		// this follow a change while the dialog is up).
+		const mayChange = computed(() => {
+			if (!props.channel) {
+				return true;
+			}
+
+			const c = client();
+			const net = network.value;
+			const fromStore = !!net && (canSetBans(net, props.channel) || isOperOn(net));
+			return (
+				fromStore ||
+				(!!c && net?.status.connected === true && canSetChannelAvatar(c, props.channel))
+			);
+		});
 
 		const supported = computed(
 			() =>
@@ -359,18 +412,18 @@ export default defineComponent({
 				// re-read when the network's state changes
 				network.value !== undefined
 		);
-		const editable = computed(() => enabled.value && supported.value);
+		const editable = computed(() => enabled.value && supported.value && mayChange.value);
 		const uploadable = computed(() => editable.value && canUpload(client()));
 
 		const current = computed(() =>
-			nick.value ? avatarOf(props.uuid, nick.value)?.value ?? "" : ""
+			subject.value ? avatarOf(props.uuid, subject.value)?.value ?? "" : ""
 		);
 		const currentHost = computed(() => parseAvatarUrl(current.value)?.host ?? "");
 
 		const recent = ref<RecentAvatar[]>([]);
 		const currentRecent = computed(() => recent.value.find((r) => r.url === current.value));
 		const reload = async () => {
-			recent.value = await recentAvatars(props.uuid);
+			recent.value = await recentAvatars(props.uuid, props.channel);
 		};
 
 		// Re-read now and then while open: the probe and the refresh run behind it.
@@ -383,8 +436,10 @@ export default defineComponent({
 		onBeforeUnmount(() => window.clearInterval(tick));
 		watch(current, () => void reload());
 
+		// Only our own avatar is probed (avatars/actions.ts).
 		const unavailable = computed(
 			() =>
+				!props.channel &&
 				!!current.value &&
 				avatarUnavailable(props.uuid, parseAvatarUrl(current.value)?.href ?? "", now.value)
 		);
@@ -397,16 +452,29 @@ export default defineComponent({
 		const fileInput = ref<HTMLInputElement>();
 
 		const helpText = computed(() =>
-			t("avatar.help", {network: networkName.value || t("avatar.thisNetwork")})
+			props.channel
+				? t("avatar.channelHelp", {channel: props.channel})
+				: t("avatar.help", {network: networkName.value || t("avatar.thisNetwork")})
 		);
 
-		const notEditableText = computed(() =>
-			connected.value ? t("avatar.unsupported") : t("avatar.connectFirst")
-		);
+		const notEditableText = computed(() => {
+			if (!connected.value) {
+				return props.channel ? t("avatar.channelConnectFirst") : t("avatar.connectFirst");
+			}
+
+			return supported.value ? t("avatar.channelNotOp") : t("avatar.unsupported");
+		});
 
 		const retentionNote = computed(() => {
 			const days = retentionDays();
-			return uploadable.value && days > 0 ? tCount("avatar.retentionNote", days) : "";
+
+			if (!uploadable.value || days <= 0) {
+				return "";
+			}
+
+			return props.channel
+				? tCount("avatar.channelRetentionNote", days)
+				: tCount("avatar.retentionNote", days);
 		});
 
 		const linkProblem = computed(() => avatarLinkProblem(link.value));
@@ -427,7 +495,14 @@ export default defineComponent({
 
 			const host = parseAvatarUrl(link.value)?.host;
 			const trusted = host && host === filehostHost(props.uuid);
-			return host && !trusted ? t("avatar.linkElsewhere", {host}) : t("avatar.linkRules");
+
+			if (!host || trusted) {
+				return t("avatar.linkRules");
+			}
+
+			return props.channel
+				? t("avatar.channelLinkElsewhere", {host})
+				: t("avatar.linkElsewhere", {host});
 		});
 
 		const run = async (work: () => Promise<unknown>, done: string) => {
@@ -439,12 +514,16 @@ export default defineComponent({
 				status.value = done;
 			} catch (e: unknown) {
 				const reason = e instanceof Error ? e.message : String(e);
-				status.value = t("avatar.failed", {reason});
+				status.value = props.channel
+					? t("avatar.channelFailed", {reason})
+					: t("avatar.failed", {reason});
 			} finally {
 				busy.value = false;
 				await reload();
 			}
 		};
+
+		const savedText = () => (props.channel ? t("avatar.channelSaved") : t("avatar.saved"));
 
 		const onFile = (event: Event) => {
 			const input = event.target as HTMLInputElement;
@@ -467,8 +546,8 @@ export default defineComponent({
 
 			void run(async () => {
 				const url = await uploadAvatar(c, blob);
-				await useAvatar(c, url, {uploaded: true, blob});
-			}, t("avatar.saved"));
+				await useAvatar(c, url, {uploaded: true, blob, channel: props.channel});
+			}, savedText());
 		};
 
 		const saveLink = () => {
@@ -480,16 +559,18 @@ export default defineComponent({
 			}
 
 			void run(async () => {
-				await useAvatar(c, parsed.href, {uploaded: false});
+				await useAvatar(c, parsed.href, {uploaded: false, channel: props.channel});
 				linkOpen.value = false;
 				link.value = "";
-			}, t("avatar.saved"));
+			}, savedText());
 		};
 
 		const remove = () => {
 			const c = client();
 
-			if (c) {
+			if (c && props.channel) {
+				void run(() => setChannelAvatar(c, props.channel!, ""), t("avatar.channelRemoved"));
+			} else if (c) {
 				void run(() => setOwnAvatar(c, ""), t("avatar.removed"));
 			}
 		};
@@ -507,8 +588,12 @@ export default defineComponent({
 				() =>
 					stale && rec.blob && canUpload(c)
 						? reupload(c, rec)
-						: useAvatar(c, rec.url, {uploaded: rec.uploaded, blob: rec.blob}),
-				t("avatar.saved")
+						: useAvatar(c, rec.url, {
+								uploaded: rec.uploaded,
+								blob: rec.blob,
+								channel: props.channel,
+						  }),
+				savedText()
 			);
 		};
 
@@ -517,7 +602,7 @@ export default defineComponent({
 			const rec = currentRecent.value;
 
 			if (c && rec) {
-				void run(() => reupload(c, rec), t("avatar.saved"));
+				void run(() => reupload(c, rec), savedText());
 			}
 		};
 
@@ -576,6 +661,10 @@ export default defineComponent({
 			t,
 			networkName,
 			nick,
+			subject,
+			headingId,
+			linkId,
+			headingText,
 			enabled,
 			editable,
 			uploadable,

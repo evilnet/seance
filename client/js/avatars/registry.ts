@@ -34,7 +34,13 @@ type Network = {
 	keep: () => boolean;
 };
 
-/** How many users' values a network keeps between launches. */
+/*
+ * A channel's avatar is kept here too, under the channel's name: a nick
+ * never starts with a channel prefix, so the two never meet. It is kept
+ * between launches with the users', so a page load draws it at once.
+ */
+
+/** How many users' (and channels') values a network keeps between launches. */
 export const SEEN_LIMIT = 300;
 
 /** How long after a change the kept values are written. */

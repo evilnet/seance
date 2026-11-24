@@ -41,6 +41,10 @@
 //   --quiet           only log failures, frame errors and scenario output
 //   --max-frame=<n>   truncate logged frame payloads (default 200 chars)
 //   --chrome=<bin>    Chromium binary (default $CHROME_BIN or "chromium")
+//   --chrome-arg=<switch>  one more Chromium switch, repeatable; e.g.
+//                     --chrome-arg='--host-resolver-rules=MAP img.test:443 127.0.0.1:9178'
+//                     sends https://img.test/ to a local server (avatar URLs
+//                     must use the default port)
 //   --timeout=<ms>    default wait timeout inside a scenario (default 20000)
 //   --profile=<dir>   reuse a profile dir instead of a throwaway one
 //   --width=<px>      viewport width (default 1280); --height=<px> (default 900)
@@ -69,6 +73,9 @@ const opt = (name, fallback) => {
 const scenarioPath = argv.find((a) => !a.startsWith("--"));
 
 const chromeBin = opt("chrome", process.env.CHROME_BIN || "chromium");
+const chromeArgs = argv
+	.filter((a) => a.startsWith("--chrome-arg="))
+	.map((a) => a.slice("--chrome-arg=".length));
 const headful = flags.has("--headful") || flags.has("--devtools");
 const logWs = !flags.has("--no-ws");
 const quiet = flags.has("--quiet");
@@ -122,6 +129,7 @@ const chrome = spawn(
 			: [
 					"--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4",
 			  ]),
+		...chromeArgs,
 		`--remote-debugging-port=${port}`,
 		`--user-data-dir=${profile}`,
 		"about:blank",

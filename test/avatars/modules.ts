@@ -477,6 +477,43 @@ describe("own avatar upkeep (avatars/own.ts)", function () {
 			expect(await recentAvatars("n1")).to.deep.equal([]);
 			expect(await recentAvatars("n2")).to.have.length(1);
 		});
+
+		it("keeps each channel's apart from ours, and from each other", async function () {
+			for (let i = 0; i < RECENT_MAX; i++) {
+				await rememberAvatar({
+					uuid: "n1",
+					url: `https://a.example/own-${i}.png`,
+					setAt: i,
+					uploaded: false,
+				});
+			}
+
+			await rememberAvatar({
+				uuid: "n1",
+				channel: "#Art",
+				url: "https://a.example/art.png",
+				setAt: 100,
+				uploaded: true,
+			});
+			await rememberAvatar({
+				uuid: "n1",
+				channel: "#help",
+				url: "https://a.example/help.png",
+				setAt: 101,
+				uploaded: false,
+			});
+
+			// Ours still holds all of its own: a channel's does not push one out.
+			expect(await recentAvatars("n1")).to.have.length(RECENT_MAX);
+			expect((await recentAvatars("n1", "#art")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/art.png",
+			]);
+			expect((await recentAvatars("n1", "#HELP")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/help.png",
+			]);
+			await forgetNetworkAvatars("n1");
+			expect(await recentAvatars("n1", "#art")).to.deep.equal([]);
+		});
 	});
 
 	describe("probe", function () {

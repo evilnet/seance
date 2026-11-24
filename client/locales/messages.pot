@@ -49,6 +49,75 @@ msgctxt "avatar.change"
 msgid "Change your avatar"
 msgstr ""
 
+#. Channel avatar dialog, shown in place of the buttons while the network is not connected.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelConnectFirst"
+msgid "Connect to this network to change the channel's avatar."
+msgstr ""
+
+#. Title of the crop dialog when the picture being cropped will be a channel's avatar.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelCropTitle"
+msgid "Crop the channel's avatar"
+msgstr ""
+
+#. Channel avatar dialog status after a failed change. {reason} is the server's or the upload's explanation, often in English.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelFailed"
+msgid "The channel's avatar was not changed: {reason}"
+msgstr ""
+
+#. Heading of the dialog that changes a channel's avatar (the picture shown beside the channel's name in the channel list). {channel} is the channel's name, such as #help.
+#: client/components/Settings/AvatarSettings.vue
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "avatar.channelHeading"
+msgid "Avatar for {channel}"
+msgstr ""
+
+#. Channel avatar dialog, explaining who sees the channel's avatar and who can change it. {channel} is the channel's name.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelHelp"
+msgid "Everyone in {channel} sees it beside the channel's name. Its half-ops and ops can change it. A registered channel keeps it; any other loses it once everyone has left."
+msgstr ""
+
+#. Channel avatar dialog, under the link field. {host} is the website the typed picture link points to.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelLinkElsewhere"
+msgid "{host} is not this network's image host, so people using Seance see a placeholder until they choose to load pictures from that site."
+msgstr ""
+
+#. Channel avatar dialog, shown in place of the buttons when the user may not change the channel's avatar.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelNotOp"
+msgid "Only the channel's half-ops and ops can change it."
+msgstr ""
+
+#. Channel avatar dialog, under the strip of pictures recently used as this channel's avatar.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelRecentNote"
+msgid "Kept on this device, for this channel only."
+msgstr ""
+
+#. Channel avatar dialog status after removing the channel's avatar.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelRemoved"
+msgid "The channel's avatar was removed."
+msgstr ""
+
+#. Channel avatar dialog note. {count} is the number of days the network's image host keeps a file.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelRetentionNote"
+msgid "This network's image host deletes files after {count} day. This device keeps the picture and uploads it again a week before, whenever you're connected and can still change it."
+msgid_plural "This network's image host deletes files after {count} days. This device keeps the picture and uploads it again a week before, whenever you're connected and can still change it."
+msgstr[0] ""
+msgstr[1] ""
+
+#. Channel avatar dialog status after the change was accepted.
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.channelSaved"
+msgid "The channel's avatar was changed."
+msgstr ""
+
 #. Avatar settings, shown while the network is not connected.
 msgctxt "avatar.connectFirst"
 msgid "Connect to this network to change your avatar."
@@ -4810,6 +4879,12 @@ msgstr ""
 #: client/js/helpers/contextMenu.ts
 msgctxt "menu.chanTypeQuery"
 msgid "conversation"
+msgstr ""
+
+#. Context-menu item on a chat channel (sidebar row, or the chat header's menu button), shown to the channel's half-ops and ops; opens a dialog to change the picture shown for the channel.
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.channelAvatar"
+msgid "Channel avatar…"
 msgstr ""
 
 #. Context-menu item on a conversation; deletes the locally loaded messages of that conversation after a confirmation. Also the title and confirmation button of that dialog.

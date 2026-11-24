@@ -1,8 +1,19 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import {ALL_CAPS, register, setup, type Harness} from "./support";
-import {applyAvatarsEnabled, setOwnAvatar, SET_TIMEOUT_MS} from "../../client/js/irc/avatars";
-import {avatarKnown, avatarOf} from "../../client/js/avatars/registry";
+import {
+	applyAvatarsEnabled,
+	canSetChannelAvatar,
+	setChannelAvatar,
+	setOwnAvatar,
+	SET_TIMEOUT_MS,
+} from "../../client/js/irc/avatars";
+import {
+	avatarKnown,
+	avatarOf,
+	markAvatarsStale,
+	setAvatarValue,
+} from "../../client/js/avatars/registry";
 import {setAvatarsEnabled, useStorageBackend} from "../../client/js/avatars/prefs";
 
 const CAPS = `${ALL_CAPS} draft/metadata-2 extended-join account-notify account-tag`;
@@ -44,9 +55,9 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 		expect(avatarKnown(uuid(), "bob")).to.equal(true);
 	});
 
-	it("ignores a private value and a channel's", function () {
+	it("ignores a private value", function () {
 		h.transport.line(`:irc.test METADATA bob avatar private :${URL_B}`);
-		h.transport.line(`:irc.test METADATA #seance avatar * :${URL_B}`);
+		h.transport.line(`:irc.test METADATA #seance avatar private :${URL_B}`);
 		expect(avatarKnown(uuid(), "bob")).to.equal(false);
 		expect(avatarKnown(uuid(), "#seance")).to.equal(false);
 	});
@@ -203,6 +214,149 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 
 			expect(reason).to.equal("unavailable");
 		});
+	});
+
+	describe("a channel's avatar", function () {
+		const URL_C = "https://files.example/seance.webp";
+		const chanId = (name: string) => h.client.findChannel(name)!.id;
+		/** What went out about metadata (a join also asks its history, opening it its modes). */
+		const sentMetadata = () => h.sent().filter((line) => line.startsWith("METADATA"));
+
+		/** Join `chan`; `burst` lines go between the JOIN and the NAMES. */
+		function join(chan: string, burst: string[] = [], names = "@alice bob") {
+			h.transport.lines(
+				`:alice!alice@host.example JOIN ${chan} alice :Alice`,
+				...burst,
+				`:irc.test 353 alice = ${chan} :${names}`,
+				`:irc.test 366 alice ${chan} :End of /NAMES list.`
+			);
+		}
+
+		it("takes the value the join burst and later changes carry", function () {
+			join("#art", [`:irc.test METADATA #art avatar * :${URL_C}`]);
+			expect(avatarOf(uuid(), "#ART")?.value).to.equal(URL_C);
+			expect(avatarKnown(uuid(), "#art")).to.equal(true);
+			h.transport.line(":irc.test METADATA #art avatar *");
+			expect(avatarOf(uuid(), "#art")?.value).to.equal("");
+			expect(sentMetadata()).to.deep.equal([]);
+		});
+
+		it("asks, quietly, for a picture known from before that the burst did not repeat", function () {
+			setAvatarValue(uuid(), "#old", URL_C);
+			markAvatarsStale(uuid()); // as a new connection's 001 does
+			join("#old");
+			expect(sentMetadata()).to.deep.equal(["METADATA #old GET avatar"]);
+			const before = h.messages().length;
+			h.transport.line(":irc.test 766 alice #old avatar :key not set");
+			expect(h.messages().length).to.equal(before);
+			expect(avatarOf(uuid(), "#old")?.value).to.equal("");
+			expect(avatarKnown(uuid(), "#old")).to.equal(true);
+		});
+
+		it("asks nothing when the burst said it, or nothing was known", function () {
+			setAvatarValue(uuid(), "#said", URL_C);
+			markAvatarsStale(uuid());
+			join("#said", [`:irc.test METADATA #said avatar * :${URL_C}`]);
+			join("#plain");
+			expect(sentMetadata()).to.deep.equal([]);
+		});
+
+		it("asks once when a channel is opened without one known", function () {
+			join("#plain");
+			h.client.open(chanId("#plain"));
+			expect(sentMetadata()).to.deep.equal(["METADATA #plain GET avatar"]);
+			h.transport.line(`:irc.test 761 alice #plain avatar * :${URL_C}`);
+			expect(avatarOf(uuid(), "#plain")?.value).to.equal(URL_C);
+			h.client.open(0);
+			h.client.open(chanId("#plain"));
+			expect(sentMetadata()).to.deep.equal([]);
+		});
+
+		it("forgets it when we leave the channel", function () {
+			join("#art", [`:irc.test METADATA #art avatar * :${URL_C}`]);
+			h.transport.line(":alice!alice@host.example PART #art");
+			expect(avatarOf(uuid(), "#art")).to.equal(undefined);
+		});
+
+		it("is asked of nobody where avatars are switched off", function () {
+			setAvatarsEnabled(uuid(), false);
+			join("#plain");
+			h.client.open(chanId("#plain"));
+			expect(sentMetadata()).to.deep.equal([]);
+		});
+
+		it("is ours to set as a half-op and up, or an IRC operator", function () {
+			const g = setup();
+			register(g, CAPS, [":irc.test 005 alice PREFIX=(ohv)@%+ :are supported by this server"]);
+			g.transport.lines(
+				":alice!alice@host.example JOIN #half alice :Alice",
+				":irc.test 353 alice = #half :%alice",
+				":irc.test 366 alice #half :End of /NAMES list.",
+				":alice!alice@host.example JOIN #voiced alice :Alice",
+				":irc.test 353 alice = #voiced :+alice @bob",
+				":irc.test 366 alice #voiced :End of /NAMES list."
+			);
+			expect(canSetChannelAvatar(g.client, "#half")).to.equal(true);
+			expect(canSetChannelAvatar(g.client, "#voiced")).to.equal(false);
+			expect(canSetChannelAvatar(g.client, "#nowhere")).to.equal(false);
+			g.transport.line(":alice MODE alice :+o");
+			expect(canSetChannelAvatar(g.client, "#voiced")).to.equal(true);
+			expect(canSetChannelAvatar(h.client, "#seance")).to.equal(true); // @alice, no half-ops
+		});
+
+		it("resolves a SET on the 761, which is not shown", async function () {
+			const done = setChannelAvatar(h.client, "#seance", URL_C);
+			expect(h.sent()).to.deep.equal([`METADATA #seance SET avatar :${URL_C}`]);
+			const before = h.messages().length;
+			h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_C}`);
+			h.transport.line(`:irc.test METADATA #seance avatar * :${URL_C}`);
+			await done;
+			expect(h.messages().length).to.equal(before);
+			expect(avatarOf(uuid(), "#seance")?.value).to.equal(URL_C);
+		});
+
+		it("clears with a bare SET and resolves on 766", async function () {
+			const done = setChannelAvatar(h.client, "#seance", "");
+			expect(h.sent()).to.deep.equal(["METADATA #seance SET avatar"]);
+			h.transport.line(":irc.test 766 alice #seance avatar :key not set");
+			await done;
+			expect(avatarOf(uuid(), "#seance")?.value).to.equal("");
+		});
+
+		it("does not take our own avatar's reply for the channel's", async function () {
+			const done = setChannelAvatar(h.client, "#seance", URL_A);
+			let settled = false;
+			void done.then(() => (settled = true));
+			h.transport.line(`:irc.test METADATA alice avatar * :${URL_A}`);
+			await Promise.resolve();
+			expect(settled).to.equal(false);
+			h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_A}`);
+			await done;
+		});
+
+		for (const [label, fail] of [
+			[
+				"refused",
+				":irc.test FAIL METADATA KEY_NO_PERMISSION #seance avatar :You don't have permission to set metadata on this target",
+			],
+			["on a channel we cannot see", ":irc.test FAIL METADATA INVALID_TARGET #seance :Invalid target"],
+		] as const) {
+			it(`rejects with the server's reason when ${label}, which is not shown`, async function () {
+				const done = setChannelAvatar(h.client, "#seance", URL_C);
+				const before = h.messages().length;
+				h.transport.line(fail);
+				let reason = "";
+
+				try {
+					await done;
+				} catch (err) {
+					reason = (err as Error).message;
+				}
+
+				expect(reason).to.equal(fail.slice(fail.lastIndexOf(":") + 1));
+				expect(h.messages().length).to.equal(before);
+			});
+		}
 	});
 
 	describe("switching avatars on and off", function () {

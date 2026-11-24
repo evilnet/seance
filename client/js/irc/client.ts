@@ -70,6 +70,7 @@ import {
 	avatarSubKeys,
 	avatarsClosed,
 	avatarsWelcomed,
+	onChannelOpened,
 	expectOwnAvatar,
 } from "./avatars";
 import {avatarsEnabled} from "../avatars/prefs";
@@ -3820,8 +3821,8 @@ export class IrcClient {
 
 	/**
 	 * The UI opened `chanId` (or 0 for none): unread counters restart there,
-	 * a pending catch-up is served now, and the channel modes are asked for
-	 * the first time round.
+	 * a pending catch-up is served now, and the channel modes (and, when
+	 * none is known, its avatar) are asked for the first time round.
 	 */
 	open(chanId: number): void {
 		this.activeChanId = chanId;
@@ -3844,6 +3845,7 @@ export class IrcClient {
 			// nothing (catchup.ts).
 			if (chan.type === ChanType.CHANNEL && chan.state === ChanState.JOINED) {
 				queueModes(this, chan);
+				onChannelOpened(this, chan.name); // its avatar, when the burst said none
 			}
 		}
 	}

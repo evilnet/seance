@@ -6,6 +6,7 @@
 
 import {newUser, setUserModes} from "../channel";
 import type {Handler} from "../types";
+import {onChannelBurstEnd} from "../avatars";
 
 const namesReply: Handler = (client, msg) => {
 	// <me> <=|*|@> <channel> :<names>
@@ -66,6 +67,7 @@ const endOfNames: Handler = (client, msg) => {
 	chan.rejoining = false;
 	chan.topicWanted = false;
 	client.usersChanged(chan);
+	onChannelBurstEnd(client, chan.name, client.activeChannelId === chan.id);
 };
 
 export default {"353": namesReply, "355": namesReply, "366": endOfNames};

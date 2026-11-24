@@ -10,16 +10,25 @@ import {
 	translationAvailable,
 	translationOffByUser,
 } from "../translate/reader";
-import {TypedStore} from "../store";
+import {store as rootStore, type TypedStore} from "../store";
 import useCloseChannel from "../hooks/use-close-channel";
-import {ChanType} from "../../../shared/types/chan";
+import {ChanState, ChanType} from "../../../shared/types/chan";
 import {banItem, holdsChannelPower} from "./banMenu";
 import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
 import {ignoreListFor} from "../ignore";
 import {brandingFeatures} from "../branding";
 import {namesEqual, type CaseMapping} from "../irc/casemap";
 import {accountFor, viewFor} from "../avatars/view";
-import {isPersonTrusted, loadOnce, personKey, trustPerson, untrustPerson} from "../avatars/prefs";
+import {
+	avatarsEnabled,
+	isPersonTrusted,
+	loadOnce,
+	personKey,
+	trustPerson,
+	untrustPerson,
+} from "../avatars/prefs";
+import {clientForNetwork} from "../irc/manager";
+import {canSetChannelAvatar} from "../irc/avatars";
 import {trustHost} from "./mediaTrust";
 import {
 	addFavorite,
@@ -197,6 +206,21 @@ export function generateChannelContextMenu(
 			// The Bans window asks the server itself when it opens.
 			link: `/bans/${network.uuid}/${encodeURIComponent(channel.name)}`,
 		});
+
+		if (canChangeChannelAvatar(network, channel)) {
+			items.push({
+				label: t("menu.channelAvatar"),
+				type: "item",
+				class: "channel-avatar",
+				action: () =>
+					eventbus.emit("channel-avatar:open", {
+						network: network.uuid,
+						channel: channel.name,
+					}),
+			});
+		}
+
+		items.push(...avatarChannelItems(network, channel.name));
 	}
 
 	// Add menu items for queries
@@ -472,6 +496,53 @@ function avatarUserItems(
 	}
 
 	return [];
+}
+
+/**
+ * Whether the channel's menu offers "Channel avatar…" (ChannelAvatarDialog.vue):
+ * avatars are on for the network, we are in the channel, and the server
+ * would take the change from us (irc/avatars.ts `canSetChannelAvatar`:
+ * draft/metadata-2, half-op and up, or an IRC operator). Asked of the IRC
+ * client, not the store: the store holds a channel's users only once it
+ * has been opened, and the menu is also a closed channel's row's.
+ */
+function canChangeChannelAvatar(network: ClientNetwork, channel: ClientChan): boolean {
+	const client = clientForNetwork(network.uuid);
+	return (
+		!!client &&
+		network.status.connected &&
+		channel.state === ChanState.JOINED &&
+		avatarsEnabled(network.uuid) &&
+		canSetChannelAvatar(client, channel.name)
+	);
+}
+
+/**
+ * A channel's avatar not loaded (avatars/policy.ts) can be shown once, or
+ * always from its host, as a person's can; there is no person to trust.
+ */
+function avatarChannelItems(network: ClientNetwork, channel: string): ContextMenuItem[] {
+	const view = viewFor(rootStore, {uuid: network.uuid, nick: channel});
+
+	if (view.kind !== "veiled") {
+		return [];
+	}
+
+	return [
+		{type: "divider"},
+		{
+			label: t("avatar.showOnce"),
+			type: "item",
+			class: "action-avatar",
+			action: () => loadOnce(view.href),
+		},
+		{
+			label: t("avatar.alwaysHost", {host: view.host}),
+			type: "item",
+			class: "action-avatar",
+			action: () => trustHost(view.host),
+		},
+	];
 }
 
 /**
