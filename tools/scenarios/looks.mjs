@@ -8,8 +8,11 @@
 // reaction, a link's preview, a multiline message, an edited and a deleted
 // line, our own unconfirmed line, the unread and day dividers, the message
 // toolbar); Messenger draws a private conversation two-sided (no avatar or
-// nick on either side, our own at the far side in the own fill) and a
-// channel as before. Then the same at a 390 px phone, at the largest text
+// nick on either side, our own at the far side in the own fill), its
+// actions as lines of the conversation (no icon, the nick in its colour,
+// the time on hover, our own at the far side of a private conversation) and
+// its reactions hanging off the bubble's bottom edge (a third of a chip on
+// it, clear of the next row, the add chip by hover, focus or finger). Then the same at a 390 px phone, at the largest text
 // step, right to left, and under forced colours.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
@@ -46,8 +49,18 @@ const from = (nick) => `:${nick}!${nick}@gallery.test`;
 const LONG_LINK =
 	"https://example.com/notes/release/2026/the-long-path-to-the-final-draft-of-the-notes-for-everyone";
 
+/** Reactions (`+draft/react`) from `nick` on the line `msgid`, one TAGMSG each. */
+const react = (msgid, target, reactions) =>
+	reactions.map(
+		([nick, text], i) =>
+			`@time=${at("12:29")};msgid=${msgid}r${i};+draft/react=${text.replace(
+				/ /g,
+				"\\s"
+			)};+draft/reply=${msgid} ${from(nick)} TAGMSG ${target}`
+	);
+
 /** The rows the gallery does not have, after its conversation. */
-const EXTRA = [
+export const EXTRA = [
 	`@time=${at("12:20")};msgid=x01 ${from(
 		"alice"
 	)} PRIVMSG ${CHANNEL} :the shot: https://example.com/shot.png`,
@@ -75,6 +88,53 @@ const EXTRA = [
 		"dave"
 	)} PRIVMSG ${CHANNEL} :\x01ACTION hands ${NICK} the release notes\x01`,
 	`@time=${at("12:23")};msgid=x15 ${from(NICK)} PRIVMSG ${CHANNEL} :\x01ACTION ships it\x01`,
+	// Messenger's reactions and actions: a short bubble with three chips (one
+	// of them ours), a joined run with a reaction on a middle line and on its
+	// last, a row of chips that wraps at a phone's width, and an action
+	// between two bubbles.
+	`@time=${at("12:24")};msgid=x20 ${from("frank")} PRIVMSG ${CHANNEL} :shipped!`,
+	...react("x20", CHANNEL, [
+		["bob", "👍"],
+		["carol", "👍"],
+		["alice", "🎉"],
+		[NICK, "👀"],
+	]),
+	`@time=${at("12:25")};msgid=x21 ${from("erin")} PRIVMSG ${CHANNEL} :a run of three, the first`,
+	`@time=${at("12:25")};msgid=x22 ${from("erin")} PRIVMSG ${CHANNEL} :the middle one, reacted to`,
+	`@time=${at("12:25")};msgid=x23 ${from(
+		"erin"
+	)} PRIVMSG ${CHANNEL} :and the last, reacted to too`,
+	...react("x22", CHANNEL, [["alice", "❤️"]]),
+	...react("x23", CHANNEL, [
+		["bob", "😂"],
+		["carol", "😂"],
+	]),
+	`@time=${at("12:26")};msgid=x24 ${from("alice")} PRIVMSG ${CHANNEL} :vote on the release name`,
+	...react("x24", CHANNEL, [
+		["bob", "👍"],
+		["carol", "🎉"],
+		["dave", "🚀"],
+		["erin", "❤️"],
+		["frank", "😂"],
+		["bob", "👀"],
+		["carol", "🙏"],
+		["dave", "ship it"],
+		["erin", "🔥"],
+		["frank", "✅"],
+	]),
+	`@time=${at("12:27")};msgid=x25 ${from("bob")} PRIVMSG ${CHANNEL} :before the action`,
+	`@time=${at("12:27")};msgid=x26 ${from("dave")} PRIVMSG ${CHANNEL} :\x01ACTION nods along\x01`,
+	`@time=${at("12:27")};msgid=x27 ${from("bob")} PRIVMSG ${CHANNEL} :after the action`,
+	// In the query: our own bubble with a reaction (at the far side), our own
+	// action and theirs.
+	`@time=${at("12:28")};msgid=x30 ${from(NICK)} PRIVMSG ${PEER} :here it is, the phone at 390`,
+	...react("x30", NICK, [[PEER, "❤️"]]),
+	`@time=${at("12:28")};msgid=x31 ${from(
+		NICK
+	)} PRIVMSG ${PEER} :\x01ACTION sends the screenshot\x01`,
+	`@time=${at("12:29")};msgid=x32 ${from(PEER)} PRIVMSG ${NICK} :\x01ACTION squints at it\x01`,
+	`@time=${at("12:29")};msgid=x33 ${from(PEER)} PRIVMSG ${NICK} :can you send it again?`,
+	...react("x33", PEER, [[NICK, "👍"]]),
 	// Short lines, for the toolbar: one in the channel, one in the query.
 	`@time=${at("12:23")};msgid=x07 ${from("frank")} PRIVMSG ${CHANNEL} :yep`,
 	`@time=${at("12:23")};msgid=x08 ${from(PEER)} PRIVMSG ${NICK} :yep`,
@@ -157,6 +217,46 @@ const ACTION = (text) => `(() => {
 		time: getComputedStyle(row.querySelector(":scope > .time")).visibility,
 		size: parseFloat(getComputedStyle(row).fontSize),
 		bodySize: parseFloat(getComputedStyle(document.querySelector('#chat .chat .msg[data-type="message"]')).fontSize)};
+})()`;
+
+/** A Messenger bubble's reaction chips against the bubble and the row after it, by its words. */
+const CHIPS = (text) => `(() => {
+	const row = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((m) => m.textContent.includes(${JSON.stringify(
+		text
+	)}));
+	if (!row) return null;
+	const b = row.getBoundingClientRect();
+	const c = row.querySelector(":scope > .content").getBoundingClientRect();
+	const r = row.querySelector(".msg-reactions").getBoundingClientRect();
+	const chips = [...row.querySelectorAll(".msg-reaction:not(.msg-reaction-add)")].map((e) => e.getBoundingClientRect());
+	const add = row.querySelector(".msg-reaction-add");
+	const next = row.nextElementSibling?.matches(".msg") ? row.nextElementSibling : null;
+	const nextBox = next?.getBoundingClientRect();
+	const list = row.closest(".messages").getBoundingClientRect();
+	const s = getComputedStyle(row.querySelector(".msg-reaction"));
+	const tops = [...new Set(chips.map((x) => Math.round(x.top)))];
+	const time = row.querySelector(":scope > .time");
+	const ts = getComputedStyle(time);
+	return {
+		timeBottom: ts.visibility === "visible" && ts.position === "static" ? time.getBoundingClientRect().bottom : null,
+		count: chips.length,
+		lines: tops.length,
+		bubble: {left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width},
+		contentBottom: c.bottom,
+		rowBottom: r.bottom,
+		chipH: chips[0].height,
+		firstTop: Math.min(...chips.map((x) => x.top)),
+		lastBottom: Math.max(...chips.map((x) => x.bottom)),
+		minLeft: Math.min(...chips.map((x) => x.left)),
+		maxRight: Math.max(...chips.map((x) => x.right)),
+		first: {left: chips[0].left, right: chips[0].right},
+		next: nextBox ? {top: nextBox.top, type: next.dataset.type, joined: next.classList.contains("previous-source")} : null,
+		list: {left: list.left, right: list.right},
+		ring: s.boxShadow,
+		fill: s.backgroundColor,
+		border: s.borderTopColor + " " + s.borderTopWidth + " " + s.borderTopStyle,
+		add: add ? {opacity: getComputedStyle(add).opacity} : null,
+	};
 })()`;
 
 const NONE = "rgba(0, 0, 0, 0)";
@@ -356,6 +456,67 @@ export default async function run(page) {
 			got.shown === "visible" && got.hit === "link"
 		);
 		await unhover();
+	};
+	// Messenger: a bubble's chips hang off its bottom edge, a third of a chip on
+	// it, inset from the corner on its side, clear of the row after it.
+	const chipsHang = async (text, label, side = "start") => {
+		await scrollTo("message", text);
+		await page.sleep(150);
+		const g = await page.evaluate(CHIPS(text));
+		const rtl = await page.evaluate(`document.documentElement.dir === "rtl"`);
+		const fromLeft = (side === "start") !== rtl;
+		const inset = fromLeft ? g.minLeft - g.bubble.left : g.bubble.right - g.maxRight;
+		const onBubble = (g.bubble.bottom - (g.lastBottom - g.chipH)) / g.chipH;
+		page.check(
+			`${label}: the chips hang off the bubble's ${
+				fromLeft ? "left" : "right"
+			} corner, a third on it, clear of the next row (inset ${inset.toFixed(
+				1
+			)}px, ${onBubble.toFixed(2)} of a chip on it, ${JSON.stringify({
+				lines: g.lines,
+				next: g.next,
+				lastBottom: g.lastBottom,
+				timeBottom: g.timeBottom,
+				ring: g.ring,
+			})})`,
+			inset >= 2 &&
+				inset <= g.chipH &&
+				onBubble >= 0.2 &&
+				onBubble <= 0.5 &&
+				g.rowBottom > g.contentBottom &&
+				g.lastBottom > g.bubble.bottom + g.chipH / 2 &&
+				g.ring !== "none" &&
+				(!g.next || g.next.top >= g.lastBottom + 2) &&
+				(!g.timeBottom || g.firstTop >= g.timeBottom - 1) &&
+				g.minLeft >= g.list.left &&
+				g.maxRight <= g.list.right
+		);
+		return g;
+	};
+	// Messenger's action, hovered: its time just past its words, the toolbar
+	// up and inside the pane.
+	const actionHover = async (text, label) => {
+		await scrollTo("action", text);
+		await page.sleep(150);
+		const index = await page.evaluate(ROW_WITH(text, "action"));
+		await page.hover('#chat .chat .msg[data-type="action"]', index);
+		await page.sleep(150);
+		const got = await page.evaluate(`(() => {
+			const m = ${rowAt("action", index)};
+			const t = m.querySelector(":scope > .time").getBoundingClientRect();
+			const w = m.querySelector(":scope > .content").getBoundingClientRect();
+			const c = document.querySelector("#chat .chat");
+			const left = c.getBoundingClientRect().left + c.clientLeft;
+			const right = left + c.clientWidth;
+			const a = m.querySelector(".msg-actions");
+			const b = a && getComputedStyle(a).display !== "none" ? a.getBoundingClientRect() : null;
+			return {shown: getComputedStyle(m.querySelector(":scope > .time")).visibility,
+				after: Math.round(t.left - w.right), before: Math.round(w.left - t.right),
+				inside: t.left >= left && t.right <= right,
+				toolbar: b && b.left >= left && b.right <= right};
+		})()`);
+		await unhover();
+		return got;
 	};
 	const backToChat = async () => {
 		await page.click(".settings-modal-done");
@@ -851,6 +1012,46 @@ export default async function run(page) {
 		await page.screenshot("9-messenger-query");
 		await toolbarFits("yep", "Messenger query, a short line of theirs");
 		await toolbarFits("sending you a screenshot", "Messenger query, our own at the far side");
+		await chipsHang("here it is, the phone at 390", "Messenger query, our own", "end");
+		await chipsHang("can you send it again?", "Messenger query, theirs");
+		const qActions = await page.evaluate(`(() => {
+			const list = document.querySelector("#chat .chat .messages").getBoundingClientRect();
+			const at = (t) => [...document.querySelectorAll('#chat .chat .msg[data-type="action"]')].find((m) => m.textContent.includes(t)).getBoundingClientRect();
+			const ours = at("sends the screenshot"), theirs = at("squints at it");
+			return {oursEnd: Math.round(list.right - ours.right), theirsStart: Math.round(theirs.left - list.left), oursLeft: ours.left, middle: list.left + list.width / 2};
+		})()`);
+		page.check(
+			`Messenger query: our own action at the far side, theirs at the start (${JSON.stringify(
+				qActions
+			)})`,
+			qActions.oursEnd < 16 &&
+				qActions.theirsStart < 24 &&
+				qActions.oursLeft > qActions.middle
+		);
+		const qOwnAction = await page.evaluate(ACTION("sends the screenshot"));
+		page.check(
+			`Messenger query: our own action, no icon, italic, the nick in its colour (${JSON.stringify(
+				qOwnAction
+			)})`,
+			qOwnAction.icon === "none" &&
+				qOwnAction.italic &&
+				qOwnAction.nickColor === qOwnAction.nickClassColor
+		);
+		const qOwnHover = await actionHover(
+			"sends the screenshot",
+			"Messenger query, our own action"
+		);
+		page.check(
+			`Messenger query, our own action hovered: its time before its words, the toolbar inside the pane (${JSON.stringify(
+				qOwnHover
+			)})`,
+			qOwnHover.shown === "visible" &&
+				qOwnHover.before >= 0 &&
+				qOwnHover.inside &&
+				qOwnHover.toolbar
+		);
+		await scrollTo("action", "sends the screenshot");
+		await page.screenshot("9a-messenger-query-reactions-actions");
 		await open(CHANNEL, "looks good from here");
 		const mFirst = await geometry("message", "morning all");
 		page.check(
@@ -867,8 +1068,143 @@ export default async function run(page) {
 			!!back?.arrow
 		);
 		await quoteRing("Messenger");
+
+		// Messenger's action: a line in the bubbles' text column, a run's
+		// space above and below, read as Workspace reads it.
+		const mAction = await page.evaluate(ACTION("nods along"));
+		page.check(
+			`Messenger: an action, italic, in the text colour, no icon, the nick bold in its colour, at the bubbles' text column, its time hidden (${JSON.stringify(
+				mAction
+			)})`,
+			mAction.italic &&
+				mAction.icon === "none" &&
+				mAction.color === mAction.rowColor &&
+				mAction.nickItalic === "normal" &&
+				Number(mAction.nickWeight) >= 700 &&
+				mAction.nickColor === mAction.nickClassColor &&
+				near(mAction.content, mFirst.content.left, 1) &&
+				mAction.time === "hidden" &&
+				mAction.size === mAction.bodySize
+		);
+		const mActionGap = await page.evaluate(`(() => {
+			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="action"]')].find((x) => x.textContent.includes("nods along"));
+			const r = m.getBoundingClientRect();
+			return {above: Math.round(r.top - m.previousElementSibling.getBoundingClientRect().bottom),
+				below: Math.round(m.nextElementSibling.getBoundingClientRect().top - r.bottom),
+				fill: getComputedStyle(m).backgroundColor};
+		})()`);
+		page.check(
+			`Messenger: an action between two bubbles has room above and below, and no fill (${JSON.stringify(
+				mActionGap
+			)})`,
+			mActionGap.above >= 6 && mActionGap.below >= 6 && mActionGap.fill === NONE
+		);
+		const mHover = await actionHover("nods along", "Messenger");
+		page.check(
+			`Messenger, an action hovered: its time just past its words, inside the pane, the toolbar up inside it (${JSON.stringify(
+				mHover
+			)})`,
+			mHover.shown === "visible" &&
+				mHover.after >= 0 &&
+				mHover.after <= 20 &&
+				mHover.inside &&
+				mHover.toolbar
+		);
+		const mMention = await geometry("action", "hands seer the release notes");
+		page.check(
+			`Messenger: an action that mentions us is still marked (${mMention.background}, ${mMention.borderStart})`,
+			mMention.background !== NONE && /solid$/.test(mMention.borderStart)
+		);
+
+		// Messenger's reactions: outside the bubble, on its edge.
+		const three = await chipsHang("shipped!", "Messenger, a short bubble with three chips");
+		page.check(
+			`Messenger: three chips, and the short bubble does not widen to them (${
+				three.count
+			} chips, bubble ${three.bubble.width}px, chips to ${
+				three.maxRight - three.bubble.left
+			}px)`,
+			three.count === 3 && three.maxRight > three.bubble.right
+		);
+		const middle = await chipsHang(
+			"the middle one, reacted to",
+			"Messenger, a run's middle line"
+		);
+		page.check(
+			"Messenger: the line after a reacted middle line is still the run's",
+			!!middle.next?.joined
+		);
+		await chipsHang("and the last, reacted to too", "Messenger, a run's last line");
+		await chipsHang("vote on the release name", "Messenger, ten chips");
+		await scrollTo("message", "the middle one, reacted to");
+		await page.screenshot("9b-messenger-reactions");
+
+		// The add chip: quiet until the message is hovered, focused or open,
+		// and always there after a finger.
+		page.check(
+			`Messenger: the add chip is hidden while nothing points at the message (${JSON.stringify(
+				three.add
+			)})`,
+			three.add?.opacity === "0"
+		);
+		await scrollTo("message", "shipped!");
+		await page.hover(
+			'#chat .chat .msg[data-type="message"]',
+			await page.evaluate(ROW_WITH("shipped!", "message"))
+		);
+		await page.sleep(200);
+		page.check(
+			"Messenger: hovering the message brings the add chip",
+			(await page.evaluate(CHIPS("shipped!"))).add?.opacity === "1"
+		);
+		await page.screenshot("9c-messenger-reactions-hover");
+		await unhover();
+		await page.sleep(200);
+		await page.evaluate(
+			`[...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("shipped!")).querySelector(".msg-reaction-add").focus({focusVisible: true})`
+		);
+		await page.sleep(250);
+		const focused = await page.evaluate(`(() => {
+			const a = document.activeElement;
+			const out = {add: a.matches(".msg-reaction-add"), tab: a.tabIndex, disabled: a.disabled, opacity: getComputedStyle(a).opacity};
+			a.blur();
+			return out;
+		})()`);
+		page.check(
+			`Messenger: the add chip is in the tab order and shows on a keyboard's focus (${JSON.stringify(
+				focused
+			)})`,
+			focused.add && focused.tab >= 0 && !focused.disabled && focused.opacity === "1"
+		);
+		await page.evaluate(`document.documentElement.dataset.input = "touch"`);
+		await page.sleep(250);
+		page.check(
+			"Messenger, after a finger: the add chip is always there",
+			(await page.evaluate(CHIPS("shipped!"))).add?.opacity === "1"
+		);
+		await page.evaluate(`document.documentElement.dataset.input = "pointer"`);
+
+		const chipInk = await page.evaluate(`(() => {
+			const paint = ${PAINT};
+			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("shipped!"));
+			const chip = m.querySelector(".msg-reaction:not(.self, .msg-reaction-add)");
+			return {border: paint(getComputedStyle(chip).borderTopColor), text: paint(getComputedStyle(m).getPropertyValue("--body-color").trim())};
+		})()`);
 		await contrast(true);
 		await contrastLifts("Messenger");
+		const chipInkMore = await page.evaluate(`(() => {
+			const paint = ${PAINT};
+			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("shipped!"));
+			const chip = m.querySelector(".msg-reaction:not(.self, .msg-reaction-add)");
+			return {border: paint(getComputedStyle(chip).borderTopColor), text: paint(getComputedStyle(m).getPropertyValue("--body-color").trim())};
+		})()`);
+		page.check(
+			`Messenger, Increase Contrast: a chip's edge in the text colour (${JSON.stringify({
+				chipInk,
+				chipInkMore,
+			})})`,
+			chipInk.border !== chipInk.text && chipInkMore.border === chipInkMore.text
+		);
 		await contrast(false);
 
 		// Forced colours: a mention's bar in the system's highlight.
@@ -897,14 +1233,43 @@ export default async function run(page) {
 			mentionBar.bar === mentionBar.want && parseFloat(mentionBar.width) > 0
 		);
 		await quoteRing("Messenger, forced colours");
+		const forcedChip = await page.evaluate(CHIPS("shipped!"));
+		page.check(
+			`Messenger, forced colours: each chip has a visible edge (${forcedChip.border})`,
+			!forcedChip.border.startsWith("rgba(0, 0, 0, 0)") && /solid$/.test(forcedChip.border)
+		);
+		await scrollTo("message", "shipped!");
+		await page.screenshot("9d-messenger-reactions-forced-colors");
 		await page.send("Emulation.setEmulatedMedia", {features: []});
 
 		await page.evaluate(`document.documentElement.dir = "rtl"`);
 		await page.sleep(200);
 		await toolbarFits("yep", "Messenger channel, right to left");
+		await chipsHang("shipped!", "Messenger, right to left");
+		await chipsHang("vote on the release name", "Messenger, right to left, ten chips");
+		page.check("Messenger, right to left: no sideways scroll", await noSideScroll());
+		await scrollTo("message", "the middle one, reacted to");
+		await page.screenshot("9e-messenger-rtl-reactions");
 		await open(PEER, "sending you a screenshot");
 		await toolbarFits("yep", "Messenger query, right to left, theirs");
 		await toolbarFits("sending you a screenshot", "Messenger query, right to left, ours");
+		await chipsHang(
+			"here it is, the phone at 390",
+			"Messenger query, right to left, our own",
+			"end"
+		);
+		await chipsHang("can you send it again?", "Messenger query, right to left, theirs");
+		const rtlOwnAction = await actionHover(
+			"sends the screenshot",
+			"Messenger query, right to left"
+		);
+		page.check(
+			`Messenger query, right to left, our own action hovered: its time before its words, inside the pane (${JSON.stringify(
+				rtlOwnAction
+			)})`,
+			rtlOwnAction.shown === "visible" && rtlOwnAction.inside && rtlOwnAction.toolbar
+		);
+		await page.screenshot("9f-messenger-rtl-query");
 		await page.evaluate(`document.documentElement.dir = "ltr"`);
 		await open(CHANNEL, "looks good from here");
 
@@ -951,6 +1316,47 @@ export default async function run(page) {
 		await page.sleep(300);
 		await whoisSpaced("phone Messenger");
 		await toolbarFits("yep", "phone Messenger channel, a short line");
+		const phoneWrap = await chipsHang("vote on the release name", "phone Messenger, ten chips");
+		page.check(
+			`phone Messenger: ten chips wrap (${phoneWrap.lines} lines) and stay clear of the next row`,
+			phoneWrap.lines >= 2
+		);
+		await chipsHang("the middle one, reacted to", "phone Messenger, a run's middle line");
+		page.check("phone Messenger channel: no sideways scroll", await noSideScroll());
+		await scrollTo("message", "vote on the release name");
+		await page.screenshot("12a-phone-messenger-reactions");
+		const phoneHover = await actionHover("nods along", "phone Messenger");
+		page.check(
+			`phone Messenger, an action hovered: its time inside the pane, the toolbar too (${JSON.stringify(
+				phoneHover
+			)})`,
+			phoneHover.shown === "visible" && phoneHover.inside && phoneHover.toolbar
+		);
+		await page.evaluate(update("fontSize", "huge"));
+		await page.sleep(400);
+		await chipsHang("vote on the release name", "phone Messenger at the largest text step");
+		// What reaches past the pane: the chips and the actions add nothing
+		// sideways. (A first line's header can, here: a nick and its time wider
+		// than the bubble, the notice's "Notice: @alice 12:07 PM", run its time
+		// out past the bubble; that is the header's, from before the chips.)
+		const pastPane = await page.evaluate(`(() => {
+			const c = document.querySelector("#chat .chat");
+			const r = c.getBoundingClientRect();
+			const right = r.left + c.clientWidth;
+			return [...c.querySelectorAll('.msg-reactions, .msg-reaction, .msg[data-type="action"], .msg[data-type="action"] > *')]
+				.filter((e) => e.getBoundingClientRect().right > right + 0.5 || e.getBoundingClientRect().left < r.left - 0.5)
+				.map((e) => e.className);
+		})()`);
+		page.check(
+			`phone Messenger at the largest text step: no chip, row of chips or action reaches past the pane (${JSON.stringify(
+				pastPane
+			)})`,
+			pastPane.length === 0
+		);
+		await scrollTo("message", "vote on the release name");
+		await page.screenshot("12b-phone-messenger-huge-reactions");
+		await page.evaluate(update("fontSize", "medium"));
+		await page.sleep(300);
 		await open(PEER, "sending you a screenshot");
 		const phoneMine = await geometry("message", "sending you a screenshot");
 		const phonePeer = await geometry("message", "hey, got a minute");
@@ -965,6 +1371,9 @@ export default async function run(page) {
 		await page.screenshot("12-phone-messenger-query");
 		await toolbarFits("yep", "phone Messenger query, a short line of theirs");
 		await toolbarFits("sending you a screenshot", "phone Messenger query, our own");
+		await chipsHang("here it is, the phone at 390", "phone Messenger query, our own", "end");
+		await scrollTo("action", "sends the screenshot");
+		await page.screenshot("12c-phone-messenger-query-reactions");
 	} finally {
 		await ircd.close();
 	}

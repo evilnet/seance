@@ -390,6 +390,13 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			["--bubble-highlight-bg", "--bubble-fg-muted", 4.5],
 			["--bubble-highlight-bg", "--bubble-link", 4.5],
 			["--bubble-bg", "--bubble-notice", 4.5],
+			// A reaction chip hangs half off its bubble, on a fill of its own:
+			// its text and its count (the bubble's muted ink) on that fill,
+			// theirs and ours.
+			["--bubble-reaction-bg", "--body-color", 4.5],
+			["--bubble-reaction-bg", "--bubble-fg-muted", 4.5],
+			["--bubble-reaction-own-bg", "--body-color", 4.5],
+			["--bubble-reaction-own-bg", "--bubble-fg-muted", 4.5],
 			// Workspace, in the same themes: its rows take the same inks as a
 			// bubble, and its words, times, links and a notice's words hold on
 			// the plain row, the hover tint, the mention band and our own band.
@@ -446,6 +453,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			"--bubble-bg": "--window-bg-color",
 			"--bubble-own-bg": "--window-bg-color",
 			"--bubble-highlight-bg": "--window-bg-color",
+			"--bubble-reaction-bg": "--window-bg-color",
+			"--bubble-reaction-own-bg": "--window-bg-color",
 			"--workspace-hover": "--window-bg-color",
 			"--workspace-own": "--window-bg-color",
 		};
@@ -467,6 +476,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			"--bubble-bg",
 			"--bubble-own-bg",
 			"--bubble-highlight-bg",
+			"--bubble-reaction-bg",
+			"--bubble-reaction-own-bg",
 			"--workspace-hover",
 			"--workspace-own",
 		]);

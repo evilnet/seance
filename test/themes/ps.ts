@@ -1137,7 +1137,10 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 			for (const selector of r.selectors) {
 				const surface = subjectOf(selector);
 
-				if (!surface) {
+				// Never under ps: Messenger's paint for the themes on plain
+				// colours (style.css § The looks) is keyed on the attribute ps
+				// always carries being absent.
+				if (!surface || /^html\S*:not\(\[data-bubble-paint\]\)/.test(selector)) {
 					continue;
 				}
 
