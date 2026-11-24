@@ -388,6 +388,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			["--bubble-own-bg", "--bubble-link", 4.5],
 			["--bubble-highlight-bg", "--body-color", 4.5],
 			["--bubble-highlight-bg", "--bubble-fg-muted", 4.5],
+			["--bubble-highlight-bg", "--bubble-link", 4.5],
+			["--bubble-bg", "--bubble-notice", 4.5],
 		];
 		// Bubbles are drawn only in the themes that offer them.
 		const BUBBLES_ONLY = (theme: string, surface: string) =>

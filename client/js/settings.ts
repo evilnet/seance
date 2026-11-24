@@ -74,8 +74,6 @@ function loadTheme(store: TypedStore): void {
 
 	const value = shownTheme(store);
 
-	applyMessageLayout(store, value);
-
 	// A theme's own scene, if it has one (client/js/themeScene.ts).
 	void themeScene.setTheme(value);
 
@@ -100,11 +98,20 @@ function loadTheme(store: TypedStore): void {
 	// first call is measured against what this function last applied, not
 	// the href: the browser chrome's colour is still this function's to set.
 	if (value === appliedTheme) {
+		applyMessageLayout(store, value);
 		return;
 	}
 
 	if (hrefAttr.value !== themeUrl) {
+		// The layout follows the stylesheet in: set before it loads, ps's
+		// shape would show with the paint already left to a ps.css not there
+		// yet. Read again on load, in case the theme changed meanwhile.
+		themeEl.addEventListener("load", () => applyMessageLayout(store, shownTheme(store)), {
+			once: true,
+		});
 		hrefAttr.value = themeUrl;
+	} else {
+		applyMessageLayout(store, value);
 	}
 
 	if (!store.state.serverConfiguration) {

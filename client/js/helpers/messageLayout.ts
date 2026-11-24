@@ -33,9 +33,6 @@ export const bubbleThemes: ReadonlySet<string> = new Set([
 	"macos",
 ]);
 
-/** Themes that are always Bubbles and paint the bubbles themselves. */
-export const themePaintedBubbles: ReadonlySet<string> = new Set(["ps"]);
-
 /** A stored setting can be anything; anything but the two names means the default. */
 export function normalizeMessageLayout(value: unknown): MessageLayout {
 	return messageLayouts.includes(value as MessageLayout)
@@ -51,14 +48,15 @@ export function themeOffersBubbles(theme: string): boolean {
 /** The layout to apply in `theme`, or null where the theme has no choice
  * and `data-message-layout` is left off. */
 export function messageLayoutFor(value: unknown, theme: string): MessageLayout | null {
-	if (themePaintedBubbles.has(theme)) {
+	if (themePaintsBubbles(theme)) {
 		return "bubbles";
 	}
 
 	return themeOffersBubbles(theme) ? normalizeMessageLayout(value) : null;
 }
 
-/** Whether `theme` paints its bubbles itself (`data-bubble-paint="theme"`). */
+/** Whether `theme` is always Bubbles and paints them itself
+ * (`data-bubble-paint="theme"`): ps alone. */
 export function themePaintsBubbles(theme: string): boolean {
-	return themePaintedBubbles.has(theme);
+	return theme === "ps";
 }
