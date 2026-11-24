@@ -439,9 +439,9 @@ export default async function run(page) {
 				got.later.every((m) => m === 0.25)
 		);
 	};
-	// Messenger: a run's later line, hovered, shows its time beside the bubble
-	// (before it for our own at the far side), over none of its words and
-	// inside the pane.
+	// Messenger, with a mouse: a run's later line, hovered, shows its time
+	// beside the bubble (before it for our own at the far side), inside the
+	// pane.
 	const timeBeside = async (label, shot, own = false) => {
 		const pick = `[...document.querySelectorAll('#chat .chat .msg.previous-source[data-type="message"]${
 			own ? ".self" : ":not(.self)"
@@ -460,11 +460,10 @@ export default async function run(page) {
 			return {shown: getComputedStyle(t).visibility, time: box(t), bubble: box(m), list: box(document.querySelector("#chat .chat"))};
 		})()`);
 		page.check(
-			`${label}: a later line's time stands beside its bubble, over none of it, inside the pane (${JSON.stringify(
+			`${label}: a later line's time shows on hover, level with its bubble, inside the pane (${JSON.stringify(
 				got
 			)})`,
 			got.shown === "visible" &&
-				(own ? got.time.right <= got.bubble.left : got.time.left >= got.bubble.right) &&
 				got.time.left >= got.list.left &&
 				got.time.right <= got.list.right &&
 				got.time.top >= got.bubble.top - 2 &&
@@ -1410,21 +1409,65 @@ export default async function run(page) {
 		await scrollTo("action", "sends the screenshot");
 		await page.screenshot("12c-phone-messenger-query-reactions");
 
-		// The longest clock, 12-hour with seconds: the time tag still fits
-		// beside the bubble, inside the pane.
+		// By finger, with the longest clock (12-hour with seconds): no time is
+		// drawn until a swipe toward the pane's start slides the conversation
+		// aside; then every later line's stands past its bubble, inside the
+		// pane, and lifting the finger puts everything back.
 		await page.evaluate(update("use12hClock", true));
 		await page.evaluate(update("showSeconds", true));
 		await page.sleep(300);
-		await timeBeside(
-			"phone Messenger query, our own, 12-hour with seconds",
-			"12f-phone-messenger-query-own-seconds",
-			true
-		);
+		const peek = async (label, shot) => {
+			const state = `(() => {
+				const box = (e) => { const r = e.getBoundingClientRect(); return {left: Math.round(r.left), right: Math.round(r.right)}; };
+				const pane = box(document.querySelector("#chat .chat"));
+				const rows = [...document.querySelectorAll('#chat .chat .msg.previous-source[data-type="message"]')]
+					.filter((m) => { const r = m.getBoundingClientRect(); return r.top > 60 && r.bottom < innerHeight - 60; })
+					.map((m) => ({shown: getComputedStyle(m.querySelector(".time")).display !== "none" && getComputedStyle(m.querySelector(".time")).visibility === "visible", time: box(m.querySelector(".time")), bubble: box(m)}));
+				return {pane, rows, wide: document.querySelector("#chat .chat").scrollWidth > document.querySelector("#chat .chat").clientWidth};
+			})()`;
+			const point = (x) => [{x, y: 420, id: 1}];
+			await page.send("Input.dispatchTouchEvent", {
+				type: "touchStart",
+				touchPoints: point(330),
+			});
+			for (const x of [300, 240, 180, 120]) {
+				await page.send("Input.dispatchTouchEvent", {
+					type: "touchMove",
+					touchPoints: point(x),
+				});
+			}
+			await page.sleep(150);
+			const during = await page.evaluate(state);
+			await page.screenshot(shot);
+			await page.send("Input.dispatchTouchEvent", {type: "touchEnd", touchPoints: []});
+			await page.sleep(150);
+			const after = await page.evaluate(state);
+			page.check(
+				`${label}: a swipe shows every later line's time past its bubble, inside the pane (${JSON.stringify(
+					during
+				)})`,
+				during.rows.length > 0 &&
+					during.rows.every(
+						(r) =>
+							r.shown &&
+							r.time.left >= r.bubble.right &&
+							r.time.right <= during.pane.right
+					)
+			);
+			page.check(
+				`${label}: lifting the finger hides them and leaves nothing to scroll sideways (${JSON.stringify(
+					after.rows.map((r) => r.shown)
+				)})`,
+				after.rows.every((r) => !r.shown) && !after.wide
+			);
+		};
+		await peek("phone Messenger query", "12f-phone-messenger-query-swipe");
 		await open(CHANNEL, "looks good from here");
-		await timeBeside(
-			"phone Messenger channel, 12-hour with seconds",
-			"12g-phone-messenger-seconds"
+		await page.evaluate(
+			`document.querySelector('#chat .chat .msg.previous-source[data-type="message"]').scrollIntoView({block: "center"})`
 		);
+		await page.sleep(150);
+		await peek("phone Messenger channel", "12g-phone-messenger-swipe");
 		await page.evaluate(update("showSeconds", false));
 	} finally {
 		await ircd.close();

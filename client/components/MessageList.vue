@@ -2,7 +2,7 @@
 	<div
 		ref="chat"
 		class="chat"
-		:class="{selecting, 'selection-live': selectionActive}"
+		:class="{selecting, 'selection-live': selectionActive, 'time-peek': timePeek}"
 		tabindex="-1"
 	>
 		<div
@@ -100,6 +100,7 @@ import clipboard from "../js/clipboard";
 import {continuesRun} from "../js/helpers/messageRuns";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
+import {scrollerTakesSwipe} from "../js/helpers/sidewaysSwipe";
 import socket from "../js/socket";
 import {translationOn} from "../js/translate";
 import {onScreen} from "../js/translate/reader";
@@ -868,8 +869,54 @@ export default defineComponent({
 		// must not decide whether the list is still pinned.
 		let seenHeight = 0;
 
-		const touchDown = () => noteTouch(true);
-		const touchUp = () => noteTouch(false);
+		// A sideways swipe toward the pane's start slides the conversation
+		// aside to show the times that take no room (style.css § By finger).
+		// Only the travel is ours: the stylesheet caps it and decides which
+		// looks have such times.
+		const timePeek = ref(false);
+		let peekFrom: Touch | undefined;
+
+		const touchDown = (e: TouchEvent) => {
+			noteTouch(true);
+			peekFrom = e.touches.length === 1 && !selectionActive.value ? e.touches[0] : undefined;
+		};
+
+		const peekMove = (e: TouchEvent) => {
+			const touch = e.touches[0];
+
+			if (!peekFrom || !chat.value || !touch) {
+				return;
+			}
+
+			const toStart = document.documentElement.dir === "rtl" ? -1 : 1;
+			const dx = toStart * (peekFrom.clientX - touch.clientX);
+
+			if (!timePeek.value) {
+				// A scroll, or a swipe in something that scrolls sideways itself.
+				if (
+					Math.abs(touch.clientY - peekFrom.clientY) > Math.abs(dx) ||
+					(e.target instanceof Element && scrollerTakesSwipe(e.target, false))
+				) {
+					peekFrom = undefined;
+					return;
+				}
+
+				if (dx < 8) {
+					return;
+				}
+
+				timePeek.value = true;
+			}
+
+			chat.value.style.setProperty("--time-peek", `${Math.max(0, dx)}px`);
+		};
+
+		const touchUp = () => {
+			noteTouch(false);
+			peekFrom = undefined;
+			timePeek.value = false;
+			chat.value?.style.removeProperty("--time-peek");
+		};
 
 		const handleScroll = () => {
 			// The list is moving: a page arriving now is held (scrollSettle.ts).
@@ -925,6 +972,7 @@ export default defineComponent({
 			watchSelection();
 			chat.value?.addEventListener("scroll", handleScroll, {passive: true});
 			chat.value?.addEventListener("touchmove", dismissKeyboard, {passive: true});
+			chat.value?.addEventListener("touchmove", peekMove, {passive: true});
 			chat.value?.addEventListener("touchstart", touchDown, {passive: true});
 			chat.value?.addEventListener("touchend", touchUp, {passive: true});
 			chat.value?.addEventListener("touchcancel", touchUp, {passive: true});
@@ -1073,6 +1121,7 @@ export default defineComponent({
 			}
 
 			chat.value?.removeEventListener("touchmove", dismissKeyboard);
+			chat.value?.removeEventListener("touchmove", peekMove);
 			chat.value?.removeEventListener("touchstart", touchDown);
 			chat.value?.removeEventListener("touchend", touchUp);
 			chat.value?.removeEventListener("touchcancel", touchUp);
@@ -1103,6 +1152,7 @@ export default defineComponent({
 			jumpToBottom,
 			selecting,
 			selectionActive,
+			timePeek,
 			onPointerDown,
 		};
 	},
