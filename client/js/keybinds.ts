@@ -7,6 +7,7 @@ import {switchToChannel, router, navigate, leavePage} from "./router";
 import {topEscapeLayer} from "./helpers/escapeLayer";
 import isChannelCollapsed from "./helpers/isChannelCollapsed";
 import isIgnoredKeybind from "./helpers/isIgnoredKeybind";
+import controlTakesKey from "./helpers/controlTakesKey";
 import {numberShortcutModifier} from "./helpers/numberShortcut";
 import {nativeListen, nativePlatform} from "./helpers/shell";
 import {ClientChan} from "./types";
@@ -328,6 +329,15 @@ document.addEventListener("keydown", (e) => {
 		tagName === "TEXTAREA" ||
 		(e.target as HTMLElement).isContentEditable
 	) {
+		return;
+	}
+
+	// Enter and Space belong to a control that has the focus (a button, a
+	// link, a select, a summary, anything role="button"): redirecting them to
+	// the composer cancels the activation, and Enter is the key that is
+	// prevented, so the control never sees a click. Every other key still
+	// goes to the input, so typing with a button focused keeps working.
+	if (controlTakesKey(e.target, e.which)) {
 		return;
 	}
 
