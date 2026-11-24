@@ -18,6 +18,7 @@ import {nativeAlertsAvailable, requestAttention, showNativeAlert} from "../helpe
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
 import {liveKindOf, liveRows} from "../liveRows";
+import {condensedTypes} from "../../../shared/irc";
 
 socket.on("msg", function (data) {
 	const receivingChannel = store.getters.findChannel(data.chan);
@@ -86,8 +87,9 @@ socket.on("msg", function (data) {
 	// never history, catch-up, a placed line or a notice rerouted here, and
 	// only while the list it goes into is the one on screen. A past view
 	// buffers live lines out of sight ("Jump to present" draws them later),
-	// and a join under hidden status messages has no row until the setting
-	// changes, so neither is noted: a note is for a row drawn as it arrives.
+	// and a status line (join, part, quit, kick) under hidden status messages
+	// has no row until the setting changes, so neither is noted: a note is for
+	// a row drawn as it arrives.
 	if (
 		isActiveChannel &&
 		!rerouted &&
@@ -98,7 +100,13 @@ socket.on("msg", function (data) {
 	) {
 		const kind = liveKindOf(data.msg);
 
-		if (kind && !(kind === "join" && store.state.settings.statusMessages === "hidden")) {
+		if (
+			kind &&
+			!(
+				store.state.settings.statusMessages === "hidden" &&
+				condensedTypes.has(data.msg.type ?? "")
+			)
+		) {
 			liveRows.mark(data.msg.id, kind);
 		}
 	}

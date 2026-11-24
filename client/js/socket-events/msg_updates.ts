@@ -14,6 +14,7 @@ import {
 } from "../helpers/messageUpdates";
 import {forgetTranslations} from "../translate/reader";
 import {afterHeldPage} from "../helpers/heldPages";
+import {chipKey, liveChips, reactionArrival} from "../liveRows";
 
 function lookup(chan: number, id: number) {
 	const target = store.getters.findChannel(chan);
@@ -37,11 +38,31 @@ socket.on("reply:parent", function ({chan, msgid, nick, text}) {
 // for that page (helpers/heldPages.ts).
 socket.on("msg:react", function (data) {
 	afterHeldPage(data.chan, () => {
-		const message = lookup(data.chan, data.id);
+		const target = store.getters.findChannel(data.chan);
+		const message = target && findMessageById(target.channel.messages, data.id);
 
-		if (message) {
-			applyReaction(message, data.text, data.nick, data.remove);
+		if (!message) {
+			return;
 		}
+
+		// A reaction arriving live on a message of the open conversation, for
+		// its chip (liveRows.ts): never one replayed with history, nor while a
+		// past view holds the conversation's rows out of sight or the page is
+		// hidden, as for a live row (socket-events/msg.ts).
+		if (
+			!data.replay &&
+			store.state.activeChannel?.channel === target.channel &&
+			!target.channel.past &&
+			document.visibilityState === "visible"
+		) {
+			const kind = reactionArrival(message.reactions, data.text, data.nick, data.remove);
+
+			if (kind) {
+				liveChips.mark(chipKey(message.id, data.text), kind);
+			}
+		}
+
+		applyReaction(message, data.text, data.nick, data.remove);
 	});
 });
 

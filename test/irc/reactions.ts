@@ -13,6 +13,7 @@ interface ReactPayload {
 	text: string;
 	nick: string;
 	remove: boolean;
+	replay?: boolean;
 }
 
 const NO_ECHO = ALL_CAPS.replace("echo-message ", "");
@@ -312,8 +313,9 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			expect(more[0].messages.map((m) => m.msgid)).to.deep.equal(["h1"]);
 			const oldId = more[0].messages[0].id;
 			expect(oldId).to.be.lessThan(0);
+			// Replayed, so not a live arrival (a theme's data-arrived, liveRows.ts).
 			expect(h.payloads<ReactPayload>("msg:react")).to.deep.equal([
-				{chan: id, id: oldId, text: "👍", nick: "carol", remove: false},
+				{chan: id, id: oldId, text: "👍", nick: "carol", remove: false, replay: true},
 			]);
 			const events = h.events();
 			expect(events.indexOf("more")).to.be.lessThan(events.indexOf("msg:react"));

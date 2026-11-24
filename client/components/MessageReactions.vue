@@ -5,7 +5,8 @@
 	     A badge is keyed on its text alone, so toggling yours on and off
 	     never remounts it — it keeps its identity (and a keyboard user's
 	     focus) across the toggle. A theme can hang its own flourish on the
-	     same enter classes. -->
+	     same enter classes, or on `data-arrived`, which only a reaction
+	     arriving live sets (liveRows.ts). -->
 	<Transition name="reactions">
 		<span v-if="badges.length" class="msg-reactions" role="group" :aria-label="groupAria">
 			<TransitionGroup name="reaction" tag="span" class="msg-reactions-list">
@@ -15,6 +16,7 @@
 					type="button"
 					class="msg-reaction tooltipped tooltipped-n"
 					:class="{self: badge.self, word: !badge.emoji}"
+					:data-arrived="arrived[badge.text]"
 					:disabled="!canToggle"
 					:aria-pressed="badge.self"
 					:aria-label="badge.label"
@@ -53,13 +55,14 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, PropType, ref, watch} from "vue";
+import {computed, defineComponent, onBeforeUnmount, PropType, reactive, ref, watch} from "vue";
 import socket from "../js/socket";
 import {useI18n} from "../js/i18n";
 import {isEmojiOnly, loadEmojiCatalog} from "../js/helpers/emoji";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {rememberReaction} from "../js/helpers/reactionRecents";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
+import {chipKey, LIVE_HOLD_MS, liveChips, type ArrivalKind} from "../js/liveRows";
 import ReactionPicker from "./ReactionPicker.vue";
 
 type Badge = {
@@ -79,6 +82,8 @@ export default defineComponent({
 		message: {type: Object as PropType<ClientMessage>, required: true},
 		channel: {type: Object as PropType<ClientChan>, required: false},
 		network: {type: Object as PropType<ClientNetwork>, required: true},
+		/** A row of the open conversation's list, whose chips may claim a live note. */
+		inChat: Boolean,
 	},
 	setup(props) {
 		const {t} = useI18n();
@@ -111,6 +116,51 @@ export default defineComponent({
 				};
 			});
 		});
+
+		// A reaction that arrived live (socket-events/msg_updates.ts notes it):
+		// its chip carries `data-arrived` for LIVE_HOLD_MS from when it takes
+		// the note, which it does once, so a chip drawn again later (another
+		// conversation and back) is not new. Another nick on a chip already
+		// shown is noted too, so this looks again whenever the reactions change.
+		const arrived = reactive<Record<string, ArrivalKind>>({});
+		const arrivedTimers = new Map<string, number>();
+
+		watch(
+			() => props.message.reactions,
+			(reactions) => {
+				if (!props.inChat) {
+					return;
+				}
+
+				// A chip taken off is gone with its note: put back, it is new.
+				for (const text of Object.keys(arrived)) {
+					if (!reactions?.some((r) => r.text === text)) {
+						window.clearTimeout(arrivedTimers.get(text));
+						arrivedTimers.delete(text);
+						delete arrived[text];
+					}
+				}
+
+				for (const {text} of reactions ?? []) {
+					const kind = liveChips.take(chipKey(props.message.id, text));
+
+					if (kind) {
+						arrived[text] = kind;
+						window.clearTimeout(arrivedTimers.get(text));
+						arrivedTimers.set(
+							text,
+							window.setTimeout(() => {
+								delete arrived[text];
+								arrivedTimers.delete(text);
+							}, LIVE_HOLD_MS)
+						);
+					}
+				}
+			},
+			{immediate: true}
+		);
+
+		onBeforeUnmount(() => arrivedTimers.forEach((timer) => window.clearTimeout(timer)));
 
 		const canToggle = computed(
 			() => !!props.channel && !!props.message.msgid && props.network.status.connected
@@ -152,6 +202,7 @@ export default defineComponent({
 
 		return {
 			t,
+			arrived,
 			groupAria,
 			addAria,
 			badges,

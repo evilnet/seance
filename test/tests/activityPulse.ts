@@ -5,9 +5,13 @@ import {
 	ACTIVITY_SWEEP_INTERVAL,
 	ActivityExpiry,
 	isActivity,
+	MentionExpiry,
 	noteActivity,
+	noteMention,
 	type ActivityHolder,
+	type MentionHolder,
 } from "../../client/js/helpers/activityPulse";
+import {LIVE_HOLD_MS} from "../../client/js/liveRows";
 import {MessageType} from "../../shared/types/msg";
 
 describe("sidebar activity pulse", function () {
@@ -159,6 +163,46 @@ describe("sidebar activity pulse", function () {
 
 			clock.tick(ACTIVITY_PULSE_MS + ACTIVITY_SWEEP_INTERVAL);
 			expect(channels[0].activityUntil).to.be.greaterThan(0);
+		});
+	});
+
+	describe("a mention elsewhere (data-mentioned)", function () {
+		let clock: sinon.SinonFakeTimers;
+
+		beforeEach(function () {
+			clock = sinon.useFakeTimers({now: 1_000_000});
+		});
+
+		afterEach(function () {
+			clock.restore();
+		});
+
+		it("holds for LIVE_HOLD_MS, and lapses within a sweep after", function () {
+			const channels: MentionHolder[] = [{mentionUntil: 0}, {mentionUntil: 0}];
+			const sweep = new MentionExpiry(() => channels);
+			noteMention(channels[1], Date.now());
+			sweep.schedule();
+
+			clock.tick(LIVE_HOLD_MS - 1);
+			expect(channels[1].mentionUntil).to.be.greaterThan(0);
+			clock.tick(ACTIVITY_SWEEP_INTERVAL + 1);
+			expect(channels[1].mentionUntil).to.equal(0);
+			expect(channels[0].mentionUntil).to.equal(0);
+			expect(sweep.running).to.be.false;
+		});
+
+		it("a second mention within the hold extends it, unbroken", function () {
+			const channels: MentionHolder[] = [{mentionUntil: 0}];
+			const sweep = new MentionExpiry(() => channels);
+			noteMention(channels[0], Date.now());
+			sweep.schedule();
+
+			clock.tick(2000);
+			noteMention(channels[0], Date.now());
+			clock.tick(LIVE_HOLD_MS - 1);
+			expect(channels[0].mentionUntil).to.be.greaterThan(0);
+			clock.tick(ACTIVITY_SWEEP_INTERVAL + 1);
+			expect(channels[0].mentionUntil).to.equal(0);
 		});
 	});
 });

@@ -20,6 +20,7 @@
 		:title="getAriaLabel()"
 		:data-name="channel.name"
 		:data-type="channel.type"
+		:data-mentioned="mentioned ? '' : undefined"
 		:aria-controls="'#chan-' + channel.id"
 		:aria-selected="active"
 		:style="channel.closed ? {transition: 'none', opacity: 0.4} : undefined"
@@ -83,6 +84,13 @@ export default defineComponent({
 		// and cleared by the shared sweep in helpers/activityPulse.ts, so a
 		// non-zero value here always means a pulse that is still running.
 		const hasActivity = computed(() => props.channel.activityUntil > 0);
+
+		// A live mention here while another conversation is open: the row
+		// carries `data-mentioned` for a theme to pulse (docs/resources/themes.md
+		// § Live rows), on the same deadline-and-sweep as the pulse above
+		// (socket-events/activity.ts sets it, opening the conversation ends it).
+		// style.css shows nothing for it.
+		const mentioned = computed(() => props.channel.mentionUntil > 0 && !props.active);
 
 		// The row's label is one whole phrase: the kind of window, its name
 		// and — at most — one count. Two tCount results are never glued
@@ -152,6 +160,7 @@ export default defineComponent({
 			isChannelVisible,
 			isTyping,
 			hasActivity,
+			mentioned,
 			getAriaLabel,
 			click,
 			openContextMenu,

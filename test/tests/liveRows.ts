@@ -1,6 +1,13 @@
 import {expect} from "chai";
 import {MessageType} from "../../shared/types/msg";
-import {createLiveRows, liveKindOf, LIVE_MS} from "../../client/js/liveRows";
+import {
+	chipKey,
+	createLiveRows,
+	liveKindOf,
+	LIVE_MS,
+	reactionArrival,
+	type ArrivalKind,
+} from "../../client/js/liveRows";
 
 describe("live rows (liveRows.ts)", function () {
 	describe("liveKindOf", function () {
@@ -12,21 +19,72 @@ describe("live rows (liveRows.ts)", function () {
 			expect(liveKindOf({type: MessageType.JOIN})).to.equal("join");
 		});
 
-		it("never marks our own lines, a pending copy, an edit or another kind", function () {
-			expect(liveKindOf({type: MessageType.MESSAGE, self: true})).to.equal(null);
-			expect(liveKindOf({type: MessageType.JOIN, self: true})).to.equal(null);
+		it("marks someone leaving: a part, a quit, a kick", function () {
+			expect(liveKindOf({type: MessageType.PART})).to.equal("part");
+			expect(liveKindOf({type: MessageType.QUIT})).to.equal("quit");
+			expect(liveKindOf({type: MessageType.KICK})).to.equal("kick");
+			// A kick's `self` is the kicker, and its highlight is us kicked:
+			// someone leaves either way.
+			expect(liveKindOf({type: MessageType.KICK, self: true})).to.equal("kick");
+			expect(liveKindOf({type: MessageType.KICK, highlight: true})).to.equal("kick");
+		});
+
+		it("marks our own line as the server confirms it", function () {
+			// The echo replacing a pending copy, or the line itself without
+			// echo-message: both are a non-pending line of ours.
+			expect(liveKindOf({type: MessageType.MESSAGE, self: true})).to.equal("self");
+			expect(liveKindOf({type: MessageType.ACTION, self: true})).to.equal("self");
+			expect(liveKindOf({type: MessageType.MESSAGE, self: true, highlight: true})).to.equal(
+				"self"
+			);
+		});
+
+		it("never marks a pending copy, an edit, our own status lines or another kind", function () {
+			expect(liveKindOf({type: MessageType.MESSAGE, self: true, pending: true})).to.equal(
+				null
+			);
+			expect(liveKindOf({type: MessageType.MESSAGE, self: true, editOf: "x"})).to.equal(null);
 			expect(liveKindOf({type: MessageType.MESSAGE, pending: true})).to.equal(null);
 			expect(liveKindOf({type: MessageType.MESSAGE, editOf: "x"})).to.equal(null);
+			expect(liveKindOf({type: MessageType.KICK, editOf: "x"})).to.equal(null);
+
+			for (const type of [MessageType.JOIN, MessageType.PART, MessageType.QUIT]) {
+				expect(liveKindOf({type, self: true}), type).to.equal(null);
+			}
 
 			for (const type of [
 				MessageType.NOTICE,
-				MessageType.PART,
-				MessageType.QUIT,
+				MessageType.NICK,
 				MessageType.MODE,
 				MessageType.TOPIC,
+				MessageType.AWAY,
 			]) {
 				expect(liveKindOf({type}), type).to.equal(null);
+				expect(liveKindOf({type, self: true}), type).to.equal(null);
 			}
+		});
+	});
+
+	describe("reactionArrival", function () {
+		const r = (text: string, ...nicks: string[]) => ({text, nicks});
+
+		it("tells the message's first chip, another chip and another nick apart", function () {
+			expect(reactionArrival(undefined, "👍", "bob", false)).to.equal("first");
+			expect(reactionArrival([], "👍", "bob", false)).to.equal("first");
+			expect(reactionArrival([r("👍", "bob")], "🎉", "carol", false)).to.equal("new");
+			expect(reactionArrival([r("👍", "bob")], "👍", "carol", false)).to.equal("more");
+		});
+
+		it("marks nothing for a removal or a nick already on the chip", function () {
+			expect(reactionArrival([r("👍", "bob")], "👍", "bob", true)).to.equal(null);
+			expect(reactionArrival(undefined, "👍", "bob", true)).to.equal(null);
+			expect(reactionArrival([r("👍", "Bob")], "👍", "bob", false)).to.equal(null);
+		});
+
+		it("a reaction taken off and put back is new again", function () {
+			// After the removal the chip is gone (applyReaction drops it at zero).
+			expect(reactionArrival(undefined, "👍", "bob", false)).to.equal("first");
+			expect(reactionArrival([r("🎉", "carol")], "👍", "bob", false)).to.equal("new");
 		});
 	});
 
@@ -71,6 +129,22 @@ describe("live rows (liveRows.ts)", function () {
 			t = 0; // were it still held, a rewound clock would hand it out
 			expect(live.take(1)).to.equal(null);
 			expect(live.take(2)).to.equal("message");
+		});
+	});
+
+	describe("chips", function () {
+		it("are noted by message and text, and taken once", function () {
+			let t = 0;
+			const chips = createLiveRows<string, ArrivalKind>(() => t);
+			chips.mark(chipKey(7, "👍"), "first");
+			expect(chips.take(chipKey(7, "🎉"))).to.equal(null);
+			expect(chips.take(chipKey(8, "👍"))).to.equal(null);
+			expect(chips.take(chipKey(7, "👍"))).to.equal("first");
+			// Drawn again (another conversation and back): not new.
+			expect(chips.take(chipKey(7, "👍"))).to.equal(null);
+			chips.mark(chipKey(7, "👍"), "more");
+			t = LIVE_MS + 1;
+			expect(chips.take(chipKey(7, "👍"))).to.equal(null);
 		});
 	});
 });

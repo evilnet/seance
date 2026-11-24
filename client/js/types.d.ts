@@ -81,6 +81,12 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	 * helpers/activityPulse.ts.
 	 */
 	activityUntil: number;
+	/**
+	 * Epoch ms until which the sidebar row carries `data-mentioned`, a live
+	 * mention here while another conversation is open (0 = none), set by
+	 * socket-events/activity.ts and swept by helpers/activityPulse.ts.
+	 */
+	mentionUntil: number;
 
 	users: ClientUser[];
 };
