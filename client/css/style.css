@@ -4009,9 +4009,13 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	box-sizing: border-box;
 }
 
+/* A bubble stops short of the pane's end by `--bubble-time-room`: a run's
+ * later line shows its time there, beside the bubble (below). */
 html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
+	--bubble-time-room: 3.5rem;
+
 	width: fit-content;
-	max-width: calc(100% - var(--bubble-gutter) - 1.875rem);
+	max-width: calc(100% - var(--bubble-gutter) - 1.875rem - var(--bubble-time-room));
 	margin-block: 0.5rem 0;
 	margin-inline: calc(0.625rem + var(--bubble-gutter)) 1.25rem;
 	padding-block: 0.3125rem 0.375rem;
@@ -4101,6 +4105,23 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	visibility: visible;
 }
 
+/* Messenger: beside the bubble, past its end, never over its words: a small
+ * tag in the bubble's own colours (so its contrast is the bubble's), in the
+ * room every bubble leaves (`--bubble-time-room`); held inside the pane where
+ * a bubble is wider than that (a long word, the largest text). */
+html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+	inset-block-start: 50%;
+	/* stylelint-disable-next-line unit-no-unknown -- cqi: the message list is an inline-size container; stylelint predates it */
+	inset-inline: min(100%, calc(100cqi - var(--bubble-gutter) - 5.625rem)) auto;
+	translate: 0 -50%;
+	margin-inline-start: 0.375rem;
+	padding-block: 0.125rem;
+	padding-inline: 0.4375rem;
+	border-radius: 0.75rem;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
 /* A day's divider, the "New messages" line or a gap starts a run afresh:
  * the line after it says who is speaking, as the first of a run does. */
 html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
@@ -4120,9 +4141,12 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 
 html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
 	position: static;
+	translate: none;
+	margin: 0;
 	padding: 0;
 	background: none;
 	visibility: visible;
+	pointer-events: auto;
 }
 
 /* One stack: where two of a run's bubbles meet, the corners on the
@@ -4432,7 +4456,14 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
 }
 
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]) {
-	max-width: min(calc(100% - 1.875rem), 80%);
+	max-width: min(calc(100% - 1.875rem - var(--bubble-time-room)), 80%);
+}
+
+/* Our own bubble is at the far side: its time stands before it. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
+	inset-inline: auto min(100%, calc(100cqi - 5.625rem));
+	margin-inline: 0 0.375rem;
 }
 
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar,

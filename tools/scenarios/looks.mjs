@@ -135,6 +135,9 @@ export const EXTRA = [
 	`@time=${at("12:29")};msgid=x32 ${from(PEER)} PRIVMSG ${NICK} :\x01ACTION squints at it\x01`,
 	`@time=${at("12:29")};msgid=x33 ${from(PEER)} PRIVMSG ${NICK} :can you send it again?`,
 	...react("x33", PEER, [[NICK, "👍"]]),
+	// Two of our own in a row: the second's time comes on hover, before it.
+	`@time=${at("12:30")};msgid=x34 ${from(NICK)} PRIVMSG ${PEER} :one moment`,
+	`@time=${at("12:30")};msgid=x35 ${from(NICK)} PRIVMSG ${PEER} :sent, it is in your downloads`,
 	// Short lines, for the toolbar: one in the channel, one in the query.
 	`@time=${at("12:23")};msgid=x07 ${from("frank")} PRIVMSG ${CHANNEL} :yep`,
 	`@time=${at("12:23")};msgid=x08 ${from(PEER)} PRIVMSG ${NICK} :yep`,
@@ -435,6 +438,40 @@ export default async function run(page) {
 				got.first === "0px" &&
 				got.later.every((m) => m === 0.25)
 		);
+	};
+	// Messenger: a run's later line, hovered, shows its time beside the bubble
+	// (before it for our own at the far side), over none of its words and
+	// inside the pane.
+	const timeBeside = async (label, shot, own = false) => {
+		const pick = `[...document.querySelectorAll('#chat .chat .msg.previous-source[data-type="message"]${
+			own ? ".self" : ":not(.self)"
+		}')].find((m) => getComputedStyle(m.querySelector(".time")).position === "absolute")`;
+		await page.evaluate(`${pick}.scrollIntoView({block: "center"})`);
+		await page.sleep(150);
+		const at = await page.evaluate(
+			`(() => { const r = ${pick}.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; })()`
+		);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: at.x, y: at.y});
+		await page.sleep(150);
+		const got = await page.evaluate(`(() => {
+			const m = ${pick};
+			const box = (e) => { const r = e.getBoundingClientRect(); return {left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom)}; };
+			const t = m.querySelector(".time");
+			return {shown: getComputedStyle(t).visibility, time: box(t), bubble: box(m), list: box(document.querySelector("#chat .chat"))};
+		})()`);
+		page.check(
+			`${label}: a later line's time stands beside its bubble, over none of it, inside the pane (${JSON.stringify(
+				got
+			)})`,
+			got.shown === "visible" &&
+				(own ? got.time.right <= got.bubble.left : got.time.left >= got.bubble.right) &&
+				got.time.left >= got.list.left &&
+				got.time.right <= got.list.right &&
+				got.time.top >= got.bubble.top - 2 &&
+				got.time.bottom <= got.bubble.bottom + 2
+		);
+		if (shot) await page.screenshot(shot);
+		await unhover();
 	};
 	// A later line's hover time over a link: the link still takes the click.
 	const timeLetsThrough = async (label) => {
@@ -1010,6 +1047,7 @@ export default async function run(page) {
 				peer2.time.visibility === "hidden"
 		);
 		await page.screenshot("9-messenger-query");
+		await timeBeside("Messenger query, theirs", "9g-messenger-query-time");
 		await toolbarFits("yep", "Messenger query, a short line of theirs");
 		await toolbarFits("sending you a screenshot", "Messenger query, our own at the far side");
 		await chipsHang("here it is, the phone at 390", "Messenger query, our own", "end");
@@ -1052,6 +1090,7 @@ export default async function run(page) {
 		);
 		await scrollTo("action", "sends the screenshot");
 		await page.screenshot("9a-messenger-query-reactions-actions");
+		await timeBeside("Messenger query, our own", "9h-messenger-query-own-time", true);
 		await open(CHANNEL, "looks good from here");
 		const mFirst = await geometry("message", "morning all");
 		page.check(
@@ -1325,6 +1364,7 @@ export default async function run(page) {
 		page.check("phone Messenger channel: no sideways scroll", await noSideScroll());
 		await scrollTo("message", "vote on the release name");
 		await page.screenshot("12a-phone-messenger-reactions");
+		await timeBeside("phone Messenger channel", "12d-phone-messenger-time");
 		const phoneHover = await actionHover("nods along", "phone Messenger");
 		page.check(
 			`phone Messenger, an action hovered: its time inside the pane, the toolbar too (${JSON.stringify(
@@ -1369,6 +1409,11 @@ export default async function run(page) {
 		);
 		page.check("phone Messenger query: no sideways scroll", await noSideScroll());
 		await page.screenshot("12-phone-messenger-query");
+		await timeBeside(
+			"phone Messenger query, our own",
+			"12e-phone-messenger-query-own-time",
+			true
+		);
 		await toolbarFits("yep", "phone Messenger query, a short line of theirs");
 		await toolbarFits("sending you a screenshot", "phone Messenger query, our own");
 		await chipsHang("here it is, the phone at 390", "phone Messenger query, our own", "end");
