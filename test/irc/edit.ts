@@ -438,6 +438,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			}
 
 			const query = h.client.announceChannel("bob", ChanType.QUERY);
+			sinon.spy(h.client.conversations, "edit");
 			h.client.input(query.id, body);
 			const tags = [
 				label && caps.includes("labeled-response") ? "label=s1" : "",
@@ -448,6 +449,11 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			const sent = body.startsWith("/me ") ? `\x01ACTION ${body.slice(4)}\x01` : body;
 			h.transport.line(`@${tags.join(";")} :${ME} PRIVMSG bob :${sent}`);
 			return {h, query};
+		}
+
+		/** The edits the device's copy of the conversation was told of (conversationStore.ts). */
+		function kept(h: Harness): unknown[][] {
+			return (h.client.conversations.edit as sinon.SinonSpy).args;
 		}
 
 		/** Our edit of the original, and its echo without an account. */
@@ -466,7 +472,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			// The echo replaces the original (the pending copy's msg:edit came first).
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
 			expect(h.lastMessage(query.id).fromAccount).to.equal("testaccount");
-			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
 		});
 
 		it("takes our edit whose unlabelled echo has no account", function () {
@@ -474,7 +480,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			editAndEcho(h, query.id, "");
 
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
-			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
 		});
 
 		it("takes our edit without labeled-response", function () {
@@ -482,7 +488,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			editAndEcho(h, query.id, "");
 
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
-			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
 		});
 
 		it("takes our edit whose echo comes after the pending copy timed out", function () {
@@ -503,7 +509,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			);
 
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
-			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
 		});
 
 		it("takes our action edit whose echo has no account", function () {
