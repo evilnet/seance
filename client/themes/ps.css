@@ -648,6 +648,46 @@ strong,
 	visibility: visible;
 }
 
+/* With avatars on (Avatar.vue in every message's nick), a run reads as a
+ * messenger's: the avatar stands at 2.25rem in a column of its own between
+ * the time and the words, beside the nick and the first line, rather than
+ * at the nick's own size inside it, where it was too small to tell anyone
+ * by (the user, 2026-11-23). Every line of the run, its later ones too,
+ * keeps that column, so the words line up under the nick. It hangs from the
+ * nick (`.from`, positioned) into the column, so the markup is unchanged.
+ * Without avatars (switched off for the network) the rows are as above. */
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
+	grid-template-columns: minmax(var(--ps-time-w), max-content) 2.25rem minmax(0, 1fr);
+	grid-template-areas:
+		"time . from"
+		". . content";
+}
+
+#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
+	grid-template-areas: "time . content";
+}
+
+#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) {
+	grid-template-areas:
+		"time . from"
+		". . content";
+}
+
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from:has(.avatar) {
+	position: relative;
+}
+
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {
+	position: absolute;
+	inset-block-start: 0.125rem;
+	inset-inline-end: calc(100% + 0.5rem);
+	width: 2.25rem;
+	height: 2.25rem;
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 700;
+}
+
 /* A mention keeps style.css's bar at its start (5px, in px there) and
  * nothing else: the row's own start is moved back by the bar so its time,
  * nick and text line up with the rows around it, and style.css's highlight
