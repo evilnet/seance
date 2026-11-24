@@ -3687,6 +3687,20 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+	transition: opacity 0.15s ease-out;
+}
+
+/* A picture still loading (Avatar.vue): the initial's tile shows under it,
+ * and the picture fades in over it when it arrives. */
+.avatar-pending img {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+}
+
+
+html[data-reduce-motion] .avatar img {
+	transition: none;
 }
 
 .avatar-tile {
@@ -3737,6 +3751,13 @@ html[data-reduce-motion] #chat .connecting-indicator {
 
 .channel-list-item > .avatar {
 	margin-inline-end: 0.5rem;
+}
+
+/* The tile sits on the row, not on the window: a selected row has its own
+ * background and text colour (keeki's rose gold with dark text), and a tile
+ * mixed into the window background would go dark on it. */
+.channel-list-item > .avatar-tile {
+	background: var(--avatar-tile-bg, color-mix(in srgb, currentcolor 22%, transparent));
 }
 
 .channel-list-item.is-typing > .avatar {

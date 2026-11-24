@@ -687,7 +687,10 @@ export default defineComponent({
 			}
 
 			if (w.actual_ip || w.actual_hostname) {
-				const real = [w.actual_hostname, w.actual_ip].filter(Boolean).join(" ");
+				// Without reverse DNS the server names the IP as the host too.
+				const real = [...new Set([w.actual_hostname, w.actual_ip].filter(Boolean))].join(
+					" "
+				);
 				list.push({label: t("profile.realAddress"), value: real, ltr: true});
 			}
 
@@ -878,14 +881,19 @@ export default defineComponent({
 			void nextTick(focusInput);
 		};
 
-		// The user menu (Ignore, op actions, Whois in the chat …) where the button is.
+		// The user menu (Ignore, op actions, Whois in the chat …) where the
+		// button is, over the card: dismissing it leaves the card as it was,
+		// and picking an item closes the card too (the item acts elsewhere).
+		let menuOpen = false;
+
 		const more = (event: MouseEvent) => {
 			const current = data.value;
-			close();
 
 			if (!current) {
 				return;
 			}
+
+			menuOpen = true;
 
 			// ContextMenu finds the user's modes in the channel itself.
 			eventbus.emit("contextmenu:user", {
@@ -903,6 +911,20 @@ export default defineComponent({
 			void router.push({name: "Avatars", query: uuid ? {network: uuid} : {}});
 		};
 
+		const onMenuActed = () => {
+			if (menuOpen) {
+				menuOpen = false;
+				close();
+			}
+		};
+
+		const onMenuClosed = () => {
+			// contextmenu:closed comes first; the acted event follows in the same tick.
+			void nextTick(() => {
+				menuOpen = false;
+			});
+		};
+
 		const onEscape = (layer: string | null) => {
 			if (layer === "user-card") {
 				close();
@@ -912,6 +934,8 @@ export default defineComponent({
 		onMounted(() => {
 			eventbus.on("usercard:open", open);
 			eventbus.on("escapekey", onEscape);
+			eventbus.on("contextmenu:acted", onMenuActed);
+			eventbus.on("contextmenu:closed", onMenuClosed);
 			socket.on("whois:profile", onProfile);
 			socket.on("whois:profile:stale", onStale);
 		});
@@ -919,6 +943,8 @@ export default defineComponent({
 		onUnmounted(() => {
 			eventbus.off("usercard:open", open);
 			eventbus.off("escapekey", onEscape);
+			eventbus.off("contextmenu:acted", onMenuActed);
+			eventbus.off("contextmenu:closed", onMenuClosed);
 			socket.off("whois:profile", onProfile);
 			socket.off("whois:profile:stale", onStale);
 		});

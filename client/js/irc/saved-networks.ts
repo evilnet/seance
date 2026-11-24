@@ -28,6 +28,7 @@ import {forgetPresenceSync} from "./presenceSync";
 import {forgetUserAway} from "./userAwayStore";
 import {forgetNetworkAvatars} from "../avatars/own";
 import {forgetNetworkAvatarPrefs} from "../avatars/prefs";
+import {forgetSeen} from "../avatars/registry";
 import {forgetLogin} from "./saslTrust";
 import {forgetIgnoreList} from "../ignore";
 import type {ConnectOptions} from "./types";
@@ -765,6 +766,7 @@ export function remove(uuid: string): void {
 	forgetUserAway(uuid); // and the /away it would declare at the next registration
 	void forgetNetworkAvatars(uuid); // and its recent avatars
 	forgetNetworkAvatarPrefs(uuid); // and whom it trusted for avatars
+	forgetSeen(uuid); // and the avatars it had seen
 	forgetLogin(uuid); // and the SASL login that worked on it
 	// Its channel order and ignore list too: keyed by a random uuid, nothing
 	// would ever read them again, yet both travel in every settings backup.
