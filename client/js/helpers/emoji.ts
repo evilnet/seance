@@ -13,6 +13,7 @@
  */
 
 import emojiRegExp from "emoji-regex";
+import {cleanIrcMessage} from "../../../shared/irc";
 import findShortcode, {emojiForShortcode} from "./ircmessageparser/findShortcode";
 import type {EmojiEntry, EmojiGroup} from "./emoji-catalog";
 
@@ -178,6 +179,29 @@ export function isSingleEmoji(text: string): boolean {
 	const found = Array.from(trimmed.matchAll(emojiRx));
 
 	return found.length === 1 && found[0][0] === trimmed;
+}
+
+// The same pattern, anchored where it starts: `lastIndex` 0 matches at the
+// start of the text or not at all.
+const leadingRx = new RegExp(emojiRx.source, "y");
+
+// One code point that is text unless an emoji selector (U+FE0F) follows it:
+// ©, ™, ↔, ▶, ♥ — symbols a topic opens with as punctuation.
+const TEXT_DEFAULT = /^\P{Emoji_Presentation}$/u;
+
+/**
+ * The emoji `text` opens with — a flag, a keycap or a ZWJ sequence counts
+ * as one — or "" when it opens with anything else. IRC formatting and
+ * whitespace before it are skipped. A symbol that is text by default (`©`,
+ * `♥`) counts only with the emoji selector after it, so `© 2026` does not
+ * open with an emoji and `♥️ welcome` does. What the sidebar draws in a
+ * channel's row in place of its icon (`ChannelWrapper.vue`).
+ */
+export function leadingEmoji(text: string): string {
+	leadingRx.lastIndex = 0;
+	const match = leadingRx.exec(cleanIrcMessage(text));
+
+	return match && !TEXT_DEFAULT.test(match[0]) ? match[0] : "";
 }
 
 // A query is split on whitespace and the separators shortcodes use, so

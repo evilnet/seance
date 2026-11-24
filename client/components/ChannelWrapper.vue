@@ -20,6 +20,7 @@
 		:title="getAriaLabel()"
 		:data-name="channel.name"
 		:data-type="channel.type"
+		:data-emoji="emoji || undefined"
 		:aria-controls="'#chan-' + channel.id"
 		:aria-selected="active"
 		:style="channel.closed ? {transition: 'none', opacity: 0.4} : undefined"
@@ -40,6 +41,7 @@ import {useStore} from "../js/store";
 import {useI18n} from "../js/i18n";
 import {ChanType} from "../../shared/types/chan";
 import {switchToChannel} from "../js/router";
+import {leadingEmoji} from "../js/helpers/emoji";
 
 export default defineComponent({
 	name: "ChannelWrapper",
@@ -89,6 +91,12 @@ export default defineComponent({
 		// and cleared by the shared sweep in helpers/activityPulse.ts, so a
 		// non-zero value here always means a pulse that is still running.
 		const hasActivity = computed(() => props.channel.activityUntil > 0);
+
+		// A channel whose topic opens with an emoji: the row draws it in place
+		// of the speech bubbles (style.css, .channel-list-item[data-emoji]).
+		const emoji = computed(() =>
+			props.channel.type === ChanType.CHANNEL ? leadingEmoji(props.channel.topic) : ""
+		);
 
 		// The row's label is one whole phrase: the kind of window, its name
 		// and — at most — one count. Two tCount results are never glued
@@ -181,6 +189,7 @@ export default defineComponent({
 			isChannelVisible,
 			isTyping,
 			hasActivity,
+			emoji,
 			getAriaLabel,
 			click,
 			openContextMenu,

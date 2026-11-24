@@ -1935,6 +1935,37 @@ html[data-reduce-motion] .channel-list-item.has-activity:not(.is-typing)::before
 	color: var(--channel-activity-color);
 }
 
+/* A channel whose topic opens with an emoji (ChannelWrapper.vue, `leadingEmoji`
+in helpers/emoji.ts): the emoji stands in for the speech bubbles. It is wider
+than the icon, so it takes some of the gap after it and the name still starts
+where every other row's does. An unsent draft's pen takes the slot back, as it
+takes the bubbles'. An emoji draws in its own colours, so the typing and
+activity cues breathe its opacity instead, each at its own pace; with reduced
+motion it stays still, as a query's avatar does. */
+.channel-list-item[data-emoji]:not(.has-draft:not(.active))::before {
+	content: attr(data-emoji);
+	width: 1.25em;
+	margin-inline-end: 0.5em;
+	text-align: center;
+	font-family: var(--emoji-font);
+}
+
+html:not([data-reduce-motion])
+	.channel-list-item[data-emoji]:not(.has-draft:not(.active)):is(.is-typing, .has-activity)::before {
+	animation-name: channel-emoji-pulse;
+}
+
+@keyframes channel-emoji-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0.45;
+	}
+}
+
 .channel-list-item .name {
 	position: relative;
 	flex-grow: 1;
