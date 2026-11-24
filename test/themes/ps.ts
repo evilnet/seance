@@ -10,6 +10,7 @@ import {
 	rgbHex,
 } from "../../client/js/scenes/ps/colour";
 import {momentFor, sunTimes} from "../../client/js/scenes/ps/engine";
+import {THEMES} from "../../client/js/themeRegistry";
 import {
 	DAY_BRIGHTNESS,
 	DAY_GLASS_MARK,
@@ -676,13 +677,9 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 	});
 
 	it("gives ps the daylight fallback's canvas as its theme-color before the scene loads", function () {
-		const config = fs.readFileSync(
-			path.resolve(__dirname, "../../client/js/configuration.ts"),
-			"utf8"
-		);
 		const canvas = valueOf(DAY, "--canvas-bg-color");
 		expect(canvas).to.equal("#3f8fe6");
-		expect(config).to.include(`{name: "ps", displayName: "ps", themeColor: "${canvas}"}`);
+		expect(THEMES.find((theme) => theme.name === "ps")?.themeColor).to.equal(canvas);
 	});
 
 	it("draws both badges alike, the generated fill and a white numeral: the mockup's one badge", function () {

@@ -3907,7 +3907,7 @@ export default async function run(page) {
 		`coffee: nothing left on <html> (light ${coffee.light}, text ${coffee.text}, canvas "${coffee.canvas}")`,
 		coffee.light === undefined && coffee.text === undefined && coffee.canvas === ""
 	);
-	// coffee's own themeColor (client/js/configuration.ts), not the sky's.
+	// coffee's own themeColor (client/js/themeRegistry.ts), not the sky's.
 	page.check(
 		`coffee: theme-color is coffee's own #1a1816 (${coffee.meta})`,
 		coffee.meta.toLowerCase() === "#1a1816"

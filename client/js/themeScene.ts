@@ -1,8 +1,9 @@
 /**
  * The theme-scene hook (docs/projects/ps-theme.md §3): the one place the app
- * lets a theme bring page elements of its own. A theme listed in SCENES has its
- * scene module mounted into #theme-scene (client/index.html) when it is applied,
- * and destroyed when another theme is; every other theme loads nothing. The
+ * lets a theme bring page elements of its own. A theme listed in SCENES (its
+ * registry entry's `scene`, themeRegistry.ts) has its scene module mounted
+ * into #theme-scene (client/index.html) when it is applied, and destroyed when
+ * another theme is; every other theme loads nothing. The
  * hook tells a scene only what any theme could want: whether the page is
  * visible, whether anyone is attending to it (createAttention), and what kind
  * of conversation is open. It never reads a colour or a
@@ -13,6 +14,7 @@ import {PHONE_LAYOUT_QUERY} from "./helpers/device";
 import {isIOSShell, nativeCall, nativeListen} from "./helpers/shell";
 import {createPowerMerge, framesSayLowPower} from "./helpers/power";
 import {onAndroidSystemStatus} from "./helpers/systemAccessibility";
+import {THEMES} from "./themeRegistry";
 
 export type SceneView = "channel" | "query" | "other";
 
@@ -71,10 +73,11 @@ export interface SceneModule {
 
 export type SceneLoader = () => Promise<SceneModule>;
 
-/** The themes that have a scene, by theme name: each is its own chunk, loaded only for that theme. */
-export const SCENES: Readonly<Record<string, SceneLoader>> = {
-	ps: () => import("./scenes/psng/scene"),
-};
+/** The themes that have a scene, by theme name (themeRegistry.ts `scene`):
+ * each is its own chunk, loaded only for that theme. */
+export const SCENES: Readonly<Record<string, SceneLoader>> = Object.fromEntries(
+	THEMES.flatMap((theme) => (theme.scene ? [[theme.name, theme.scene]] : []))
+);
 
 export interface SceneHost {
 	setTheme(name: string): Promise<void>;

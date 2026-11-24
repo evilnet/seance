@@ -10,7 +10,10 @@
 // the client they copy, and day and morning are TheLounge's originals, kept
 // as they were: for those the attribute is left off and the setting is not
 // shown. What the reader chose comes back when they return to a theme that
-// offers it. Vue-free: test/helpers/messageLayout.ts.
+// offers it. Which themes do is the theme registry's (themeRegistry.ts).
+// Vue-free: test/helpers/messageLayout.ts.
+
+import {THEMES} from "../themeRegistry";
 
 export const messageLayouts = ["lines", "bubbles"] as const;
 
@@ -18,20 +21,18 @@ export type MessageLayout = (typeof messageLayouts)[number];
 
 export const defaultMessageLayout: MessageLayout = "lines";
 
-/** The themes the shared bubble layout is drawn for. A new theme on
- * coffee's tokens belongs here unless it copies a period client. */
-export const bubbleThemes: ReadonlySet<string> = new Set([
-	"coffee",
-	"creama",
-	"cobalt",
-	"frost",
-	"molokai",
-	"princess",
-	"princess_",
-	"keeki",
-	"keekiblush",
-	"macos",
-]);
+/** The themes the shared bubble layout is drawn for, at the reader's
+ * choice (themeRegistry.ts, `bubbles: "offered"`). A new theme on coffee's
+ * tokens offers it unless it copies a period client. */
+export const bubbleThemes: ReadonlySet<string> = new Set(
+	THEMES.filter((theme) => theme.bubbles === "offered").map((theme) => theme.name)
+);
+
+/** The themes that are always Bubbles and paint them themselves
+ * (themeRegistry.ts, `bubbles: "painted"`): ps. */
+const paintingThemes: ReadonlySet<string> = new Set(
+	THEMES.filter((theme) => theme.bubbles === "painted").map((theme) => theme.name)
+);
 
 /** A stored setting can be anything; anything but the two names means the default. */
 export function normalizeMessageLayout(value: unknown): MessageLayout {
@@ -58,5 +59,5 @@ export function messageLayoutFor(value: unknown, theme: string): MessageLayout |
 /** Whether `theme` is always Bubbles and paints them itself
  * (`data-bubble-paint="theme"`): ps alone. */
 export function themePaintsBubbles(theme: string): boolean {
-	return theme === "ps";
+	return paintingThemes.has(theme);
 }
