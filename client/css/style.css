@@ -4458,14 +4458,163 @@ html[data-message-layout="workspace"] #chat .chat .msg.previous-source:is([data-
 		linear-gradient(var(--workspace-band, transparent) 0 0);
 }
 
-html[data-message-layout="workspace"][data-own-messages="band"] #chat .chat .msg.self:not(.highlight) {
+/* The rows Classic bands as our own (a message, an action). */
+html[data-message-layout="workspace"][data-own-messages="band"] #chat .chat .msg.self:is([data-type="message"], [data-type="action"]):not(.highlight) {
 	--workspace-band: var(--own-bg, color-mix(in srgb, var(--body-color) 7%, transparent));
 }
 
-/* The quieter lines span the row too, their text in the messages' column. */
+/* Every other row spans the row too, its words in the messages' column, on
+ * the inks a message takes (they hold on the hover, mention and own bands).
+ * Two kinds: an action, a line of the conversation; and the status lines
+ * (a join, a part, a quit, a kick, a mode, a topic, a nick change, away and
+ * back, a condensed group and its lines, and whatever else the server says),
+ * which recede: a step smaller, in the muted ink, each one's icon in the
+ * gutter where an avatar stands, so the words of a stretch of them start at
+ * one x like a message's, and close together, a block of them one aside
+ * between the runs. Neither shows its time after its words: like a run's
+ * later line, the time comes over the row's end on hover or a long press. */
 html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
+	--body-color-muted: var(--bubble-fg-muted);
+	--chat-fg-muted: var(--bubble-fg-muted);
+	--link-color: var(--bubble-link);
+
+	column-gap: 0;
 	margin: 0;
 	padding-inline: calc(var(--workspace-edge) + var(--bubble-gutter)) 1.25rem;
+}
+
+/* An action: "dave waves at everyone" at a message's size, in the text
+ * colour, the words italic after the actor's nick (bold, in its colour), a
+ * run's space before it. Its gutter stays empty: the row draws no avatar. */
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] {
+	padding-block: 0.5rem 0.125rem;
+	font-size: 1rem;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] > .from {
+	padding: 0;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] > .from::before {
+	content: none;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] > .content {
+	color: inherit;
+	font-style: italic;
+}
+
+/* The actor upright and bold; a nick inside the words stays in their italic. */
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] > .content > .user {
+	font-style: normal;
+	font-weight: 700;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] > .content :is(.msg-reply-quote, .msg-edited, .msg-machine-translated, .msg-redacted, .msg-reactions, .preview) {
+	font-style: normal;
+}
+
+/* Our own, under Your own messages: muted (the default), greyed as our own
+ * messages are. */
+html[data-message-layout="workspace"]:not([data-own-messages="band"], [data-own-messages="plain"]) #chat .chat .msg.self[data-type="action"] > .content {
+	color: var(--body-color-muted);
+}
+
+/* The status lines, a block of them set off by a run's space before it and
+ * held close inside. */
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) {
+	padding-block: 0.5rem 0.0625rem;
+	font-size: 0.8125rem;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) + .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]),
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="condensed"] .msg {
+	padding-block: 0.0625rem;
+}
+
+/* The words in the muted ink, the nicks in theirs but not bold (a theme
+ * that bolds every nick, princess, too). A whois, a block of server text and
+ * an error keep their own colour: what was asked for, and what went wrong. */
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
+html[data-message-layout="workspace"] #chat .chat .condensed-summary > .content {
+	color: var(--body-color-muted);
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) .user {
+	font-weight: 400;
+}
+
+html[data-message-layout="workspace"] #chat .chat .condensed-summary {
+	column-gap: 0;
+}
+
+/* The icon: the type's own shape, in the muted ink rather than the type's
+ * colour (a join and a part still differ by their arrows). The condensed
+ * group's summary has none in its markup: people, the one for a group of
+ * comings and goings. Without avatars there is no gutter, and the icon
+ * stands before the words, as in Messenger. */
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) > .from,
+html[data-message-layout="workspace"] #chat .chat .condensed-summary > .from {
+	display: block;
+	flex: none;
+	min-width: 0;
+	padding-block: 0;
+	padding-inline: 0 0.5rem;
+	color: var(--body-color-muted);
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) > .from::before {
+	color: inherit;
+}
+
+html[data-message-layout="workspace"] #chat .chat .condensed-summary > .from::before {
+	content: "\f0c0"; /* https://fontawesome.com/icons/users?style=solid */
+	font: normal normal normal 1em/1 FontAwesome;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* With avatars, the icon (and an action's empty `.from`) stands in the
+ * gutter, at the avatar's end, and the words start at the text column. A
+ * line whose `.from` holds words (an unhandled command, a plugin's name)
+ * keeps them before its text. */
+html[data-message-layout="workspace"] #chat.avatars-on .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="unhandled"], [data-type="plugin"]) > .from,
+html[data-message-layout="workspace"] #chat.avatars-on .chat .condensed-summary > .from {
+	inline-size: var(--workspace-avatar);
+	margin-inline: calc(-1 * var(--bubble-gutter)) calc(var(--bubble-gutter) - var(--workspace-avatar));
+	padding: 0;
+	text-align: end;
+}
+
+/* The time, over the row's end on hover or a long press, on the row's own
+ * surface (an action's hover tint included), letting the pointer through. */
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .time {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline-end: 0;
+	margin: 0;
+	padding-block: inherit;
+	padding-inline: 0.5rem 0.625rem;
+	font-size: 1em;
+	visibility: hidden;
+	pointer-events: none;
+	background-color: var(--window-bg-color);
+	background-image: linear-gradient(var(--workspace-band, transparent) 0 0);
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] > .time {
+	font-size: 0.8rem;
+	line-height: 1.75; /* the line's 1.4rem, so the two share a baseline */
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg.has-actions[data-type="action"] > .time {
+	background-image:
+		linear-gradient(var(--msg-hover-bg, color-mix(in srgb, var(--body-color) 8%, transparent)) 0 0),
+		linear-gradient(var(--workspace-band, transparent) 0 0);
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
+	visibility: visible;
 }
 
 /* A mention: Classic's band and bar (its tokens) across the whole row,
@@ -4586,9 +4735,11 @@ html[data-message-layout="workspace"] #chat .chat-view[data-type="channel"] .cha
 	color: var(--body-color-muted);
 }
 
+/* Not the nick under Workspace, which keeps the actor's nick colour (§ The
+ * looks); `:where` keeps the rule's weight everywhere else. */
 #chat .msg[data-type="action"] .from,
 #chat .msg[data-type="action"] .content,
-#chat .msg[data-type="action"] .user {
+:where(html:not([data-message-layout="workspace"])) #chat .msg[data-type="action"] .user {
 	color: #f39c12;
 }
 

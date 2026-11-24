@@ -61,6 +61,20 @@ const EXTRA = [
 		"carol"
 	)} PRIVMSG ${CHANNEL} :looks good from here, mostly`,
 	`@time=${at("12:23")} ${from("alice")} REDACT ${CHANNEL} g05`,
+	// A stretch of status lines of different kinds (drawn one by one with
+	// condensing off), an action that mentions us and one of our own.
+	`@time=${at("12:23")};msgid=x10 ${from("erin")} JOIN ${CHANNEL}`,
+	`@time=${at("12:23")};msgid=x11 ${from("erin")} NICK :erin_afk`,
+	`@time=${at("12:23")};msgid=x12 ${from(
+		"alice"
+	)} KICK ${CHANNEL} erin_afk :that was a long lunch`,
+	`@time=${at("12:23")};msgid=x13 ${from(
+		"bob"
+	)} PART ${CHANNEL} :back in a bit, the release notes need a second pair of eyes`,
+	`@time=${at("12:23")};msgid=x14 ${from(
+		"dave"
+	)} PRIVMSG ${CHANNEL} :\x01ACTION hands ${NICK} the release notes\x01`,
+	`@time=${at("12:23")};msgid=x15 ${from(NICK)} PRIVMSG ${CHANNEL} :\x01ACTION ships it\x01`,
 	// Short lines, for the toolbar: one in the channel, one in the query.
 	`@time=${at("12:23")};msgid=x07 ${from("frank")} PRIVMSG ${CHANNEL} :yep`,
 	`@time=${at("12:23")};msgid=x08 ${from(PEER)} PRIVMSG ${NICK} :yep`,
@@ -101,6 +115,49 @@ const ROW_WITH = (text, type = "message") =>
 	`[...document.querySelectorAll('#chat .chat .msg[data-type="${type}"]')].indexOf([...document.querySelectorAll('#chat .chat .msg[data-type="${type}"]')].find((m) => m.textContent.includes(${JSON.stringify(
 		text
 	)})))`;
+
+/** The last row of each status kind in the channel: where its icon and words stand, their inks. */
+const STATUS = `(() => {
+	const out = {};
+	const body = parseFloat(getComputedStyle(document.querySelector('#chat .chat .msg[data-type="message"]')).fontSize);
+	for (const row of document.querySelectorAll('#chat .chat .messages > .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="condensed"])')) {
+		const from = row.querySelector(":scope > .from");
+		const content = row.querySelector(":scope > .content");
+		const f = from.getBoundingClientRect(), c = content.getBoundingClientRect(), r = row.getBoundingClientRect();
+		const before = getComputedStyle(from, "::before");
+		const prev = row.previousElementSibling?.getBoundingClientRect();
+		out[row.dataset.type] = {content: c.left, contentEnd: c.right, iconStart: f.left, iconEnd: f.right, rowStart: r.left,
+			icon: before.content, glyph: before.content + " " + before.transform,
+			iconColor: before.color, inkColor: getComputedStyle(content).color,
+			time: getComputedStyle(row.querySelector(":scope > .time")).visibility,
+			size: parseFloat(getComputedStyle(row).fontSize), bodySize: body,
+			gapBefore: prev ? Math.round(c.top - prev.bottom) : null};
+	}
+	return out;
+})()`;
+
+/** An action row's styles, by its words. */
+const ACTION = (text) => `(() => {
+	const row = [...document.querySelectorAll('#chat .chat .msg[data-type="action"]')].find((m) => m.textContent.includes(${JSON.stringify(
+		text
+	)}));
+	const content = row.querySelector(":scope > .content");
+	const nick = content.querySelector(":scope > .user");
+	const probe = document.createElement("span");
+	probe.className = [...nick.classList].filter((c) => c.startsWith("color-")).concat("user").join(" ");
+	document.querySelector("#chat .chat .messages").append(probe);
+	const nickClassColor = getComputedStyle(probe).color;
+	probe.remove();
+	const s = getComputedStyle(content);
+	return {italic: s.fontStyle === "italic", color: s.color, rowColor: getComputedStyle(row).color,
+		icon: getComputedStyle(row.querySelector(":scope > .from"), "::before").content,
+		nickItalic: getComputedStyle(nick).fontStyle, nickWeight: getComputedStyle(nick).fontWeight,
+		nickColor: getComputedStyle(nick).color, nickClassColor,
+		content: content.getBoundingClientRect().left,
+		time: getComputedStyle(row.querySelector(":scope > .time")).visibility,
+		size: parseFloat(getComputedStyle(row).fontSize),
+		bodySize: parseFloat(getComputedStyle(document.querySelector('#chat .chat .msg[data-type="message"]')).fontSize)};
+})()`;
 
 const NONE = "rgba(0, 0, 0, 0)";
 const near = (a, b, slack = 2) => Math.abs(a - b) <= slack;
@@ -435,8 +492,11 @@ export default async function run(page) {
 		);
 		await quoteRing("Workspace");
 		page.check(
-			`a join's icon starts at the text column (${join.from.left} vs ${first.content.left})`,
-			near(join.from.left, first.content.left, 1) && near(join.row.width, join.list.width, 1)
+			`a join's words start at the text column, its icon in the gutter (${join.content.left} vs ${first.content.left}, icon ends ${join.from.right})`,
+			near(join.content.left, first.content.left, 1) &&
+				join.from.right < join.content.left - 4 &&
+				join.from.left > join.row.left &&
+				near(join.row.width, join.list.width, 1)
 		);
 		page.check(
 			"our own line, by default: greyed, no band",
@@ -487,6 +547,150 @@ export default async function run(page) {
 		page.check("no sideways scroll at the desktop", await noSideScroll());
 		await page.screenshot("4-workspace-rows");
 
+		// ---- Workspace's status lines and actions, condensing off
+		await page.evaluate(update("statusMessages", "shown"));
+		await page.sleep(300);
+		await scrollTo("kick", "that was a long lunch");
+		await page.sleep(150);
+		await page.screenshot("4a-workspace-status-lines");
+		const statusOk = async (label, column) => {
+			const rows = await page.evaluate(STATUS);
+			const kinds = Object.keys(rows);
+			page.check(
+				`${label}: every kind of status line is drawn (${kinds.join(", ")})`,
+				["join", "part", "quit", "kick", "mode", "topic", "nick"].every((k) =>
+					kinds.includes(k)
+				)
+			);
+			for (const [type, r] of Object.entries(rows)) {
+				page.check(
+					`${label}: a ${type}'s words start at the text column, its icon in the gutter, in the words' ink, its time hidden (${JSON.stringify(
+						r
+					)})`,
+					near(r.content, column, 1) &&
+						r.icon !== "none" &&
+						r.iconEnd <= r.content - 4 &&
+						r.iconStart >= r.rowStart &&
+						r.iconColor === r.inkColor &&
+						r.time === "hidden" &&
+						r.size < r.bodySize
+				);
+			}
+			page.check(
+				`${label}: a join and a part differ by their icon's shape (${rows.join?.glyph} / ${rows.part?.glyph})`,
+				!!rows.join && !!rows.part && rows.join.glyph !== rows.part.glyph
+			);
+			return rows;
+		};
+		const status = await statusOk("Workspace", first.content.left);
+		page.check(
+			`a block of status lines is held close: kick ${status.kick.gapBefore}px, part ${status.part.gapBefore}px after the line before`,
+			status.kick.gapBefore <= 3 && status.part.gapBefore <= 3
+		);
+
+		const action = await page.evaluate(ACTION("waves at everyone"));
+		page.check(
+			`an action: italic, in the text colour, no icon, the nick bold in its colour, the words at the text column, its time hidden (${JSON.stringify(
+				action
+			)})`,
+			action.italic &&
+				action.icon === "none" &&
+				action.color === action.rowColor &&
+				action.nickItalic === "normal" &&
+				Number(action.nickWeight) >= 700 &&
+				action.nickColor === action.nickClassColor &&
+				near(action.content, first.content.left, 1) &&
+				action.time === "hidden" &&
+				action.size === action.bodySize
+		);
+		const mentionAction = await geometry("action", "hands seer the release notes");
+		page.check(
+			`an action that mentions us gets the mention band (${mentionAction.background}, ${mentionAction.borderStart})`,
+			mentionAction.background !== NONE && /^3px solid$/.test(mentionAction.borderStart)
+		);
+		const ownAction = await page.evaluate(ACTION("ships it"));
+		page.check(
+			`our own action, by default: greyed like our own messages (${ownAction.color} vs ${action.color})`,
+			ownAction.color !== action.color
+		);
+
+		// Hovered, the time comes over the row's end, letting the pointer through.
+		for (const [type, text] of [
+			["kick", "that was a long lunch"],
+			["action", "waves at everyone"],
+		]) {
+			await scrollTo(type, text);
+			await page.sleep(150);
+			const index = await page.evaluate(ROW_WITH(text, type));
+			await page.hover(`#chat .chat .msg[data-type="${type}"]`, index);
+			await page.sleep(150);
+			const got = await page.evaluate(`(() => {
+				const m = ${rowAt(type, index)};
+				const t = m.querySelector(":scope > .time");
+				const r = t.getBoundingClientRect(), row = m.getBoundingClientRect();
+				const words = m.querySelector(":scope > .content").getBoundingClientRect();
+				return {shown: getComputedStyle(t).visibility, end: Math.round(row.right - r.right),
+					level: Math.abs(r.top - row.top) < 1, pointer: getComputedStyle(t).pointerEvents,
+					fill: getComputedStyle(t).backgroundColor, inRow: r.bottom <= words.bottom + 2};
+			})()`);
+			page.check(
+				`hovered, a ${type}'s time shows over the row's end on the window's colour (${JSON.stringify(
+					got
+				)})`,
+				got.shown === "visible" &&
+					got.end === 0 &&
+					got.pointer === "none" &&
+					got.fill !== NONE &&
+					got.inRow
+			);
+			if (type === "kick") await page.screenshot("4b-workspace-status-hover");
+			await unhover();
+		}
+
+		// Condensed, the summary is drawn as one status line: icon in the gutter.
+		await page.evaluate(update("statusMessages", "condensed"));
+		await page.sleep(300);
+		const summary = await page.evaluate(`(() => {
+			const s = [...document.querySelectorAll("#chat .chat .condensed-summary")].pop();
+			s.scrollIntoView({block: "center"});
+			const f = s.querySelector(".from").getBoundingClientRect();
+			const c = s.querySelector(".content").getBoundingClientRect();
+			return {icon: getComputedStyle(s.querySelector(".from"), "::before").content, iconEnd: f.right, content: c.left,
+				caret: !!s.querySelector(".toggle-button"), size: parseFloat(getComputedStyle(s).fontSize)};
+		})()`);
+		page.check(
+			`a condensed group's summary: an icon in the gutter, the words at the text column, the caret kept (${JSON.stringify(
+				summary
+			)})`,
+			summary.icon !== "none" &&
+				summary.iconEnd <= summary.content - 4 &&
+				near(summary.content, first.content.left, 1) &&
+				summary.caret &&
+				summary.size === status.kick.size
+		);
+		await page.evaluate(
+			`[...document.querySelectorAll("#chat .chat .condensed-summary .content")].pop().click()`
+		);
+		await page.sleep(200);
+		const child = await page.evaluate(`(() => {
+			const g = [...document.querySelectorAll('#chat .chat .msg[data-type="condensed"]')].pop();
+			const m = g.querySelector(".msg");
+			return {content: m.querySelector(":scope > .content").getBoundingClientRect().left,
+				icon: m.querySelector(":scope > .from").getBoundingClientRect().right};
+		})()`);
+		page.check(
+			`an opened group's lines: the words at the text column, the icon in the gutter (${JSON.stringify(
+				child
+			)})`,
+			near(child.content, first.content.left, 1) && child.icon <= child.content - 4
+		);
+		await page.screenshot("4c-workspace-condensed-open");
+		await page.evaluate(
+			`[...document.querySelectorAll("#chat .chat .condensed-summary .content")].pop().click()`
+		);
+		await page.evaluate(update("statusMessages", "shown"));
+		await page.sleep(200);
+
 		// Our own unconfirmed line (the server never echoes): faded, a full row.
 		await page.click("#input");
 		await page.send("Input.insertText", {text: "a line the server has not echoed"});
@@ -534,6 +738,12 @@ export default async function run(page) {
 			`Your own messages: highlighted row bands the whole row (${banded.background})`,
 			banded.background !== NONE && near(banded.row.width, banded.list.width, 1)
 		);
+		const bandedAction = await geometry("action", "ships it");
+		const bandedActionInk = await page.evaluate(ACTION("ships it"));
+		page.check(
+			`Your own messages: highlighted row bands our own action, its words in the text colour (${bandedAction.background})`,
+			bandedAction.background !== NONE && bandedActionInk.color === bandedActionInk.rowColor
+		);
 		await scrollTo("message", "on it, capturing");
 		await page.screenshot("5-workspace-own-band");
 		await page.evaluate(update("ownMessages", "muted"));
@@ -577,6 +787,20 @@ export default async function run(page) {
 		page.check("right to left: no sideways scroll", await noSideScroll());
 		await scrollTo("message", "morning all");
 		await page.screenshot("7-workspace-rtl");
+		const rtlStatus = await page.evaluate(STATUS);
+		page.check(
+			`right to left: a status line's icon in the gutter at the right, its words before it (${JSON.stringify(
+				rtlStatus.kick
+			)})`,
+			Object.values(rtlStatus).every((r) => r.iconStart >= r.contentEnd + 4) &&
+				// The words' right edges line up: each starts at the text column.
+				(await page.evaluate(`(() => {
+					const ends = [...document.querySelectorAll('#chat .chat .messages > .msg:not([data-type="condensed"]) > .content')].map((c) => c.getBoundingClientRect().right);
+					return Math.max(...ends) - Math.min(...ends) <= 1;
+				})()`))
+		);
+		await scrollTo("kick", "that was a long lunch");
+		await page.screenshot("7a-workspace-rtl-status");
 		await page.evaluate(`document.documentElement.dir = "ltr"`);
 
 		// A query is drawn like a channel.
@@ -704,10 +928,21 @@ export default async function run(page) {
 		);
 		page.check("phone: no sideways scroll", await noSideScroll());
 		await page.screenshot("10-phone-workspace");
+		await statusOk("phone Workspace", phone.content.left);
+		await scrollTo("part", "second pair of eyes");
+		await page.screenshot("10a-phone-workspace-status");
 		await page.evaluate(update("fontSize", "huge"));
 		await page.sleep(400);
 		page.check("phone at the largest text step: no sideways scroll", await noSideScroll());
 		await page.screenshot("11-phone-workspace-huge");
+		await statusOk(
+			"phone Workspace at the largest text step",
+			(
+				await geometry("message", "morning all")
+			).content.left
+		);
+		await scrollTo("part", "second pair of eyes");
+		await page.screenshot("11a-phone-workspace-huge-status");
 		await timeLetsThrough("phone Workspace at the largest text step");
 		await page.evaluate(update("fontSize", "medium"));
 		await page.sleep(300);
