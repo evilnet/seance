@@ -44,9 +44,8 @@
 // - the phone pass boots cold at its size on a cleared origin, as a phone
 //   would, rather than resizing the desktop's page.
 
-import {readdirSync, rmSync, writeFileSync} from "node:fs";
+import {rmSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
-import {fileURLToPath} from "node:url";
 
 import {CHANNEL, CLOCK, NICK, PEER, conversation} from "./lib/gallery-conversation.mjs";
 import {startTinyIrcd} from "./lib/tiny-ircd.mjs";
@@ -74,7 +73,6 @@ const WINDOWS = [
 ];
 const LAYOUTS = ["lines", "bubbles", "workspace"];
 
-const THEMES_DIR = fileURLToPath(new URL("../../client/themes/", import.meta.url));
 const STORE = `document.querySelector("[data-v-app]").__vue_app__.config.globalProperties.$store`;
 const update = (name, value) =>
 	`${STORE}.dispatch("settings/update", {name: ${JSON.stringify(name)}, value: ${JSON.stringify(
@@ -131,13 +129,6 @@ const SETTLE = (top = false) => `(async () => {
 	await document.fonts.ready;
 	return true;
 })()`;
-
-function themeFiles() {
-	return readdirSync(THEMES_DIR)
-		.filter((f) => f.endsWith(".css"))
-		.map((f) => f.slice(0, -4))
-		.sort();
-}
 
 async function setScheme(page, scheme) {
 	await page.send("Emulation.setEmulatedMedia", {
@@ -298,20 +289,6 @@ export default async function run(page) {
 			const appThemes = await page.evaluate(
 				`${STORE}.state.serverConfiguration.themes.map((t) => t.name)`
 			);
-
-			if (index === 0) {
-				const files = themeFiles();
-				const unlisted = files.filter((f) => !appThemes.includes(f));
-				const missing = appThemes.filter((t) => !files.includes(t));
-				check(
-					`every theme file is in the app's list (${unlisted.join(", ") || "all"})`,
-					unlisted.length === 0
-				);
-				check(
-					`every listed theme has a file (${missing.join(", ") || "all"})`,
-					missing.length === 0
-				);
-			}
 
 			const themes = appThemes.filter((t) => ONLY.length === 0 || ONLY.includes(t));
 

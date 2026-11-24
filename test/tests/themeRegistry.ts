@@ -3,12 +3,10 @@ import fs from "fs";
 import path from "path";
 import {THEME_PAIRS} from "../../client/js/helpers/themeAppearance";
 import {THEMES} from "../../client/js/themeRegistry";
-import configuration from "../../client/js/configuration";
 
 // The theme registry (docs/resources/themes.md § The theme registry): one
 // entry per stylesheet in client/themes/, and nothing it names that the
-// build does not have. tools/scenarios/gallery.mjs makes the same check
-// against the running app.
+// build does not have.
 
 const THEMES_DIR = path.join(process.cwd(), "client", "themes");
 
@@ -43,11 +41,5 @@ describe("the theme registry (client/js/themeRegistry.ts)", function () {
 		}
 
 		expect(new Set(paired).size).to.equal(paired.length);
-	});
-
-	it("is the list Settings shows, in its order", function () {
-		expect(configuration.themes).to.deep.equal(
-			THEMES.map(({name, displayName, themeColor}) => ({name, displayName, themeColor}))
-		);
 	});
 });

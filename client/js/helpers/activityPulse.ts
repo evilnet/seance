@@ -78,32 +78,19 @@ export function noteMention(holder: MentionHolder, now: number): void {
  * reactive watchers only fire on a real stop.
  */
 export function expireActivity(holder: ActivityHolder & MentionHolder, now: number): boolean {
-	let live = false;
-
-	if (holder.activityUntil !== 0) {
-		if (holder.activityUntil <= now) {
-			holder.activityUntil = 0;
-		} else {
-			live = true;
-		}
+	if (holder.activityUntil !== 0 && holder.activityUntil <= now) {
+		holder.activityUntil = 0;
 	}
 
-	if (holder.mentionUntil !== 0) {
-		if (holder.mentionUntil <= now) {
-			holder.mentionUntil = 0;
-		} else {
-			live = true;
-		}
+	if (holder.mentionUntil !== 0 && holder.mentionUntil <= now) {
+		holder.mentionUntil = 0;
 	}
 
-	return live;
+	return holder.activityUntil !== 0 || holder.mentionUntil !== 0;
 }
 
 export class ActivityExpiry extends ExpirySweep<ActivityHolder & MentionHolder> {
-	constructor(
-		holders: () => Iterable<ActivityHolder & MentionHolder>,
-		interval = ACTIVITY_SWEEP_INTERVAL
-	) {
-		super(holders, expireActivity, interval);
+	constructor(holders: () => Iterable<ActivityHolder & MentionHolder>) {
+		super(holders, expireActivity, ACTIVITY_SWEEP_INTERVAL);
 	}
 }

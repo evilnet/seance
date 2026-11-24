@@ -4083,17 +4083,20 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	font-weight: 700;
 }
 
-/* A later line of a run: the text alone, close under the line before. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
+/* A later line of a run: the text alone, close under the line before. A
+ * day's divider, the "New messages" line or a gap starts a run afresh (the
+ * `:where`, weightless): the line after it says who is speaking, as the
+ * first of a run does. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) {
 	grid-template-columns: minmax(0, 1fr);
 	grid-template-areas: "content";
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
+html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) {
 	margin-block-start: 0.125rem;
 }
 
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .from {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) > .from {
 	display: none;
 }
 
@@ -4101,7 +4104,7 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
  * width and the words wrapped early): shown, it stands over the bubble's
  * end on the bubble's own fill, so the words under it don't show through
  * (a see-through bubble, ps's, sets --bubble-time-bg). */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) > .time {
 	position: absolute;
 	inset-block-start: 0;
 	inset-inline-end: 0;
@@ -4120,7 +4123,7 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
  * tag in the bubble's own colours (so its contrast is the bubble's), in the
  * room every bubble leaves (`--bubble-time-room`); held inside the pane where
  * a bubble is wider than that (a long word, the largest text). */
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) > .time {
 	inset-block-start: 50%;
 	/* stylelint-disable-next-line unit-no-unknown -- cqi: the message list is an inline-size container; stylelint predates it */
 	inset-inline: min(100%, calc(100cqi - var(--bubble-gutter) - 2.125rem - var(--bubble-time-room))) auto;
@@ -4131,33 +4134,6 @@ html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-ty
 	border-radius: 0.75rem;
 	white-space: nowrap;
 	pointer-events: none;
-}
-
-/* A day's divider, the "New messages" line or a gap starts a run afresh:
- * the line after it says who is speaking, as the first of a run does. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
-	grid-template-columns: auto minmax(0, 1fr);
-	grid-template-areas:
-		"from time"
-		"content content";
-}
-
-html[data-message-layout="bubbles"] #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
-	margin-block-start: 0.5rem;
-}
-
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .from {
-	display: block;
-}
-
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
-	position: static;
-	translate: none;
-	margin: 0;
-	padding: 0;
-	background: none;
-	visibility: visible;
-	pointer-events: auto;
 }
 
 /* One stack: where two of a run's bubbles meet, the corners on the
@@ -4401,13 +4377,17 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	white-space: nowrap;
 }
 
-/* Messenger's paint, for the themes on plain colours. */
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
+/* A message's inks, in Messenger on the themes on plain colours and in
+ * Workspace. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
 	--body-color-muted: var(--bubble-fg-muted);
 	--chat-fg-muted: var(--bubble-fg-muted);
 	--link-color: var(--bubble-link);
 	--notice-color: var(--bubble-notice);
+}
 
+/* Messenger's paint, for the themes on plain colours. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
 	border: 0;
 	background-color: var(--bubble-bg);
 }
@@ -4435,8 +4415,10 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
 }
 
 /* The quieter lines carry no fill of their own (a theme's row bands go);
- * our own actions under "band" keep it, as our own lines do. */
+ * our own actions under "band" keep it, as our own lines do. Each has a
+ * run's space above it. */
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
+	margin-block-start: 0.5rem;
 	background-color: transparent;
 }
 
@@ -4519,31 +4501,8 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[data-type="action"] {
 	--action-time: 4.5rem;
 
-	margin-block-start: 0.5rem;
 	padding-block: 0.125rem;
 	border-radius: calc(var(--bubble-radius) * 0.6);
-}
-
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[data-type="action"] > .time {
-	position: absolute;
-	inset-block-start: 0;
-	/* stylelint-disable-next-line unit-no-unknown -- cqi: the message list is an inline-size container; stylelint predates it */
-	inset-inline-start: min(100%, calc(100cqi - var(--bubble-gutter) - 1.25rem - var(--action-time)));
-	margin: 0;
-	padding-block: inherit;
-	padding-inline: 0.25rem 0.375rem;
-	border-radius: calc(var(--bubble-radius) * 0.6);
-	background-color: var(--window-bg-color);
-	color: var(--body-color-muted);
-	font-size: 0.8rem;
-	line-height: 1.75; /* the line's 1.4rem, so the two share a baseline */
-	white-space: nowrap;
-	visibility: hidden;
-	pointer-events: none;
-}
-
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[data-type="action"]:is(:hover, .actions-open) > .time {
-	visibility: visible;
 }
 
 /* No fill: under Your own messages: highlighted row our own keeps its
@@ -4591,7 +4550,6 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:no
 	--body-color-muted: var(--bubble-fg-muted);
 	--chat-fg-muted: var(--bubble-fg-muted);
 
-	margin-block-start: 0.5rem;
 	padding-block: 0.0625rem;
 	font-size: 0.8125rem;
 }
@@ -4601,17 +4559,25 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[da
 	margin-block-start: 0;
 }
 
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .condensed-summary > .content {
+/* In both looks, the words in the muted ink, the nicks in theirs but not
+ * bold (a theme that bolds every nick, princess, too). A whois, a block of
+ * server text and an error keep their own colour: what was asked for, and
+ * what went wrong. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .condensed-summary > .content {
 	color: var(--body-color-muted);
-	overflow-wrap: break-word;
 }
 
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) .user {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) .user {
 	font-weight: 400;
 }
 
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="condensed"]) > .time {
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .condensed-summary > .content {
+	overflow-wrap: break-word;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .time {
 	position: absolute;
 	inset-block-start: 0;
 	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
@@ -4629,8 +4595,9 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:no
 	pointer-events: none;
 }
 
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
-	visibility: visible;
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[data-type="action"] > .time {
+	font-size: 0.8rem;
+	line-height: 1.75; /* the line's 1.4rem, so the two share a baseline */
 }
 
 /* Messenger's reactions hang off the bubble they answer: the chip row
@@ -4822,11 +4789,6 @@ html[data-message-layout="workspace"] #chat.avatars-on {
 }
 
 html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
-	--body-color-muted: var(--bubble-fg-muted);
-	--chat-fg-muted: var(--bubble-fg-muted);
-	--link-color: var(--bubble-link);
-	--notice-color: var(--bubble-notice);
-
 	margin: 0;
 	padding-block: 0.125rem;
 	padding-inline: calc(var(--workspace-edge) + var(--bubble-gutter)) 1.25rem;
@@ -4860,7 +4822,7 @@ html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"],
  * row's own surface (the window, under a band if the row has one, under the
  * hover tint it shows with: the row's, spelled out, since `currentcolor`
  * here would be the time's), so the words under it don't show through. */
-html[data-message-layout="workspace"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+html[data-message-layout="workspace"] #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) > .time {
 	pointer-events: none; /* a link or a control under it still takes the click */
 	background-color: var(--window-bg-color);
 	background-image:
@@ -4909,18 +4871,6 @@ html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"]
 html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) + .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]),
 html[data-message-layout="workspace"] #chat .chat .msg[data-type="condensed"] .msg {
 	padding-block: 0.0625rem;
-}
-
-/* The words in the muted ink, the nicks in theirs but not bold (a theme
- * that bolds every nick, princess, too). A whois, a block of server text and
- * an error keep their own colour: what was asked for, and what went wrong. */
-html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
-html[data-message-layout="workspace"] #chat .chat .condensed-summary > .content {
-	color: var(--body-color-muted);
-}
-
-html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) .user {
-	font-weight: 400;
 }
 
 html[data-message-layout="workspace"] #chat .chat .condensed-summary {
@@ -4992,7 +4942,8 @@ html[data-message-layout="workspace"] #chat .chat .msg.has-actions[data-type="ac
 		linear-gradient(var(--workspace-band, transparent) 0 0);
 }
 
-html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
+/* In both looks: Messenger's (above) and Workspace's. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
 	visibility: visible;
 }
 

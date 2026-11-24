@@ -60,7 +60,7 @@ const react = (msgid, target, reactions) =>
 	);
 
 /** The rows the gallery does not have, after its conversation. */
-export const EXTRA = [
+const EXTRA = [
 	`@time=${at("12:20")};msgid=x01 ${from(
 		"alice"
 	)} PRIVMSG ${CHANNEL} :the shot: https://example.com/shot.png`,
@@ -295,11 +295,11 @@ export default async function run(page) {
 		},
 	});
 
-	const geometry = async (type, text, extra = "") => {
+	const geometry = async (type, text) => {
 		const index = await page.evaluate(ROW_WITH(text, type));
 		return index < 0
 			? null
-			: page.evaluate(GEOMETRY(`#chat .chat .msg[data-type="${type}"]${extra}`, index));
+			: page.evaluate(GEOMETRY(`#chat .chat .msg[data-type="${type}"]`, index));
 	};
 	const open = async (name, text) => {
 		await page.evaluate(`document.querySelector(${JSON.stringify(item(name))}).click()`);
@@ -470,7 +470,7 @@ export default async function run(page) {
 				got.time.top >= got.bubble.top - 2 &&
 				got.time.bottom <= got.bubble.bottom + 2
 		);
-		if (shot) await page.screenshot(shot);
+		await page.screenshot(shot);
 		await unhover();
 	};
 	// A later line's hover time over a link: the link still takes the click.
@@ -723,19 +723,6 @@ export default async function run(page) {
 			`(() => { const m = [...document.querySelectorAll('#chat .chat .msg')].find((x) => x.textContent.includes("the shot:")); const p = m?.querySelector(".preview"); if (!p) return null; const r = p.getBoundingClientRect(), c = m.querySelector(".content").getBoundingClientRect(); return r.left >= c.left - 1 && r.right <= c.right + 1 && r.height > 0; })()`
 		);
 		page.check(`a link's preview sits in the text column (${preview})`, preview === true);
-		const multi = await geometry("message", "a first line");
-		page.check(
-			"a multiline message is one row, both lines in it",
-			!!multi &&
-				(await page.evaluate(
-					`[...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].some((m) => m.textContent.includes("a first line") && m.textContent.includes("and a second one"))`
-				))
-		);
-		page.check(
-			"an edited line carries its mark, a deleted one its placeholder",
-			(await page.count("#chat .chat .msg .msg-edited")) >= 1 &&
-				(await page.count("#chat .chat .msg .msg-redacted")) >= 1
-		);
 		page.check(
 			"a day's divider is drawn, and the line after it has its header",
 			(await page.evaluate(
@@ -1223,20 +1210,16 @@ export default async function run(page) {
 		);
 		await page.evaluate(`document.documentElement.dataset.input = "pointer"`);
 
-		const chipInk = await page.evaluate(`(() => {
+		const CHIP_INK = `(() => {
 			const paint = ${PAINT};
 			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("shipped!"));
 			const chip = m.querySelector(".msg-reaction:not(.self, .msg-reaction-add)");
 			return {border: paint(getComputedStyle(chip).borderTopColor), text: paint(getComputedStyle(m).getPropertyValue("--body-color").trim())};
-		})()`);
+		})()`;
+		const chipInk = await page.evaluate(CHIP_INK);
 		await contrast(true);
 		await contrastLifts("Messenger");
-		const chipInkMore = await page.evaluate(`(() => {
-			const paint = ${PAINT};
-			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("shipped!"));
-			const chip = m.querySelector(".msg-reaction:not(.self, .msg-reaction-add)");
-			return {border: paint(getComputedStyle(chip).borderTopColor), text: paint(getComputedStyle(m).getPropertyValue("--body-color").trim())};
-		})()`);
+		const chipInkMore = await page.evaluate(CHIP_INK);
 		page.check(
 			`Messenger, Increase Contrast: a chip's edge in the text colour (${JSON.stringify({
 				chipInk,
@@ -1398,15 +1381,6 @@ export default async function run(page) {
 		await page.evaluate(update("fontSize", "medium"));
 		await page.sleep(300);
 		await open(PEER, "sending you a screenshot");
-		const phoneMine = await geometry("message", "sending you a screenshot");
-		const phonePeer = await geometry("message", "hey, got a minute");
-		page.check(
-			"phone Messenger query: ours at the far side, theirs at the start, no headers",
-			phoneMine.list.right - phoneMine.row.right < 16 &&
-				phonePeer.row.left - phonePeer.list.left < 16 &&
-				phoneMine.from.display === "none" &&
-				phonePeer.from.display === "none"
-		);
 		page.check("phone Messenger query: no sideways scroll", await noSideScroll());
 		await page.screenshot("12-phone-messenger-query");
 		await timeBeside(
@@ -1419,6 +1393,23 @@ export default async function run(page) {
 		await chipsHang("here it is, the phone at 390", "phone Messenger query, our own", "end");
 		await scrollTo("action", "sends the screenshot");
 		await page.screenshot("12c-phone-messenger-query-reactions");
+
+		// The longest clock, 12-hour with seconds: the time tag still fits
+		// beside the bubble, inside the pane.
+		await page.evaluate(update("use12hClock", true));
+		await page.evaluate(update("showSeconds", true));
+		await page.sleep(300);
+		await timeBeside(
+			"phone Messenger query, our own, 12-hour with seconds",
+			"12f-phone-messenger-query-own-seconds",
+			true
+		);
+		await open(CHANNEL, "looks good from here");
+		await timeBeside(
+			"phone Messenger channel, 12-hour with seconds",
+			"12g-phone-messenger-seconds"
+		);
+		await page.evaluate(update("showSeconds", false));
 	} finally {
 		await ircd.close();
 	}

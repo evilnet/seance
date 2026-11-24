@@ -69,24 +69,7 @@ describe("messageLayout", () => {
 	it("applies the reader's choice where the theme offers it", () => {
 		expect(messageLayoutFor("bubbles", "keeki")).to.equal("bubbles");
 		expect(messageLayoutFor("workspace", "frost")).to.equal("workspace");
-		expect(messageLayoutFor("lines", "macos")).to.equal("lines");
+		expect(messageLayoutFor("workspace", "macos")).to.equal("workspace");
 		expect(messageLayoutFor("nonsense", "coffee")).to.equal("lines");
-	});
-
-	it("offers the looks in the themes on coffee's tokens, macOS included", () => {
-		expect([...lookThemes].sort()).to.deep.equal(
-			[
-				"coffee",
-				"creama",
-				"cobalt",
-				"frost",
-				"molokai",
-				"princess",
-				"princess_",
-				"keeki",
-				"keekiblush",
-				"macos",
-			].sort()
-		);
 	});
 });

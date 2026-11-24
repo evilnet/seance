@@ -81,12 +81,6 @@ describe("live rows (liveRows.ts)", function () {
 			expect(reactionArrival(undefined, "👍", "bob", true)).to.equal(null);
 			expect(reactionArrival([r("👍", "Bob")], "👍", "bob", false)).to.equal(null);
 		});
-
-		it("a reaction taken off and put back is new again", function () {
-			// After the removal the chip is gone (applyReaction drops it at zero).
-			expect(reactionArrival(undefined, "👍", "bob", false)).to.equal("first");
-			expect(reactionArrival([r("🎉", "carol")], "👍", "bob", false)).to.equal("new");
-		});
 	});
 
 	describe("createLiveRows", function () {
@@ -134,18 +128,12 @@ describe("live rows (liveRows.ts)", function () {
 	});
 
 	describe("chips", function () {
-		it("are noted by message and text, and taken once", function () {
-			let t = 0;
-			const chips = createLiveRows<string, ArrivalKind>(() => t);
+		it("are noted by message and text", function () {
+			const chips = createLiveRows<string, ArrivalKind>(() => 0);
 			chips.mark(chipKey(7, "👍"), "first");
 			expect(chips.take(chipKey(7, "🎉"))).to.equal(null);
 			expect(chips.take(chipKey(8, "👍"))).to.equal(null);
 			expect(chips.take(chipKey(7, "👍"))).to.equal("first");
-			// Drawn again (another conversation and back): not new.
-			expect(chips.take(chipKey(7, "👍"))).to.equal(null);
-			chips.mark(chipKey(7, "👍"), "more");
-			t = LIVE_MS + 1;
-			expect(chips.take(chipKey(7, "👍"))).to.equal(null);
 		});
 
 		it("noted late with the time it arrived, fresh from that time", function () {

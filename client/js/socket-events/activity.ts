@@ -62,11 +62,11 @@ socket.on("msg", function (data) {
 
 	if (mention) {
 		noteMention(channel, Date.now());
-		expiry.schedule();
 	}
 
 	if (isActivity(data.msg)) {
 		noteActivity(channel, Date.now());
-		expiry.schedule();
 	}
+
+	expiry.schedule();
 });
