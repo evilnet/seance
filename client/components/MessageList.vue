@@ -873,6 +873,7 @@ export default defineComponent({
 		// aside to show the times that take no room (style.css § By finger).
 		// Only the travel is ours: the stylesheet caps it and decides which
 		// looks have such times.
+		const PEEK_SLOP = 28;
 		const timePeek = ref(false);
 		let peekFrom: Touch | undefined;
 
@@ -892,23 +893,27 @@ export default defineComponent({
 			const dx = toStart * (peekFrom.clientX - touch.clientX);
 
 			if (!timePeek.value) {
+				const dy = Math.abs(touch.clientY - peekFrom.clientY);
+
 				// A scroll, or a swipe in something that scrolls sideways itself.
 				if (
-					Math.abs(touch.clientY - peekFrom.clientY) > Math.abs(dx) ||
+					dy > Math.max(PEEK_SLOP / 2, Math.abs(dx) / 2) ||
 					(e.target instanceof Element && scrollerTakesSwipe(e.target, false))
 				) {
 					peekFrom = undefined;
 					return;
 				}
 
-				if (dx < 8) {
+				// A deliberate swipe: well past a tap's wobble, and flat.
+				if (dx < PEEK_SLOP) {
 					return;
 				}
 
 				timePeek.value = true;
 			}
 
-			chat.value.style.setProperty("--time-peek", `${Math.max(0, dx)}px`);
+			// The list trails the finger, from where the swipe was taken up.
+			chat.value.style.setProperty("--time-peek", `${Math.max(0, dx - PEEK_SLOP) * 0.7}px`);
 		};
 
 		const touchUp = () => {

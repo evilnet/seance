@@ -1430,7 +1430,7 @@ export default async function run(page) {
 				type: "touchStart",
 				touchPoints: point(330),
 			});
-			for (const x of [300, 240, 180, 120]) {
+			for (const x of [300, 240, 180, 100, 40]) {
 				await page.send("Input.dispatchTouchEvent", {
 					type: "touchMove",
 					touchPoints: point(x),
