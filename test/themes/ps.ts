@@ -2014,7 +2014,7 @@ describe("the ps theme's type", function () {
 	it("sets words in Source Sans 3 500 with 700 for bold, and names in Newsreader 700, each weight inside its face's files", function () {
 		expect(css).to.match(/font-family:\s*"Source Sans 3",[^;]*;\s*font-weight:\s*500;/);
 		expect(css).to.match(
-			/b,\s*strong,\s*\.msg \.content b,\s*#chat \.msg\.highlight \.content \{\s*font-weight:\s*700;\s*\}/
+			/b,\s*strong,\s*\.msg \.content b,\s*#chat \.chat-view\[data-type="channel"\] \.msg\.highlight \.content \{\s*font-weight:\s*700;\s*\}/
 		);
 		// Bold is the words' heaviest weight in use: nothing asks for more.
 		expect(css).to.not.match(/font-weight:\s*(800|900|bolder)\b/);
@@ -2182,7 +2182,7 @@ describe("the ps theme on the shared bubble layout (style.css § The looks)", fu
 	});
 
 	it("lines a mention up with the cards around it: its 5px bar is taken off the card's start", function () {
-		const H = `#chat .chat .msg.highlight:is(${M})`;
+		const H = `#chat .chat-view[data-type="channel"] .chat .msg.highlight:is(${M})`;
 		// style.css's bar, which this takes off
 		expect(
 			declsOf('#chat .chat-view[data-type="channel"] .msg.highlight', "", style).find(
@@ -3113,9 +3113,9 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 		expect(valueOf(view(`:root${WORDS_SURFACE}`, "channel"), "background")).to.equal(
 			"rgb(255 214 230 / var(--ps-g-tint-card, var(--ps-s-tint)))"
 		);
-		expect(valueOf(view(`:root${WORDS_SURFACE}`, "query"), "background")).to.equal(
-			"rgb(255 214 230 / var(--ps-g-tint-card, var(--ps-s-tint)))"
-		);
+		// A private conversation flags every line to us as a highlight (it
+		// drives the badge): none of them is painted as a mention.
+		expect(valueOf(view(`:root${WORDS_SURFACE}`, "query"), "background")).to.equal(undefined);
 		expect(
 			valueOf(view(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "channel"), "background")
 		).to.equal("rgb(40 20 48 / var(--ps-s-tint))");
@@ -3156,9 +3156,7 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 			own(BUBBLES),
 			own(BUBBLES_NIGHT),
 			wash(`:root${WORDS_SURFACE}`, "channel"),
-			wash(`:root${WORDS_SURFACE}`, "query"),
 			wash(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "channel"),
-			wash(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "query"),
 			...PILLS.flatMap((p) => [
 				`${BUBBLES} #chat .chat ${p}`,
 				`${BUBBLES_NIGHT} #chat .chat ${p}`,
