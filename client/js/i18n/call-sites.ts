@@ -684,6 +684,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"link.trustTitleEmpty",
 	"link.trustTitleShown",
 	"link.tryAgain",
+	"link.viewImage",
 	"list.isEmpty",
 	"list.kindExcepts",
 	"list.kindInvites",

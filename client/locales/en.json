@@ -753,6 +753,7 @@
   "link.trustTitleEmpty": "Always show media from this site, this person or in this channel",
   "link.trustTitleShown": "Always shown {scopes} — change",
   "link.tryAgain": "Click to try again",
+  "link.viewImage": "View image",
   "list.isEmpty": "{kind} is empty",
   "list.kindExcepts": "Exception list",
   "list.kindInvites": "Invite list",

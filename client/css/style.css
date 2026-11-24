@@ -3917,15 +3917,15 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 /* The thumbnail is a button (LinkPreview.vue): a block, so it hugs the image. */
 #chat .toggle-thumbnail {
 	display: block;
-	max-width: 100%;
+	max-inline-size: 100%;
 	cursor: zoom-in;
 }
 
 /* Inset: .toggle-content clips its overflow, so a ring outside the box
- * would never show. */
+ * would never show (forced colours restates this below). */
 #chat .toggle-thumbnail:focus-visible {
-	outline: 2px solid var(--button-color);
-	outline-offset: -2px;
+	outline: 0.125rem solid var(--button-color);
+	outline-offset: -0.125rem;
 }
 
 /* The still an animation holds after its one play (LinkPreview.vue); it is
@@ -9222,7 +9222,8 @@ html[data-reduce-motion] #chat .reactions-enter-active {
 	-webkit-touch-callout: none;
 }
 
-:where(html[data-input="touch"]) #chat .messages .msg a {
+:where(html[data-input="touch"]) #chat .messages .msg a,
+:where(html[data-input="touch"]) #chat .messages .msg .toggle-thumbnail {
 	-webkit-touch-callout: default;
 }
 
@@ -10518,6 +10519,12 @@ html[data-reduce-motion] *::after {
 	:focus-visible {
 		outline: 0.125rem solid highlight !important;
 		outline-offset: 0.125rem !important;
+	}
+
+	/* Except a preview's thumbnail: .toggle-content clips its overflow, so
+	 * a ring outside it would never show. */
+	#chat .toggle-thumbnail:focus-visible {
+		outline-offset: -0.125rem !important;
 	}
 
 	/* The composer shows its focus on the bar (#form:focus-within), as an edge and a shadow. */
