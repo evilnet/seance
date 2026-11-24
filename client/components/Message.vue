@@ -55,7 +55,7 @@
 					:title="quote ? quotePlain : undefined"
 					@click="jumpToParent"
 				>
-					<span class="msg-reply-arrow" aria-hidden="true">↩</span>
+					<ReplyElbow class="msg-reply-arrow" />
 					<template v-if="quote"
 						><span class="msg-reply-nick">{{ quote.nick }}</span
 						>&#32;<span class="msg-reply-text"><QuotePreview :text="quote.text" /></span
@@ -185,7 +185,7 @@
 					:title="quote ? quotePlain : undefined"
 					@click="jumpToParent"
 				>
-					<span class="msg-reply-arrow" aria-hidden="true">↩</span>
+					<ReplyElbow class="msg-reply-arrow" />
 					<template v-if="quote"
 						><span class="msg-reply-nick">{{ quote.nick }}</span
 						>&#32;<span class="msg-reply-text"><QuotePreview :text="quote.text" /></span
@@ -281,6 +281,7 @@ import MessageReactions from "./MessageReactions.vue";
 import TranslationFlip from "./TranslationFlip.vue";
 import TranslationLine from "./TranslationLine.vue";
 import QuotePreview from "./QuotePreview.vue";
+import ReplyElbow from "./ReplyElbow.vue";
 import {replyQuote} from "../js/helpers/messageUpdates";
 import {readingLanguage, showOriginal} from "../js/translate/reader";
 import {languageName} from "../js/translate/languages";
@@ -363,6 +364,7 @@ export default defineComponent({
 		TranslationFlip,
 		TranslationLine,
 		QuotePreview,
+		ReplyElbow,
 	},
 	props: {
 		message: {type: Object as PropType<ClientMessage>, required: true},

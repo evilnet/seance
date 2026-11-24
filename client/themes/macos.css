@@ -47,6 +47,15 @@
 	--window-shadow: none;
 	--menu-bg: #fff;
 
+	/* Bubbles (style.css § Bubbles): Messages' grey and its round corners;
+	 * our own lines a pale wash of the accent, the text as ever (a solid
+	 * accent bubble read as iMessage, not as IRC). */
+	--bubble-bg: #e9e9eb;
+	--bubble-own-bg: color-mix(in srgb, var(--mac-accent) 16%, #fff);
+	--bubble-highlight-bg: color-mix(in srgb, var(--mac-accent) 10%, #fff);
+	--bubble-radius: 1.125rem;
+	--bubble-join-radius: 0.3125rem;
+
 	/* Sidebar: a source list. --mac-rail-bg is what stands in for the
 	 * material where there is none (a browser, Reduce Transparency). */
 	--mac-rail-bg: #e8e8ea;
@@ -102,6 +111,9 @@
 		--composer-border: #3a3a3c;
 		--window-border: #3a3a3c;
 		--menu-bg: #2a2a2c;
+		--bubble-bg: #2c2c2e;
+		--bubble-own-bg: color-mix(in srgb, var(--mac-accent) 30%, #1e1e1e);
+		--bubble-highlight-bg: color-mix(in srgb, var(--mac-accent) 18%, #1e1e1e);
 		--mac-rail-bg: #2b2b2d;
 		--rail-fg: #e5e5e7;
 		--rail-fg-strong: #f5f5f7;

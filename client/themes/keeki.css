@@ -38,6 +38,14 @@
 	--menu-bg: #241530;
 	--own-bg: #241530;
 
+	/* Bubbles (style.css § Bubbles): rounder, a step lighter than the
+	 * chat, our own lines in a plum-pink. */
+	--bubble-bg: #2b1a3a;
+	--bubble-own-bg: #43203f;
+	--bubble-highlight-bg: #3d2134;
+	--bubble-radius: 1rem;
+	--bubble-join-radius: 0.25rem;
+
 	/* Sidebar rail: the purple gradient under the glitter; the active row is
 	 * solid rose gold with dark text (the overrides below carry that through
 	 * the row's badge and icons), the mention badge hot pink. */

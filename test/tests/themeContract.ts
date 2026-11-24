@@ -2,6 +2,7 @@ import {expect} from "chai";
 import fs from "fs";
 import path from "path";
 import {transform} from "lightningcss";
+import {bubbleThemes} from "../../client/js/helpers/messageLayout";
 
 // The theme contract (docs/resources/themes.md § The theme contract), checked
 // without a browser so it runs in CI: what a theme declares is read by
@@ -377,7 +378,22 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			// The rail is a gradient between these two: both ends hold.
 			["--rail-bg-top", "--rail-fg", 4.5],
 			["--rail-bg-bottom", "--rail-fg", 4.5],
+			// The Bubbles layout (style.css § Bubbles), in the themes that offer
+			// it: the words, the times and the links on every kind of bubble.
+			["--bubble-bg", "--body-color", 4.5],
+			["--bubble-bg", "--bubble-fg-muted", 4.5],
+			["--bubble-bg", "--bubble-link", 4.5],
+			["--bubble-own-bg", "--body-color", 4.5],
+			["--bubble-own-bg", "--bubble-fg-muted", 4.5],
+			["--bubble-own-bg", "--bubble-link", 4.5],
+			["--bubble-highlight-bg", "--body-color", 4.5],
+			["--bubble-highlight-bg", "--bubble-fg-muted", 4.5],
+			["--bubble-highlight-bg", "--bubble-link", 4.5],
+			["--bubble-bg", "--bubble-notice", 4.5],
 		];
+		// Bubbles are drawn only in the themes that offer them.
+		const BUBBLES_ONLY = (theme: string, surface: string) =>
+			surface.startsWith("--bubble-") && !bubbleThemes.has(theme);
 		// Known and recorded, not to be copied: day is TheLounge's original
 		// light theme, kept as it was (docs/projects/accessibility.md).
 		// Each is a floor of its own, at today's ratio: the exception keeps the
@@ -395,6 +411,9 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			"--chat-bg": "--body-bg-color",
 			"--rail-bg-top": "--body-bg-color",
 			"--rail-bg-bottom": "--body-bg-color",
+			"--bubble-bg": "--window-bg-color",
+			"--bubble-own-bg": "--window-bg-color",
+			"--bubble-highlight-bg": "--window-bg-color",
 		};
 		// Surfaces with nothing opaque under them in CSS (a shell's material or a
 		// scene would show through) have no ratio to compute from the files. None
@@ -408,7 +427,13 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 		// The chat's own surfaces are painted inside #chat only (style.css's
 		// `#chat … .msg.highlight`, the chat pane), so a block scoped away from
 		// it (zelenzy's dialogs) has none of them.
-		const CHAT_ONLY = new Set(["--chat-bg", "--highlight-bg-color"]);
+		const CHAT_ONLY = new Set([
+			"--chat-bg",
+			"--highlight-bg-color",
+			"--bubble-bg",
+			"--bubble-own-bg",
+			"--bubble-highlight-bg",
+		]);
 		const LOUNGE_ONLY = new Set(["day", "morning"]);
 		const names = new Set(PAIRS.flatMap(([surface, ink]) => [surface, ink]));
 
@@ -444,6 +469,10 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 						};
 
 						for (const [surface, ink, floor] of PAIRS) {
+							if (BUBBLES_ONLY(theme, surface)) {
+								continue;
+							}
+
 							const missing = [surface, ink].filter((t) => tokens[t] === undefined);
 
 							if (missing.length) {
