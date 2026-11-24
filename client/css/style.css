@@ -4142,10 +4142,9 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
  * pane's end, and a swipe brings every line's into view (§ By finger,
  * below). */
 html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) > .time {
-	display: var(--peek-display, block);
 	inset-block-start: 50%;
 	/* stylelint-disable-next-line unit-no-unknown -- cqi: the message list is an inline-size container; stylelint predates it */
-	inset-inline: var(--peek-x, min(100%, calc(100cqi - var(--bubble-gutter) - 2.125rem - var(--bubble-time)))) auto;
+	inset-inline: min(100%, calc(100cqi - var(--bubble-gutter) - 2.125rem - var(--bubble-time))) auto;
 	translate: 0 -50%;
 	margin-inline-start: 0.375rem;
 	padding-block: 0.125rem;
@@ -4616,8 +4615,7 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:no
 	position: absolute;
 	inset-block-start: 0;
 	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
-	display: var(--peek-display, block);
-	inset-inline-start: var(--peek-x, min(100%, calc(100cqi - var(--bubble-gutter) - 1.25rem - var(--action-time))));
+	inset-inline-start: min(100%, calc(100cqi - var(--bubble-gutter) - 1.25rem - var(--action-time)));
 	margin: 0;
 	padding-block: inherit;
 	padding-inline: 0.25rem 0.375rem;
@@ -4636,20 +4634,14 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[da
 	line-height: 1.75; /* the line's 1.4rem, so the two share a baseline */
 }
 
-/* By finger: the times that take no room (a run's later line's, an
- * action's, a status line's) are not drawn until a swipe toward the pane's
- * start slides the conversation aside (MessageList.vue sets `.time-peek` and
- * `--time-peek`, the finger's travel) and shows them all in a column past
- * its end, as Messages on iOS does; lifting the finger puts it back. No
- * bubble gives up width for them (the user, 2026-11-24). */
-html[data-message-layout="bubbles"][data-input="touch"] #chat .chat {
-	--peek-display: none;
-}
-
-html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek {
-	--peek-display: block;
-	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
-	--peek-x: calc(100cqi - var(--bubble-gutter) - 0.625rem);
+/* By finger no row shows its time, as in Messages on iOS: a swipe toward
+ * the pane's start slides the conversation aside (MessageList.vue sets
+ * `.time-peek` and `--time-peek`, the finger's travel) and shows every
+ * row's in one column past the pane's end, level with its row; lifting the
+ * finger puts it back. No bubble gives up width for a time (the user,
+ * 2026-11-24). A see-through theme's (ps) stand on its `--bubble-time-bg`. */
+html[data-message-layout="bubbles"][data-input="touch"] #chat .chat .messages .msg > .time {
+	display: none;
 }
 
 html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .messages {
@@ -4660,15 +4652,29 @@ html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .m
 	translate: min(var(--time-peek, 0px), calc(var(--bubble-time) + 2.5rem));
 }
 
-html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .msg > .time {
+html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .messages .msg > .time {
+	display: block;
+	grid-area: auto; /* placed against the row, not its header's cell */
+	position: absolute;
+	inset-block: 50% auto;
+	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
+	inset-inline: calc(100cqi - var(--bubble-gutter) - 0.625rem) auto;
+	translate: 0 -50%;
+	margin: 0;
+	padding: 0 0.25rem;
+	border-radius: 0.25rem;
+	background: var(--bubble-time-bg, none);
+	color: var(--body-color-muted);
+	font-size: 0.6875rem;
+	line-height: 1.5;
+	white-space: nowrap;
 	visibility: visible;
+	pointer-events: none;
 }
 
 /* Our own, at the far side of a private conversation: from its own end. */
-html[data-message-layout="bubbles"][data-input="touch"] #chat .chat-view[data-type="query"] .chat.time-peek .msg.self.previous-source > .time,
-html[data-message-layout="bubbles"][data-input="touch"] #chat .chat-view[data-type="query"] .chat.time-peek .msg.self[data-type="action"] > .time {
-	inset-inline: calc(100% + 0.75rem) auto;
-	margin: 0;
+html[data-message-layout="bubbles"][data-input="touch"] #chat .chat-view[data-type="query"] .chat.time-peek .messages .msg.self > .time {
+	inset-inline: calc(100% + 0.625rem) auto;
 }
 
 /* Messenger's reactions hang off the bubble they answer: the chip row
