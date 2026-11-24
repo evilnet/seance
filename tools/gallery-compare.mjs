@@ -8,8 +8,8 @@
 //
 // For each changed cell a picture goes to `<after>/diff`:
 // before, after, and the before dimmed with every changed pixel in magenta,
-// side by side. Cells are matched by name and judged by the manifests'
-// pixel hashes, so only a changed cell's PNGs are decoded.
+// side by side. Cells are matched by name, from each run's manifest (which
+// a run writes only when it passed), and judged by their decoded pixels.
 
 import {mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import {join, resolve} from "node:path";
@@ -25,14 +25,34 @@ if (dirs.length !== 2) {
 
 const [before, after] = dirs.map((d) => resolve(d));
 const outDir = join(after, "diff");
-const cellsOf = (dir) =>
-	new Map(
-		JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")).cells.map((c) => [c.name, c])
-	);
-const a = cellsOf(before);
-const b = cellsOf(after);
 
-/** Changed pixels and their box; a picture of the three side by side. */
+function manifest(dir) {
+	let run;
+
+	try {
+		run = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
+	} catch {
+		run = null;
+	}
+
+	if (!run?.cells?.length) {
+		console.error(`${dir}: no manifest, so not a gallery run that passed`);
+		process.exit(2);
+	}
+
+	return run;
+}
+
+const runA = manifest(before);
+const runB = manifest(after);
+const a = new Set(runA.cells);
+const b = new Set(runB.cells);
+
+if (runA.browser !== runB.browser) {
+	console.log(`warning: the runs used ${runA.browser} and ${runB.browser}; expect differences`);
+}
+
+/** Null when the two pictures match; else the changed pixels, their box and a picture of the three side by side. */
 function diff(name) {
 	const x = decodePng(readFileSync(join(before, `${name}.png`)));
 	const y = decodePng(readFileSync(join(after, `${name}.png`)));
@@ -70,6 +90,8 @@ function diff(name) {
 		}
 	}
 
+	if (count === 0) return null;
+
 	const gap = 8;
 	const rgb = (img, px, py) => {
 		const o = (py * width + px) * 4;
@@ -94,15 +116,17 @@ function diff(name) {
 let identical = 0;
 const report = [];
 
-for (const [name, cell] of a) {
-	const other = b.get(name);
-
-	if (!other) {
+for (const name of a) {
+	if (!b.has(name)) {
 		report.push(`removed   ${name}`);
-	} else if (other.hash === cell.hash) {
+		continue;
+	}
+
+	const d = diff(name);
+
+	if (!d) {
 		identical++;
 	} else {
-		const d = diff(name);
 		report.push(
 			d.size
 				? `changed   ${name}: size ${d.size}`
@@ -113,7 +137,7 @@ for (const [name, cell] of a) {
 	}
 }
 
-for (const name of b.keys()) {
+for (const name of b) {
 	if (!a.has(name)) report.push(`added     ${name}`);
 }
 

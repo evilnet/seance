@@ -1,8 +1,8 @@
 // The capture gallery (docs/resources/themes.md § Checking a theme): one
 // fixed conversation drawn under every theme the app ships, in every message
 // layout that theme allows, at a desktop and a phone width, a screenshot of
-// the channel and of a private conversation in each, and a manifest with a
-// hash of each picture's pixels. Two runs compare with
+// the channel and of a private conversation in each, and a manifest naming
+// them, written only when the whole run passed. Two runs compare with
 // tools/gallery-compare.mjs, so "this change moved nothing" (or "moved
 // exactly these cells") is shown rather than said.
 //
@@ -44,13 +44,11 @@
 // - the phone pass boots cold at its size on a cleared origin, as a phone
 //   would, rather than resizing the desktop's page.
 
-import {createHash} from "node:crypto";
-import {readdirSync, readFileSync, writeFileSync} from "node:fs";
+import {readdirSync, rmSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 
 import {CHANNEL, CLOCK, NICK, PEER, conversation} from "./lib/gallery-conversation.mjs";
-import {decodePng} from "./lib/png.mjs";
 import {startTinyIrcd} from "./lib/tiny-ircd.mjs";
 
 const PORT = process.env.SEANCE_PORT ?? "8000";
@@ -141,14 +139,6 @@ function themeFiles() {
 		.sort();
 }
 
-function pixelHash(file) {
-	const {width, height, rgba} = decodePng(readFileSync(file));
-	const hash = createHash("sha256");
-	hash.update(`${width}x${height}\n`);
-	hash.update(rgba);
-	return {width, height, hash: hash.digest("hex").slice(0, 32)};
-}
-
 async function setScheme(page, scheme) {
 	await page.send("Emulation.setEmulatedMedia", {
 		features: [
@@ -180,6 +170,9 @@ async function applyTheme(page, name) {
 	});
 }
 
+// A synthetic click on purpose (browser-testing.md's rule 1 is for scenarios
+// that test an interaction; this one tests paint): a real click would leave
+// the row hovered, and on a phone would need the sidebar opened and closed.
 async function openWindow(page, win) {
 	await page.evaluate(`${item(win.item)}.click()`);
 	await page.waitFor(
@@ -255,10 +248,12 @@ async function boot(page, viewport, first) {
 		await openWindow(page, win);
 	}
 
-	await page.waitFor(`document.querySelectorAll("#chat .msg[data-live]").length === 0`, {
-		label: "no live row",
-		timeout: 6000,
-	});
+	// The sidebar's activity dot keeps its colour under reduced motion, and
+	// its deadline reads the clock the cells below keep putting back.
+	await page.waitFor(
+		`document.querySelectorAll("#chat .msg[data-live], .channel-list-item.has-activity").length === 0`,
+		{label: "no live row, no activity dot", timeout: 8000}
+	);
 }
 
 export default async function run(page) {
@@ -275,7 +270,14 @@ export default async function run(page) {
 			return line.startsWith("PRIVMSG ") || line.startsWith("TAGMSG ");
 		},
 	});
-	page.check(
+	// A manifest is the mark of a whole run that passed: an older one goes
+	// first, and a new one is written only if no check below failed.
+	rmSync(join(page.outDir, "manifest.json"), {force: true});
+	let passed = true;
+	const check = (label, ok) => {
+		passed = page.check(label, ok) && passed;
+	};
+	check(
 		"run with --stable-raster (without it ps and macos differ by a few pixels run to run)",
 		page.flags.has("--stable-raster")
 	);
@@ -299,11 +301,11 @@ export default async function run(page) {
 				const files = themeFiles();
 				const unlisted = files.filter((f) => !appThemes.includes(f));
 				const missing = appThemes.filter((t) => !files.includes(t));
-				page.check(
+				check(
 					`every theme file is in the app's list (${unlisted.join(", ") || "all"})`,
 					unlisted.length === 0
 				);
-				page.check(
+				check(
 					`every listed theme has a file (${missing.join(", ") || "all"})`,
 					missing.length === 0
 				);
@@ -348,16 +350,29 @@ export default async function run(page) {
 								await page.sleep(400);
 							}
 
-							const overflows = await page.evaluate(
-								`(() => { const c = document.querySelector("#chat .chat"); return c.scrollHeight > c.clientHeight; })()`
+							// Measured once the fonts and pictures are in.
+							await page.evaluate(SETTLE());
+							const screens = await page.evaluate(
+								`(() => { const c = document.querySelector("#chat .chat"); return c.scrollHeight / c.clientHeight; })()`
 							);
+							const overflows = screens > 1;
+							const name = `${label}.${layout}.${viewport.name}.${win.name}`;
+
+							// Its end and its start between them show every row.
+							if (screens > (win.top ? 2 : 1)) {
+								check(
+									`${name}: every row is in a capture (${screens.toFixed(
+										2
+									)} screens)`,
+									false
+								);
+							}
 
 							for (const top of win.top && overflows ? [false, true] : [false]) {
 								await page.evaluate(SETTLE(top));
-								const window = top ? `${win.name}-top` : win.name;
-								const name = `${label}.${layout}.${viewport.name}.${window}`;
-								const file = await page.screenshot(name);
-								cells.push({name, ...pixelHash(file)});
+								const cell = top ? `${name}-top` : name;
+								await page.screenshot(cell);
+								cells.push(cell);
 							}
 						}
 					}
@@ -367,22 +382,25 @@ export default async function run(page) {
 			}
 		}
 
-		page.check(`${cells.length} cells captured`, cells.length > 0);
-		page.check("no console errors", page.consoleErrors.length === 0);
-	} finally {
-		const browser = await page.send("Browser.getVersion").catch(() => ({}));
+		check(`${cells.length} cells captured`, cells.length > 0);
+		check("no console errors", page.consoleErrors.length === 0);
+
+		if (!passed) return;
+
+		const browser = await page.send("Browser.getVersion");
 		writeFileSync(
 			join(page.outDir, "manifest.json"),
 			`${JSON.stringify(
 				{
 					clock: new Date(CLOCK).toISOString(),
 					browser: browser.product ?? null,
-					cells: cells.sort((a, b) => a.name.localeCompare(b.name)),
+					cells: cells.sort(),
 				},
 				null,
 				"\t"
 			)}\n`
 		);
+	} finally {
 		await ircd.close();
 	}
 }

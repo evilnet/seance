@@ -86,12 +86,18 @@ export function decodePng(buf) {
 
 	const raw = inflateSync(Buffer.concat(idat));
 	const stride = width * channels;
+
+	if (channels === 0 || raw.length !== height * (stride + 1)) {
+		throw new Error("malformed PNG (no header, or the pixels are not the size it gives)");
+	}
 	const rgba = Buffer.alloc(width * height * 4, 255);
 	let prev = Buffer.alloc(stride);
 
 	for (let y = 0; y < height; y++) {
 		const at = y * (stride + 1);
 		const filter = raw[at];
+
+		if (filter > 4) throw new Error(`malformed PNG (filter ${filter})`);
 		const row = Buffer.from(raw.subarray(at + 1, at + 1 + stride));
 
 		for (let i = 0; i < stride; i++) {
