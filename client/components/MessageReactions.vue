@@ -16,7 +16,7 @@
 					type="button"
 					class="msg-reaction tooltipped tooltipped-n"
 					:class="{self: badge.self, word: !badge.emoji}"
-					:data-arrived="arrived[badge.text]"
+					:data-arrived="arrived.get(badge.text)"
 					:disabled="!canToggle"
 					:aria-pressed="badge.self"
 					:aria-label="badge.label"
@@ -122,7 +122,8 @@ export default defineComponent({
 		// the note, which it does once, so a chip drawn again later (another
 		// conversation and back) is not new. Another nick on a chip already
 		// shown is noted too, so this looks again whenever the reactions change.
-		const arrived = reactive<Record<string, ArrivalKind>>({});
+		// A Map: a reaction is any text, `constructor` and `__proto__` included.
+		const arrived = reactive(new Map<string, ArrivalKind>());
 		const arrivedTimers = new Map<string, number>();
 
 		watch(
@@ -133,11 +134,11 @@ export default defineComponent({
 				}
 
 				// A chip taken off is gone with its note: put back, it is new.
-				for (const text of Object.keys(arrived)) {
+				for (const text of [...arrived.keys()]) {
 					if (!reactions?.some((r) => r.text === text)) {
 						window.clearTimeout(arrivedTimers.get(text));
 						arrivedTimers.delete(text);
-						delete arrived[text];
+						arrived.delete(text);
 					}
 				}
 
@@ -145,12 +146,12 @@ export default defineComponent({
 					const kind = liveChips.take(chipKey(props.message.id, text));
 
 					if (kind) {
-						arrived[text] = kind;
+						arrived.set(text, kind);
 						window.clearTimeout(arrivedTimers.get(text));
 						arrivedTimers.set(
 							text,
 							window.setTimeout(() => {
-								delete arrived[text];
+								arrived.delete(text);
 								arrivedTimers.delete(text);
 							}, LIVE_HOLD_MS)
 						);

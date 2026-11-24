@@ -9,7 +9,9 @@
 // opening it ends that. A line in another channel is not live when read later,
 // coming back to a channel draws none of its rows as live again, every hook
 // is gone after the hold, and a reload draws the kept lines, and a catch-up
-// with a line and a reaction, with none. Under reduced motion every hook is
+// with a line and a reaction (one of them named `constructor`), with none. A
+// chip taken off in the same breath as it came leaves no note behind for the
+// same reaction put back later, not live. Under reduced motion every hook is
 // still set. style.css animates nothing on any of them.
 //
 //   pnpm build && python3 -m http.server -d "$PWD/public" 8000 &
@@ -86,6 +88,7 @@ export default async function run(page) {
 						chathistory(ctx.send, CHANNEL, [
 							`@time=${now};msgid=c1 :alice!u@tiny PRIVMSG ${CHANNEL} :caught up line`,
 							`@time=${now};msgid=c2;+draft/react=🚀;+draft/reply=r1 :erin!u@tiny TAGMSG ${CHANNEL}`,
+							`@time=${now};msgid=c3;+draft/react=constructor;+draft/reply=r1 :erin!u@tiny TAGMSG ${CHANNEL}`,
 						]);
 					}, 1500);
 				} else {
@@ -125,6 +128,15 @@ export default async function run(page) {
 		page.check(`${label}: data-arrived ${want} (${got})`, got === want);
 	};
 	const item = (name) => `document.querySelector('.channel-list-item[data-name="${name}"]')`;
+	// The page hidden or shown, as a phone's lock would (gallery.mjs's shim).
+	const visibility = (state) =>
+		page.evaluate(`(() => {
+			Object.defineProperty(document, "visibilityState", {configurable: true, get: () => ${JSON.stringify(
+				state
+			)}});
+			Object.defineProperty(document, "hidden", {configurable: true, get: () => ${state === "hidden"}});
+			document.dispatchEvent(new Event("visibilitychange"));
+		})()`);
 	const mentioned = (name) => page.evaluate(`!!${item(name)}?.hasAttribute("data-mentioned")`);
 	const enter = async (text) => {
 		await page.click("#input");
@@ -185,6 +197,24 @@ export default async function run(page) {
 			}
 		);
 		await arrivedIs("🎉", "more", "another nick on a chip");
+
+		// Put on and taken off in one go (one frame), so the chip is never
+		// drawn: its note goes with it. The same reaction put back while the
+		// page is hidden is not live, and finds no note to take.
+		send(
+			`@+draft/react=👀;+draft/reply=r1 ${from("bob")} TAGMSG ${CHANNEL}\r\n` +
+				`@+draft/unreact=👀;+draft/reply=r1 ${from("bob")} TAGMSG ${CHANNEL}`
+		);
+		await page.sleep(100);
+		await visibility("hidden");
+		react("carol", "👀", "r1");
+		await page.waitFor(`!!${CHIP("👀")}`, {label: "the 👀 chip"});
+		const putBack = await page.evaluate(ARRIVED("👀"));
+		await visibility("visible");
+		page.check(
+			`a chip taken off unseen, put back while hidden: no data-arrived (${putBack})`,
+			putBack === null
+		);
 
 		// Someone leaving: a part on its own row, then a quit that folds it
 		// into a condensed group, which is the row drawn and takes the mark.
@@ -314,6 +344,7 @@ export default async function run(page) {
 		);
 		await liveIs("caught up line", null, "a catch-up line");
 		await arrivedIs("🚀", null, "a catch-up reaction");
+		await arrivedIs("constructor", null, "a catch-up reaction named constructor");
 		page.check(
 			`after the catch-up: nothing live anywhere (${await page.evaluate(
 				ANY_LIVE

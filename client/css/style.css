@@ -4234,7 +4234,8 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 		font-size: 0.875em;
 	}
 
-	html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois dd + dt {
+	/* Each pair is a div of its own (MessageTypes/whois.vue). */
+	html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois > div + div > dt {
 		margin-block-start: 0.25rem;
 	}
 }
@@ -4260,6 +4261,12 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 
 html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote:is(:hover, :focus-visible) {
 	background-color: color-mix(in srgb, currentcolor 14%, transparent);
+}
+
+/* A keyboard's ring, inside the strip: `.content` clips what is outside it. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote:focus-visible {
+	outline: 0.125rem solid currentcolor;
+	outline-offset: -0.125rem;
 }
 
 html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote > :is(.msg-reply-arrow, .msg-reply-nick) {
@@ -4315,6 +4322,21 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
  * our own actions under "band" keep it, as our own lines do. */
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
 	background-color: transparent;
+}
+
+/* The message toolbar stands at the bubble's start, where every bubble
+ * begins inside the pane: at its end (`#chat .msg-actions` below), a short
+ * bubble's toolbar hung past the pane's start, where .chat clips it (ps
+ * does the same for its cards). Our own bubbles in a private conversation
+ * stand at the far side, so theirs keeps the end, and the jump-to-recent
+ * arrow's offset with it. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not(.chat-view[data-type="query"] .msg.self) .msg-actions {
+	inset-inline: 0.5rem auto;
+	transform-origin: bottom left;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .messages > :is(.msg:first-child, .date-marker-container:first-child + .msg):not(.chat-view[data-type="query"] .msg.self) .msg-actions {
+	transform-origin: top left;
 }
 
 /* Messenger's private conversation is a two-sided chat: the header names
@@ -4429,6 +4451,7 @@ html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"],
  * hover tint it shows with: the row's, spelled out, since `currentcolor`
  * here would be the time's), so the words under it don't show through. */
 html[data-message-layout="workspace"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+	pointer-events: none; /* a link or a control under it still takes the click */
 	background-color: var(--window-bg-color);
 	background-image:
 		linear-gradient(var(--msg-hover-bg, color-mix(in srgb, var(--body-color) 8%, transparent)) 0 0),
@@ -11308,9 +11331,16 @@ html[data-reduce-motion] *::after {
 		color: highlighttext !important;
 	}
 
-	/* A mention keeps its bar, the one mark left once the row's tint is gone. */
-	#chat .chat-view[data-type="channel"] .msg.highlight {
+	/* A mention keeps its bar, the one mark left once the row's tint is gone
+	 * (Messenger's bubble sets its bar in a shorthand that outranks the first). */
+	#chat .chat-view[data-type="channel"] .msg.highlight,
+	html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="channel"] .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) {
 		border-inline-start-color: highlight;
+	}
+
+	/* A reply's strip keeps its ring inside it, as a thumbnail does above. */
+	html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote:focus-visible {
+		outline-offset: -0.125rem !important;
 	}
 
 	/* An outline, not a border, so the badge keeps its size. */

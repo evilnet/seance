@@ -43,11 +43,16 @@ const STORED = `JSON.parse(localStorage.getItem("settings") ?? "{}").messageLayo
 const at = (hhmm) => `${DAY}T${hhmm}:00.000Z`;
 const from = (nick) => `:${nick}!${nick}@gallery.test`;
 
+const LONG_LINK =
+	"https://example.com/notes/release/2026/the-long-path-to-the-final-draft-of-the-notes-for-everyone";
+
 /** The rows the gallery does not have, after its conversation. */
 const EXTRA = [
 	`@time=${at("12:20")};msgid=x01 ${from(
 		"alice"
 	)} PRIVMSG ${CHANNEL} :the shot: https://example.com/shot.png`,
+	// A later line that is a link from end to end: its hover time is over it.
+	`@time=${at("12:20")};msgid=x06 ${from("alice")} PRIVMSG ${CHANNEL} :${LONG_LINK}`,
 	`@time=${at("12:21")} ${from("bob")} BATCH +ml draft/multiline ${CHANNEL}`,
 	`@batch=ml;msgid=x02 ${from("bob")} PRIVMSG ${CHANNEL} :a first line`,
 	`@batch=ml ${from("bob")} PRIVMSG ${CHANNEL} :and a second one`,
@@ -56,6 +61,9 @@ const EXTRA = [
 		"carol"
 	)} PRIVMSG ${CHANNEL} :looks good from here, mostly`,
 	`@time=${at("12:23")} ${from("alice")} REDACT ${CHANNEL} g05`,
+	// Short lines, for the toolbar: one in the channel, one in the query.
+	`@time=${at("12:23")};msgid=x07 ${from("frank")} PRIVMSG ${CHANNEL} :yep`,
+	`@time=${at("12:23")};msgid=x08 ${from(PEER)} PRIVMSG ${NICK} :yep`,
 ];
 
 /** A row's geometry and the styles the checks read, by selector. */
@@ -106,6 +114,19 @@ export default async function run(page) {
 			if (line.startsWith("JOIN ")) {
 				sendToPage = ctx.send;
 				for (const out of [...conversation("tiny.test"), ...EXTRA]) ctx.send(out);
+				return true;
+			}
+
+			if (line.startsWith("WHOIS ")) {
+				for (const out of [
+					`:tiny.test 311 ${NICK} alice alice gallery.test * :Alice`,
+					`:tiny.test 312 ${NICK} alice tiny.test :the tiny server`,
+					`:tiny.test 330 ${NICK} alice alice :is logged in as`,
+					`:tiny.test 318 ${NICK} alice :End of /WHOIS list.`,
+				]) {
+					ctx.send(out);
+				}
+
 				return true;
 			}
 
@@ -160,6 +181,124 @@ export default async function run(page) {
 				RADIO("lines")
 			)}).scrollIntoView({block: "center"})`
 		);
+	};
+	const rowAt = (type, index) =>
+		`document.querySelectorAll('#chat .chat .msg[data-type="${type}"]')[${index}]`;
+	const unhover = () => page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+	// The toolbar of the row with `text`, hovered, against the pane's inside.
+	const toolbarFits = async (text, label) => {
+		await scrollTo("message", text);
+		await page.sleep(150);
+		const index = await page.evaluate(ROW_WITH(text, "message"));
+		await page.hover('#chat .chat .msg[data-type="message"]', index);
+		await page.sleep(150);
+		const box = await page.evaluate(`(() => {
+			const a = ${rowAt("message", index)}?.querySelector(".msg-actions");
+			if (!a || getComputedStyle(a).display === "none") return null;
+			const c = document.querySelector("#chat .chat");
+			const left = c.getBoundingClientRect().left + c.clientLeft;
+			const b = a.getBoundingClientRect();
+			return {start: Math.round(b.left - left), end: Math.round(left + c.clientWidth - b.right),
+				arrow: !!document.querySelector("#chat .scroll-down-shown")};
+		})()`);
+		page.check(
+			`${label}: the toolbar stays inside the pane (${JSON.stringify(box)})`,
+			!!box && box.start >= 0 && box.end >= 0
+		);
+		await unhover();
+		return box;
+	};
+	// Colours as a canvas paints them, so an oklab and an rgb spelling compare.
+	const PAINT = `((c) => { const x = document.createElement("canvas").getContext("2d"); x.fillStyle = c; x.fillRect(0, 0, 1, 1); return [...x.getImageData(0, 0, 1, 1).data].join(); })`;
+	// Under Increase Contrast: a run's time and our own greyed words in the text colour.
+	const contrastLifts = async (label) => {
+		const got = await page.evaluate(`(() => {
+			const paint = ${PAINT};
+			const rows = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')];
+			const first = rows.find((m) => m.textContent.includes("morning all"));
+			const own = rows.find((m) => m.textContent.includes("on it, capturing"));
+			return {text: paint(getComputedStyle(first).getPropertyValue("--body-color").trim()),
+				time: paint(getComputedStyle(first.querySelector(".time")).color),
+				own: paint(getComputedStyle(own.querySelector(".content")).color)};
+		})()`);
+		page.check(
+			`${label}: Increase Contrast puts the time and our own greyed words in the text colour (${JSON.stringify(
+				got
+			)})`,
+			got.time === got.text && got.own === got.text
+		);
+	};
+	// A reply's strip, focused from the keyboard: a ring, inside the strip.
+	const quoteRing = async (label) => {
+		const index = await page.evaluate(ROW_WITH("which commit was it", "message"));
+		const ring = await page.evaluate(`(() => {
+			const q = ${rowAt("message", index)}.querySelector(".msg-reply-quote");
+			q.focus({focusVisible: true});
+			const s = getComputedStyle(q);
+			const out = {visible: q.matches(":focus-visible"), style: s.outlineStyle, width: s.outlineWidth, offset: s.outlineOffset};
+			q.blur();
+			return out;
+		})()`);
+		page.check(
+			`${label}: a reply's strip shows a keyboard's ring inside it (${JSON.stringify(ring)})`,
+			ring.visible &&
+				ring.style !== "none" &&
+				parseFloat(ring.width) > 0 &&
+				parseFloat(ring.offset) <= -parseFloat(ring.width)
+		);
+	};
+	// A whois in one column: each label after the first a step below the value before it.
+	const whoisSpaced = async (label) => {
+		await page.evaluate(
+			`document.querySelectorAll("#chat .chat .whois").forEach((w) => w.closest(".msg").dataset.seen = "1")`
+		);
+		await page.click("#input");
+		await page.send("Input.insertText", {text: "/whois alice"});
+		const key = {key: "Enter", code: "Enter", windowsVirtualKeyCode: 13};
+		await page.send("Input.dispatchKeyEvent", {type: "keyDown", text: "\r", ...key});
+		await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...key});
+		const WHOIS = `[...document.querySelectorAll("#chat .chat .whois")].find((w) => !w.closest(".msg").dataset.seen)`;
+		await page.waitFor(`!!${WHOIS}`, {label: "a whois"});
+		await page.sleep(200);
+		const got = await page.evaluate(`(() => {
+			const w = ${WHOIS};
+			w.scrollIntoView({block: "center"});
+			const dts = [...w.querySelectorAll("dt")];
+			const dds = [...w.querySelectorAll("dd")];
+			const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+			return {pairs: dts.length,
+				oneColumn: dts.length > 1 && Math.abs(dts[1].getBoundingClientRect().left - dds[0].getBoundingClientRect().left) < 2,
+				first: getComputedStyle(dts[0]).marginBlockStart,
+				later: dts.slice(1).map((d) => parseFloat(getComputedStyle(d).marginBlockStart) / rem)};
+		})()`);
+		page.check(
+			`${label}: a whois's pairs stand apart in one column (${JSON.stringify(got)})`,
+			got.pairs >= 2 &&
+				got.oneColumn &&
+				got.first === "0px" &&
+				got.later.every((m) => m === 0.25)
+		);
+	};
+	// A later line's hover time over a link: the link still takes the click.
+	const timeLetsThrough = async (label) => {
+		await scrollTo("message", LONG_LINK);
+		await page.sleep(150);
+		const index = await page.evaluate(ROW_WITH(LONG_LINK, "message"));
+		await page.hover('#chat .chat .msg[data-type="message"]', index);
+		await page.sleep(150);
+		const got = await page.evaluate(`(() => {
+			const m = ${rowAt("message", index)};
+			const t = m.querySelector(".time").getBoundingClientRect();
+			const hit = document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2);
+			return {shown: getComputedStyle(m.querySelector(".time")).visibility, hit: hit?.closest(".time") ? "time" : hit?.closest("a") ? "link" : hit?.className ?? null};
+		})()`);
+		page.check(
+			`${label}: a later line's hover time shows, and the link under it takes the pointer (${JSON.stringify(
+				got
+			)})`,
+			got.shown === "visible" && got.hit === "link"
+		);
+		await unhover();
 	};
 	const backToChat = async () => {
 		await page.click(".settings-modal-done");
@@ -294,6 +433,7 @@ export default async function run(page) {
 				)}]; const q = m.querySelector(".msg-reply-quote").getBoundingClientRect(); const c = m.querySelector(".content").getBoundingClientRect(); return Math.abs(q.left - c.left) <= 1 && q.top >= c.top - 1; })()`
 			)) && reply.background === NONE
 		);
+		await quoteRing("Workspace");
 		page.check(
 			`a join's icon starts at the text column (${join.from.left} vs ${first.content.left})`,
 			near(join.from.left, first.content.left, 1) && near(join.row.width, join.list.width, 1)
@@ -398,6 +538,19 @@ export default async function run(page) {
 		await page.screenshot("5-workspace-own-band");
 		await page.evaluate(update("ownMessages", "muted"));
 
+		const contrast = async (on) => {
+			await page.send("Emulation.setEmulatedMedia", {
+				features: on ? [{name: "prefers-contrast", value: "more"}] : [],
+			});
+			await page.waitFor(`(document.documentElement.dataset.contrast === "more") === ${on}`, {
+				label: `Increase Contrast ${on ? "on" : "off"}`,
+			});
+			await page.sleep(100);
+		};
+		await contrast(true);
+		await contrastLifts("Workspace");
+		await contrast(false);
+
 		// Forced colours: the band goes, the bar stays.
 		await page.send("Emulation.setEmulatedMedia", {
 			features: [{name: "forced-colors", value: "active"}],
@@ -410,6 +563,7 @@ export default async function run(page) {
 		);
 		await scrollTo("message", "can you look at the theme gallery");
 		await page.screenshot("6-workspace-forced-colors");
+		await quoteRing("Workspace, forced colours");
 		await page.send("Emulation.setEmulatedMedia", {features: []});
 
 		// Right to left: the gutter and the avatar move to the right.
@@ -471,6 +625,8 @@ export default async function run(page) {
 				peer2.time.visibility === "hidden"
 		);
 		await page.screenshot("9-messenger-query");
+		await toolbarFits("yep", "Messenger query, a short line of theirs");
+		await toolbarFits("sending you a screenshot", "Messenger query, our own at the far side");
 		await open(CHANNEL, "looks good from here");
 		const mFirst = await geometry("message", "morning all");
 		page.check(
@@ -480,6 +636,53 @@ export default async function run(page) {
 				mFirst.avatarRadius === "50%" &&
 				mFirst.background !== NONE
 		);
+		await toolbarFits("yep", "Messenger channel, a short line");
+		const back = await toolbarFits("morning all", "Messenger channel, scrolled back");
+		page.check(
+			"Messenger channel, scrolled back: the jump-to-recent arrow is up",
+			!!back?.arrow
+		);
+		await quoteRing("Messenger");
+		await contrast(true);
+		await contrastLifts("Messenger");
+		await contrast(false);
+
+		// Forced colours: a mention's bar in the system's highlight.
+		await page.send("Emulation.setEmulatedMedia", {
+			features: [{name: "forced-colors", value: "active"}],
+		});
+		await page.sleep(200);
+		const mentionBar = await page.evaluate(`(() => {
+			const paint = ${PAINT};
+			const m = ${rowAt(
+				"message",
+				await page.evaluate(ROW_WITH("can you look at the theme gallery", "message"))
+			)};
+			const probe = document.createElement("span");
+			probe.style.borderInlineStart = "3px solid highlight";
+			document.body.append(probe);
+			const want = paint(getComputedStyle(probe).borderInlineStartColor);
+			probe.remove();
+			const s = getComputedStyle(m);
+			return {bar: paint(s.borderInlineStartColor), want, width: s.borderInlineStartWidth};
+		})()`);
+		page.check(
+			`Messenger, forced colours: a mention's bar is the system's highlight (${JSON.stringify(
+				mentionBar
+			)})`,
+			mentionBar.bar === mentionBar.want && parseFloat(mentionBar.width) > 0
+		);
+		await quoteRing("Messenger, forced colours");
+		await page.send("Emulation.setEmulatedMedia", {features: []});
+
+		await page.evaluate(`document.documentElement.dir = "rtl"`);
+		await page.sleep(200);
+		await toolbarFits("yep", "Messenger channel, right to left");
+		await open(PEER, "sending you a screenshot");
+		await toolbarFits("yep", "Messenger query, right to left, theirs");
+		await toolbarFits("sending you a screenshot", "Messenger query, right to left, ours");
+		await page.evaluate(`document.documentElement.dir = "ltr"`);
+		await open(CHANNEL, "looks good from here");
 
 		// ---- a phone
 		await page.send("Emulation.setDeviceMetricsOverride", {
@@ -505,9 +708,14 @@ export default async function run(page) {
 		await page.sleep(400);
 		page.check("phone at the largest text step: no sideways scroll", await noSideScroll());
 		await page.screenshot("11-phone-workspace-huge");
+		await timeLetsThrough("phone Workspace at the largest text step");
 		await page.evaluate(update("fontSize", "medium"));
+		await page.sleep(300);
+		await whoisSpaced("phone Workspace");
 		await page.evaluate(update("messageLayout", "bubbles"));
 		await page.sleep(300);
+		await whoisSpaced("phone Messenger");
+		await toolbarFits("yep", "phone Messenger channel, a short line");
 		await open(PEER, "sending you a screenshot");
 		const phoneMine = await geometry("message", "sending you a screenshot");
 		const phonePeer = await geometry("message", "hey, got a minute");
@@ -520,6 +728,8 @@ export default async function run(page) {
 		);
 		page.check("phone Messenger query: no sideways scroll", await noSideScroll());
 		await page.screenshot("12-phone-messenger-query");
+		await toolbarFits("yep", "phone Messenger query, a short line of theirs");
+		await toolbarFits("sending you a screenshot", "phone Messenger query, our own");
 	} finally {
 		await ircd.close();
 	}

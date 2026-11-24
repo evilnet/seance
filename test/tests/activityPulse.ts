@@ -5,7 +5,6 @@ import {
 	ACTIVITY_SWEEP_INTERVAL,
 	ActivityExpiry,
 	isActivity,
-	MentionExpiry,
 	noteActivity,
 	noteMention,
 	type ActivityHolder,
@@ -67,10 +66,10 @@ describe("sidebar activity pulse", function () {
 
 	describe("expiry sweep", function () {
 		let clock: sinon.SinonFakeTimers;
-		let channels: ActivityHolder[];
+		let channels: (ActivityHolder & MentionHolder)[];
 		let expiry: ActivityExpiry;
 
-		const chan = (): ActivityHolder => ({activityUntil: 0});
+		const chan = () => ({activityUntil: 0, mentionUntil: 0});
 
 		const speak = (holder: ActivityHolder) => {
 			noteActivity(holder, Date.now());
@@ -178,8 +177,11 @@ describe("sidebar activity pulse", function () {
 		});
 
 		it("holds for LIVE_HOLD_MS, and lapses within a sweep after", function () {
-			const channels: MentionHolder[] = [{mentionUntil: 0}, {mentionUntil: 0}];
-			const sweep = new MentionExpiry(() => channels);
+			const channels = [
+				{activityUntil: 0, mentionUntil: 0},
+				{activityUntil: 0, mentionUntil: 0},
+			];
+			const sweep = new ActivityExpiry(() => channels);
 			noteMention(channels[1], Date.now());
 			sweep.schedule();
 
@@ -192,8 +194,8 @@ describe("sidebar activity pulse", function () {
 		});
 
 		it("a second mention within the hold extends it, unbroken", function () {
-			const channels: MentionHolder[] = [{mentionUntil: 0}];
-			const sweep = new MentionExpiry(() => channels);
+			const channels = [{activityUntil: 0, mentionUntil: 0}];
+			const sweep = new ActivityExpiry(() => channels);
 			noteMention(channels[0], Date.now());
 			sweep.schedule();
 
@@ -203,6 +205,22 @@ describe("sidebar activity pulse", function () {
 			expect(channels[0].mentionUntil).to.be.greaterThan(0);
 			clock.tick(ACTIVITY_SWEEP_INTERVAL + 1);
 			expect(channels[0].mentionUntil).to.equal(0);
+		});
+
+		it("shares the pulse's sweep, which runs until both have lapsed", function () {
+			const channels = [{activityUntil: 0, mentionUntil: 0}];
+			const sweep = new ActivityExpiry(() => channels);
+			noteMention(channels[0], Date.now());
+			noteActivity(channels[0], Date.now());
+			sweep.schedule();
+
+			clock.tick(LIVE_HOLD_MS);
+			expect(channels[0].mentionUntil).to.equal(0);
+			expect(channels[0].activityUntil).to.be.greaterThan(0);
+			expect(sweep.running).to.be.true;
+			clock.tick(ACTIVITY_PULSE_MS - LIVE_HOLD_MS);
+			expect(channels[0].activityUntil).to.equal(0);
+			expect(sweep.running).to.be.false;
 		});
 	});
 });

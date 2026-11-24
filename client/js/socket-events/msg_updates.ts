@@ -37,6 +37,26 @@ socket.on("reply:parent", function ({chan, msgid, nick, text}) {
 // An update to a message of a page the store is still holding back waits
 // for that page (helpers/heldPages.ts).
 socket.on("msg:react", function (data) {
+	// A reaction arriving live on a message of the open conversation, for its
+	// chip (liveRows.ts): never one replayed with history, nor while a past
+	// view holds the conversation's rows out of sight or the page is hidden,
+	// as for a live row (socket-events/msg.ts). Judged when it arrives, and
+	// again when it is applied (a held page can keep it waiting), with its
+	// freshness counted from its arrival.
+	const arrivedAt = performance.now();
+	const live = () => {
+		const target = store.getters.findChannel(data.chan);
+
+		return (
+			!data.replay &&
+			!!target &&
+			store.state.activeChannel?.channel === target.channel &&
+			!target.channel.past &&
+			document.visibilityState === "visible"
+		);
+	};
+	const liveOnArrival = live();
+
 	afterHeldPage(data.chan, () => {
 		const target = store.getters.findChannel(data.chan);
 		const message = target && findMessageById(target.channel.messages, data.id);
@@ -45,24 +65,23 @@ socket.on("msg:react", function (data) {
 			return;
 		}
 
-		// A reaction arriving live on a message of the open conversation, for
-		// its chip (liveRows.ts): never one replayed with history, nor while a
-		// past view holds the conversation's rows out of sight or the page is
-		// hidden, as for a live row (socket-events/msg.ts).
-		if (
-			!data.replay &&
-			store.state.activeChannel?.channel === target.channel &&
-			!target.channel.past &&
-			document.visibilityState === "visible"
-		) {
+		const key = chipKey(message.id, data.text);
+
+		if (liveOnArrival && live()) {
 			const kind = reactionArrival(message.reactions, data.text, data.nick, data.remove);
 
 			if (kind) {
-				liveChips.mark(chipKey(message.id, data.text), kind);
+				liveChips.mark(key, kind, arrivedAt);
 			}
 		}
 
 		applyReaction(message, data.text, data.nick, data.remove);
+
+		// A chip taken off before it could claim its note: a later add of the
+		// same text (a replay) must not find the note.
+		if (data.remove && !message.reactions?.some((r) => r.text === data.text)) {
+			liveChips.take(key);
+		}
 	});
 });
 

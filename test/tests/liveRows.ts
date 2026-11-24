@@ -7,6 +7,7 @@ import {
 	LIVE_MS,
 	reactionArrival,
 	type ArrivalKind,
+	type LiveKind,
 } from "../../client/js/liveRows";
 
 describe("live rows (liveRows.ts)", function () {
@@ -90,7 +91,7 @@ describe("live rows (liveRows.ts)", function () {
 
 	describe("createLiveRows", function () {
 		let t = 0;
-		const rows = () => createLiveRows(() => t);
+		const rows = () => createLiveRows<number, LiveKind>(() => t);
 
 		beforeEach(function () {
 			t = 0;
@@ -145,6 +146,18 @@ describe("live rows (liveRows.ts)", function () {
 			chips.mark(chipKey(7, "👍"), "more");
 			t = LIVE_MS + 1;
 			expect(chips.take(chipKey(7, "👍"))).to.equal(null);
+		});
+
+		it("noted late with the time it arrived, fresh from that time", function () {
+			// A reaction held behind a page of history (msg_updates.ts) is noted
+			// when it is applied, with the time it came.
+			let t = 0;
+			const chips = createLiveRows<string, ArrivalKind>(() => t);
+			t = LIVE_MS + 500;
+			chips.mark(chipKey(7, "👍"), "first", 0);
+			expect(chips.take(chipKey(7, "👍"))).to.equal(null);
+			chips.mark(chipKey(7, "🎉"), "new", 600);
+			expect(chips.take(chipKey(7, "🎉"))).to.equal("new");
 		});
 	});
 });

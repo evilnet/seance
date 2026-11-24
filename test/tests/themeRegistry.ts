@@ -15,17 +15,14 @@ const THEMES_DIR = path.join(process.cwd(), "client", "themes");
 describe("the theme registry (client/js/themeRegistry.ts)", function () {
 	const names = THEMES.map((theme) => theme.name);
 
-	it("has an entry for every client/themes/*.css and a file for every entry", function () {
+	it("has one entry for every client/themes/*.css and a file for every entry", function () {
 		const files = fs
 			.readdirSync(THEMES_DIR)
 			.filter((file) => file.endsWith(".css"))
 			.map((file) => file.slice(0, -".css".length));
 
+		// A file name is unique, so a theme named twice is a list longer than the files.
 		expect([...names].sort()).to.deep.equal(files.sort());
-	});
-
-	it("names each theme once", function () {
-		expect(new Set(names).size).to.equal(names.length);
 	});
 
 	it("gives every theme a display name and a colour or none", function () {

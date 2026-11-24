@@ -108,14 +108,10 @@ export function reactionArrival(
 /** A chip's note key: its message and its text. */
 export const chipKey = (id: number, text: string) => `${id} ${text}`;
 
-export interface LiveRows<K = number, V = LiveKind> {
-	/** Note that the line (or chip) with this key just arrived live. */
-	mark(id: K, kind: V): void;
-	/** The note for this key, at most once, and only while it is fresh. */
-	take(id: K): V | null;
-}
-
-export function createLiveRows<K = number, V = LiveKind>(now: () => number): LiveRows<K, V> {
+/** Notes by key (a row's message id, a chip's {@link chipKey}): `mark` notes
+ * that one just arrived live, at `at` (now by default); `take` hands its note
+ * back at most once, and only while it is fresh. */
+export function createLiveRows<K, V>(now: () => number) {
 	const notes = new Map<K, {kind: V; at: number}>();
 
 	const prune = (t: number) => {
@@ -127,12 +123,11 @@ export function createLiveRows<K = number, V = LiveKind>(now: () => number): Liv
 	};
 
 	return {
-		mark(id, kind) {
-			const t = now();
-			prune(t);
-			notes.set(id, {kind, at: t});
+		mark(id: K, kind: V, at = now()) {
+			prune(now());
+			notes.set(id, {kind, at});
 		},
-		take(id) {
+		take(id: K): V | null {
 			const note = notes.get(id);
 
 			if (!note) {
@@ -145,7 +140,7 @@ export function createLiveRows<K = number, V = LiveKind>(now: () => number): Liv
 	};
 }
 
-export const liveRows = createLiveRows(() => performance.now());
+export const liveRows = createLiveRows<number, LiveKind>(() => performance.now());
 
 /** Reactions' chips, by {@link chipKey}. */
 export const liveChips = createLiveRows<string, ArrivalKind>(() => performance.now());

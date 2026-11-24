@@ -59,39 +59,11 @@ export function noteActivity(holder: ActivityHolder, now: number): void {
 }
 
 /**
- * Clear a lapsed deadline and report whether one is still running. Leaves the
- * holder untouched otherwise, so reactive watchers only fire on a real stop.
- */
-const expireDeadline =
-	<K extends string>(key: K) =>
-	(holder: Record<K, number>, now: number): boolean => {
-		if (holder[key] === 0) {
-			return false;
-		}
-
-		if (holder[key] <= now) {
-			holder[key] = 0 as Record<K, number>[K];
-			return false;
-		}
-
-		return true;
-	};
-
-export const expireActivity: (holder: ActivityHolder, now: number) => boolean =
-	expireDeadline("activityUntil");
-
-export class ActivityExpiry extends ExpirySweep<ActivityHolder> {
-	constructor(holders: () => Iterable<ActivityHolder>, interval = ACTIVITY_SWEEP_INTERVAL) {
-		super(holders, expireActivity, interval);
-	}
-}
-
-/**
  * A mention elsewhere (docs/resources/themes.md § Live rows): a conversation
  * that is not the open one got a live mention, and its sidebar row carries
  * `data-mentioned` until this deadline, the same hold as a live row. Set by
- * socket-events/activity.ts, cleared by the same kind of sweep as the pulse,
- * so it lasts at least LIVE_HOLD_MS and goes within a sweep period after.
+ * socket-events/activity.ts, cleared by the same sweep as the pulse, so it
+ * lasts at least LIVE_HOLD_MS and goes within a sweep period after.
  */
 export type MentionHolder = {mentionUntil: number};
 
@@ -100,11 +72,38 @@ export function noteMention(holder: MentionHolder, now: number): void {
 	holder.mentionUntil = now + LIVE_HOLD_MS;
 }
 
-export const expireMention: (holder: MentionHolder, now: number) => boolean =
-	expireDeadline("mentionUntil");
+/**
+ * Clear the lapsed deadlines (the pulse's and the mention's) and report
+ * whether either is still running. Leaves a deadline untouched otherwise, so
+ * reactive watchers only fire on a real stop.
+ */
+export function expireActivity(holder: ActivityHolder & MentionHolder, now: number): boolean {
+	let live = false;
 
-export class MentionExpiry extends ExpirySweep<MentionHolder> {
-	constructor(holders: () => Iterable<MentionHolder>, interval = ACTIVITY_SWEEP_INTERVAL) {
-		super(holders, expireMention, interval);
+	if (holder.activityUntil !== 0) {
+		if (holder.activityUntil <= now) {
+			holder.activityUntil = 0;
+		} else {
+			live = true;
+		}
+	}
+
+	if (holder.mentionUntil !== 0) {
+		if (holder.mentionUntil <= now) {
+			holder.mentionUntil = 0;
+		} else {
+			live = true;
+		}
+	}
+
+	return live;
+}
+
+export class ActivityExpiry extends ExpirySweep<ActivityHolder & MentionHolder> {
+	constructor(
+		holders: () => Iterable<ActivityHolder & MentionHolder>,
+		interval = ACTIVITY_SWEEP_INTERVAL
+	) {
+		super(holders, expireActivity, interval);
 	}
 }
