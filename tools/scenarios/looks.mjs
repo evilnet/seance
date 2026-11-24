@@ -1348,6 +1348,22 @@ export default async function run(page) {
 		await scrollTo("message", "vote on the release name");
 		await page.screenshot("12a-phone-messenger-reactions");
 		await timeBeside("phone Messenger channel", "12d-phone-messenger-time");
+		// The time's tooltip (the full date) opens over the bubble from its
+		// start, inside the pane.
+		const tip = await page.evaluate(`(() => {
+			const m = document.querySelector('#chat .chat .msg[data-type="message"]:not(.previous-source)');
+			const a = getComputedStyle(m.querySelector(".time"), "::after");
+			const r = m.getBoundingClientRect();
+			const pane = document.querySelector("#chat .chat").getBoundingClientRect();
+			// From the bubble's start it has the bubble's column to open into.
+			return {position: getComputedStyle(m.querySelector(".time")).position, left: Math.round(r.left + parseFloat(a.left)), bubble: Math.round(r.left), transform: a.transform, pane: Math.round(pane.right)};
+		})()`);
+		page.check(
+			`phone Messenger: the time's tooltip is placed against the bubble, from its start (${JSON.stringify(
+				tip
+			)})`,
+			tip.position === "static" && tip.left === tip.bubble && tip.transform === "none"
+		);
 		const phoneHover = await actionHover("nods along", "phone Messenger");
 		page.check(
 			`phone Messenger, an action hovered: its time inside the pane, the toolbar too (${JSON.stringify(

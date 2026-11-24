@@ -4043,6 +4043,24 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	visibility: visible;
 }
 
+/* The time's tooltip (the full date) opens over the row from its start, not
+ * past the time toward the pane's end, where a phone cut it off (the user,
+ * 2026-11-24): the row, not the time, is what it is placed against. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time.tooltipped {
+	position: static;
+}
+
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time.tooltipped::after {
+	inset-block: auto 100%;
+	inset-inline: 0 auto;
+	margin: 0 0 0.25rem;
+	transform: none;
+}
+
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time.tooltipped::before {
+	display: none;
+}
+
 html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from {
 	grid-area: from;
 	display: block;
@@ -4452,6 +4470,11 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
 	max-width: min(calc(100% - 1.875rem - var(--bubble-time-room)), 80%);
 }
 
+/* Our own bubble is at the far side: its time's tooltip opens from its end. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self:is([data-type="message"], [data-type="notice"]) > .time.tooltipped::after {
+	inset-inline: auto 0;
+}
+
 /* Our own bubble is at the far side: its time stands before it. */
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
 	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
@@ -4557,6 +4580,17 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:no
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) + .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]),
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[data-type="condensed"] .msg {
 	margin-block-start: 0;
+}
+
+/* With avatars (a channel: a private conversation has no gutter), the icon
+ * stands under them, centred in their column, and the words start where a
+ * bubble's do (the user, 2026-11-24). A line whose `.from` holds words (an
+ * unhandled command, a plugin's name) keeps them before its text. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat.avatars-on .chat-view:not([data-type="query"]) .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="unhandled"], [data-type="plugin"]) > .from {
+	inline-size: 2.25rem;
+	margin-inline: calc(-0.625rem - var(--bubble-gutter)) calc(var(--bubble-gutter) - 2.125rem);
+	padding: 0;
+	text-align: center;
 }
 
 /* In both looks, the words in the muted ink, the nicks in theirs but not
