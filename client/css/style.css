@@ -3911,7 +3911,7 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
  * `previous-source`, helpers/messageRuns.ts) is a stack of bubbles: the
  * avatar in a gutter before it, level with its first line; the nick and the
  * time over the first line; a later line's time shown only when the line is
- * pointed at or opened, over the bubble's end; and the corners on the
+ * pointed at (over the bubble's end) or opened (after its words); and the corners on the
  * avatar's side tight where two of its bubbles meet. Everything else (a
  * join, a mode, an action, a condensed group) is a quieter line whose text
  * starts where a bubble's text does. Without avatars (switched off for the
@@ -4036,7 +4036,27 @@ html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-ty
 	visibility: hidden;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is(:hover, .actions-open) > .time {
+/* A pointer's hover shows it, and the pointer moving on hides it again. A
+ * finger's tap leaves :hover stuck on the row it touched (iOS, Android), and
+ * there the time would cover the end of the words until another row is
+ * tapped -- a short line, or one just swapped for its translation, all but
+ * gone under it. So a touch device shows it only with the row's toolbar. */
+html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .msg.previous-source:hover > .time {
+	visibility: visible;
+}
+
+/* Shown with the toolbar (a long press, there to be read), the time takes
+ * its own room after the words instead of standing over them: the bubble
+ * grows by its width, or the words wrap a little earlier. */
+html[data-message-layout="bubbles"] #chat .chat .msg.previous-source.actions-open:is([data-type="message"], [data-type="notice"]):not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg) {
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-areas: "content time";
+}
+
+html[data-message-layout="bubbles"] #chat .chat .msg.previous-source.actions-open:is([data-type="message"], [data-type="notice"]):not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg) > .time {
+	position: static;
+	padding: 0;
+	background: none;
 	visibility: visible;
 }
 
