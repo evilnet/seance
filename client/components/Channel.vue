@@ -14,6 +14,12 @@
 			:nick="channel.name"
 			size="list"
 		/>
+		<Avatar
+			v-else-if="channel.type === 'channel' && hasAvatar"
+			:uuid="network.uuid"
+			:nick="channel.name"
+			size="list"
+		/>
 		<span class="name"
 			><bdi>{{ channel.name }}</bdi></span
 		>
@@ -54,6 +60,8 @@ import useCloseChannel from "../js/hooks/use-close-channel";
 import {ClientChan, ClientNetwork} from "../js/types";
 import ChannelWrapper from "./ChannelWrapper.vue";
 import Avatar from "./Avatar.vue";
+import {useStore} from "../js/store";
+import {channelHasAvatar} from "../js/avatars/channel";
 
 export default defineComponent({
 	name: "Channel",
@@ -87,6 +95,12 @@ export default defineComponent({
 		const closeLabel = computed(() => t("channel.close"));
 		const unreadCount = computed(() => roundBadgeNumber(props.channel.unread));
 		const close = useCloseChannel(props.channel);
+		const store = useStore();
+		// A channel's own avatar stands in for its bubbles (or its topic's
+		// emoji) only when it has a picture: an initial alone says nothing.
+		const hasAvatar = computed(() =>
+			channelHasAvatar(store, props.network.uuid, props.channel.name)
+		);
 
 		return {
 			t,
@@ -95,6 +109,7 @@ export default defineComponent({
 			closeLabel,
 			unreadCount,
 			close,
+			hasAvatar,
 		};
 	},
 });

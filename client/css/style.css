@@ -212,6 +212,7 @@
 .oper-alert-builder,
 #oper-action-overlay,
 #ban-overlay,
+#channel-avatar-overlay,
 #oper-note-overlay {
 	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
 	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
@@ -3855,6 +3856,31 @@ html[data-reduce-motion] .avatar img {
 
 html[data-reduce-motion] .channel-list-item.is-typing > .avatar {
 	animation: none;
+}
+
+/* A channel's own avatar in the sidebar takes the slot its topic's emoji
+ * would (1.25em and a 0.5em gap, in the row's own font size), so its name
+ * starts in the column every other channel's does. */
+.channel-list-item[data-type="channel"] > .avatar {
+	font-size: inherit;
+	width: 1.25em;
+	height: 1.25em;
+	margin-inline-end: 0.5em;
+}
+
+.channel-list-item[data-type="channel"] > .avatar .avatar-initial {
+	font-size: 0.6em;
+}
+
+/* A channel's own avatar in its header, before its name (Chat.vue). */
+#chat .header > .avatar {
+	flex-shrink: 0;
+	align-self: center;
+	margin-inline-end: 0.5rem;
+}
+
+#chat .header > .avatar-tile {
+	background: var(--avatar-tile-bg, color-mix(in srgb, currentcolor 22%, transparent));
 }
 
 #chat .content {
@@ -9133,6 +9159,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #upload-preview-overlay,
 #oper-action-overlay,
 #ban-overlay,
+#channel-avatar-overlay,
 #user-card-overlay,
 #avatar-crop-overlay,
 #upload-overlay,
@@ -9152,6 +9179,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #upload-preview-overlay,
 #oper-action-overlay,
 #ban-overlay,
+#channel-avatar-overlay,
 #user-card-overlay,
 #avatar-crop-overlay,
 #upload-overlay,
@@ -9198,7 +9226,8 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
  * band, so iOS's keyboard does not cover its buttons (fixed measures
  * against the layout viewport, which iOS never shrinks). */
 #oper-action-overlay,
-#ban-overlay {
+#ban-overlay,
+#channel-avatar-overlay {
 	position: absolute;
 }
 
@@ -9208,6 +9237,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #upload-preview-overlay.opened,
 #oper-action-overlay.opened,
 #ban-overlay.opened,
+#channel-avatar-overlay.opened,
 #user-card-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {

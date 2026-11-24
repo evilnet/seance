@@ -11,7 +11,7 @@ import {noteRestorationActivity} from "../persistence";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
 import {fromIgnored} from "../../ignore";
-import {onAvatarAccount} from "../avatars";
+import {onAvatarAccount, onChannelJoined} from "../avatars";
 
 const join: Handler = (client, msg) => {
 	const [name, account, gecos] = msg.params;
@@ -43,6 +43,11 @@ const join: Handler = (client, msg) => {
 	// extended-join: who the joiner is logged in as (the avatar trust's key).
 	if (!client.replaying && !self && account !== undefined && msg.params.length >= 3) {
 		onAvatarAccount(client, nick, account);
+	}
+
+	// Ours: a channel avatar remembered from before is asked again (irc/avatars.ts).
+	if (!client.replaying && self) {
+		onChannelJoined(client, name);
 	}
 
 	if (client.replaying) {

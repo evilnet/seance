@@ -6,8 +6,8 @@
  * mute list and the webpush payload tier (webpush.ts) — stay silent; a reply
  * for any other key (a user's own `/metadata`) is shown as it always was,
  * through `unhandled`. METADATA lines for other keys stay silent. The
- * `avatar` key is anyone's and public (irc/avatars.ts): its values go to
- * the avatar registry, and the replies to the GETs and SETs this client
+ * `avatar` key is anyone's and public (irc/avatars.ts), a user's or a
+ * channel's: its values go to the avatar registry, and the replies to the GETs and SETs this client
  * sends for it are kept quiet.
  *
  * Only our own entry counts. We write the key private, which the server
@@ -48,7 +48,7 @@ const ours = (client: Parameters<Handler>[0], target: string, visibility: string
 
 // METADATA <target> <key> <visibility> [:<value>]
 const metadata: Handler = (client, msg) => {
-	// Anyone's avatar (irc/avatars.ts): a public key, so only a public value counts.
+	// Anyone's avatar, or a channel's (irc/avatars.ts): a public key, so only a public value counts.
 	if (msg.params[1] === AVATAR_KEY && msg.params[2] !== "private") {
 		onAvatarValue(client, msg.params[0] ?? "", msg.params[3] ?? "");
 		return;

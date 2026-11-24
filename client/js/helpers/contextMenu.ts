@@ -29,6 +29,7 @@ import {
 	type FavoriteType,
 } from "../favorites";
 import {favoriteRows} from "./sidebarOrder";
+import {canSetChannelAvatar, openChannelAvatarDialog} from "../avatars/channel";
 
 type BaseContextMenuItem = {
 	label: string;
@@ -79,7 +80,8 @@ export function inertMenuItem(item: ContextMenuItem | undefined): boolean {
 
 export function generateChannelContextMenu(
 	channel: ClientChan,
-	network: ClientNetwork
+	network: ClientNetwork,
+	store?: TypedStore
 ): ContextMenuItem[] {
 	const closeChannel = useCloseChannel(channel);
 
@@ -197,6 +199,22 @@ export function generateChannelContextMenu(
 			// The Bans window asks the server itself when it opens.
 			link: `/bans/${network.uuid}/${encodeURIComponent(channel.name)}`,
 		});
+
+		// The channel's own avatar (avatars/channel.ts): its half-ops and ops change it.
+		if (canSetChannelAvatar(network, channel.name)) {
+			items.push({
+				label: t("menu.channelAvatar"),
+				type: "item",
+				class: "action-avatar",
+				action: () =>
+					openChannelAvatarDialog({network: network.uuid, channel: channel.name}),
+			});
+		}
+
+		// A picture not loaded: shown once, or always from its host.
+		if (store) {
+			items.push(...avatarUserItems(store, network, channel.name));
+		}
 	}
 
 	// Add menu items for queries

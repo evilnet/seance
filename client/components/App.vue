@@ -29,6 +29,7 @@
 		<AlertBuilder />
 		<OperActionDialog />
 		<BanDialog />
+		<ChannelAvatarDialog />
 		<PushPrompt />
 		<InstallGuide />
 		<div id="upload-overlay" class="screen-overlay"></div>
@@ -51,6 +52,7 @@ import ContextMenu from "./ContextMenu.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import UploadPreview from "./UploadPreview.vue";
 import BanDialog from "./BanDialog.vue";
+import ChannelAvatarDialog from "./ChannelAvatarDialog.vue";
 import OperActionDialog from "./Oper/ActionDialog.vue";
 import InvestigateCard from "./Oper/InvestigateCard.vue";
 import AlertBuilder from "./Oper/AlertBuilder.vue";
@@ -87,6 +89,7 @@ export default defineComponent({
 		UploadPreview,
 		OperActionDialog,
 		BanDialog,
+		ChannelAvatarDialog,
 		InvestigateCard,
 		AlertBuilder,
 		Mentions,

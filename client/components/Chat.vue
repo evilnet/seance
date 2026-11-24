@@ -21,6 +21,12 @@
 			>
 				<div class="header" :data-tauri-drag-region="dragRegion">
 					<SidebarToggle />
+					<Avatar
+						v-if="channel.type === 'channel' && channelAvatar"
+						:uuid="network.uuid"
+						:nick="channel.name"
+						size="list"
+					/>
 					<span class="title" :aria-label="openTitle"
 						><bdi>{{ channel.name }}</bdi></span
 					>
@@ -187,6 +193,8 @@ import {prefetchEmojiCatalog} from "../js/helpers/emoji";
 import {isImeComposing} from "../js/helpers/ime";
 import type {ClientNetwork, ClientChan} from "../js/types";
 import {useStore} from "../js/store";
+import Avatar from "./Avatar.vue";
+import {channelHasAvatar} from "../js/avatars/channel";
 import {SpecialChanType, ChanType} from "../../shared/types/chan";
 import {layout, toPlainText} from "../js/helpers/ircmessageparser/layout";
 import {useI18n} from "../js/i18n";
@@ -204,6 +212,7 @@ export default defineComponent({
 		ChatUserList,
 		SidebarToggle,
 		MessageSearchForm,
+		Avatar,
 	},
 	props: {
 		network: {type: Object as PropType<ClientNetwork>, required: true},
@@ -215,6 +224,10 @@ export default defineComponent({
 		const avatarsOn = computed(() => avatarsEnabled(props.network.uuid));
 		const store = useStore();
 		const {t, tCount} = useI18n();
+		// A channel's own avatar, beside its name (avatars/channel.ts).
+		const channelAvatar = computed(() =>
+			channelHasAvatar(store, props.network.uuid, props.channel.name)
+		);
 
 		const messageList = ref<typeof MessageList>();
 		const topicInput = ref<HTMLInputElement | null>(null);
@@ -463,6 +476,7 @@ export default defineComponent({
 
 		return {
 			avatarsOn,
+			channelAvatar,
 			chatPane,
 			dragRegion: macDragRegion(),
 			leavePast,

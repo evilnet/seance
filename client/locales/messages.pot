@@ -1237,6 +1237,69 @@ msgctxt "channel.type.special"
 msgid "List"
 msgstr ""
 
+#. Closes the channel avatar dialog.
+#: client/components/ChannelAvatarDialog.vue
+#, distinct
+msgctxt "channelAvatar.close"
+msgid "Close"
+msgstr ""
+
+#. Title of the crop step when uploading a channel's avatar.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.cropTitle"
+msgid "Crop the avatar for {channel}"
+msgstr ""
+
+#. {reason} is the server's refusal, in its own words (often English).
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.failed"
+msgid "The channel's avatar was not changed: {reason}"
+msgstr ""
+
+#. The dialog's explanation of a channel's avatar.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.help"
+msgid "Everyone in {channel} sees it beside the channel's name. The channel's half-ops and ops can change it."
+msgstr ""
+
+#. Under the link field, when the link points at another site.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.linkElsewhere"
+msgid "{host} is not this network's image host, so people using Seance see the channel's initial until they choose to load pictures from that site."
+msgstr ""
+
+#. Shown in place of the buttons when the reader may not change the channel's avatar.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.notAllowed"
+msgid "Only the channel's half-ops and ops can change it."
+msgstr ""
+
+#. Status after the server confirmed a channel avatar was removed.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.removed"
+msgid "The channel's avatar was removed."
+msgstr ""
+
+#. Under the upload button of the channel avatar dialog.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.retentionNote"
+msgid "This network's image host deletes uploads after {count} day, and a channel's avatar is not uploaded again by itself. A link to a picture kept elsewhere lasts longer."
+msgid_plural "This network's image host deletes uploads after {count} days, and a channel's avatar is not uploaded again by itself. A link to a picture kept elsewhere lasts longer."
+msgstr[0] ""
+msgstr[1] ""
+
+#. Status after the server confirmed a new channel avatar.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.saved"
+msgid "The channel's avatar was changed."
+msgstr ""
+
+#. Title of the dialog where a channel's half-ops and ops change the channel's picture.
+#: client/components/ChannelAvatarDialog.vue
+msgctxt "channelAvatar.title"
+msgid "Avatar for {channel}"
+msgstr ""
+
 #. Tooltip and aria-label of the spinner in a chat window's header while the connection is being established, when the network's display name is not known.
 #: client/components/Chat.vue:186
 msgctxt "chat.connecting"
@@ -4810,6 +4873,12 @@ msgstr ""
 #: client/js/helpers/contextMenu.ts
 msgctxt "menu.chanTypeQuery"
 msgid "conversation"
+msgstr ""
+
+#. Channel menu item for half-ops and ops: opens the dialog that changes the channel's picture.
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.channelAvatar"
+msgid "Channel avatar…"
 msgstr ""
 
 #. Context-menu item on a conversation; deletes the locally loaded messages of that conversation after a confirmation. Also the title and confirmation button of that dialog.

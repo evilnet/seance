@@ -178,7 +178,7 @@
 </template>
 
 <style>
-:is(#oper-action-dialog, #ban-dialog) {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) {
 	/* The window's colour pair, like the cards': --body-bg-color is the
 	 * sidebar's, dark under day's dark-on-light text. */
 	background: var(--window-bg-color);
@@ -198,7 +198,7 @@
 	user-select: text;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-body {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-body {
 	flex: 1 1 auto;
 	min-height: 0;
 	overflow-y: auto;
@@ -209,13 +209,13 @@
 	gap: 0.45rem;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-title {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-title {
 	font-size: 1.125rem;
 	font-weight: 600;
 	margin-bottom: 0.5rem;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-label {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-label {
 	color: var(--body-color-muted);
 	font-size: 0.75rem;
 	font-weight: 600;
@@ -224,36 +224,36 @@
 	margin-top: 0.75rem;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .input {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .input {
 	margin: 0;
 	width: 100%;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-mask,
-:is(#oper-action-dialog, #ban-dialog) .oper-action-who {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-mask,
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-who {
 	font-family: monospace;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-suggestions {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-suggestions {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.35rem;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-row {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-row {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.75rem;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-field {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-field {
 	flex: 1 1 10rem;
 	display: flex;
 	flex-direction: column;
 	gap: 0.35rem;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-check {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-check {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
@@ -261,29 +261,29 @@
 	margin-top: 0.4rem;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-hint,
-:is(#oper-action-dialog, #ban-dialog) .oper-action-preview {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-hint,
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-preview {
 	color: var(--body-color-muted);
 	font-size: 0.875rem;
 	margin: 0;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-preview.wide {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-preview.wide {
 	color: var(--oper-amber);
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-error {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-error {
 	color: var(--oper-red);
 	font-size: 0.875rem;
 	margin: 0.25rem 0 0;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-result {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-result {
 	color: var(--body-color);
 	margin: 0.25rem 0 0;
 }
 
-:is(#oper-action-dialog, #ban-dialog) .oper-action-buttons {
+:is(#oper-action-dialog, #ban-dialog, #channel-avatar-dialog) .oper-action-buttons {
 	flex-shrink: 0;
 	display: flex;
 	justify-content: flex-end;

@@ -245,7 +245,7 @@ export default defineComponent({
 				});
 			}
 
-			const newItems = generateChannelContextMenu(data.channel, data.network);
+			const newItems = generateChannelContextMenu(data.channel, data.network, store);
 			open(data.event, newItems);
 		};
 
