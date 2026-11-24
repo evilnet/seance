@@ -38,6 +38,18 @@ export function isValidTarget(target: string): boolean {
 	);
 }
 
+/**
+ * Whether `name` is one word of a command line (irc/commands/words.ts splits
+ * on spaces) and nothing more: no space or other ascii whitespace, no comma
+ * (a list), no NUL or BEL, no leading `/` (a command) or `:` (IRC's trailing
+ * parameter). Laxer than {@link isValidTarget}, which
+ * refuses every Unicode space and control: a channel may hold an ideographic
+ * space or a colour code, and its favorite must still open (favoriteActions.ts).
+ */
+export function isCommandWord(name: string): boolean {
+	return name.length > 0 && !/[\t\n\v\f\r \0\x07,]/.test(name) && !/^[/:]/.test(name);
+}
+
 /** Remember where to go once `target` on `network` exists. A target that
  * cannot be a nick or channel ({@link isValidTarget}) is dropped, and with it
  * any target still pending: the link that named it goes nowhere. */

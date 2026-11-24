@@ -5,7 +5,8 @@ import {searchTucked} from "./searchPanel";
 import {store} from "./store";
 import {switchToChannel, router, navigate, leavePage} from "./router";
 import {topEscapeLayer} from "./helpers/escapeLayer";
-import isChannelCollapsed from "./helpers/isChannelCollapsed";
+import {favoriteRows, sidebarWindows} from "./helpers/sidebarOrder";
+import {favorites, favoritesCollapsed} from "./favorites";
 import isIgnoredKeybind from "./helpers/isIgnoredKeybind";
 import controlTakesKey from "./helpers/controlTakesKey";
 import {numberShortcutModifier} from "./helpers/numberShortcut";
@@ -24,19 +25,16 @@ Mousetrap.bind(["alt+up", "alt+down"], function (e, keys) {
 	return false;
 });
 
-/** The conversations in sidebar order, the collapsed networks' left out (lobbies stay). */
-function visibleWindows(): ClientChan[] {
-	const flat: ClientChan[] = [];
-
-	for (const network of store.state.networks) {
-		for (const channel of network.channels) {
-			if (!isChannelCollapsed(network, channel)) {
-				flat.push(channel);
-			}
-		}
-	}
-
-	return flat;
+/** The conversations in sidebar order: the favorites first, then each
+ * network's; what a collapse hides is left out (lobbies stay) unless
+ * `withCollapsed`. A favorite's placeholder is no window and is not counted
+ * (helpers/sidebarOrder.ts). */
+function visibleWindows(withCollapsed = false): ClientChan[] {
+	const networks = store.state.networks;
+	return sidebarWindows(networks, favoriteRows(favorites.value, networks, []), {
+		withCollapsed,
+		favoritesCollapsed: favoritesCollapsed.value,
+	});
 }
 
 /** The Nth channel or query (1-based) in sidebar order; a network's lobby is not counted, as in other clients' ⌘1–9. */
@@ -133,13 +131,10 @@ Mousetrap.bind(["alt+mod+up", "alt+mod+down"], function (e, keys) {
 		return true;
 	}
 
-	const channels = store.state.networks
-		.map((net) =>
-			net.channels.filter(
-				(chan) => chan.unread || chan === store.state.activeChannel?.channel
-			)
-		)
-		.flat();
+	// In sidebar order, the favorites first; a collapsed network's too.
+	const channels = visibleWindows(true).filter(
+		(chan) => chan.unread || chan === store.state.activeChannel?.channel
+	);
 
 	if (channels.length === 0) {
 		return;
@@ -165,16 +160,15 @@ Mousetrap.bind(["alt+a"], function (e) {
 
 	let targetChannel;
 
-	outer_loop: for (const network of store.state.networks) {
-		for (const chan of network.channels) {
-			if (chan.highlight) {
-				targetChannel = chan;
-				break outer_loop;
-			}
+	// In sidebar order, the favorites first; a collapsed network's too.
+	for (const chan of visibleWindows(true)) {
+		if (chan.highlight) {
+			targetChannel = chan;
+			break;
+		}
 
-			if (chan.unread && !targetChannel) {
-				targetChannel = chan;
-			}
+		if (chan.unread && !targetChannel) {
+			targetChannel = chan;
 		}
 	}
 
