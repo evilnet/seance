@@ -62,6 +62,36 @@
 				<span class="own-messages-hint">{{ ownMessageHints[style] }}</span>
 			</label>
 		</div>
+		<!-- Lines or Bubbles, in the themes that offer the choice
+		     (helpers/messageLayout.ts); ps always draws its own bubbles, so it
+		     shows only the combining switch, which bubbles use too. -->
+		<template v-if="offersBubbles || isPs">
+			<h2 id="label-message-layout">{{ t("settings.appearance.psLayoutHeading") }}</h2>
+			<div role="group" aria-labelledby="label-message-layout" class="scene-motion-options">
+				<template v-if="offersBubbles">
+					<label v-for="layout in messageLayouts" :key="layout" class="opt">
+						<input
+							:checked="messageLayout === layout"
+							type="radio"
+							name="messageLayout"
+							:value="layout"
+						/>
+						{{ messageLayoutLabels[layout] }}
+						<span class="opt-hint">{{ messageLayoutHints[layout] }}</span>
+					</label>
+				</template>
+				<label v-if="isPs || messageLayout === 'bubbles'" class="opt">
+					<input
+						v-switch
+						:checked="store.state.settings.psGroupMessages"
+						type="checkbox"
+						name="psGroupMessages"
+					/>
+					{{ t("settings.appearance.psGroupMessages") }}
+					<span class="opt-hint">{{ t("settings.appearance.psGroupMessagesHint") }}</span>
+				</label>
+			</div>
+		</template>
 		<h2 id="label-media-previews">{{ t("settings.appearance.mediaHeading") }}</h2>
 		<div role="group" aria-labelledby="label-media-previews">
 			<label class="opt">
@@ -353,19 +383,6 @@
 					<span class="opt-hint">{{ psWordsHints[w] }}</span>
 				</label>
 			</div>
-			<h2 id="label-ps-layout">{{ t("settings.appearance.psLayoutHeading") }}</h2>
-			<div role="group" aria-labelledby="label-ps-layout" class="scene-motion-options">
-				<label class="opt">
-					<input
-						v-switch
-						:checked="store.state.settings.psGroupMessages"
-						type="checkbox"
-						name="psGroupMessages"
-					/>
-					{{ t("settings.appearance.psGroupMessages") }}
-					<span class="opt-hint">{{ t("settings.appearance.psGroupMessagesHint") }}</span>
-				</label>
-			</div>
 		</template>
 
 		<div>
@@ -504,6 +521,12 @@ import {
 	OwnMessageStyle,
 } from "../../js/helpers/ownMessages";
 import {
+	messageLayouts,
+	normalizeMessageLayout,
+	themeOffersBubbles,
+	type MessageLayout,
+} from "../../js/helpers/messageLayout";
+import {
 	clearTrusted,
 	splitKey,
 	trustedMedia,
@@ -605,6 +628,21 @@ export default defineComponent({
 			full: t("settings.appearance.psMotionFullHint"),
 			calm: t("settings.appearance.psMotionCalmHint"),
 			still: t("settings.appearance.psMotionStillHint"),
+		}));
+		// Message layout (helpers/messageLayout.ts). A light/dark pair offers
+		// it in both halves or neither, so the chosen theme decides.
+		const offersBubbles = computed(() => themeOffersBubbles(store.state.settings.theme));
+		const isPs = computed(() => store.state.settings.theme === "ps");
+		const messageLayout = computed(() =>
+			normalizeMessageLayout(store.state.settings.messageLayout)
+		);
+		const messageLayoutLabels = computed<Record<MessageLayout, string>>(() => ({
+			lines: t("settings.appearance.messageLayoutLines"),
+			bubbles: t("settings.appearance.messageLayoutBubbles"),
+		}));
+		const messageLayoutHints = computed<Record<MessageLayout, string>>(() => ({
+			lines: t("settings.appearance.messageLayoutLinesHint"),
+			bubbles: t("settings.appearance.messageLayoutBubblesHint"),
 		}));
 		// The ps theme's Words over the plains (helpers/psWords.ts; docs/projects/ps-words.md).
 		const psWordsValue = computed(() => normalizePsWords(store.state.settings.psWords));
@@ -751,6 +789,12 @@ export default defineComponent({
 			sceneMotionHints,
 			psWords,
 			psWordsValue,
+			offersBubbles,
+			isPs,
+			messageLayout,
+			messageLayouts,
+			messageLayoutLabels,
+			messageLayoutHints,
 			psWordsLabels,
 			psWordsHints,
 			store,

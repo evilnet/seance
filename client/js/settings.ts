@@ -5,6 +5,7 @@ import {setHour12Source} from "./i18n/dates";
 import {normalizeFontSize} from "./helpers/fontSize";
 import {normalizeOwnMessageStyle} from "./helpers/ownMessages";
 import {normalizePsWords} from "./helpers/psWords";
+import {messageLayoutFor, themePaintsBubbles} from "./helpers/messageLayout";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
@@ -29,6 +30,36 @@ const buildThemeColor =
 
 const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
 
+/** Reflect the message layout the reader chose onto <html>, for the theme
+ * on screen: left off where that theme offers no choice
+ * (helpers/messageLayout.ts; the layout is style.css's). */
+function applyMessageLayout(store: TypedStore, theme: string): void {
+	const layout = messageLayoutFor(store.state.settings.messageLayout, theme);
+
+	const root = document.documentElement;
+
+	if (layout) {
+		root.dataset.messageLayout = layout;
+	} else {
+		delete root.dataset.messageLayout;
+	}
+
+	if (themePaintsBubbles(theme)) {
+		root.dataset.bubblePaint = "theme";
+	} else {
+		delete root.dataset.bubblePaint;
+	}
+}
+
+/** The theme on screen: the chosen one, or its light/dark partner. */
+function shownTheme(store: TypedStore): string {
+	return effectiveTheme(
+		store.state.settings.theme ?? "",
+		store.state.settings.matchSystemAppearance,
+		darkScheme.matches
+	);
+}
+
 /** The theme loadTheme last applied, theme-color included. */
 let appliedTheme: string | null = null;
 
@@ -41,11 +72,9 @@ function loadTheme(store: TypedStore): void {
 		return;
 	}
 
-	const value = effectiveTheme(
-		chosen,
-		store.state.settings.matchSystemAppearance,
-		darkScheme.matches
-	);
+	const value = shownTheme(store);
+
+	applyMessageLayout(store, value);
 
 	// A theme's own scene, if it has one (client/js/themeScene.ts).
 	void themeScene.setTheme(value);
@@ -337,6 +366,17 @@ const defaultConfig = {
 		default: PLATFORM_DEFAULTS.matchSystemAppearance(currentPlatform()),
 		apply(store: TypedStore) {
 			loadTheme(store);
+		},
+	},
+	// Lines or Bubbles (helpers/messageLayout.ts), in the themes that offer
+	// the choice; applied with the theme, since a theme change can take it
+	// away or bring it back.
+	messageLayout: {
+		default: "lines",
+		apply(store: TypedStore) {
+			if (store.state.settings.theme) {
+				applyMessageLayout(store, shownTheme(store));
+			}
 		},
 	},
 	// The ps theme's own settings (Settings → Appearance shows them under the

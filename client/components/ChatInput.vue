@@ -60,7 +60,7 @@
 				/></span>
 			</span>
 			<span v-else class="compose-bar-label">
-				<span class="compose-bar-icon" aria-hidden="true">↩</span>
+				<ReplyElbow class="compose-bar-icon" />
 				{{ replyingParts.prefix
 				}}<strong v-if="replyingParts.nick" class="compose-bar-nick">{{
 					replyingParts.nick
@@ -309,6 +309,7 @@ const ENTER_NEWLINE_WINDOW_MS = 500;
 import {TypingReporter} from "../js/helpers/typingReporter";
 import TypingIndicator from "./TypingIndicator.vue";
 import QuotePreview from "./QuotePreview.vue";
+import ReplyElbow from "./ReplyElbow.vue";
 import ReactionPicker from "./ReactionPicker.vue";
 import {
 	closedShortcode,
@@ -361,6 +362,7 @@ export default defineComponent({
 		TranslationDiscovery,
 		TypingIndicator,
 		QuotePreview,
+		ReplyElbow,
 		ReactionPicker,
 	},
 	props: {

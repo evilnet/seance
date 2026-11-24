@@ -136,6 +136,9 @@
 :root {
 	color-scheme: light;
 
+	/* The card's corner, read by the shared bubble layout (style.css § Bubbles). */
+	--bubble-radius: 0.5rem;
+
 	/* Daylight until the scene says otherwise (docs/projects/ps-theme.md §3):
 	 * the midday stop's sky-top, and its horizon lifted 55 % toward white. The
 	 * scene overwrites both on <html> once a minute. */
@@ -648,90 +651,22 @@ strong,
 	visibility: visible;
 }
 
-/* With avatars on (Avatar.vue in every message's nick), a run reads as a
- * messenger's (the user's pick B, 2026-11-24): the avatar stands at 2.25rem
- * in a gutter of its own before the row, outside the card under Bubbles,
- * level with the run's first line, rather than at the nick's own size inside
- * it, where it was too small to tell anyone by (2026-11-23). Every line of
- * the run keeps the gutter, so the cards line up under the first. The time
- * moves from the row's start to beside the nick, and a later line's time,
- * still shown only when the line is pointed at or opened, over the card's
- * end (the gutter is too narrow for "12:25 AM"). The avatar hangs from the row
- * (`.msg`, positioned in style.css) into the gutter, so the markup is
- * unchanged. Without avatars (switched off for the network) the rows are as
- * above, the time first. */
-#chat .chat .msg:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
-	grid-template-columns: auto minmax(0, 1fr);
-	grid-template-areas:
-		"from time"
-		"content content";
-	max-width: calc(100% - 4rem);
-	margin-inline-start: 3.375rem;
+/* The bubbles themselves — the avatar in a gutter beside the run, the time
+ * beside the nick, a later line's time on hover, the joined corners, the
+ * status lines in the bubbles' column — are the shared layout's (style.css
+ * § Bubbles; ps is always Bubbles, helpers/messageLayout.ts), and override
+ * the stacked rows above. ps keeps the paint: its cards, glass and words
+ * over the scene (`data-bubble-paint="theme"`), and the card's corner
+ * (--bubble-radius, with the day palette's tokens above). */
+
+/* A later line's time, shown on hover over the card's end, stands on a fill
+ * of its own: the card is see-through, and the words under it showed. */
+html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+	background-color: rgb(255 251 244 / 94%);
 }
 
-#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
-	grid-template-columns: minmax(0, 1fr);
-	grid-template-areas: "content";
-}
-
-/* A later line's time takes no room (kept in the flow, even hidden, it
- * reserved its width and the words wrapped early): shown, it stands over
- * the card's end on a fill of its own, so the words under it don't show through. */
-#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) > .time {
-	position: absolute;
-	grid-area: auto;
-	inset-block-start: 0;
-	inset-inline-end: 0;
-	padding-block: 0.3rem 0.125rem;
-	padding-inline: 0.5rem 0.6rem;
-	border-radius: 0.5rem;
-	background: rgb(255 251 244 / 94%);
-}
-
-:root[data-ps-light="night"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) > .time {
-	background: rgb(12 17 32 / 94%);
-}
-
-#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) > .time {
-	position: static;
-	grid-area: time;
-	padding: 0;
-	background: none;
-}
-
-#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) {
-	grid-template-columns: auto minmax(0, 1fr);
-	grid-template-areas:
-		"from time"
-		"content content";
-}
-
-/* Under Bubbles a run with avatars is one stack, as a messenger groups a
- * sender's messages: where two of its cards meet, the corners on the
- * avatar's side are tight. */
-:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg:has(> .from .avatar):has(+ .msg.previous-source) {
-	border-end-start-radius: 0.1875rem;
-}
-
-:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.previous-source:has(> .from .avatar):not(:is(.date-marker-container, .unread-marker) + .msg) {
-	border-start-start-radius: 0.1875rem;
-}
-
-/* style.css positions the nick; the avatar hangs from the row instead, so
- * it measures from the card's edge and not from inside its padding. */
-#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from:has(.avatar) {
-	position: static;
-}
-
-#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {
-	position: absolute;
-	inset-block-start: 0;
-	inset-inline-end: calc(100% + 0.5rem);
-	width: 2.25rem;
-	height: 2.25rem;
-	margin: 0;
-	font-size: 1rem;
-	font-weight: 700;
+html[data-message-layout="bubbles"][data-ps-light="night"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+	background-color: rgb(12 17 32 / 94%);
 }
 
 /* A mention keeps style.css's bar at its start (5px, in px there) and

@@ -14087,6 +14087,30 @@ msgctxt "settings.appearance.mediaRevealGroup"
 msgid "When to load previews"
 msgstr ""
 
+#. Option in Settings > Appearance > Message layout: each sender's messages grouped in bubbles beside their picture, as in a messenger.
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutBubbles"
+msgid "Bubbles"
+msgstr ""
+
+#. Hint after the Bubbles option in Settings > Appearance > Message layout (shown after a dash).
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutBubblesHint"
+msgid "each person's lines grouped in bubbles beside their picture"
+msgstr ""
+
+#. Option in Settings > Appearance > Message layout: the classic IRC log, one row per message.
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutLines"
+msgid "Lines"
+msgstr ""
+
+#. Hint after the Lines option in Settings > Appearance > Message layout (shown after a dash).
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutLinesHint"
+msgid "time, name and words on one row, as an IRC log"
+msgstr ""
+
 #. Heading of the message display section in Settings > Appearance.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messagesHeading"
@@ -14177,7 +14201,7 @@ msgctxt "settings.appearance.psGroupMessagesHint"
 msgid "their name and time once, for lines sent within ten minutes of each other"
 msgstr ""
 
-#. Heading in Settings > Appearance, shown only under the ps theme: how chat messages are laid out.
+#. Heading in Settings > Appearance, shown under the ps theme and the themes that offer a bubble layout: how chat messages are laid out.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.psLayoutHeading"
 msgid "Message layout"
