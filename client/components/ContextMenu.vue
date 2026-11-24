@@ -115,7 +115,7 @@ export default defineComponent({
 			document.body.removeEventListener("pointerup", enablePointerEvents);
 		};
 
-		const positionContextMenu = (event: MouseEvent) => {
+		const positionContextMenu = (event: MouseEvent | KeyboardEvent) => {
 			const element = event.target as HTMLElement;
 
 			if (!contextMenu.value) {
@@ -158,6 +158,16 @@ export default defineComponent({
 				});
 			}
 
+			if (!(event instanceof MouseEvent)) {
+				// Opened from the keyboard (Enter or Space on a focused trigger,
+				// such as an inline channel name): there is no pointer to place
+				// it at, so it drops down under the trigger from its start edge.
+				const rect = element.getBoundingClientRect();
+				const rtl = window.getComputedStyle(element).direction === "rtl";
+
+				return fit({left: rtl ? rect.right - menuWidth : rect.left, top: rect.bottom});
+			}
+
 			return fit({left: event.clientX, top: event.clientY});
 		};
 
@@ -184,7 +194,7 @@ export default defineComponent({
 			}
 		};
 
-		const open = (event: MouseEvent, newItems: ContextMenuItem[]) => {
+		const open = (event: MouseEvent | KeyboardEvent, newItems: ContextMenuItem[]) => {
 			event.preventDefault();
 
 			// Replacing an open menu: its trigger hears it closed
@@ -239,7 +249,7 @@ export default defineComponent({
 
 		const openInlineChannelContextMenu = (data: {
 			channel: string;
-			event: MouseEvent;
+			event: MouseEvent | KeyboardEvent;
 			network?: ClientNetwork;
 		}) => {
 			// The network the text was shown for, as for a nick below: the page
