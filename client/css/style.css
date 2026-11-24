@@ -3739,6 +3739,13 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	margin-inline-end: 0.5rem;
 }
 
+/* The tile sits on the row, not on the window: a selected row has its own
+ * background and text colour (keeki's rose gold with dark text), and a tile
+ * mixed into the window background would go dark on it. */
+.channel-list-item > .avatar-tile {
+	background: var(--avatar-tile-bg, color-mix(in srgb, currentcolor 22%, transparent));
+}
+
 .channel-list-item.is-typing > .avatar {
 	animation: avatar-typing-pulse 1.3s ease-in-out infinite;
 }
