@@ -4568,6 +4568,60 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
 	justify-content: flex-end;
 }
 
+/* Messenger's status lines (a join, a part, a quit, a mode, a topic, a
+ * condensed group and its lines): an aside between the bubbles, as in
+ * Workspace. A step smaller, in the muted ink, the nicks in theirs but not
+ * bold, a block of them held close; as wide as the column, so a long host
+ * wraps at the pane's end and not in a narrow strip beside a time column
+ * (the user, 2026-11-24). The time takes no room: it comes on hover or a
+ * long press, as an action's does (above). */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) {
+	--action-time: 5rem;
+	--body-color-muted: var(--bubble-fg-muted);
+	--chat-fg-muted: var(--bubble-fg-muted);
+
+	margin-block-start: 0.5rem;
+	padding-block: 0.0625rem;
+	font-size: 0.8125rem;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) + .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]),
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[data-type="condensed"] .msg {
+	margin-block-start: 0;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .condensed-summary > .content {
+	color: var(--body-color-muted);
+	overflow-wrap: break-word;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) .user {
+	font-weight: 400;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="condensed"]) > .time {
+	position: absolute;
+	inset-block-start: 0;
+	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
+	inset-inline-start: min(100%, calc(100cqi - var(--bubble-gutter) - 1.25rem - var(--action-time)));
+	margin: 0;
+	padding-block: inherit;
+	padding-inline: 0.25rem 0.375rem;
+	border-radius: calc(var(--bubble-radius) * 0.6);
+	background-color: var(--window-bg-color);
+	color: var(--body-color-muted);
+	font-size: 0.6875rem;
+	line-height: 1.77; /* the line's height, so the two share a baseline */
+	white-space: nowrap;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
+	visibility: visible;
+}
+
 /* Messenger's reactions hang off the bubble they answer: the chip row
  * overlaps the bubble's bottom edge by a third of a chip, inset a little
  * from its start corner (from its end corner for our own bubbles at the far
