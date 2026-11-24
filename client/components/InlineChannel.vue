@@ -6,6 +6,8 @@
 		tabindex="0"
 		@click.prevent="openContextMenu"
 		@contextmenu.prevent="openContextMenu"
+		@keydown.enter.self.prevent="openContextMenu"
+		@keydown.space.self.prevent="openContextMenu"
 		><slot></slot
 	></span>
 </template>
@@ -22,7 +24,7 @@ export default defineComponent({
 		network: {type: Object as PropType<ClientNetwork>, required: false},
 	},
 	setup(props) {
-		const openContextMenu = (event) => {
+		const openContextMenu = (event: MouseEvent | KeyboardEvent) => {
 			eventbus.emit("contextmenu:inline-channel", {
 				event: event,
 				channel: props.channel,
