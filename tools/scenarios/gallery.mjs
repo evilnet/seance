@@ -16,12 +16,12 @@
 //
 // What makes it repeatable:
 // - the themes come from the app's own list (configuration.ts), checked
-//   against client/themes/*.css both ways, and each theme's layouts from what
-//   the app applies: Lines and Bubbles are each asked for through the
-//   setting, and whatever `data-message-layout` the app sets (absent counts
-//   as lines) is a cell. A theme whose stylesheet reads
-//   `prefers-color-scheme` (macos) is captured in light and in dark, the
-//   dark one as `<theme>-dark`;
+//   against client/themes/*.css both ways, and each theme's looks from what
+//   the app applies: Classic, Messenger and Workspace (`lines`, `bubbles`,
+//   `workspace`) are each asked for through the setting, and whatever
+//   `data-message-layout` the app sets (absent counts as lines) is a cell.
+//   A theme whose stylesheet reads `prefers-color-scheme` (macos) is
+//   captured in light and in dark, the dark one as `<theme>-dark`;
 // - the theme and the layout are set through `settings/update`, the store
 //   action Settings → Appearance uses, and each capture waits for the
 //   stylesheet's load, the fonts and two frames;
@@ -64,7 +64,7 @@ const VIEWPORTS = [
 	{name: "desktop", width: 1280, height: 800, mobile: false},
 	{name: "phone", width: 390, height: 844, mobile: true},
 ];
-// The channel is taller than a phone, and than the desktop in Bubbles: it is
+// The channel is taller than a phone, and than the desktop in Messenger: it is
 // drawn at its end, where a reader lands, and, where it overflows, again from
 // its start (`channel-top`). A change that makes a theme overflow or stop
 // overflowing shows in a compare as that cell added or removed.
@@ -72,7 +72,7 @@ const WINDOWS = [
 	{name: "channel", item: CHANNEL, text: "looks good from here", top: true},
 	{name: "query", item: PEER, text: "sending you a screenshot"},
 ];
-const LAYOUTS = ["lines", "bubbles"];
+const LAYOUTS = ["lines", "bubbles", "workspace"];
 
 const THEMES_DIR = fileURLToPath(new URL("../../client/themes/", import.meta.url));
 const STORE = `document.querySelector("[data-v-app]").__vue_app__.config.globalProperties.$store`;

@@ -136,7 +136,7 @@
 :root {
 	color-scheme: light;
 
-	/* The card's corner, read by the shared bubble layout (style.css § Bubbles). */
+	/* The card's corner, read by the shared bubble layout (style.css § The looks). */
 	--bubble-radius: 0.5rem;
 
 	/* Daylight until the scene says otherwise (docs/projects/ps-theme.md §3):
@@ -506,7 +506,7 @@ strong,
 /* The bubbles themselves — the avatar in a gutter beside the run, the time
  * beside the nick, a later line's time on hover, the joined corners, the
  * status lines in the bubbles' column — are the shared layout's (style.css
- * § Bubbles; ps is always Bubbles, helpers/messageLayout.ts), and override
+ * § The looks; ps is always Messenger, helpers/messageLayout.ts), and override
  * the stacked rows above. ps keeps the paint: its cards, glass and words
  * over the scene (`data-bubble-paint="theme"`), and the card's corner
  * (--bubble-radius, with the day palette's tokens above). */

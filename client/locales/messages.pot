@@ -14087,28 +14087,40 @@ msgctxt "settings.appearance.mediaRevealGroup"
 msgid "When to load previews"
 msgstr ""
 
-#. Option in Settings > Appearance > Message layout: each sender's messages grouped in bubbles beside their picture, as in a messenger.
+#. Option in Settings > Appearance > Look: each sender's messages grouped in bubbles beside their picture, and a private conversation drawn as a two-sided chat, as in a messaging app. The name of a look, not of a program.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutBubbles"
-msgid "Bubbles"
+msgid "Messenger"
 msgstr ""
 
-#. Hint after the Bubbles option in Settings > Appearance > Message layout (shown after a dash).
+#. Hint after the Messenger option in Settings > Appearance > Look (shown after a dash).
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutBubblesHint"
 msgid "each person's lines grouped in bubbles beside their picture"
 msgstr ""
 
-#. Option in Settings > Appearance > Message layout: the classic IRC log, one row per message.
+#. Option in Settings > Appearance > Look: the classic IRC log, one row per message with its time, nick and words in columns. The name of a look, the default.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutLines"
-msgid "Lines"
+msgid "Classic"
 msgstr ""
 
-#. Hint after the Lines option in Settings > Appearance > Message layout (shown after a dash).
+#. Hint after the Classic option in Settings > Appearance > Look (shown after a dash).
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutLinesHint"
 msgid "time, name and words on one row, as an IRC log"
+msgstr ""
+
+#. Option in Settings > Appearance > Look: each sender's messages grouped under their picture, name and time, as flat rows across the whole width, as in a team chat app. The name of a look.
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutWorkspace"
+msgid "Workspace"
+msgstr ""
+
+#. Hint after the Workspace option in Settings > Appearance > Look (shown after a dash).
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutWorkspaceHint"
+msgid "each person's lines grouped under their name and picture, at full width"
 msgstr ""
 
 #. Heading of the message display section in Settings > Appearance.
@@ -14201,10 +14213,10 @@ msgctxt "settings.appearance.psGroupMessagesHint"
 msgid "their name and time once, for lines sent within ten minutes of each other"
 msgstr ""
 
-#. Heading in Settings > Appearance, shown under the ps theme and the themes that offer a bubble layout: how chat messages are laid out.
+#. Heading in Settings > Appearance, shown under the ps theme and the themes that offer a choice of look: how chat messages are drawn (Classic, Messenger or Workspace). A noun, as in 'the look of the chat'.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.psLayoutHeading"
-msgid "Message layout"
+msgid "Look"
 msgstr ""
 
 #. Radio option under Scene animation (ps theme): the scene's motion follows the device.

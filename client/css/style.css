@@ -108,16 +108,17 @@
 	--highlight-bg-color: #efe8dc;
 	--highlight-border-color: #b08c4f;
 
-	/* The Bubbles message layout (§ Bubbles below): a bubble, our own under
+	/* The Messenger look (§ The looks below): a bubble, our own under
 	 * "band", a mention, their corners and border. A theme that offers the
-	 * layout may set any of them; these defaults follow its colours. */
+	 * looks may set any of them; these defaults follow its colours. */
 	--bubble-bg: color-mix(in srgb, var(--body-color) 6%, var(--window-bg-color));
 	--bubble-own-bg: color-mix(in srgb, var(--link-color) 14%, var(--window-bg-color));
 	--bubble-highlight-bg: color-mix(in srgb, var(--highlight-border-color) 16%, var(--window-bg-color));
 
 	/* A bubble is a step off the window, and a theme's muted text and links
 	 * are tuned to the window, some just over 4.5:1: inside a bubble they are
-	 * drawn a little toward the text colour, so they hold on the fill. */
+	 * drawn a little toward the text colour, so they hold on the fill. A
+	 * Workspace row takes the same, for its hover, mention and own bands. */
 	--bubble-fg-muted: color-mix(in oklab, var(--body-color-muted) 65%, var(--body-color));
 	--bubble-link: color-mix(in oklab, var(--link-color) 75%, var(--body-color));
 	--bubble-notice: color-mix(in oklab, var(--notice-color, var(--body-color)) 65%, var(--body-color));
@@ -3904,46 +3905,61 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 	background-color: var(--own-bg, color-mix(in srgb, currentcolor 7%, transparent));
 }
 
-/* Bubbles (Settings → Appearance → Message layout, applied as
- * <html data-message-layout="bubbles">, helpers/messageLayout.ts;
- * docs/resources/themes.md § Bubbles). One layout for every theme that
- * draws bubbles, ps included. A run of one sender's lines (MessageList.vue's
- * `previous-source`, helpers/messageRuns.ts) is a stack of bubbles: the
- * avatar in a gutter before it, level with its first line; the nick and the
- * time over the first line; a later line's time shown only when the line is
- * pointed at or opened, over the bubble's end; and the corners on the
- * avatar's side tight where two of its bubbles meet. Everything else (a
- * join, a mode, an action, a condensed group) is a quieter line whose text
- * starts where a bubble's text does. Without avatars (switched off for the
- * network) the stacks keep their shape and lose the gutter.
+/* The looks (Settings → Appearance → Look, applied as
+ * <html data-message-layout>, helpers/messageLayout.ts;
+ * docs/resources/themes.md § Looks). Classic ("lines") is every rule above
+ * this point. The two others draw a run of one sender's lines (MessageList.vue's
+ * `previous-source`, helpers/messageRuns.ts) as one group: the avatar in a
+ * gutter before it, level with its first line; the nick and the time over
+ * the first line; a later line's time shown only when the line is pointed
+ * at or opened. Everything else (a join, a mode, an action, a condensed
+ * group) is a quieter line whose text starts where a message's text does.
+ * Without avatars (switched off for the network) the runs keep their shape
+ * and lose the gutter.
  *
- * The layout is in two parts. The shape (below, keyed on the attribute
- * alone) is every theme's. The paint (further below, also keyed on
- * `:not([data-bubble-paint])`) is for the themes on plain colours; ps paints
- * its own cards over the scene and sets `data-bubble-paint="theme"`. A theme
- * on plain colours sets the --bubble-* tokens on :root (their defaults
- * follow its colours, at the top of this file) and needs nothing else:
+ * Messenger ("bubbles", one look for every theme that draws bubbles, ps
+ * included) puts each line in a bubble as wide as its words, the corners on
+ * the avatar's side tight where two of a run's bubbles meet, a later line's
+ * time over the bubble's end; a private conversation is a two-sided chat.
+ * Workspace ("workspace") lays the same runs out as flat rows across the
+ * column, painted as Classic paints a row (the mention band, Your own
+ * messages, a theme's row bands), a later line's time in the gutter.
+ *
+ * The rules are in three parts. The shape the two share is keyed on
+ * `html:is([data-message-layout="bubbles"], [data-message-layout="workspace"])`,
+ * which weighs exactly what `html[data-message-layout="bubbles"]` alone
+ * does, so a theme's or a user's rule written against the latter still
+ * wins or loses as it did. Messenger's own geometry and paint follow on
+ * `[data-message-layout="bubbles"]`, each right after the shared rule it
+ * finishes; Workspace's come last. The bubble paint is also keyed on
+ * `:not([data-bubble-paint])`: it is for the themes on plain colours, and
+ * ps paints its own cards over the scene (`data-bubble-paint="theme"`). A
+ * theme on plain colours sets the --bubble-* tokens on :root (their
+ * defaults follow its colours, at the top of this file) and needs nothing
+ * else:
  *   --bubble-bg            a bubble; the text colour 6% over the window
- *   --bubble-own-bg        our own, under Your own messages: band; the link
+ *   --bubble-own-bg        our own, under Your own messages: band, and every
+ *                          own line of a private conversation; the link
  *                          colour 14% over the window
  *   --bubble-highlight-bg  a mention; the mention bar's colour 16%
- *   --bubble-fg-muted      the times inside one; the muted colour drawn toward the text
- *   --bubble-link          a link inside one; the link colour drawn toward the text
+ *   --bubble-fg-muted      the times; the muted colour drawn toward the text
+ *   --bubble-link          a link; the link colour drawn toward the text
  *   --bubble-notice        a notice's words; the notice colour drawn toward the text
  *   --bubble-radius        0.625rem (shape: every theme, ps too)
  *   --bubble-join-radius   where a run's bubbles meet: 0.1875rem (shape)
- * The selectors carry `.chat` so they outrank the narrow @container rules
- * and a theme's own `#chat .msg…`. */
-html[data-message-layout="bubbles"] #chat {
+ * The last three inks are Workspace's too, on its hover, mention and own
+ * bands. The selectors carry `.chat` so they outrank the narrow @container
+ * rules and a theme's own `#chat .msg…`. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat {
 	--bubble-gutter: 0rem;
 }
 
 /* The 2.25rem avatar and the 0.5rem beside it. */
-html[data-message-layout="bubbles"] #chat.avatars-on {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat.avatars-on {
 	--bubble-gutter: 2.75rem;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
 	grid-template-areas:
@@ -3952,6 +3968,9 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 	column-gap: 0.5rem;
 	align-items: baseline;
 	box-sizing: border-box;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
 	width: fit-content;
 	max-width: calc(100% - var(--bubble-gutter) - 1.875rem);
 	margin-block: 0.5rem 0;
@@ -3961,7 +3980,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 	border-radius: var(--bubble-radius);
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time {
 	grid-area: time;
 	display: block;
 	width: auto;
@@ -3970,7 +3989,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 	visibility: visible;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from {
 	grid-area: from;
 	display: block;
 	position: static;
@@ -3986,11 +4005,11 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 }
 
 /* The inline flow's space after the nick (the narrow @container rule). */
-html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from::after {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from::after {
 	content: none;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .content {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .content {
 	grid-area: content;
 	display: block;
 	padding: 0;
@@ -3999,7 +4018,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 
 /* The avatar hangs from the row (`.msg` is positioned) into the gutter, so
  * it measures from the bubble's edge, not from inside the nick. */
-html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {
 	position: absolute;
 	inset-block-start: 0;
 	inset-inline-end: calc(100% + 0.5rem);
@@ -4011,13 +4030,16 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 }
 
 /* A later line of a run: the text alone, close under the line before. */
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
 	grid-template-columns: minmax(0, 1fr);
 	grid-template-areas: "content";
+}
+
+html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
 	margin-block-start: 0.125rem;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .from {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .from {
 	display: none;
 }
 
@@ -4025,7 +4047,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-ty
  * width and the words wrapped early): shown, it stands over the bubble's
  * end on the bubble's own fill, so the words under it don't show through
  * (a see-through bubble, ps's, sets --bubble-time-bg). */
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
 	position: absolute;
 	inset-block-start: 0;
 	inset-inline-end: 0;
@@ -4036,25 +4058,28 @@ html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-ty
 	visibility: hidden;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is(:hover, .actions-open) > .time {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is(:hover, .actions-open) > .time {
 	visibility: visible;
 }
 
 /* A day's divider, the "New messages" line or a gap starts a run afresh:
  * the line after it says who is speaking, as the first of a run does. */
-html[data-message-layout="bubbles"] #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
 	grid-template-columns: auto minmax(0, 1fr);
 	grid-template-areas:
 		"from time"
 		"content content";
+}
+
+html[data-message-layout="bubbles"] #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
 	margin-block-start: 0.5rem;
 }
 
-html[data-message-layout="bubbles"] #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .from {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .from {
 	display: block;
 }
 
-html[data-message-layout="bubbles"] #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat :is(.date-marker-container, .unread-marker, .gap-marker) + .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
 	position: static;
 	padding: 0;
 	background: none;
@@ -4072,33 +4097,37 @@ html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-ty
 }
 
 /* Everything that is not a message — a join, a part, a mode, an action, a
- * topic, a condensed group — stands in the bubbles' column, only as wide as
- * its words, a step smaller: its icon where a bubble's text starts, then the
- * words, then the time (the user, 2026-11-24: in ps a condensed group's card
- * spanned the pane, its text pushed in by an empty time column). */
-html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
+ * topic, a condensed group — stands in the messages' column, a step
+ * smaller: its icon where a message's text starts, then the words, then
+ * the time. In Messenger it is only as wide as its words (the user,
+ * 2026-11-24: in ps a condensed group's card spanned the pane, its text
+ * pushed in by an empty time column). */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
 	box-sizing: border-box;
-	width: fit-content;
-	max-width: calc(100% - var(--bubble-gutter) - 1.875rem);
-	margin-inline: calc(0.625rem + var(--bubble-gutter)) 1.25rem;
 	padding-block: 0.1875rem;
-	padding-inline: 0.625rem;
 	font-size: 0.875em;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) {
+html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
+	width: fit-content;
+	max-width: calc(100% - var(--bubble-gutter) - 1.875rem);
+	margin-inline: calc(0.625rem + var(--bubble-gutter)) 1.25rem;
+	padding-inline: 0.625rem;
+}
+
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) {
 	display: flex;
 	column-gap: 0.5rem;
 	align-items: baseline;
 }
 
 /* A closed group's lines stay folded (the rule above would show them). */
-html[data-message-layout="bubbles"] #chat .chat .msg.closed[data-type="condensed"] .msg {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.closed[data-type="condensed"] .msg {
 	display: none;
 }
 
 /* Inside an opened group the lines are the group's, at its size and edge. */
-html[data-message-layout="bubbles"] #chat .chat .msg[data-type="condensed"] .msg:not([data-type="message"], [data-type="notice"]) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="condensed"] .msg:not([data-type="message"], [data-type="notice"]) {
 	width: auto;
 	max-width: none;
 	margin-inline: 0;
@@ -4106,7 +4135,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg[data-type="condensed"] .msg
 	font-size: inherit;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .time {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .time {
 	order: 3;
 	display: block;
 	width: auto;
@@ -4117,7 +4146,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], 
 	visibility: visible;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .from {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .from {
 	display: block;
 	flex: none;
 	width: auto;
@@ -4129,15 +4158,15 @@ html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], 
 	overflow: visible;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .from:empty {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .from:empty {
 	display: none;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .from::after {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .from::after {
 	content: none;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .content {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) > .content {
 	display: block;
 	flex: 0 1 auto;
 	min-width: 0;
@@ -4146,21 +4175,21 @@ html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], 
 	text-indent: 0;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg[data-type="condensed"] {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="condensed"] {
 	display: block;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .condensed-summary {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .condensed-summary {
 	display: flex;
 	column-gap: 0.5rem;
 	padding: 0;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .condensed-summary > :is(.time, .from) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .condensed-summary > :is(.time, .from) {
 	display: none;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .condensed-summary > .content {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .condensed-summary > .content {
 	display: block;
 	flex: 0 1 auto;
 	padding: 0;
@@ -4168,27 +4197,27 @@ html[data-message-layout="bubbles"] #chat .chat .condensed-summary > .content {
 }
 
 /* A whois card: the default layout hangs each label (`dt`) in the gutter
- * before the text, where the time and nick columns stand; a bubble line has
- * no such gutter, so here the card is a two-column grid of its own inside
- * the text, label then value, and in a narrow pane each label stands over
- * its value. */
-html[data-message-layout="bubbles"] #chat .chat .whois {
+ * before the text, where the time and nick columns stand; a grouped line
+ * has no such gutter, so here the card is a two-column grid of its own
+ * inside the text, label then value, and in a narrow pane each label stands
+ * over its value. */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois {
 	display: grid;
 	grid-template-columns: max-content minmax(0, 1fr);
 	column-gap: 0.75rem;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .whois > div {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois > div {
 	display: contents;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .whois dt {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois dt {
 	position: static;
 	display: block;
 	white-space: nowrap;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .whois dd {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois dd {
 	display: block;
 	min-inline-size: 0;
 	overflow-wrap: anywhere;
@@ -4196,24 +4225,24 @@ html[data-message-layout="bubbles"] #chat .chat .whois dd {
 
 /* stylelint-disable-next-line at-rule-no-unknown */
 @container chat (max-width: 32rem) {
-	html[data-message-layout="bubbles"] #chat .chat .whois {
+	html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
 	/* Smaller, not dimmer: a theme's colours are solved for contrast. */
-	html[data-message-layout="bubbles"] #chat .chat .whois dt {
+	html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois dt {
 		font-size: 0.875em;
 	}
 
-	html[data-message-layout="bubbles"] #chat .chat .whois dd + dt {
+	html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .whois dd + dt {
 		margin-block-start: 0.25rem;
 	}
 }
 
-/* Replies: the parent's nick and first words in a tinted strip at the top
- * of the reply's bubble, one line, the elbow before them; a tap jumps up to
- * the parent (Message.vue). */
-html[data-message-layout="bubbles"] #chat .chat .msg-reply-quote {
+/* Replies: the parent's nick and first words in a tinted strip over the
+ * reply's line (at the top of its bubble in Messenger), one line, the elbow
+ * before them; a tap jumps up to the parent (Message.vue). */
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote {
 	display: flex;
 	align-items: baseline;
 	gap: 0.375rem;
@@ -4229,27 +4258,27 @@ html[data-message-layout="bubbles"] #chat .chat .msg-reply-quote {
 	font-size: 0.875em;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg-reply-quote:is(:hover, :focus-visible) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote:is(:hover, :focus-visible) {
 	background-color: color-mix(in srgb, currentcolor 14%, transparent);
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg-reply-quote > :is(.msg-reply-arrow, .msg-reply-nick) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote > :is(.msg-reply-arrow, .msg-reply-nick) {
 	flex: none;
 	margin: 0;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg-reply-quote > .msg-reply-arrow {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote > .msg-reply-arrow {
 	align-self: center;
 }
 
-html[data-message-layout="bubbles"] #chat .chat .msg-reply-quote > .msg-reply-text {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg-reply-quote > .msg-reply-text {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-/* The paint, for the themes on plain colours. */
+/* Messenger's paint, for the themes on plain colours. */
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
 	--body-color-muted: var(--bubble-fg-muted);
 	--chat-fg-muted: var(--bubble-fg-muted);
@@ -4286,6 +4315,147 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
  * our own actions under "band" keep it, as our own lines do. */
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
 	background-color: transparent;
+}
+
+/* Messenger's private conversation is a two-sided chat: the header names
+ * who it is, so neither side shows an avatar or a nick (a notice keeps its
+ * label), and our own bubbles stand at the far side in the own fill,
+ * whatever Your own messages says of the fill (it still decides the words).
+ * A run's first line shows its time at the bubble's end; a later line's
+ * comes on hover or a long press, as everywhere. Not ps, which paints its
+ * cards over the yurt's inside and keeps them as a channel's. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] {
+	--bubble-gutter: 0rem;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]) {
+	max-width: min(calc(100% - 1.875rem), 80%);
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar,
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg[data-type="message"] > .from {
+	display: none;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg[data-type="message"]:is(:not(.previous-source), :is(.date-marker-container, .unread-marker, .gap-marker) + .msg) {
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-areas: "content time";
+}
+
+/* On the last line of the words, where they wrap. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg[data-type="message"]:is(:not(.previous-source), :is(.date-marker-container, .unread-marker, .gap-marker) + .msg) > .time {
+	align-self: last baseline;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self:is([data-type="message"], [data-type="notice"]) {
+	margin-inline: auto 0.625rem;
+	background-color: var(--bubble-own-bg);
+}
+
+/* Our own stack is tight on its own side, the far one. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self:is([data-type="message"], [data-type="notice"]):has(+ .msg.previous-source) {
+	border-end-start-radius: var(--bubble-radius);
+	border-end-end-radius: var(--bubble-join-radius);
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self.previous-source:is([data-type="message"], [data-type="notice"]):not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg) {
+	border-start-start-radius: var(--bubble-radius);
+	border-start-end-radius: var(--bubble-join-radius);
+}
+
+/* Workspace: each run a flat row across the column, the avatar a rounded
+ * square at the row's start (Messenger's is a circle), the nick bold. The
+ * edge before the avatar and the avatar's size are its own: a phone's pane
+ * takes both in a little. */
+html[data-message-layout="workspace"] #chat .chat {
+	--workspace-edge: 0.75rem;
+	--workspace-avatar: 2.25rem;
+}
+
+/* The avatar and the 0.75rem beside it. */
+html[data-message-layout="workspace"] #chat.avatars-on {
+	--bubble-gutter: 3rem;
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: 32rem) {
+	html[data-message-layout="workspace"] #chat .chat {
+		--workspace-edge: 0.625rem;
+		--workspace-avatar: 2rem;
+	}
+
+	html[data-message-layout="workspace"] #chat.avatars-on .chat {
+		--bubble-gutter: 2.625rem;
+	}
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
+	--body-color-muted: var(--bubble-fg-muted);
+	--chat-fg-muted: var(--bubble-fg-muted);
+	--link-color: var(--bubble-link);
+	--notice-color: var(--bubble-notice);
+
+	margin: 0;
+	padding-block: 0.125rem;
+	padding-inline: calc(var(--workspace-edge) + var(--bubble-gutter)) 1.25rem;
+}
+
+/* The first line of a run (or the line after a divider) carries the
+ * header, and the space between runs. A long nick gives way before the
+ * time does, so a narrow pane at a large text step keeps both inside it. */
+html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]):is(:not(.previous-source), :is(.date-marker-container, .unread-marker, .gap-marker) + .msg) {
+	grid-template-columns: minmax(0, auto) max-content minmax(0, 1fr);
+	grid-template-areas:
+		"from time ."
+		"content content content";
+	padding-block-start: 0.5rem;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .user {
+	font-weight: 700;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {
+	inset-block-start: 0.5rem;
+	inset-inline: var(--workspace-edge) auto;
+	width: var(--workspace-avatar);
+	height: var(--workspace-avatar);
+	border-radius: 22%;
+	font-size: calc(var(--workspace-avatar) * 0.44);
+}
+
+/* A later line's time comes over the row's end, as in Messenger, on the
+ * row's own surface (the window, under a band if the row has one, under the
+ * hover tint it shows with: the row's, spelled out, since `currentcolor`
+ * here would be the time's), so the words under it don't show through. */
+html[data-message-layout="workspace"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+	background-color: var(--window-bg-color);
+	background-image:
+		linear-gradient(var(--msg-hover-bg, color-mix(in srgb, var(--body-color) 8%, transparent)) 0 0),
+		linear-gradient(var(--workspace-band, transparent) 0 0);
+}
+
+html[data-message-layout="workspace"][data-own-messages="band"] #chat .chat .msg.self:not(.highlight) {
+	--workspace-band: var(--own-bg, color-mix(in srgb, var(--body-color) 7%, transparent));
+}
+
+/* The quieter lines span the row too, their text in the messages' column. */
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"]) {
+	margin: 0;
+	padding-inline: calc(var(--workspace-edge) + var(--bubble-gutter)) 1.25rem;
+}
+
+/* A mention: Classic's band and bar (its tokens) across the whole row,
+ * the bar thinner, the row's start taken in by its width so nothing moves. */
+html[data-message-layout="workspace"] #chat .chat-view[data-type="channel"] .chat .msg.highlight {
+	--workspace-band: var(--highlight-bg-color);
+
+	border-inline-start-width: 0.1875rem;
+	padding-inline-start: calc(var(--workspace-edge) + var(--bubble-gutter) - 0.1875rem);
+}
+
+html[data-message-layout="workspace"] #chat .chat-view[data-type="channel"] .chat .msg.highlight > .from .avatar {
+	inset-inline-start: calc(var(--workspace-edge) - 0.1875rem);
 }
 
 /* A copy of our own message the server has not echoed yet (bus-contract

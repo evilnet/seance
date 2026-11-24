@@ -2268,6 +2268,8 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"settings.appearance.messageLayoutBubblesHint",
 	"settings.appearance.messageLayoutLines",
 	"settings.appearance.messageLayoutLinesHint",
+	"settings.appearance.messageLayoutWorkspace",
+	"settings.appearance.messageLayoutWorkspaceHint",
 	"settings.appearance.messagesHeading",
 	"settings.appearance.motdTitle",
 	"settings.appearance.nickPostfix",

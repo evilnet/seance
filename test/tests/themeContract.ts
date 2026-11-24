@@ -2,7 +2,7 @@ import {expect} from "chai";
 import fs from "fs";
 import path from "path";
 import {transform} from "lightningcss";
-import {bubbleThemes} from "../../client/js/helpers/messageLayout";
+import {lookThemes} from "../../client/js/helpers/messageLayout";
 
 // The theme contract (docs/resources/themes.md § The theme contract), checked
 // without a browser so it runs in CI: what a theme declares is read by
@@ -367,7 +367,7 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 	describe("each theme's tokens hold their contrast floor", function () {
 		// [surface, ink, floor]: what the app paints the token on, at WCAG's
 		// 4.5:1 for text and 3:1 for the join line's marks.
-		const PAIRS: [string, string, number][] = [
+		const PAIRS: [string, string, number, string?][] = [
 			["--window-bg-color", "--body-color", 4.5],
 			["--window-bg-color", "--body-color-muted", 4.5],
 			["--window-bg-color", "--link-color", 4.5],
@@ -378,8 +378,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			// The rail is a gradient between these two: both ends hold.
 			["--rail-bg-top", "--rail-fg", 4.5],
 			["--rail-bg-bottom", "--rail-fg", 4.5],
-			// The Bubbles layout (style.css § Bubbles), in the themes that offer
-			// it: the words, the times and the links on every kind of bubble.
+			// Messenger (style.css § The looks), in the themes that offer the
+			// looks: the words, the times and the links on every kind of bubble.
 			["--bubble-bg", "--body-color", 4.5],
 			["--bubble-bg", "--bubble-fg-muted", 4.5],
 			["--bubble-bg", "--bubble-link", 4.5],
@@ -390,10 +390,34 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			["--bubble-highlight-bg", "--bubble-fg-muted", 4.5],
 			["--bubble-highlight-bg", "--bubble-link", 4.5],
 			["--bubble-bg", "--bubble-notice", 4.5],
+			// Workspace, in the same themes: its rows take the same inks as a
+			// bubble, and its words, times, links and a notice's words hold on
+			// the plain row, the hover tint, the mention band and our own band.
+			...[
+				"--window-bg-color",
+				"--workspace-hover",
+				"--highlight-bg-color",
+				"--workspace-own",
+			].flatMap((surface) =>
+				["--body-color", "--bubble-fg-muted", "--bubble-link", "--bubble-notice"].map(
+					(ink) => [surface, ink, 4.5, "looks"] as [string, string, number, string]
+				)
+			),
 		];
-		// Bubbles are drawn only in the themes that offer them.
-		const BUBBLES_ONLY = (theme: string, surface: string) =>
-			surface.startsWith("--bubble-") && !bubbleThemes.has(theme);
+		// The looks are drawn only in the themes that offer them.
+		const LOOKS_ONLY = (theme: string, surface: string, only?: string) =>
+			(only === "looks" || surface.startsWith("--bubble-")) && !lookThemes.has(theme);
+		// What a Workspace row is painted with, as style.css spells it on the
+		// row rather than on :root: the hover tint (`--msg-acting-bg`, the
+		// row's text colour 8% unless a theme names `--msg-hover-bg`) and our
+		// own band under Your own messages: highlighted row (`--own-bg`, else
+		// the text colour 7%). Each is measured over the window.
+		const ROW_TOKENS: Record<string, string> = {
+			"--workspace-hover-tint": "color-mix(in srgb, var(--body-color) 8%, transparent)",
+			"--workspace-hover": "var(--msg-hover-bg, var(--workspace-hover-tint))",
+			"--workspace-own-tint": "color-mix(in srgb, var(--body-color) 7%, transparent)",
+			"--workspace-own": "var(--own-bg, var(--workspace-own-tint))",
+		};
 		// Known and recorded, not to be copied: day is TheLounge's original
 		// light theme, kept as it was (docs/projects/accessibility.md).
 		// Each is a floor of its own, at today's ratio: the exception keeps the
@@ -401,6 +425,14 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 		const KNOWN: Record<string, number> = {
 			// TheLounge's own link green, 3.03:1.
 			"day --link-color on --window-bg-color": 3.03,
+		};
+
+		// An ink a theme restates by selector where it paints it, so the token
+		// is not what shows there: measured as the colour the theme writes,
+		// which must still be in its file. Princess draws a mention's links a
+		// step darker on its strong band (princess.css), Workspace's band too.
+		const RESTATED: Record<string, string> = {
+			"princess --bubble-link on --highlight-bg-color": "#1558c9",
 		};
 
 		// What each surface is painted over, out to the page's own canvas: a
@@ -414,6 +446,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			"--bubble-bg": "--window-bg-color",
 			"--bubble-own-bg": "--window-bg-color",
 			"--bubble-highlight-bg": "--window-bg-color",
+			"--workspace-hover": "--window-bg-color",
+			"--workspace-own": "--window-bg-color",
 		};
 		// Surfaces with nothing opaque under them in CSS (a shell's material or a
 		// scene would show through) have no ratio to compute from the files. None
@@ -433,9 +467,15 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 			"--bubble-bg",
 			"--bubble-own-bg",
 			"--bubble-highlight-bg",
+			"--workspace-hover",
+			"--workspace-own",
 		]);
 		const LOUNGE_ONLY = new Set(["day", "morning"]);
-		const names = new Set(PAIRS.flatMap(([surface, ink]) => [surface, ink]));
+		const names = new Set([
+			...PAIRS.flatMap(([surface, ink]) => [surface, ink]),
+			"--msg-hover-bg",
+			"--own-bg",
+		]);
 
 		for (const theme of themeNames) {
 			it(theme, function () {
@@ -444,7 +484,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 				let checked = 0;
 
 				for (const scheme of ["light", "dark"] as const) {
-					for (const {where, tokens, own} of surfaces(theme, scheme, names)) {
+					for (const {where, tokens: declared, own} of surfaces(theme, scheme, names)) {
+						const tokens = {...ROW_TOKENS, ...declared};
 						const colour = (token: string) => {
 							const value = resolve(tokens, tokens[token]);
 							const rgba = value ? toRGBA(value) : undefined;
@@ -468,8 +509,8 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 							return below && over(fill, below);
 						};
 
-						for (const [surface, ink, floor] of PAIRS) {
-							if (BUBBLES_ONLY(theme, surface)) {
+						for (const [surface, ink, floor, only] of PAIRS) {
+							if (LOOKS_ONLY(theme, surface, only)) {
 								continue;
 							}
 
@@ -516,7 +557,17 @@ describe("the theme contract (themes.md § The theme contract)", function () {
 								continue;
 							}
 
-							const ratio = contrast(over(colour(ink), bg), bg);
+							const restated = RESTATED[label];
+							const inkColour = restated ? toRGBA(restated) : colour(ink);
+
+							if (restated) {
+								expect(
+									fs.readFileSync(path.join(THEMES, `${theme}.css`), "utf8"),
+									`${label} is restated in ${theme}.css`
+								).to.include(restated);
+							}
+
+							const ratio = contrast(over(inkColour as RGBA, bg), bg);
 							expect(
 								Number.isFinite(ratio),
 								`${label} (${where}) is a number`

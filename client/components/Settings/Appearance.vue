@@ -62,13 +62,14 @@
 				<span class="own-messages-hint">{{ ownMessageHints[style] }}</span>
 			</label>
 		</div>
-		<!-- Lines or Bubbles, in the themes that offer the choice
-		     (helpers/messageLayout.ts); ps always draws its own bubbles, so it
-		     shows only the combining switch, which bubbles use too. -->
-		<template v-if="offersBubbles || isPs">
+		<!-- The look (Classic, Messenger or Workspace), in the themes that
+		     offer the choice (helpers/messageLayout.ts); ps always draws its
+		     own bubbles, so it shows only the combining switch, which the
+		     two looks with runs use too. -->
+		<template v-if="offersLooks || isPs">
 			<h2 id="label-message-layout">{{ t("settings.appearance.psLayoutHeading") }}</h2>
 			<div role="group" aria-labelledby="label-message-layout" class="scene-motion-options">
-				<template v-if="offersBubbles">
+				<template v-if="offersLooks">
 					<label v-for="layout in messageLayouts" :key="layout" class="opt">
 						<input
 							:checked="messageLayout === layout"
@@ -80,7 +81,7 @@
 						<span class="opt-hint">{{ messageLayoutHints[layout] }}</span>
 					</label>
 				</template>
-				<label v-if="isPs || messageLayout === 'bubbles'" class="opt">
+				<label v-if="isPs || messageLayout !== 'lines'" class="opt">
 					<input
 						v-switch
 						:checked="store.state.settings.psGroupMessages"
@@ -523,7 +524,7 @@ import {
 import {
 	messageLayouts,
 	normalizeMessageLayout,
-	themeOffersBubbles,
+	themeOffersLooks,
 	type MessageLayout,
 } from "../../js/helpers/messageLayout";
 import {
@@ -629,9 +630,9 @@ export default defineComponent({
 			calm: t("settings.appearance.psMotionCalmHint"),
 			still: t("settings.appearance.psMotionStillHint"),
 		}));
-		// Message layout (helpers/messageLayout.ts). A light/dark pair offers
-		// it in both halves or neither, so the chosen theme decides.
-		const offersBubbles = computed(() => themeOffersBubbles(store.state.settings.theme));
+		// The look (helpers/messageLayout.ts). A light/dark pair offers the
+		// choice in both halves or neither, so the chosen theme decides.
+		const offersLooks = computed(() => themeOffersLooks(store.state.settings.theme));
 		const isPs = computed(() => store.state.settings.theme === "ps");
 		const messageLayout = computed(() =>
 			normalizeMessageLayout(store.state.settings.messageLayout)
@@ -639,10 +640,12 @@ export default defineComponent({
 		const messageLayoutLabels = computed<Record<MessageLayout, string>>(() => ({
 			lines: t("settings.appearance.messageLayoutLines"),
 			bubbles: t("settings.appearance.messageLayoutBubbles"),
+			workspace: t("settings.appearance.messageLayoutWorkspace"),
 		}));
 		const messageLayoutHints = computed<Record<MessageLayout, string>>(() => ({
 			lines: t("settings.appearance.messageLayoutLinesHint"),
 			bubbles: t("settings.appearance.messageLayoutBubblesHint"),
+			workspace: t("settings.appearance.messageLayoutWorkspaceHint"),
 		}));
 		// The ps theme's Words over the plains (helpers/psWords.ts; docs/projects/ps-words.md).
 		const psWordsValue = computed(() => normalizePsWords(store.state.settings.psWords));
@@ -789,7 +792,7 @@ export default defineComponent({
 			sceneMotionHints,
 			psWords,
 			psWordsValue,
-			offersBubbles,
+			offersLooks,
 			isPs,
 			messageLayout,
 			messageLayouts,

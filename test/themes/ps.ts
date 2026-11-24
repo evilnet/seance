@@ -2138,7 +2138,7 @@ describe("the ps theme's type", function () {
 	});
 });
 
-describe("the ps theme on the shared bubble layout (style.css § Bubbles)", function () {
+describe("the ps theme on the shared bubble layout (style.css § The looks)", function () {
 	const M = '[data-type="message"], [data-type="notice"]';
 	const ROW = `#chat .chat .msg:is(${M})`;
 	const style = rulesIn(
@@ -2154,8 +2154,9 @@ describe("the ps theme on the shared bubble layout (style.css § Bubbles)", func
 		);
 		expect(own.map((r) => r.selectors.join(", "))).to.deep.equal([]);
 		expect(css, "the old time column").to.not.include("--ps-time-w");
+		// The shape Messenger shares with Workspace (style.css § The looks).
 		const shared =
-			'html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"])';
+			'html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"])';
 		expect(declsOf(shared, "", style).find(([p]) => p === "grid-template-areas")).to.not.equal(
 			undefined
 		);
