@@ -649,37 +649,41 @@ strong,
 }
 
 /* With avatars on (Avatar.vue in every message's nick), a run reads as a
- * messenger's: the avatar stands at 2.25rem in a column of its own between
- * the time and the words, beside the nick and the first line, rather than
- * at the nick's own size inside it, where it was too small to tell anyone
- * by (the user, 2026-11-23). Every line of the run, its later ones too,
- * keeps that column, so the words line up under the nick. It hangs from the
- * nick (`.from`, positioned) into the column, so the markup is unchanged.
- * Without avatars (switched off for the network) the rows are as above. */
+ * messenger's (the user's pick B, 2026-11-24): the avatar stands at 2.25rem
+ * in a gutter of its own before the row, outside the card under Bubbles,
+ * level with the run's first line, rather than at the nick's own size inside
+ * it, where it was too small to tell anyone by (2026-11-23). Every line of
+ * the run keeps the gutter, so the cards line up under the first. The time
+ * moves from the row's start to beside the nick, and a later line's time,
+ * still shown only when the line is pointed at or opened, to the line's end,
+ * as a messenger's (the gutter is too narrow for "12:25 AM"). The avatar hangs from the row
+ * (`.msg`, positioned in style.css) into the gutter, so the markup is
+ * unchanged. Without avatars (switched off for the network) the rows are as
+ * above, the time first. */
 #chat .chat .msg:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
-	grid-template-columns: minmax(var(--ps-time-w), max-content) 2.25rem minmax(0, 1fr);
+	grid-template-columns: auto minmax(0, 1fr);
 	grid-template-areas:
-		"time . from"
-		". . content";
+		"from time"
+		"content content";
+	max-width: calc(100% - 4rem);
+	margin-inline-start: 3.375rem;
 }
 
 #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
-	grid-template-areas: "time . content";
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-areas: "content time";
 }
 
 #chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) {
+	grid-template-columns: auto minmax(0, 1fr);
 	grid-template-areas:
-		"time . from"
-		". . content";
-}
-
-#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from:has(.avatar) {
-	position: relative;
+		"from time"
+		"content content";
 }
 
 #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {
 	position: absolute;
-	inset-block-start: 0.125rem;
+	inset-block-start: 0;
 	inset-inline-end: calc(100% + 0.5rem);
 	width: 2.25rem;
 	height: 2.25rem;
