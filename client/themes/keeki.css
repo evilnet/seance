@@ -381,9 +381,10 @@ html[data-shell="native"] {
 	}
 }
 
-/* 🐾 after every network. The open conversation carries no glyph: a heart
- * there read as a favourite. */
-.channel-list-item[data-type="lobby"] .name::after {
+/* 🐾 after every network, not after the favorites block's header, which is
+ * shaped like one (FavoriteList.vue). The open conversation carries no glyph:
+ * a heart there read as a favourite. */
+.channel-list-item[data-type="lobby"]:not(.favorites-header) .name::after {
 	content: " 🐾";
 }
 

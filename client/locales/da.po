@@ -966,6 +966,18 @@ msgctxt "channel.rowLabelCount"
 msgid "{type}: {name} ({extra})"
 msgstr "{type}: {name} ({extra})"
 
+#. aria-label of a row in the sidebar's Favorites block, which mixes networks. {type} is the kind of window (see the channel.type.* keys); {name} is the channel name or nickname; {network} is the network's name.
+#: client/components/ChannelWrapper.vue
+msgctxt "channel.rowLabelNetwork"
+msgid "{type}: {name} on {network}"
+msgstr "{type}: {name} på {network}"
+
+#. aria-label of a row in the sidebar's Favorites block that has unread messages or mentions. {type} is the kind of window (see the channel.type.* keys), {name} is the channel name or nickname, {network} is the network's name, {extra} is a count phrase such as '3 mentions'.
+#: client/components/ChannelWrapper.vue
+msgctxt "channel.rowLabelNetworkCount"
+msgid "{type}: {name} on {network} ({extra})"
+msgstr "{type}: {name} på {network} ({extra})"
+
 #. Names the kind of window in a sidebar row's aria-label: a chat channel. Substituted as {type} in channel.rowLabel.
 #: client/components/ChannelWrapper.vue
 msgctxt "channel.type.channel"
@@ -2424,6 +2436,24 @@ msgstr "Bruger {nick} er ikke i kanalen."
 msgctxt "error.userOnChannel"
 msgid "User {nick} is already on the channel."
 msgstr "Bruger {nick} er allerede i kanalen."
+
+#. Tooltip and button label of a favorite in the sidebar's Favorites block whose network is not connected on this device; clicking connects the network and opens the conversation. {network} is the network's name, {name} the channel name or nickname.
+#: client/components/FavoritePlaceholder.vue
+msgctxt "favorites.connect"
+msgid "Connect to {network} and open {name}"
+msgstr "Opret forbindelse til {network} og åbn {name}"
+
+#. Tooltip and button label of a favorite channel in the sidebar's Favorites block whose window is closed; clicking joins the channel again. {name} is the channel name, {network} the network's name.
+#: client/components/FavoritePlaceholder.vue
+msgctxt "favorites.join"
+msgid "Join {name} on {network}"
+msgstr "Gå ind i {name} på {network}"
+
+#. Tooltip and button label of a favorite private conversation in the sidebar's Favorites block whose window is closed; clicking opens the conversation again. {name} is the other person's nickname, {network} the network's name.
+#: client/components/FavoritePlaceholder.vue
+msgctxt "favorites.openQuery"
+msgid "Open conversation with {name} on {network}"
+msgstr "Åbn samtalen med {name} på {network}"
 
 #. Label of the services account (login name) field on the network edit form, shown when SASL is on.
 #: client/components/NetworkForm.vue:168
@@ -4602,6 +4632,18 @@ msgstr "Rediger dette netværk…"
 msgctxt "menu.editTopic"
 msgid "Edit topic"
 msgstr "Rediger emne"
+
+#. Context-menu item on a channel or private conversation; clicking stars it: it moves to the Favorites block at the top of the sidebar, above the networks.
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.favoriteAdd"
+msgid "Add to favorites"
+msgstr "Føj til favoritter"
+
+#. Context-menu item on a starred channel or private conversation (also on a favorite whose window is closed); clicking unstars it: it leaves the Favorites block at the top of the sidebar and goes back under its network.
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.favoriteRemove"
+msgid "Remove from favorites"
+msgstr "Fjern fra favoritter"
 
 #. Context-menu item that grants an IRC channel role to a user; {name} is the role's name ('operator'), {mode} the bare mode letter (e.g. o) — the + before it is part of the text, so the item reads (+o).
 #: client/js/helpers/contextMenu.ts
@@ -15021,6 +15063,12 @@ msgstr "UDVIKLER"
 msgctxt "sidebar.empty"
 msgid "You are not connected to any networks yet."
 msgstr "Du er ikke forbundet til nogen netværk endnu."
+
+#. Header of the sidebar block that holds the conversations the user starred, from every network, above the network list. Also the block's region name for screen readers.
+#: client/components/FavoriteList.vue
+msgctxt "sidebar.favorites"
+msgid "Favorites"
+msgstr "Favoritter"
 
 #. aria-label of the question-mark button in the sidebar footer: opens the help window.
 #: client/components/Sidebar.vue:51

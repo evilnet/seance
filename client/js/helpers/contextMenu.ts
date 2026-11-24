@@ -17,10 +17,18 @@ import {banItem, holdsChannelPower} from "./banMenu";
 import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
 import {ignoreListFor} from "../ignore";
 import {brandingFeatures} from "../branding";
-import {namesEqual} from "../irc/casemap";
+import {namesEqual, type CaseMapping} from "../irc/casemap";
 import {accountFor, viewFor} from "../avatars/view";
 import {isPersonTrusted, loadOnce, personKey, trustPerson, untrustPerson} from "../avatars/prefs";
 import {trustHost} from "./mediaTrust";
+import {
+	addFavorite,
+	favorites,
+	removeFavorite,
+	type Favorite,
+	type FavoriteType,
+} from "../favorites";
+import {favoriteRows} from "./sidebarOrder";
 
 type BaseContextMenuItem = {
 	label: string;
@@ -257,6 +265,22 @@ export function generateChannelContextMenu(
 		}
 	}
 
+	// Star it: the favorites block at the top of the sidebar (favorites.ts).
+	if (channel.type === ChanType.CHANNEL || channel.type === ChanType.QUERY) {
+		const row = favoriteRows(favorites.value, [network], []).find(
+			(r) => r.kind === "live" && r.channel.id === channel.id
+		);
+		items.push(
+			favoriteItem(
+				network.uuid,
+				channel.name,
+				channel.type === ChanType.QUERY ? "query" : "channel",
+				row?.favorite ?? null,
+				network.serverOptions.CASEMAPPING
+			)
+		);
+	}
+
 	const humanFriendlyChanTypeMap: Record<string, string> = {
 		lobby: t("menu.chanTypeNetwork"),
 		channel: t("menu.chanTypeChannel"),
@@ -342,6 +366,35 @@ export function generateInlineChannelContextMenu(
 		},
 		...operChannelItems(network, chan),
 	];
+}
+
+/**
+ * Add to favorites, or Remove from favorites for one starred already: the
+ * channel menu's entry, and a favorite placeholder's (FavoritePlaceholder.vue).
+ * `starred` is the favorite the row stands for, found as the sidebar finds
+ * it (helpers/sidebarOrder.ts), so the menu never unstars another
+ * conversation than the one it was opened on; `mapping` is the network's,
+ * for the new favorite's duplicate check.
+ */
+export function favoriteItem(
+	uuid: string,
+	name: string,
+	type: FavoriteType,
+	starred: Favorite | null,
+	mapping?: CaseMapping
+): ContextMenuItem {
+	return {
+		label: starred ? t("menu.favoriteRemove") : t("menu.favoriteAdd"),
+		type: "item",
+		class: starred ? "unfavorite" : "favorite",
+		action() {
+			if (starred) {
+				removeFavorite(starred);
+			} else {
+				addFavorite(uuid, name, type, mapping);
+			}
+		},
+	};
 }
 
 /** Ignore, or Unignore for a nick already on the network's ignore list

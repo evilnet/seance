@@ -941,6 +941,7 @@ p {
 .channel-list-item .edit-network::before,
 .channel-list-item .oper-panel::before,
 .channel-list-item .parted-channel-icon::before,
+.channel-list-item .favorite-open-icon::before,
 #chat .oper-report-btn::before,
 .jump-to-input::before,
 .password-container .reveal-password span,
@@ -999,6 +1000,10 @@ p {
 .context-menu-clear-history::before { content: "\f1f8"; /* https://fontawesome.com/icons/trash?style=solid */ }
 .context-menu-translate::before { content: "\f1ab"; /* https://fontawesome.com/icons/language?style=solid */ }
 .context-menu-mute::before { content: "\f6a9"; /* https://fontawesome.com/v5.15/icons/volume-mute?style=solid */ }
+
+.context-menu-favorite::before,
+.context-menu-unfavorite::before { content: "\f005"; /* https://fontawesome.com/v5.15/icons/star?style=solid */ }
+
 .context-menu-media-host::before { content: "\f0ac"; /* https://fontawesome.com/icons/globe?style=solid */ }
 .context-menu-media-account::before { content: "\f007"; /* https://fontawesome.com/icons/user?style=solid */ }
 .context-menu-media-channel::before { content: "\f292"; /* https://fontawesome.com/icons/hashtag?style=solid */ }
@@ -1955,6 +1960,30 @@ html[data-reduce-motion] .channel-list-item.has-activity:not(.is-typing)::before
 [dir="rtl"] .header .topic,
 [dir="rtl"] .channel-list-item .name {
 	mask-image: linear-gradient(to right, transparent, black 20px);
+}
+
+/* A favorite's network, beside its name when another favorite shares the name
+(FavoriteList.vue): muted text at the end, before the badge, never flush
+against the name, whose end fades. The name gives way first; the tag keeps at
+least a few characters, since it is what tells the two rows apart. */
+.channel-list-item .network-tag {
+	flex: 0 1 auto;
+	min-inline-size: 3ch;
+	max-inline-size: 45%;
+	margin-inline-end: 0.375rem;
+	align-self: center;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: 0.75em;
+	font-weight: normal;
+	line-height: 1.2;
+	color: var(--rail-fg-muted, rgb(183 197 209 / 75%));
+}
+
+.channel-list-item.active .network-tag,
+.channel-list-item:hover .network-tag {
+	color: inherit;
 }
 
 .channel-list-item .badge,

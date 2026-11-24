@@ -55,6 +55,9 @@ export default defineComponent({
 		},
 		active: Boolean,
 		isFiltering: Boolean,
+		/** Drawn in the favorites block (FavoriteList.vue): shown whatever its
+		 * network's collapse, and its label names the network. */
+		inFavorites: Boolean,
 	},
 	setup(props) {
 		const store = useStore();
@@ -62,7 +65,10 @@ export default defineComponent({
 		const {t, tCount} = useI18n();
 		const activeChannel = computed(() => store.state.activeChannel);
 		const isChannelVisible = computed(
-			() => props.isFiltering || !isChannelCollapsed(props.network, props.channel)
+			() =>
+				props.isFiltering ||
+				props.inFavorites ||
+				!isChannelCollapsed(props.network, props.channel)
 		);
 
 		// Someone else is composing here: pulse the row's icon (see
@@ -109,8 +115,31 @@ export default defineComponent({
 			}
 		};
 
+		const favoriteLabel = (vars: {type: string; name: string; network: string}) => {
+			if (props.channel.highlight > 0) {
+				return t("channel.rowLabelNetworkCount", {
+					...vars,
+					extra: tCount("sidebar.mentions", props.channel.highlight),
+				});
+			}
+
+			if (props.channel.unread > 0) {
+				return t("channel.rowLabelNetworkCount", {
+					...vars,
+					extra: tCount("sidebar.unread", props.channel.unread),
+				});
+			}
+
+			return t("channel.rowLabelNetwork", vars);
+		};
+
 		const getAriaLabel = () => {
 			const vars = {type: typeLabel(), name: props.channel.name};
+
+			// The favorites block mixes networks: the label says which.
+			if (props.inFavorites) {
+				return favoriteLabel({...vars, network: props.network.name});
+			}
 
 			if (props.channel.highlight > 0) {
 				return t("channel.rowLabelCount", {

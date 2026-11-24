@@ -1,6 +1,13 @@
 <template>
 	<!-- TODO: investigate -->
-	<ChannelWrapper ref="wrapper" v-bind="$props">
+	<ChannelWrapper
+		ref="wrapper"
+		:network="network"
+		:channel="channel"
+		:active="active"
+		:is-filtering="isFiltering"
+		:in-favorites="inFavorites"
+	>
 		<Avatar
 			v-if="channel.type === 'query'"
 			:uuid="network.uuid"
@@ -9,6 +16,9 @@
 		/>
 		<span class="name"
 			><bdi>{{ channel.name }}</bdi></span
+		>
+		<span v-if="networkTag" class="network-tag" aria-hidden="true"
+			><bdi>{{ networkTag }}</bdi></span
 		>
 		<span
 			v-if="channel.unread"
@@ -62,6 +72,13 @@ export default defineComponent({
 		},
 		active: Boolean,
 		isFiltering: Boolean,
+		/** Drawn in the favorites block (FavoriteList.vue). */
+		inFavorites: Boolean,
+		/** The network's name beside the channel's: two favorites share the name. */
+		networkTag: {
+			type: String,
+			default: "",
+		},
 	},
 	setup(props) {
 		const {t} = useI18n();

@@ -31,6 +31,7 @@ import {forgetNetworkAvatarPrefs} from "../avatars/prefs";
 import {forgetSeen} from "../avatars/registry";
 import {forgetLogin} from "./saslTrust";
 import {forgetIgnoreList} from "../ignore";
+import {forgetNetworkFavorites} from "../favorites";
 import type {ConnectOptions} from "./types";
 import {accountRequired} from "../branding";
 import {PRESENCE_MODES, type NetworkMode, type PresenceMode} from "../helpers/dnd";
@@ -772,6 +773,9 @@ export function remove(uuid: string): void {
 	// would ever read them again, yet both travel in every settings backup.
 	forgetChannelOrder(uuid);
 	forgetIgnoreList(uuid);
+	// And its favorites, which would stand in the sidebar as placeholders
+	// for a network nothing can connect any more.
+	forgetNetworkFavorites(uuid);
 }
 
 /** Mark an entry as the most recently used one. */

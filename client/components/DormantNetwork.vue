@@ -98,11 +98,11 @@ html[data-reduce-motion] #sidebar .dormant-network .dormant-network-row {
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
 import {useRouter} from "vue-router";
-import {createNetwork} from "../js/irc/manager";
 import * as saved from "../js/irc/saved-networks";
 import type {SavedNetwork} from "../js/irc/saved-networks";
 import {useI18n} from "../js/i18n";
-import {accountRequired, brandingFeatures} from "../js/branding";
+import {brandingFeatures} from "../js/branding";
+import {connectSaved, needsLogin} from "../js/favoriteActions";
 
 export default defineComponent({
 	name: "DormantNetwork",
@@ -116,10 +116,6 @@ export default defineComponent({
 		const router = useRouter();
 		const {t} = useI18n();
 		const name = computed(() => saved.displayName(props.network));
-		/** A login whose password was not kept cannot dial by itself, nor can
-		 * an entry with no login on a deploy that lets only accounts in. */
-		const needsLogin = (net: SavedNetwork) =>
-			(net.sasl === "plain" && !net.saslPassword) || (accountRequired() && !net.sasl);
 		const needsPassword = computed(() => needsLogin(props.network));
 		const connectLabel = computed(() => t("sidebar.savedNetworkConnect", {name: name.value}));
 		const stateLabel = computed(() =>
@@ -129,25 +125,7 @@ export default defineComponent({
 			brandingFeatures().editNetworks ? t("lobby.edit") : t("lobby.account")
 		);
 
-		const connect = () => {
-			// The entry as stored now: the row's copy is only as new as what
-			// it shows, and createNetwork writes what it is given back.
-			const entry = saved.get(props.network.uuid);
-
-			if (!entry) {
-				return;
-			}
-
-			if (needsLogin(entry)) {
-				// The connect form, filled from the entry, asks for it (on a
-				// sign-in deploy, the panel).
-				void router.push({name: "Connect", query: {savedLink: entry.uuid}});
-				return;
-			}
-
-			// The network announces itself and takes this row's place.
-			createNetwork(entry);
-		};
+		const connect = () => void connectSaved(props.network.uuid);
 
 		const editNetwork = () => {
 			// A deploy that keeps its network as it set it has no edit form;
