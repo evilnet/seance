@@ -4010,10 +4010,21 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 }
 
 /* A bubble stops short of the pane's end by `--bubble-time-room`: a run's
- * later line shows its time there, beside the bubble (below). */
-html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
-	--bubble-time-room: 3.5rem;
+ * later line shows its time there, beside the bubble (below). As much room
+ * as the clock the user chose is long (Chat.vue's classes). */
+html[data-message-layout="bubbles"] #chat {
+	--bubble-time-room: 2.25rem;
+}
 
+html[data-message-layout="bubbles"] #chat:is(.time-12h, .time-seconds) {
+	--bubble-time-room: 3.5rem;
+}
+
+html[data-message-layout="bubbles"] #chat.time-12h.time-seconds {
+	--bubble-time-room: 5.5rem;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
 	width: fit-content;
 	max-width: calc(100% - var(--bubble-gutter) - 1.875rem - var(--bubble-time-room));
 	margin-block: 0.5rem 0;
@@ -4112,7 +4123,7 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
 	inset-block-start: 50%;
 	/* stylelint-disable-next-line unit-no-unknown -- cqi: the message list is an inline-size container; stylelint predates it */
-	inset-inline: min(100%, calc(100cqi - var(--bubble-gutter) - 5.625rem)) auto;
+	inset-inline: min(100%, calc(100cqi - var(--bubble-gutter) - 2.125rem - var(--bubble-time-room))) auto;
 	translate: 0 -50%;
 	margin-inline-start: 0.375rem;
 	padding-block: 0.125rem;
@@ -4462,7 +4473,7 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[da
 /* Our own bubble is at the far side: its time stands before it. */
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
 	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
-	inset-inline: auto min(100%, calc(100cqi - 5.625rem));
+	inset-inline: auto min(100%, calc(100cqi - 2.125rem - var(--bubble-time-room)));
 	margin-inline: 0 0.375rem;
 }
 
