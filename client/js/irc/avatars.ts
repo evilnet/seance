@@ -6,7 +6,10 @@
  * channel's members' values to the one who joins, not the joiner's value
  * to the members, so a user we have heard nothing about is asked for
  * (`METADATA <nick> GET avatar`) when a line of theirs arrives: through
- * the background queue, once per nick per connection.
+ * the background queue, once per nick per connection. A line from history
+ * (a replay, or one the device kept) asks the same for its sender, where
+ * they are still here: a held session's replayed join burst carries no
+ * values at all, and nobody's avatar showed until someone spoke live.
  *
  * Our own avatar is written public (everyone sharing a channel sees it):
  * `METADATA * SET avatar :<url>`, and `METADATA * SET avatar` clears it.
@@ -25,6 +28,8 @@ import {
 	setAvatarValue,
 } from "../avatars/registry";
 import {avatarsEnabled} from "../avatars/prefs";
+import {ChanType} from "../../../shared/types/chan";
+import type {Channel} from "./channel";
 import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
 
@@ -213,6 +218,30 @@ export function onLineFrom(client: IrcClient, nick: string, account: string | un
 	}
 
 	askAvatar(client, nick);
+}
+
+/**
+ * A line from history in `chan` (a replay, or one the device kept): ask
+ * for its sender's avatar too, where they are still here (a member of the
+ * channel, or the private conversation's peer), so a conversation filled
+ * from history gets its pictures without anyone having to speak first. A
+ * held session's replayed join burst says no one's value. Someone who has
+ * left is not asked: the server has no avatar for a nick that is gone. The
+ * account an old line names may be stale, so it is not noted.
+ */
+export function onHistoryLineFrom(client: IrcClient, chan: Channel, nick: string): void {
+	if (!nick || nick.includes(".") || !avatarsEnabled(client.uuid)) {
+		return;
+	}
+
+	const here =
+		chan.type === ChanType.CHANNEL
+			? !!chan.findUser(nick)
+			: chan.type === ChanType.QUERY && client.casefold(chan.name) === client.casefold(nick);
+
+	if (here) {
+		askAvatar(client, nick);
+	}
 }
 
 /** Queue a GET for `nick`'s avatar unless it is known or already asked. */

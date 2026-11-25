@@ -19,7 +19,7 @@ import {noteListDelay} from "./list";
 import type {Handler} from "../types";
 import {fromIgnored} from "../../ignore";
 import {scriptManager} from "../scripting/manager";
-import {onLineFrom} from "../avatars";
+import {onHistoryLineFrom, onLineFrom} from "../avatars";
 
 const nickRegExp = /(?:\x03[0-9]{1,2}(?:,[0-9]{1,2})?)?([\w[\]\\`^{|}-]+)/g;
 
@@ -256,13 +256,16 @@ function handleMessage(
 		message.fromAccount = account;
 	}
 
-	// A live line: its sender's avatar, if we have not heard it (irc/avatars.ts).
+	// A live line: its sender's avatar, if we have not heard it; a line from
+	// history: theirs too, where they are still here (irc/avatars.ts).
 	if (!client.replaying && !self && nick) {
 		onLineFrom(
 			client,
 			nick,
 			client.caps.hasCapability("account-tag") ? account ?? "" : undefined
 		);
+	} else if (client.replaying && !self && nick) {
+		onHistoryLineFrom(client, chan, nick);
 	}
 
 	if (showInActive) {

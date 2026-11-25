@@ -115,6 +115,70 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 		expect(avatarKnown(uuid(), "carol")).to.equal(false);
 	});
 
+	describe("from history", function () {
+		const replay = (...lines: string[]) =>
+			h.transport.lines(
+				":irc.test BATCH +h chathistory #seance",
+				...lines.map(
+					(line, i) => `@batch=h;time=2026-11-25T07:0${i}:00.000Z;msgid=o${i} ${line}`
+				),
+				":irc.test BATCH -h"
+			);
+
+		it("asks for the avatar of a replayed line's sender who is still in the channel, once", function () {
+			replay(
+				":bob!bob@host.example PRIVMSG #seance :from before",
+				":bob!bob@host.example PRIVMSG #seance :\u0001ACTION waves\u0001"
+			);
+			expect(h.sent()).to.deep.equal(["METADATA bob GET avatar"]);
+			h.transport.line(":bob!bob@host.example PRIVMSG #seance :and now");
+			expect(h.sent()).to.deep.equal([]);
+		});
+
+		it("does not ask about someone who has left, nor about ourselves", function () {
+			replay(
+				":dave!dave@host.example PRIVMSG #seance :gone since",
+				":alice!alice@host.example PRIVMSG #seance :mine"
+			);
+			expect(h.sent()).to.deep.equal([]);
+		});
+
+		it("does not ask about a member whose avatar the burst already gave", function () {
+			h.transport.line(`:irc.test METADATA carol avatar * :${URL_A}`);
+			replay(":carol!carol@host.example PRIVMSG #seance :from before");
+			expect(h.sent()).to.deep.equal([]);
+		});
+
+		it("asks for the senders of the lines the device kept, at the end of the member list", function () {
+			const restored = sinon.stub(h.client.conversations, "restoredMessages").returns([
+				{type: "message", from: {nick: "bob", mode: ""}, text: "kept"},
+				{type: "action", from: {nick: "carol", mode: ""}, text: "waves"},
+				{type: "join", from: {nick: "carol", mode: ""}, text: ""},
+				{type: "message", from: {nick: "dave", mode: ""}, text: "left since"},
+				{type: "message", from: {nick: "alice", mode: ""}, self: true, text: "mine"},
+			] as ReturnType<typeof h.client.conversations.restoredMessages>);
+
+			try {
+				h.transport.lines(
+					":irc.test 353 alice = #seance :@alice bob carol",
+					":irc.test 366 alice #seance :End of /NAMES list."
+				);
+				expect(h.sent()).to.deep.equal([
+					"METADATA bob GET avatar",
+					"METADATA carol GET avatar",
+				]);
+			} finally {
+				restored.restore();
+			}
+		});
+
+		it("asks nothing from history where avatars are switched off", function () {
+			setAvatarsEnabled(uuid(), false);
+			replay(":bob!bob@host.example PRIVMSG #seance :from before");
+			expect(h.sent()).to.deep.equal([]);
+		});
+	});
+
 	it("asks nothing where avatars are switched off", function () {
 		setAvatarsEnabled(uuid(), false);
 		h.transport.line(":bob!bob@host.example PRIVMSG #seance :hi");

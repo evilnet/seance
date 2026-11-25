@@ -5,7 +5,9 @@
  */
 
 import {newUser, setUserModes} from "../channel";
+import {onHistoryLineFrom} from "../avatars";
 import type {Handler} from "../types";
+import {MessageType} from "../../../../shared/types/msg";
 
 const namesReply: Handler = (client, msg) => {
 	// <me> <=|*|@> <channel> :<names>
@@ -51,6 +53,9 @@ const namesReply: Handler = (client, msg) => {
 	}
 };
 
+/** The lines that draw their sender's avatar. */
+const SPEAKING = new Set<string>([MessageType.MESSAGE, MessageType.ACTION, MessageType.NOTICE]);
+
 const endOfNames: Handler = (client, msg) => {
 	const name = msg.params[1];
 	const chan = name ? client.findChannel(name) : undefined;
@@ -66,6 +71,17 @@ const endOfNames: Handler = (client, msg) => {
 	chan.rejoining = false;
 	chan.topicWanted = false;
 	client.usersChanged(chan);
+
+	// The lines the device kept for the channel are on screen already: the
+	// avatars of their senders still here are asked for (irc/avatars.ts),
+	// where the burst does not say them (a held session's says none).
+	for (const line of client.conversations.restoredMessages(chan.name)) {
+		const nick = line.from?.nick;
+
+		if (nick && !line.self && line.type !== undefined && SPEAKING.has(line.type)) {
+			onHistoryLineFrom(client, chan, nick);
+		}
+	}
 };
 
 export default {"353": namesReply, "355": namesReply, "366": endOfNames};
