@@ -1,94 +1,372 @@
 # Settings that follow the account
 
-An idea, 2026-11-15; nothing is built. Settings are kept per device
-(localStorage, `settings`), and since #323 the copies of the app on one device
-(two tabs, the installed app and a tab) keep them in step. The idea is the
-same between devices: one network is the user's sync home, and Seance's
-settings follow the account to every device that signs in there. The
-obvious case is a branded build with one server (AfterNET's), where that
-network is the home.
+Design chosen 2026-11-24; nothing is built. Settings and the user's lists
+are kept per device (localStorage), and since #323 the copies of the app on
+one device (two tabs, the installed app and a tab) keep `settings` in step.
+This carries them between devices: one network is the user's sync home, and
+what the user chose follows the account to every device that signs in
+there. The obvious case is a branded build with one server (AfterNET's),
+where that network is the home.
 
-## Where it lives: private account metadata
+## The shape: an encrypted file on the upload host, a pointer in metadata
 
-`draft/metadata-2` keeps per-account keys on the server. Seance already
-shares state between devices this way on nefarious2: `seance/presence` and
-`seance/mode` (shared-presence-modes.md), `seance/closed`
-(closed-queries.md) and `draft/webpush/mute` (do-not-disturb.md). Settings
-would be more keys of the same kind, written with
-`METADATA * SET <key> private :<value>`, subscribed with the others and
-read in the same registration burst.
+- **The file**: everything that roams, as one gzipped JSON document (close to
+  the backup envelope, `helpers/settingsBackup.ts`, which already gzips with
+  `CompressionStream`), encrypted with AES-GCM (WebCrypto, no dependency) and
+  uploaded to the home network's `draft/FILEHOST` the way an avatar is
+  (`upload.ts` `uploadFilehost`: `TOKEN GENERATE FILEHOST` with no channel, a
+  raw POST, `201` and `Location`). A network without a `draft/FILEHOST`
+  cannot be a home. A typical account's document is a few thousand bytes.
+- **The pointer**: one private metadata key, `seance/sync`, holding
+  `<version> <url> <key> <changedAt>`: the format's version (`1`), the file's
+  URL, the key it was encrypted with (32 random bytes, base64url, fresh for
+  every upload) and when it was written.
+  The URL may take what the 300-byte value leaves (about 240 bytes). Written
+  with `IrcClient.metadataSetLine`, so a server whose profile cannot keep a
+  key private (`privateMetadata`) gets no sync at all.
+- **Who can read it**: the account, through its private metadata, and IRC
+  operators, who can read another user's metadata. Not the upload host, and
+  not anyone who comes across the URL. That is the exposure `seance/presence`,
+  `seance/mode` and `seance/closed` already have.
 
-What the server allows:
+A fresh key per upload makes a pointer enough to read that one version and
+nothing more: there is no key to keep, rotate or lose.
 
-- nefarious2 offers `max-keys=20,max-value-bytes=300` per account. Four
-  keys are taken, so settings get about 16 keys of 300 bytes. A value also
-  has to fit one line (`MAX_LINE_BYTES = 500`, tags included), so more keys
-  is the lever, not longer values.
-- nefarious2's limits are the features `METADATA_MAX_KEYS` and
-  `METADATA_MAX_VALUE_BYTES`, but `m_cap.c` advertises the cap value as a
-  fixed string. Raising the feature changes nothing a client is told; that
-  needs an ircd change first.
-- `private` hides a key from other users, not from IRC operators, who can
-  read and set another user's metadata. Settings may live there;
-  conversations may not.
+The server side is one key per account, inside nefarious2's
+`max-keys=20,max-value-bytes=300` (five are used: `draft/webpush/mute`,
+`seance/presence`, `seance/mode`, `seance/closed`, `avatar`). No ircd
+change is needed.
 
-## The merge: the newest choice for each setting
+### Reading
 
-Settings have to share keys, and the server keeps each key's value whole:
-the last `SET` wins. Two devices changing different settings in the same
-key at once would undo each other, the same lost update #323 fixed between
-tabs. So each setting carries the time it was chosen (`changedAt`, device
-milliseconds, as `seance/presence` does), and a device that receives a
-value merges it setting by setting:
+The pointer is subscribed with the other shared keys and comes back in the
+burst of the account's own keys that nefarious2 sends after registration,
+so a connect costs no extra line. A device keeps the last pointer it
+applied and fetches only a different one (`fetch()` the URL, decrypt,
+gunzip, merge).
+
+Live changes come as the key's notification, the path `seance/presence`
+already takes between two devices (browser check
+`tools/scenarios/presence-shared.mjs`). nefarious2 sends every
+notification with the visibility `*`, private keys included (`m_metadata.c`),
+so a notification counts only when it names our own nick
+(`handlers/metadata.ts` `ours`): the account's devices share one through
+the bouncer session, and nobody else can change our nick's keys. Someone
+else's key of the same name names their nick and is ignored.
+
+### What a device accepts
+
+Whoever can write the account's keys can aim the pointer anywhere: the
+account, and IRC operators. Decided 2026-11-25:
+
+- **Size.** A device stops downloading past 1 MB and stops unpacking past
+  4 MB (200 aliases at their longest are about 400 KB unpacked; the host
+  takes 25 MiB). A file over either is ignored, the device keeps what it
+  has and says so once in the home network's window. A device does not
+  upload a file over the limit either, and says the same.
+- **Where from.** Only an `https` URL on the home network's own file host
+  (`draft/FILEHOST`, the host avatars already load from unasked,
+  `avatars/policy.ts` `filehostHost`). A pointer to anywhere else is
+  ignored with the same notice, so nobody can send the account's devices
+  to a site of their choosing. If the network moves its file host, old
+  pointers stop passing; every device still holds its entries, and the
+  next change uploads to the new host.
+- **Which version.** The pointer's first word, and a field of the
+  document, name the format's version. A device that meets a newer one
+  than it knows does not read the file and does not upload: it keeps what
+  it has and says once that sync waits on this device for an update of
+  the app, so an old build never writes back a file it misread. A new
+  entry is not a new version (an unknown entry is kept as received, § The
+  merge); only a change to the document's shape is.
+
+### Writing
+
+A change waits until changes stop for a few seconds (one edit session, one
+file). The device then merges with the file the pointer names if it has not
+applied it yet, uploads the result and sets the pointer. The `TOKEN` and
+`SET` lines go through `IrcClient.background`, never the connect path.
+
+Uploads are spaced for the whole account (decided 2026-11-25). A change
+after a quiet spell goes out about ten seconds after the last one. After
+any upload, this device's or another's (each sees the pointer change), the
+next waits until 5 minutes have passed, and what changed meanwhile goes
+together. That is at most 12 of the account's 30 uploads an hour (§ The
+upload host), the rest left for pictures and avatars; a 429 is waited out
+for the time it names. A change waiting its turn is in the device's storage
+with its time already, so it goes out later, after a restart too.
+
+One tab uploads for a device (decided 2026-11-25). Two tabs, or the
+installed app and a tab, share the device's storage, so each sees the
+other's change and each would upload it. The tab that holds a Web Lock
+(`navigator.locks`, which nothing here uses yet) uploads, and the lock
+passes on when that tab closes; the others only apply what arrives. A
+browser without it lets every tab upload: the files are the same, and the
+cost is an upload each.
+
+### Retention
+
+PASTE's `filehost.php` deletes a file after 30 days. Whichever device is
+connected uploads the document again a week before, the rule avatars follow
+(`avatars/actions.ts`, `avatars.retentionDays`). Every device keeps
+everything it has, so a file that expired while no device connected is
+uploaded again by the next one that does; only a device signing in for the
+first time in that gap starts empty, and the settings backup file restores
+it. Old versions are left to expire.
+
+## The home: one per device
+
+Decided 2026-11-25. A device has at most one sync home. Which network it is
+is kept on the device and never roams.
+
+- The first device: Settings has a switch on the network, "Sync settings
+  with this account". Switching it on makes that network the home and
+  uploads what the device holds.
+- Every other device learns by itself. nefarious2 sends an account all of
+  its own keys after registration, subscribed or not, so a device with no
+  home that sees a `seance/sync` pointer asks once: use the account's
+  settings here, not now, or never on this device. A yes makes that network
+  the home and the device joins (§ A device joining).
+- Switching it on for another network while a home is set asks whether to
+  move the home there; there are never two.
+- The device remembers the account it syncs with. Signed in at the home as
+  another account, it stops syncing and asks whether to sync with that one
+  instead: a no leaves sync paused until the first account is back, a yes
+  joins the other account's file. Otherwise one account's aliases, ignore
+  list and oper notes would be uploaded into another's.
+
+## The merge: the newest choice for each entry
+
+Two devices that save at once each upload a file, and the pointer written
+last wins. So every entry (a setting, an alias, a mute, a favorite, …)
+carries the time it was chosen (`changedAt`, device milliseconds, as
+`seance/presence` does), and a device that reads a file merges it entry by
+entry:
 
 - the newer `changedAt` wins;
-- if the merged result differs from what the server holds, the device
-  writes it back. Only a device holding something newer writes, so the
-  devices agree after at most one extra write and never trade writes back
-  and forth;
-- a setting this build does not know is kept and written back as received,
-  so an older build never deletes a newer build's settings;
+- a device dates a change with its clock, or one millisecond past the
+  newest `changedAt` it holds if that is later (decided 2026-11-25): a
+  change made after seeing a value beats it, however slow the device's
+  clock;
+- a removed entry stays as a removal marker with its time, so a device that
+  has not heard of the removal does not bring the entry back. A marker is
+  kept 90 days (decided 2026-11-25);
+- if the merged result differs from the file, the device uploads it and sets
+  the pointer. Only a device holding something newer writes, so the devices
+  agree after at most one extra round and never trade writes back and forth;
+- an entry this build does not know is kept and written back as received, so
+  an older build never deletes a newer build's settings;
 - nothing dated more than a minute after this device's clock is taken (the
   rule the presence keys use).
 
 That is a last-writer-wins map, one of the simplest CRDTs. It needs no
-library; it is `helpers/settingsSync.ts` (#323) with a time per setting.
+library; it is `helpers/settingsSync.ts` (#323) with a time per entry and the
+lists added.
 
-Writes are rare and nobody waits for them, so they go through
-`IrcClient.background`, never the connect path.
+The order of a list (the favorites, the networks, each network's channels)
+is one entry: the names in sequence, with one time (decided 2026-11-25).
+What is in a list still merges entry by entry; of two reorders made at
+once, the later one wins whole. A name the order does not hold sorts after
+those it does.
 
-## Open: which settings roam
+### A device joining
 
-This is the real design question. Each setting would be marked in
-`client/js/settings.ts`, which still carries TheLounge's `sync` field
-(nothing reads it today, since there is no server):
+Decided 2026-11-25. Until a device syncs, nothing on it records when a
+choice was made, so its entries have no time to compare. When it joins an
+account that already has a file, the account wins:
 
-- `sync: "always"` there now: `highlights`, `highlightExceptions`,
-  `awayMessage`. Likely roam. A long highlight list may need a key of its
-  own, or several.
-- `sync: "never"` there now: `notification`. Per device.
-- Probably roam: `theme`, `locale`, message display choices.
-- Probably per device: the UI scale and font size, `keepConnected`, motion,
-  translation's device and model choices.
+- where both hold an entry, the device takes the account's;
+- an entry only the device holds (an alias, a mute, a favorite) is added,
+  dated at the join, and reaches the other devices;
+- an entry the account removed stays removed, though the device still
+  holds it.
 
-Also open: what happens when the user marks a second network as a home, or
-signs in at a home with a different account.
+The first device of an account has no file to compare with: everything it
+holds that is not a default goes up, dated at the join.
+
+A device that last synced more than 90 days ago joins again by the same
+rule: the markers for what was removed meanwhile may be gone, and by its
+own dates it would bring those entries back.
+
+## What roams
+
+Decided 2026-11-24:
+
+- **Roams**: the settings (`client/js/settings.ts`, § The settings below
+  says which), command aliases (`thelounge.aliases`), mutes (`thelounge.muted`),
+  favorites (`thelounge.favorites`), ignore lists (`thelounge.ignore.*`), the
+  network and channel order (`thelounge.sort.networks`, the saved networks'
+  `channelOrder`), trusted media hosts, channels and accounts
+  (`thelounge.media.trusted`) and trusted avatar people (`thelounge.avatars`).
+- **Per-channel translation** (`thelounge.translate`, decided 2026-11-25):
+  the choices roam (`exclude`, `write`, `writeFrom`, `formality`,
+  `noSuggest`); the learnt `terms`, which hold short lines sent in private,
+  and `once`, the translate button's last language, stay on the device.
+  The switch itself (`translationEnabled`) is each device's own, so the
+  choices that arrive wait there until that device has it on.
+- **The do-not-disturb schedule** (`thelounge.dnd`'s daily window, decided
+  2026-11-25) roams. Its manual switch and the global mode are shared
+  already, through `draft/webpush/mute` and `seance/mode`, and stay there.
+- **Oper preferences** (`thelounge.oper`, decided 2026-11-25) roam whole:
+  the notice routes, the temporary ones, the snomask and the investigation
+  notes. The notes are the oper's remarks about channels, IP addresses and
+  accounts, and the network's other operators can read the file's key.
+- **Stays on the device**: the saved network list (`thelounge.networks`, which
+  holds passwords), Lua scripts and their data (`thelounge.scripts`,
+  `thelounge.script_storage.*`), and the recently used reactions
+  (`thelounge.reactions.recent`, decided 2026-11-25: they change with every
+  reaction, and each change would be an upload), and what is folded shut in
+  the sidebar (`thelounge.favorites.collapsed`,
+  `thelounge.networks.collapsed`, decided 2026-11-25: screen layout).
+- `userStyles` is not needed; size is no longer a reason to leave it out.
+
+An alias is a command, and may stand in for a built-in one (`msg`). A synced
+alias comes from whoever can write the account's `seance/sync` key: the
+account, and IRC operators, who can set another user's metadata. So every
+alias that sync adds, changes or removes is said in the home network's
+window (decided 2026-11-25), a line with nothing to answer, so that one the
+user did not make is seen.
+
+### The settings
+
+Decided 2026-11-25, the debatable ones one by one. Each setting would be
+marked in `client/js/settings.ts`, which still carries TheLounge's `sync`
+field (nothing reads it today). Only a setting the user has chosen roams;
+one still at its default stays out of the file, so every device keeps its
+own platform's default (as the backup restore does,
+`helpers/platformDefaults.ts`): a clock nobody set stays 12-hour on one
+device and 24-hour on another.
+
+- **Roams (29)**: `autocomplete`, `nickPostfix`, `coloredNicks`,
+  `highlightMessages`, `highlights`, `highlightExceptions`, `awayMessage`,
+  `locale`, `markdown`, `motd`, `showSeconds`, `use12hClock`,
+  `statusMessages`, `translateInto`, `translateAlsoRead`,
+  `translateFormality`, `ownMessages`, `theme`, `messageLayout`,
+  `psGroupMessages`, `psWords`, `media`, `mediaReveal`, `avatarLoad`,
+  `uploadCanvas`, `sendTypingNotifications`, `searchEnabled`,
+  `notifyAllMessages`, `pushKeyChange`.
+- **Stays on the device (20)**: the UI scale and text (`fontSize`,
+  `matchSystemTextSize`, `matchSystemAppearance`), the notification sound
+  (`notification`: whether a device may make noise depends on where it
+  is), what the device keeps (`keepConnected`, `keepPrivateConversations`:
+  switching the second off deletes the stored conversations), what its
+  hardware runs (`translationEnabled`, `translateLlm`, `translateCpu`,
+  `translateNllb`, `translateSystem`, `translatePrefer`,
+  `translateLlmDevice`, `translateOpusDevice`, `translateNllbDevice`,
+  `translateLlmModel`, `psAnimation`, `psPauseWhenAway`), and what does not
+  roam anyway (`userStyles`, `enableScripting`).
+- **Neither (2)**: `links` and `advanced`, which nothing reads any more.
+
+## Applying what arrives
+
+A change from another device is written to this device's localStorage, and
+the running app has to take it from there. Settings, favorites, do not
+disturb and the saved networks follow their keys already (a `storage`
+listener each). Eight stores that roam have none: aliases
+(`helpers/aliases.ts`), mutes (`mute.ts`), ignore lists (`ignore.ts`),
+trusted media (`helpers/mediaTrust.ts`), avatar choices (`avatars/prefs.ts`),
+the orders (`sort.ts`), oper preferences (`irc/operprefs.ts`) and per-channel
+translation (`translate/channelStore.ts`). Aliases and oper preferences are
+read from storage where they are used, so only a screen showing them goes
+stale; the others hold a copy in memory (a channel's `muted` flag, the
+cached `IgnoreList`, the loaded trust lists) and would not act on a change
+before a reload.
+
+Each learns to reload as part of this work, not ahead of it (decided
+2026-11-25); that keeps two tabs in step for them too. A reload goes through
+the store's own functions, so what mirrors a store follows: the push
+worker's copy of the mutes and the ignore lists (`push-prefs.ts`).
+
+## Open
+
+- **A network that is the same on every device.** Mutes, favorites, ignore
+  lists, the trust lists and the orders are keyed by the saved network's
+  uuid, which each device makes for itself, and the network list does not
+  roam. The first version carries the home network's entries only (decided
+  2026-11-25): "the home" is the same network on every device, so they need
+  no name, and what belongs to another network stays on the device. For the
+  others, later, proposed: keep the uuid on the device (it keys the
+  conversation store, the ignore lists, the push mirrors and more, so
+  changing it is a migration across all of them) and translate at the
+  file's edge. Writing,
+  each entry's uuid becomes the network's ISUPPORT `NETWORK=` name, which
+  each saved network would remember once it has connected (it is read live
+  today, `isupport.ts`, never kept); reading, the name becomes this device's
+  uuid for it. An entry for a network this device does not have is kept as
+  received and applies once a network of that name connects. The home's own
+  entries need no name at all.
+
+## The upload host
+
+PASTE's `filehost.php`, read in its source and asked at
+`paste.boxlabs.uk/filehost` on 2026-11-24:
+
+- **It refuses the upload until its accepted types change.** `Accept-Post`
+  is `image/*, video/*, text/*` (`FILEHOST_ACCEPT`) and the encrypted
+  document is `application/octet-stream`, a 415. The host's operator agreed
+  on 2026-11-25 to add that type; the host did not list it yet that day
+  (`OPTIONS /filehost`, `Accept-Post`). A type outside image, video and
+  audio must match what the content sniffs as, which encrypted bytes do.
+  Base64 as `text/plain` is no
+  way round: the host takes it, but as a paste on the site, whose raw URL
+  (`/raw/<id>`, `paste.php`) is served without
+  `Access-Control-Allow-Origin`, so the page cannot read it back.
+- A stored file is served with `Access-Control-Allow-Origin: *`, so
+  `fetch()` can read it.
+- An account gets 30 uploads an hour (`FILEHOST_PER_HOUR`, the default),
+  pictures and avatars included, and a 429 with `Retry-After: 600` past it.
+  Sync has to space its uploads well inside that and wait a 429 out.
+- A file is kept 30 days (`FILEHOST_RETAIN_DAYS`, the default). The host
+  records the account, the network and the IP address of each upload.
+
+AfterNET's `draft/FILEHOST` names this host
+(`https://paste.boxlabs.uk/filehost`, read from its 005 on 2026-11-25). To
+check before building: that its `Accept-Post` lists
+`application/octet-stream`.
 
 ## Considered and dropped
 
-- **A CRDT library** (Yjs, Automerge, Loro): their strength, many people
-  editing the same text, is unused here; documents in their binary format
-  would replace readable values; and they bring no transport, so the server
-  would still carry them.
-- **Messages to oneself as a change log** (a `PRIVMSG` or `TAGMSG` to the
-  user's own nick, replayed with `CHATHISTORY AFTER`): the server orders the
-  changes, so device clocks would not matter. But history expires (nefarious2
-  `CHATHISTORY_RETENTION`, 7 days by default), so devices would have to post
-  full snapshots, which is the key-value state again; and every client on
-  the account would show the lines and have to filter them.
+- **Copies a device keeps of what it held before each sync**, to undo one
+  (decided against, 2026-11-25): a mistake or a merge bug reaches every
+  device, and the way back is a settings backup file the user exported by
+  hand.
+- **Settings packed into numbered metadata keys**: the settings fit (669
+  bytes in a compact encoding, 3 keys), the lists do not (an alias may be
+  2,000 bytes, and there may be 200); a list across two keys tears when two
+  devices write at once; and every key is a subscription in the connect
+  flush.
+- **One metadata key per entry**, with `max-keys` raised to 500 (offered by
+  the nefarious2 developers): the server's last write per key would be the
+  merge, but a new entry's key is one nobody subscribed to (it needs prefix
+  subscriptions); every server keeps every logged-in account's whole
+  metadata in memory (`metadata_load_account`, remote users included: about
+  20,000 bytes for a typical account, 210,000 at 500 full keys); every
+  connect replays every key (`metadata_burst_self_to_client`); names must be
+  hashed into the key alphabet; values still stop at 300 bytes; and a first
+  upload is about 130 `SET` lines at about 3 s of fake lag each.
+- **A document store built into nefarious2** (a new cap; documents with a
+  revision and compare-and-set): the right model, but the most ircd work
+  (values over several lines to clients, between servers and in the burst)
+  and nefarious2 only.
+- **Messages to oneself as a change log** (a `TAGMSG` to the own nick with a
+  client tag, kept as private history; a `PRIVMSG` would show in every other
+  client): the server orders the changes, but history expires
+  (`CHATHISTORY_RETENTION`, 7 days by default; none where private history is
+  off), so a new device needs another device online to send it the rest, and
+  losing the only device loses everything after a week.
+- **Devices sending each other their state live**: it works only while two
+  devices are online at once, which a suspended phone rarely is.
 - **A secret channel as the log**: someone else can take the name, it needs
   services to lock it, every device spends a JOIN on the connect path, and
   its members and the opers can read it.
+- **An HTTP store beside the network** with its own login: a second service
+  for every network to run.
+- **A CRDT library** (Yjs, Automerge, Loro): their strength, many people
+  editing the same text, is unused here; documents in their binary format
+  would replace readable values; and they bring no transport.
+- **Other keys for the file**: a passphrase typed on each device (readable by
+  the user's devices alone, at a prompt per device; it could come later as an
+  option), and a key from the account password (it breaks with passkey and
+  OAuth sign-in and with every password change).
 
 ## Not part of this
 
