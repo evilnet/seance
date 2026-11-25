@@ -32,7 +32,7 @@ import {
 	rememberAvatar,
 	type RecentAvatar,
 } from "./own";
-import {avatarsEnabled, clearFailed} from "./prefs";
+import {avatarsEnabled, clearFailed, loadOnce} from "./prefs";
 import {avatarKnown, avatarOf} from "./registry";
 import {parseAvatarUrl} from "./url";
 
@@ -81,6 +81,10 @@ export async function useAvatar(
 		noteProbe(client.uuid, url, true, Date.now());
 	} else {
 		await setChannelAvatar(client, channel, url);
+		// Whoever chose the picture sees it, wherever it is: on a host the
+		// reader has not trusted it would otherwise be a veiled tile, which
+		// reads as the change having failed.
+		loadOnce(parseAvatarUrl(url)?.href ?? url);
 	}
 
 	clearFailed(url);

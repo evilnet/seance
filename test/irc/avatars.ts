@@ -3,6 +3,7 @@ import sinon from "sinon";
 import {ALL_CAPS, register, setup, type Harness} from "./support";
 import {
 	applyAvatarsEnabled,
+	AvatarSetError,
 	canSetChannelAvatar,
 	setChannelAvatar,
 	setOwnAvatar,
@@ -287,7 +288,9 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 
 		it("is ours to set as a half-op and up, or an IRC operator", function () {
 			const g = setup();
-			register(g, CAPS, [":irc.test 005 alice PREFIX=(ohv)@%+ :are supported by this server"]);
+			register(g, CAPS, [
+				":irc.test 005 alice PREFIX=(ohv)@%+ :are supported by this server",
+			]);
 			g.transport.lines(
 				":alice!alice@host.example JOIN #half alice :Alice",
 				":irc.test 353 alice = #half :%alice",
@@ -334,29 +337,58 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 			await done;
 		});
 
-		for (const [label, fail] of [
+		for (const [label, fail, code] of [
 			[
 				"refused",
 				":irc.test FAIL METADATA KEY_NO_PERMISSION #seance avatar :You don't have permission to set metadata on this target",
+				"KEY_NO_PERMISSION",
 			],
-			["on a channel we cannot see", ":irc.test FAIL METADATA INVALID_TARGET #seance :Invalid target"],
+			[
+				"on a channel we cannot see",
+				":irc.test FAIL METADATA INVALID_TARGET #seance :Invalid target",
+				"INVALID_TARGET",
+			],
 		] as const) {
-			it(`rejects with the server's reason when ${label}, which is not shown`, async function () {
+			it(`rejects with the server's reason and code when ${label}, which is not shown`, async function () {
 				const done = setChannelAvatar(h.client, "#seance", URL_C);
 				const before = h.messages().length;
 				h.transport.line(fail);
-				let reason = "";
+				let error: unknown;
 
 				try {
 					await done;
 				} catch (err) {
-					reason = (err as Error).message;
+					error = err;
 				}
 
-				expect(reason).to.equal(fail.slice(fail.lastIndexOf(":") + 1));
+				expect(error).to.be.instanceOf(AvatarSetError);
+				expect((error as AvatarSetError).message).to.equal(
+					fail.slice(fail.lastIndexOf(":") + 1)
+				);
+				expect((error as AvatarSetError).code).to.equal(code);
 				expect(h.messages().length).to.equal(before);
 			});
 		}
+
+		it("says why when no answer came, the connection closed or a newer change took over", async function () {
+			const codeOf = async (p: Promise<void>) => {
+				try {
+					await p;
+					return "resolved";
+				} catch (err) {
+					return (err as AvatarSetError).code;
+				}
+			};
+
+			const first = setChannelAvatar(h.client, "#seance", URL_C);
+			const second = setChannelAvatar(h.client, "#seance", URL_A);
+			expect(await codeOf(first)).to.equal("superseded");
+			h.transport.closed();
+			expect(await codeOf(second)).to.equal("closed");
+			expect(await codeOf(setChannelAvatar(h.client, "#seance", URL_C))).to.equal(
+				"unavailable"
+			);
+		});
 	});
 
 	describe("switching avatars on and off", function () {

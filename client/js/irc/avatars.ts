@@ -41,13 +41,26 @@ import type {IrcMessage} from "./message";
 
 export const AVATAR_KEY = "avatar";
 
+/**
+ * Why a SET failed. `message` is the server's description where it gave
+ * one; `code` is what to act on: the FAIL code (`KEY_NO_PERMISSION`,
+ * `VALUE_INVALID`, …), or `closed`, `timeout`, `superseded` or
+ * `unavailable` from this side.
+ */
+export class AvatarSetError extends Error {
+	constructor(message: string, readonly code: string) {
+		super(message);
+		this.name = "AvatarSetError";
+	}
+}
+
 /** A SET waiting for the server's answer. */
 type PendingSet = {
 	/** The channel whose avatar it sets; absent for our own. */
 	channel?: string;
 	value: string;
 	resolve: () => void;
-	reject: (reason: string) => void;
+	reject: (reason: string, code: string) => void;
 	timer: ReturnType<typeof setTimeout>;
 };
 
@@ -176,14 +189,14 @@ export function onAvatarFail(client: IrcClient, msg: IrcMessage): boolean {
 		state.pending &&
 		(aboutAvatar || aboutPending || code === "VALUE_INVALID" || code === "RATE_LIMITED")
 	) {
-		settle(client, description || code);
+		settle(client, description || code, code);
 		return true;
 	}
 
 	return aboutAvatar && state.waiting.size > 0;
 }
 
-function settle(client: IrcClient, failure?: string): void {
+function settle(client: IrcClient, failure?: string, code = failure): void {
 	const state = stateOf(client);
 	const pending = state.pending;
 
@@ -197,14 +210,14 @@ function settle(client: IrcClient, failure?: string): void {
 	if (failure === undefined) {
 		pending.resolve();
 	} else {
-		pending.reject(failure);
+		pending.reject(failure, code ?? failure);
 	}
 }
 
 /** Write `value` to the avatar key of `channel`, or our own (undefined). One SET at a time. */
 function setAvatar(client: IrcClient, channel: string | undefined, value: string): Promise<void> {
 	if (!client.isWelcomed || !client.caps.hasCapability("draft/metadata-2")) {
-		return Promise.reject(new Error("unavailable"));
+		return Promise.reject(new AvatarSetError("unavailable", "unavailable"));
 	}
 
 	settle(client, "superseded");
@@ -217,7 +230,7 @@ function setAvatar(client: IrcClient, channel: string | undefined, value: string
 			channel,
 			value,
 			resolve,
-			reject: (reason) => reject(new Error(reason)),
+			reject: (reason, code) => reject(new AvatarSetError(reason, code)),
 			timer,
 		};
 		client.send(

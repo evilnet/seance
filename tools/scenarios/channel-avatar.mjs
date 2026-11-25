@@ -19,14 +19,17 @@
 // Claims:
 //   1. a channel with an avatar draws it, not its topic's emoji; one
 //      without draws the emoji, or the bubbles; every row is one height;
-//   2. a picture on a host nobody trusts is a veiled tile, and the
-//      channel's menu offers to show it; "Always show avatars from
-//      img.test" loads every channel's from there;
+//   2. a picture on a host nobody trusts is a veiled tile; the channel's
+//      menu leads with showing it, and the dialog says where it is and
+//      shows it; "Always show avatars from img.test" loads its host's;
 //   3. "Channel avatar…" is in the menu of a channel we are op in, from the
 //      row and from the chat header's button, and not in one we are not;
-//   4. the dialog sets a link (METADATA <chan> SET avatar :<url>) and the
-//      row draws it; Remove clears it (a bare SET) and the emoji is back;
-//      Escape closes it;
+//   4. the dialog: an empty state with the row's emoji; the link field
+//      takes the caret, Cancel gives it back; a SET says "Saving…" beside
+//      the buttons, dims the picture and keeps Escape from closing it; the
+//      op who set a picture on an untrusted host sees it at once; a
+//      refusal is an alert in words; Remove (a bare SET) brings the emoji
+//      back; Escape closes it;
 //   5. a channel opened without an avatar known asks for it, once;
 //   6. a change another op makes reaches the row;
 //   7. activity pulses the avatar;
@@ -114,6 +117,7 @@ const PICTURES = {
 	"/garden.png": png(64, 64, [46, 204, 113], [241, 196, 15]),
 	"/games.png": png(64, 64, [52, 152, 219], [26, 188, 156]),
 	"/plain.png": png(64, 64, [149, 165, 166], [44, 62, 80]),
+	"/slow.png": png(64, 64, [52, 152, 219], [26, 188, 156]),
 };
 
 /** The image host: https with a throwaway self-signed certificate. */
@@ -206,6 +210,9 @@ async function rightClick(page, selector) {
 	await page.waitFor(exists(MENU), {label: `menu on ${selector}`});
 }
 
+const activeIs = (name) =>
+	`document.querySelector(${JSON.stringify(row(name))})?.classList.contains("active")`;
+
 const menuLabels = (page) =>
 	page.evaluate(
 		`[...document.querySelectorAll("${MENU} .context-menu-item")].map((el) => el.className.replace(/.*context-menu-/, "") + ":" + el.textContent.trim())`
@@ -280,13 +287,30 @@ export default async function run(page) {
 				}
 
 				const next = line.includes(" :") ? line.slice(line.indexOf(" :") + 2) : "";
-				avatars[target.toLowerCase()] = next;
-				send(
-					next
-						? `:tiny.test 761 ${nick} ${target} avatar * :${next}`
-						: `:tiny.test 766 ${nick} ${target} avatar :key not set`
-				);
-				send(`:tiny.test METADATA ${target} avatar *${next ? ` :${next}` : ""}`);
+
+				// The scenario's own cases: a refusal, and a server slow to answer.
+				if (next.endsWith("/refuse.png")) {
+					send(
+						`FAIL METADATA KEY_NO_PERMISSION ${target} avatar :You don't have permission to set metadata on this target`
+					);
+					return true;
+				}
+
+				const answer = () => {
+					avatars[target.toLowerCase()] = next;
+					send(
+						next
+							? `:tiny.test 761 ${nick} ${target} avatar * :${next}`
+							: `:tiny.test 766 ${nick} ${target} avatar :key not set`
+					);
+					send(`:tiny.test METADATA ${target} avatar *${next ? ` :${next}` : ""}`);
+				};
+
+				if (next.endsWith("/slow.png")) {
+					setTimeout(answer, 1500);
+				} else {
+					answer();
+				}
 			}
 
 			return true;
@@ -349,55 +373,10 @@ export default async function run(page) {
 		);
 		await page.screenshot("veiled", {selector: "#sidebar"});
 
-		// 3. Not op in #garden: no "Channel avatar…", but "Show avatar" and "Always".
-		await rightClick(page, row("#garden"));
-		const gardenMenu = await menuLabels(page);
-		page.check(
-			`#garden menu: no "Channel avatar…" (${gardenMenu.join(" | ")})`,
-			!gardenMenu.some((l) => l.startsWith("channel-avatar:"))
-		);
-		page.check(
-			"#garden menu: show once and always from img.test",
-			gardenMenu.includes("action-avatar:Show avatar") &&
-				gardenMenu.includes("action-avatar:Always show avatars from img.test")
-		);
-		await page.click(`${MENU} .context-menu-action-avatar`, 1);
-		await page.waitFor(`!document.querySelector(${JSON.stringify(MENU)})`, {
-			label: "menu closed",
-		});
-		await page.waitFor(
-			`[...document.querySelectorAll("#sidebar .channel-list-item > .avatar img")].filter((i) => i.complete && i.naturalWidth > 0).length === 2`,
-			{label: "#art and #garden pictures loaded"}
-		);
-		page.check("#art: the picture", (await icon(page, "#art"))?.loaded === true);
-		page.check("#garden: the picture", (await icon(page, "#garden"))?.loaded === true);
-
-		await rightClick(page, row("#art"));
-		const artMenu = await menuLabels(page);
-		page.check(
-			`#art menu: "Channel avatar…" (${artMenu.join(" | ")})`,
-			artMenu.includes("channel-avatar:Channel avatar…")
-		);
-		page.check(
-			"#art menu: nothing to show once any more",
-			!artMenu.some((l) => l.startsWith("action-avatar:"))
-		);
-		await escape(page);
-		await page.waitFor(`!document.querySelector(${JSON.stringify(MENU)})`, {
-			label: "menu closed",
-		});
-
 		// 5. #plain opened with nothing known: asked once.
 		const asked = () => received.filter((l) => l === "METADATA #plain GET avatar").length;
 		await page.click(row("#plain"));
-		await page.waitFor(
-			`document.querySelector(${JSON.stringify(
-				row("#plain")
-			)})?.classList.contains("active")`,
-			{
-				label: "#plain open",
-			}
-		);
+		await page.waitFor(activeIs("#plain"), {label: "#plain open"});
 		await page.sleep(1500);
 		page.check(`#plain: asked for its avatar once (${asked()})`, asked() === 1);
 		await page.click(row("#games"));
@@ -405,16 +384,52 @@ export default async function run(page) {
 		await page.sleep(800);
 		page.check(`#plain: not asked again (${asked()})`, asked() === 1);
 
-		// 4. The dialog, from the chat header's menu button.
-		await page.click(row("#games"));
-		await page.waitFor(
-			`document.querySelector(${JSON.stringify(
-				row("#games")
-			)})?.classList.contains("active")`,
-			{
-				label: "#games open",
-			}
+		// 2–3. #art (op, veiled): its menu leads with showing it, then has
+		// "Channel avatar…"; the dialog says where the picture is and loads it.
+		await rightClick(page, row("#art"));
+		const artMenu = await menuLabels(page);
+		page.check(
+			`#art menu: showing it first (${artMenu.slice(0, 3).join(" | ")})`,
+			artMenu[1] === "action-avatar:Show this channel's avatar" &&
+				artMenu[2] === "action-avatar:Always show avatars from img.test"
 		);
+		page.check(
+			`#art menu: "Channel avatar…" (${artMenu.join(" | ")})`,
+			artMenu.includes("channel-avatar:Channel avatar…")
+		);
+		await page.click(`${MENU} .context-menu-channel-avatar`);
+		await page.waitFor(exists(`#channel-avatar-overlay.opened ${DIALOG}`), {
+			label: "#art dialog",
+		});
+		const veiledNote = await page.evaluate(
+			`document.querySelector("${DIALOG} .avatar-settings-veiled p")?.textContent.trim()`
+		);
+		page.check(
+			`#art dialog: says where the picture is (${veiledNote})`,
+			veiledNote ===
+				"This channel's avatar is on img.test. Loading it tells that site your IP address."
+		);
+		await page.screenshot("dialog-veiled", {selector: DIALOG, pad: 16});
+		await page.click(`${DIALOG} .avatar-settings-veiled button`);
+		await page.waitFor(
+			`document.querySelector("${DIALOG} .avatar-settings-preview img")?.naturalWidth > 0`,
+			{label: "#art picture in the dialog"}
+		);
+		page.check(
+			"#art dialog: the note goes once it shows",
+			(await page.count(`${DIALOG} .avatar-settings-veiled`)) === 0
+		);
+		page.check("#art row: the picture too", (await icon(page, "#art"))?.loaded === true);
+		await page.click("#channel-avatar-dialog .channel-avatar-close");
+		await page.waitFor(`!document.querySelector("#channel-avatar-overlay.opened")`, {
+			label: "#art dialog closed",
+		});
+
+		// 4. #games from the chat header's button: the empty state shows what
+		// the row shows; a link on a host nobody trusts shows at once to the
+		// op who set it; Escape waits for a change on its way.
+		await page.click(row("#games"));
+		await page.waitFor(activeIs("#games"), {label: "#games open"});
 		await page.click("#chat button.menu");
 		await page.waitFor(exists(MENU), {label: "header menu"});
 		await page.click(`${MENU} .context-menu-channel-avatar`);
@@ -423,6 +438,13 @@ export default async function run(page) {
 		});
 		const heading = await page.evaluate(`document.querySelector("${DIALOG} h3")?.textContent`);
 		page.check(`dialog heading (${heading})`, heading === "Avatar for #games");
+		const placeholder = await page.evaluate(
+			`document.querySelector("${DIALOG} .avatar-settings-placeholder")?.textContent.trim()`
+		);
+		page.check(
+			`dialog: the row's emoji while there is none (${placeholder})`,
+			placeholder === "🎮"
+		);
 		page.check(
 			"dialog: no Remove while there is none",
 			(await page.count(`${DIALOG} .avatar-settings-buttons .btn-cancel`)) === 0
@@ -435,30 +457,103 @@ export default async function run(page) {
 			"dialog: focus is inside",
 			await page.evaluate(`!!document.activeElement?.closest("${DIALOG}")`)
 		);
-		await page.click(`${DIALOG} .avatar-settings-buttons button[aria-expanded]`);
-		await page.waitFor(exists(`${DIALOG} input[type="url"]`), {label: "link field"});
-		await page.fill(`${DIALOG} input[type="url"]`, `${IMG}/games.png`);
-		await page.screenshot("dialog-link", {selector: DIALOG, pad: 16});
+		await page.screenshot("dialog-empty", {selector: DIALOG, pad: 16});
+
+		const toggle = `${DIALOG} .avatar-settings-buttons button[aria-expanded]`;
+		const field = `${DIALOG} input[type="url"]`;
+		const statusOf = () =>
+			page.evaluate(`(() => {
+				const el = document.querySelector("${DIALOG} .avatar-settings-body .avatar-settings-status");
+				return el ? {text: el.textContent.trim(), kind: el.className, role: el.getAttribute("role")} : null;
+			})()`);
+
+		await page.click(toggle);
+		await page.waitFor(
+			`document.activeElement === document.querySelector(${JSON.stringify(field)})`,
+			{
+				label: "the link field takes the caret",
+			}
+		);
+		await page.click(`${DIALOG} .avatar-settings-link-actions button[type="button"]`);
+		await page.waitFor(`!document.querySelector(${JSON.stringify(field)})`, {
+			label: "Cancel closes it",
+		});
+		page.check(
+			"Cancel: the caret goes back to Use a link",
+			await page.evaluate(
+				`document.activeElement === document.querySelector(${JSON.stringify(toggle)})`
+			)
+		);
+
+		await page.click(toggle);
+		await page.waitFor(exists(field), {label: "link field"});
+		await page.fill(field, `${IMG}/slow.png`);
 		await page.click(`${DIALOG} .avatar-settings-link button[type="submit"]`);
+		await page.waitFor(exists(`${DIALOG} .avatar-settings-preview.busy`), {label: "busy"});
+		const saving = await statusOf();
+		page.check(
+			`saving: said beside the buttons (${JSON.stringify(saving)})`,
+			saving?.text === "Saving…" && saving.kind.includes("is-busy")
+		);
+		await escape(page);
+		await page.sleep(200);
+		page.check(
+			"saving: Escape leaves the dialog up",
+			await page.evaluate(exists("#channel-avatar-overlay.opened"))
+		);
+		await page.screenshot("dialog-saving", {selector: DIALOG, pad: 16});
 		await page.waitFor(
 			`document.querySelector("${DIALOG} .avatar-settings-status")?.textContent.trim() === "The channel's avatar was changed."`,
 			{label: "saved"}
 		);
 		page.check(
 			"SET went out",
-			received.includes(`METADATA #games SET avatar :${IMG}/games.png`)
+			received.includes(`METADATA #games SET avatar :${IMG}/slow.png`)
+		);
+		page.check(
+			`saved: plain, not muted (${(await statusOf())?.kind})`,
+			(await statusOf())?.kind.includes("is-ok")
 		);
 		await page.waitFor(
 			`document.querySelector(${JSON.stringify(
 				`${row("#games")} > .avatar img`
 			)})?.naturalWidth > 0`,
-			{label: "#games picture"}
+			{label: "#games picture, though img.test is not trusted"}
 		);
 		page.check(
 			"#games: the picture now, not the emoji",
 			(await icon(page, "#games"))?.before === null
 		);
+		page.check(
+			"#games: other pictures on img.test still veiled",
+			/avatar-veiled/.test((await icon(page, "#garden"))?.avatar ?? "")
+		);
+		page.check(
+			"saved: the caret is back on Use a link",
+			await page.evaluate(
+				`document.activeElement === document.querySelector(${JSON.stringify(toggle)})`
+			)
+		);
 		await page.screenshot("dialog-saved", {selector: DIALOG, pad: 16});
+
+		// A refusal reads as one, in words.
+		await page.click(toggle);
+		await page.waitFor(exists(field), {label: "link field again"});
+		page.check("reopening the form clears the old status", (await statusOf()) === null);
+		await page.fill(field, `${IMG}/refuse.png`);
+		await page.click(`${DIALOG} .avatar-settings-link button[type="submit"]`);
+		await page.waitFor(exists(`${DIALOG} .avatar-settings-status.is-error`), {
+			label: "refused",
+		});
+		const refused = await statusOf();
+		page.check(
+			`refused: an alert in words (${JSON.stringify(refused)})`,
+			refused?.role === "alert" &&
+				refused.text ===
+					"The network refused: only #games's half-ops and ops can change its avatar."
+		);
+		await page.screenshot("dialog-refused", {selector: DIALOG, pad: 16});
+		await page.click(`${DIALOG} .avatar-settings-link-actions button[type="button"]`);
 
 		await page.click(`${DIALOG} .avatar-settings-buttons .btn-cancel`);
 		await page.waitFor(
@@ -471,11 +566,28 @@ export default async function run(page) {
 			`#games: the emoji again (${back?.before})`,
 			back?.avatar === null && back?.before === '"🎮"'
 		);
-
 		await escape(page);
 		await page.waitFor(`!document.querySelector("#channel-avatar-overlay.opened")`, {
 			label: "dialog closed by Escape",
 		});
+
+		// 3. Not op in #garden: no "Channel avatar…"; "Always" loads its host's.
+		await rightClick(page, row("#garden"));
+		const gardenMenu = await menuLabels(page);
+		page.check(
+			`#garden menu: no "Channel avatar…" (${gardenMenu.join(" | ")})`,
+			!gardenMenu.some((l) => l.startsWith("channel-avatar:"))
+		);
+		await page.click(`${MENU} .context-menu-action-avatar`, 1);
+		await page.waitFor(`!document.querySelector(${JSON.stringify(MENU)})`, {
+			label: "menu closed",
+		});
+		await page.waitFor(
+			`document.querySelector(${JSON.stringify(
+				`${row("#garden")} > .avatar img`
+			)})?.naturalWidth > 0`,
+			{label: "#garden picture"}
+		);
 
 		// 6. Another op's change.
 		push(`:tiny.test METADATA #plain avatar * :${IMG}/plain.png`);

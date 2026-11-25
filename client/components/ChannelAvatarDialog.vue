@@ -1,7 +1,7 @@
 <template>
 	<div
 		id="channel-avatar-overlay"
-		v-backdrop="close"
+		v-backdrop="dismiss"
 		class="screen-overlay"
 		:class="{opened: !!request}"
 		:data-escape-close="request ? 'channel-avatar' : null"
@@ -23,7 +23,11 @@
 				:title="t('avatar.cardClose')"
 				@click="close"
 			></button>
-			<AvatarSettings :uuid="request.network" :channel="request.channel" />
+			<AvatarSettings
+				:uuid="request.network"
+				:channel="request.channel"
+				@busy="busy = $event"
+			/>
 		</div>
 	</div>
 </template>
@@ -33,6 +37,12 @@
    dialog can take focus in the same tick. */
 #channel-avatar-overlay.opened {
 	transition: opacity 0.2s;
+}
+
+/* Fading out, it takes no click: the first one on whatever it closed over
+   is the user's next action (as #confirm-dialog-overlay in style.css). */
+#channel-avatar-overlay:not(.opened) {
+	pointer-events: none;
 }
 
 #channel-avatar-dialog {
@@ -103,6 +113,8 @@ export default defineComponent({
 		const {t} = useI18n();
 		const request = ref<ChannelAvatarRequest | null>(null);
 		const card = ref<HTMLElement>();
+		/** A change is on its way: a stray click or Escape would hide how it ends. */
+		const busy = ref(false);
 
 		// Focus: into the dialog as it opens, round inside it on Tab, and back
 		// to what opened it as it closes, unless something has taken it since.
@@ -120,6 +132,7 @@ export default defineComponent({
 			}
 
 			request.value = null;
+			busy.value = false;
 			const back = opener;
 			opener = null;
 			void nextTick(() => {
@@ -141,9 +154,16 @@ export default defineComponent({
 			void nextTick(() => card.value?.focus());
 		};
 
+		/** The backdrop and Escape: not while a change is on its way (the ✕ still closes). */
+		const dismiss = () => {
+			if (!busy.value) {
+				close();
+			}
+		};
+
 		const onEscape = (layer: string | null) => {
 			if (layer === "channel-avatar") {
-				close();
+				dismiss();
 			}
 		};
 
@@ -157,7 +177,7 @@ export default defineComponent({
 			eventbus.off("escapekey", onEscape);
 		});
 
-		return {t, request, card, onTab, close};
+		return {t, request, card, busy, onTab, close, dismiss};
 	},
 });
 </script>

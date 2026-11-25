@@ -189,6 +189,8 @@ export function generateChannelContextMenu(
 
 	// Add menu items for channels
 	if (channel.type === ChanType.CHANNEL) {
+		// A picture not loaded goes first: the row just showed its tile.
+		items.push(...avatarChannelItems(network, channel.name));
 		items.push(...operChannelItems(network, channel.name));
 		items.push({
 			label: t("menu.editTopic"),
@@ -219,8 +221,6 @@ export function generateChannelContextMenu(
 					}),
 			});
 		}
-
-		items.push(...avatarChannelItems(network, channel.name));
 	}
 
 	// Add menu items for queries
@@ -520,6 +520,7 @@ function canChangeChannelAvatar(network: ClientNetwork, channel: ClientChan): bo
 /**
  * A channel's avatar not loaded (avatars/policy.ts) can be shown once, or
  * always from its host, as a person's can; there is no person to trust.
+ * Right under the menu's heading, with a divider of their own.
  */
 function avatarChannelItems(network: ClientNetwork, channel: string): ContextMenuItem[] {
 	const view = viewFor(rootStore, {uuid: network.uuid, nick: channel});
@@ -529,9 +530,8 @@ function avatarChannelItems(network: ClientNetwork, channel: string): ContextMen
 	}
 
 	return [
-		{type: "divider"},
 		{
-			label: t("avatar.showOnce"),
+			label: t("avatar.channelShowOnce"),
 			type: "item",
 			class: "action-avatar",
 			action: () => loadOnce(view.href),
@@ -542,6 +542,7 @@ function avatarChannelItems(network: ClientNetwork, channel: string): ContextMen
 			class: "action-avatar",
 			action: () => trustHost(view.host),
 		},
+		{type: "divider"},
 	];
 }
 
