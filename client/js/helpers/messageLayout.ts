@@ -3,10 +3,10 @@
 // "bubbles", each sender's run of lines as a stack of bubbles beside their
 // avatar. The layout lives in style.css under `html[data-message-layout=
 // "bubbles"]`; a theme only colours it (docs/resources/themes.md § Bubbles).
-// Not every theme offers the choice. ps is always Bubbles: the layout is the
-// same shared one, but ps paints the bubbles itself (its cards, glass and
-// words over the scene), so it also gets `data-bubble-paint="theme"` and
-// style.css leaves the colours to it. The period themes keep the look of
+// Not every theme offers the choice. ps lays out its own rows (ps.css), and
+// how its words are drawn is its own setting, Words over the plains
+// (helpers/psWords.ts): the shared layout is not applied there. The period
+// themes keep the look of
 // the client they copy, and day and morning are TheLounge's originals, kept
 // as they were: for those the attribute is left off and the setting is not
 // shown. What the reader chose comes back when they return to a theme that
@@ -48,15 +48,5 @@ export function themeOffersBubbles(theme: string): boolean {
 /** The layout to apply in `theme`, or null where the theme has no choice
  * and `data-message-layout` is left off. */
 export function messageLayoutFor(value: unknown, theme: string): MessageLayout | null {
-	if (themePaintsBubbles(theme)) {
-		return "bubbles";
-	}
-
 	return themeOffersBubbles(theme) ? normalizeMessageLayout(value) : null;
-}
-
-/** Whether `theme` is always Bubbles and paints them itself
- * (`data-bubble-paint="theme"`): ps alone. */
-export function themePaintsBubbles(theme: string): boolean {
-	return theme === "ps";
 }

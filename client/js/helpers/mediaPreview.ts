@@ -61,10 +61,13 @@ const videoExtensions: Readonly<Record<string, string>> = {
 const audioExtensions: Readonly<Record<string, string>> = {
 	mp3: "audio/mpeg",
 	ogg: "audio/ogg",
+	oga: "audio/ogg",
 	opus: "audio/ogg",
 	wav: "audio/wav",
 	flac: "audio/flac",
 	m4a: "audio/mp4",
+	aac: "audio/aac",
+	weba: "audio/webm",
 };
 
 export type MediaMatch = {

@@ -1171,6 +1171,26 @@ p {
 	content: "\1F3AD"; /* 🎭 performing arts */
 }
 
+/* With an avatar (Message.vue) the mask follows it, so the avatar stands
+ * first, in line with a message's avatar (the user, 2026-11-25). The mask is
+ * drawn by the mark's own ::before, so copied text still leaves it out; with
+ * avatars off the mark is hidden and the row's own glyph stays. */
+#chat .msg[data-type="action"] .action-mark {
+	display: none;
+}
+
+#chat .msg[data-type="action"] .from:has(> .avatar)::before {
+	content: none;
+}
+
+#chat .msg[data-type="action"] .from:has(> .avatar) > .action-mark {
+	display: inline;
+}
+
+#chat .msg[data-type="action"] .from:has(> .avatar) > .action-mark::before {
+	content: "\1F3AD"; /* 🎭 */
+}
+
 #chat .msg[data-type="plugin"] .from::before {
 	content: "\f1e6"; /* http://fontawesome.io/icon/plug/ */
 	transform: rotate(45deg);
@@ -3967,7 +3987,8 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 /* Bubbles (Settings → Appearance → Message layout, applied as
  * <html data-message-layout="bubbles">, helpers/messageLayout.ts;
  * docs/resources/themes.md § Bubbles). One layout for every theme that
- * draws bubbles, ps included. A run of one sender's lines (MessageList.vue's
+ * offers it (ps lays out its own rows, ps.css, its words drawn as Words over
+ * the plains says). A run of one sender's lines (MessageList.vue's
  * `previous-source`, helpers/messageRuns.ts) is a stack of bubbles: the
  * avatar in a gutter before it, level with its first line; the nick and the
  * time over the first line; a later line's time shown only when the line is
@@ -3979,8 +4000,8 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
  *
  * The layout is in two parts. The shape (below, keyed on the attribute
  * alone) is every theme's. The paint (further below, also keyed on
- * `:not([data-bubble-paint])`) is for the themes on plain colours; ps paints
- * its own cards over the scene and sets `data-bubble-paint="theme"`. A theme
+ * `:not([data-bubble-paint])`, which nothing sets since ps went back to its
+ * own rows) is for the themes on plain colours. A theme
  * on plain colours sets the --bubble-* tokens on :root (their defaults
  * follow its colours, at the top of this file) and needs nothing else:
  *   --bubble-bg            a bubble; the text colour 6% over the window
@@ -3990,7 +4011,7 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
  *   --bubble-fg-muted      the times inside one; the muted colour drawn toward the text
  *   --bubble-link          a link inside one; the link colour drawn toward the text
  *   --bubble-notice        a notice's words; the notice colour drawn toward the text
- *   --bubble-radius        0.625rem (shape: every theme, ps too)
+ *   --bubble-radius        0.625rem (shape: every theme)
  *   --bubble-join-radius   where a run's bubbles meet: 0.1875rem (shape)
  * The selectors carry `.chat` so they outrank the narrow @container rules
  * and a theme's own `#chat .msg…`. */
@@ -4019,6 +4040,69 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 	padding-block: 0.3125rem 0.375rem;
 	padding-inline: 0.625rem;
 	border-radius: var(--bubble-radius);
+}
+
+/* A bubble is only as wide as its words, but its row is the whole line: an
+ * empty box runs from the bubble's start back to the column's edge and
+ * another from its end on to the other edge, so a pointer anywhere along the
+ * line is on the row (its toolbar shows, its bubble tints) and not only over
+ * the words. Both sit outside the bubble, so the words and links under them
+ * stay reachable; the avatar, later in the row, paints over the first. They
+ * are as wide as the screen and the list clips them at its edges
+ * (`overflow-x: clip`, which unlike hidden adds nothing to scroll). Placed
+ * by their end edge, so a theme's own pseudo-element on a row (ps's sparks)
+ * keeps its place. */
+html[data-message-layout="bubbles"] #chat .chat .messages {
+	overflow-x: clip;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::before,
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::after {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inline-size: 100vw;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::before {
+	inset-inline-end: 100%;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::after {
+	inset-inline-end: -100vw;
+}
+
+/* The toolbar stands at the bubble's start, where every bubble in the column
+ * begins, so it keeps one place from line to line (at the bubble's end it
+ * followed each line's width, and a short one hung it past the column's
+ * edge); as ps's Bubbles has it. */
+html[data-message-layout="bubbles"] #chat .chat .msg .msg-actions {
+	inset-inline: 0.5rem auto;
+	transform-origin: bottom left;
+}
+
+html[data-message-layout="bubbles"] #chat .messages > .msg:first-child .msg-actions,
+html[data-message-layout="bubbles"] #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+	transform-origin: top left;
+}
+
+html[dir="rtl"][data-message-layout="bubbles"] #chat .chat .msg .msg-actions {
+	transform-origin: bottom right;
+}
+
+html[dir="rtl"][data-message-layout="bubbles"] #chat .messages > .msg:first-child .msg-actions,
+html[dir="rtl"][data-message-layout="bubbles"] #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+	transform-origin: top right;
+}
+
+/* On a phone's pane the bubble's start, a gutter in, leaves no room for the
+ * whole toolbar at the larger text steps (it ran past the pane's end, cut
+ * off): there it stands at the row's start, the column's own edge, still one
+ * place for every line. The phone layout's own breakpoint. */
+@container chat (max-width: calc(50ch + 2.5rem)) or (max-width: 480px) {
+	html[data-message-layout="bubbles"] #chat .chat .messages > .msg .msg-actions {
+		inset-inline-start: calc(0.5rem - 0.625rem - var(--bubble-gutter));
+	}
 }
 
 html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time {
@@ -4067,6 +4151,26 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 	height: 2.25rem;
 	margin: 0;
 	font-size: 1rem;
+	font-weight: 700;
+}
+
+/* An action is a user's line too: its avatar (in the row's `.from`, beside
+ * the icon, Message.vue) stands in the gutter beside the line as a message's
+ * does beside its bubble, a size smaller (the line is a quieter one) and
+ * level with it, centred where a message's avatar stands. */
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg[data-type="action"] > .from:has(.avatar) {
+	position: static;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg[data-type="action"] > .from .avatar {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-end: calc(100% + 0.5rem + 0.375rem);
+	translate: 0 -50%;
+	width: 1.5rem;
+	height: 1.5rem;
+	margin: 0;
+	font-size: 0.75rem;
 	font-weight: 700;
 }
 
@@ -9630,9 +9734,16 @@ html[data-reduce-motion] #chat .msg-translation-caret {
 	margin-top: 3px;
 }
 
+/* Never wider than its message's column: a long word reaction, or one at
+   the largest text steps on a phone, ran out of the row and was cut off
+   there; held to the column, its text ends in an ellipsis instead and the
+   tip below carries it whole. */
 #chat .msg-reaction {
+	position: relative; /* what a theme's flourish on it is placed against (ps's sparks); Primer's .tooltipped gave it before the tip moved to <body> */
 	display: inline-flex;
 	align-items: center;
+	box-sizing: border-box;
+	max-width: 100%;
 	gap: 4px;
 	padding: 0.15em 0.6em;
 	border: 1px solid rgb(128 128 128 / 35%);
@@ -9711,7 +9822,8 @@ html[data-reduce-motion] #chat .reactions-enter-active {
 }
 
 /* A reaction is free text, so it may be a sentence: keep the badge from
-   pushing the message around, the title attribute carries the whole of it. */
+   pushing the message around; its tip (.reaction-tip) carries the whole of
+   it. */
 #chat .msg-reaction.word .msg-reaction-text {
 	display: inline-block;
 	max-width: 22ch;
@@ -9720,6 +9832,63 @@ html[data-reduce-motion] #chat .reactions-enter-active {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	vertical-align: bottom;
+}
+
+/* Who reacted (MessageReactions.vue): Primer's tooltip, drawn on <body> and
+ * placed by helpers/tipPlacement.ts, because inside the message the row and
+ * the scroller cut it, often to a sliver of its last line. Never wider than
+ * the screen can hold, never taller (a long list of long nicks at the
+ * largest text step), long nicks broken where they must be. */
+.reaction-tip {
+	position: fixed;
+	z-index: 1000000;
+	box-sizing: border-box;
+	max-width: min(20rem, calc(100vw - 1rem));
+	padding: 0.5em 0.75em;
+	border-radius: 3px;
+	background: #1b1f23;
+	color: #fff;
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	text-align: center;
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	pointer-events: none;
+	animation: tooltip-appear 0.1s ease-in 0.4s both;
+}
+
+/* The words, held to the screen's height (their own box, so the pointer
+   outside the tip is not cut with them). */
+.reaction-tip-text {
+	max-height: calc(100vh - 1rem - 1em);
+	overflow: hidden;
+}
+
+/* Its pointer, at the badge's centre (--tip-arrow): under it above the
+   badge, over it below. A tip held over its badge (taller than either
+   side's room) has none. */
+.reaction-tip::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: calc(var(--tip-arrow) - 6px);
+	border: 6px solid transparent;
+	border-top-color: #1b1f23;
+}
+
+.reaction-tip.below::after {
+	top: auto;
+	bottom: 100%;
+	border-top-color: transparent;
+	border-bottom-color: #1b1f23;
+}
+
+.reaction-tip.no-pointer::after {
+	content: none;
+}
+
+html[data-reduce-motion] .reaction-tip {
+	animation: none;
 }
 
 #chat .msg-reaction-add {

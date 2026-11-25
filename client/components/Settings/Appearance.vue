@@ -63,8 +63,9 @@
 			</label>
 		</div>
 		<!-- Lines or Bubbles, in the themes that offer the choice
-		     (helpers/messageLayout.ts); ps always draws its own bubbles, so it
-		     shows only the combining switch, which bubbles use too. -->
+		     (helpers/messageLayout.ts); ps lays out its own rows (its words are
+		     Words over the plains, below), so it shows only the combining
+		     switch, which bubbles use too. -->
 		<template v-if="offersBubbles || isPs">
 			<h2 id="label-message-layout">{{ t("settings.appearance.psLayoutHeading") }}</h2>
 			<div role="group" aria-labelledby="label-message-layout" class="scene-motion-options">
