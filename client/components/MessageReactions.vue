@@ -224,10 +224,21 @@ export default defineComponent({
 
 		// Fixed on <body>, it would stay behind as the list scrolls or the
 		// window changes: it goes instead, and comes back with the pointer.
+		// Its listeners share one signal, aborted when it goes.
+		let listening: AbortController | null = null;
+
 		const hideTip = () => {
 			tip.value = null;
-			window.removeEventListener("scroll", hideTip, true);
-			window.removeEventListener("resize", hideTip);
+			listening?.abort();
+			listening = null;
+		};
+
+		// A press anywhere else takes it away: a finger's tip would otherwise
+		// wait for the badge's blur, and Safari never focuses a tapped button.
+		const pressElsewhere = (event: Event) => {
+			if (tip.value && !tip.value.el.contains(event.target as Node | null)) {
+				hideTip();
+			}
 		};
 
 		const showTip = (event: Event, key: string) => {
@@ -248,8 +259,12 @@ export default defineComponent({
 			}
 
 			tip.value = {key, el};
-			window.addEventListener("scroll", hideTip, {capture: true, passive: true});
-			window.addEventListener("resize", hideTip, {passive: true});
+			listening?.abort();
+			listening = new AbortController();
+			const {signal} = listening;
+			window.addEventListener("scroll", hideTip, {capture: true, passive: true, signal});
+			window.addEventListener("resize", hideTip, {passive: true, signal});
+			document.addEventListener("pointerdown", pressElsewhere, {capture: true, signal});
 			void nextTick(place);
 		};
 

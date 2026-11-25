@@ -9699,6 +9699,7 @@ html[data-reduce-motion] #chat .msg-translation-caret {
    there; held to the column, its text ends in an ellipsis instead and the
    tip below carries it whole. */
 #chat .msg-reaction {
+	position: relative; /* what a theme's flourish on it is placed against (ps's sparks); Primer's .tooltipped gave it before the tip moved to <body> */
 	display: inline-flex;
 	align-items: center;
 	box-sizing: border-box;
