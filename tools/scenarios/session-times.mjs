@@ -142,6 +142,34 @@ export default async function run(page) {
 			(await page.evaluate(TIME_SHOWN("same here"))) === "visible"
 		);
 		await page.screenshot("1a-messenger-desktop-hover");
+
+		// The hover is the row's, not the bubble's: past a short bubble's end
+		// and in the slit between a run's lines the time stays up, and the
+		// words are still the words under the pointer.
+		const sweep = await page.evaluate(`(() => {
+			const rows = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')];
+			const box = (t) => rows.find((m) => m.textContent.includes(t)).getBoundingClientRect();
+			const a = box("lunch was good"), b = box("anyone around?");
+			const pane = document.querySelector("#chat .chat").getBoundingClientRect();
+			const at = (x, y) => document.elementFromPoint(x, y)?.closest(".msg")?.textContent ?? null;
+			return {
+				beside: at(pane.right - 40, (a.top + a.bottom) / 2)?.includes("lunch was good") ?? false,
+				slit: at(a.left + 20, (a.bottom + b.top) / 2)?.includes("lunch was good") ?? false,
+				words: !!document.elementFromPoint(a.left + 20, a.bottom - 8)?.closest(".content"),
+			};
+		})()`);
+		page.check(
+			`Messenger: the hover is the row's, past the bubble and across a run's slit, and the words stay on top (${JSON.stringify(
+				sweep
+			)})`,
+			sweep.beside && sweep.slit && sweep.words
+		);
+		page.check(
+			"Messenger: no sideways scroll with the rows' hover areas",
+			await page.evaluate(
+				`(() => { const c = document.querySelector("#chat .chat"); return c.scrollWidth <= c.clientWidth; })()`
+			)
+		);
 		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
 
 		// ---- a phone, by finger
