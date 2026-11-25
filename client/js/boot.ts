@@ -40,6 +40,7 @@ import {lowerStatusBarTintAfterLaunch} from "./helpers/statusBarTint";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
 import {DEV_I18N} from "./i18n/core";
 import dnd from "./dnd";
+import {startSettingsSync} from "./sync";
 import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
@@ -181,6 +182,9 @@ export async function boot(): Promise<void> {
 	// After the stored settings, before any network dials: the first AWAY *
 	// decision already knows about do-not-disturb.
 	dnd.start();
+	// Settings that follow the account (sync/index.ts): after the stored
+	// settings are applied, before any network reads the account's pointer.
+	startSettingsSync();
 
 	setContextProvider({
 		getContext() {

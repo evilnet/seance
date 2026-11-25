@@ -141,6 +141,14 @@ const pillState = computed(() => {
 	return unattended ? "away" : "online";
 });
 
+/** What is stored changed under this page (another tab, or settings sync,
+ * which carries the schedule): take it, claim nothing. */
+export function reloadDnd(): void {
+	Object.assign(state, parseDndState(storage.get(KEY)));
+	now.value = new Date();
+	apply();
+}
+
 function start(): void {
 	if (started) {
 		return;
@@ -152,9 +160,7 @@ function start(): void {
 	// (that tab claimed, on its own connections).
 	window.addEventListener("storage", (e) => {
 		if (e.key === KEY) {
-			Object.assign(state, parseDndState(e.newValue));
-			now.value = new Date();
-			apply();
+			reloadDnd();
 		}
 	});
 	// Another device's global mode, adopted on one network
