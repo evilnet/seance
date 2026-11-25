@@ -16,6 +16,7 @@
  */
 import {isDegenerate} from "../../client/js/translate/outgoing";
 import {EXPECTED_SCRIPTS, OWN_SCRIPTS} from "./scripts";
+import {loadLocaleTerms, loadTermIndex} from "./terms";
 import stopwords from "../../client/js/translate/stopwords.json";
 
 export {isDegenerate};
@@ -83,11 +84,6 @@ const IDENTICAL_EVERYWHERE = new Set(
 		"kill",
 		"kills",
 		"wallops",
-		// The IRC NOTICE, which 11 catalogs keep as the loanword so it never
-		// reads as a push notification (tools/i18n/terms/), and the WHOIS
-		// it can carry ("WHOIS NOTICE" in ja and zh).
-		"notice",
-		"notices",
 		"whois",
 		"snomask",
 		"privs",
@@ -111,6 +107,38 @@ const IDENTICAL_EVERYWHERE = new Set(
 );
 
 /**
+ * The words `tag`'s catalog keeps as English on purpose, on top of
+ * IDENTICAL_EVERYWHERE: an IRC term whose word in tools/i18n/terms/<tag>.json
+ * IS one of its English forms, like the loanword "notice" ru and pl keep so
+ * it never reads as a push notification. That word alone, not the term's
+ * other forms: de keeps "Nick", not "Nickname". Per catalog, because ko
+ * writes 공지 and es "aviso": an English "Notice" there is an echo like any
+ * other.
+ */
+const keptByCatalog = new Map<string, Set<string>>();
+
+function keptWords(tag: string): Set<string> {
+	let kept = keptByCatalog.get(tag);
+
+	if (!kept) {
+		const index = loadTermIndex();
+		kept = new Set(IDENTICAL_EVERYWHERE);
+
+		for (const [key, target] of Object.entries(loadLocaleTerms(tag))) {
+			const word = target.term.toLowerCase();
+
+			if ((index[key]?.en ?? []).some((english) => english.toLowerCase() === word)) {
+				kept.add(word);
+			}
+		}
+
+		keptByCatalog.set(tag, kept);
+	}
+
+	return kept;
+}
+
+/**
  * The words of a text that could carry the target language: no
  * {placeholder}s (their content is the deploy's), none of the acronyms and
  * product names every language writes alike, and nothing under three
@@ -118,7 +146,9 @@ const IDENTICAL_EVERYWHERE = new Set(
  * language a sentence is in, and "OPUS-MT de → en (CPU)" is a legitimate
  * row in every catalog.
  */
-function bodyWords(text: string): string[] {
+function bodyWords(tag: string, text: string): string[] {
+	const kept = keptWords(tag);
+
 	return text
 		.replace(PLACEHOLDER, " ")
 		.toLowerCase()
@@ -127,8 +157,8 @@ function bodyWords(text: string): string[] {
 			(word) =>
 				word.length > 2 &&
 				/\p{L}/u.test(word) &&
-				!IDENTICAL_EVERYWHERE.has(word) &&
-				!word.split("-").every((part) => part === "" || IDENTICAL_EVERYWHERE.has(part))
+				!kept.has(word) &&
+				!word.split("-").every((part) => part === "" || kept.has(part))
 		);
 }
 
@@ -169,7 +199,7 @@ export function isSuspectCatalogEntry(
 	// rule and sat in the Ukrainian catalog looking well-formed. A body with
 	// letters of its own and not one character of the target's script is not
 	// in the target language at all.
-	if (own && bodyWords(text).length > 0 && !own.some((script) => script.test(text))) {
+	if (own && bodyWords(tag, text).length > 0 && !own.some((script) => script.test(text))) {
 		return "foreign-script:no-target-script";
 	}
 
@@ -232,7 +262,7 @@ function echoForm(text: string): string {
  * runtime serves English for a missing key anyway, and an empty slot is
  * what the next fill looks for.
  */
-export function isUnchanged(source: string, text: string): boolean {
+export function isUnchanged(tag: string, source: string, text: string): boolean {
 	const left = echoForm(source);
 
 	// Nothing to translate: no letters at all, or only {placeholder}s and
@@ -245,7 +275,8 @@ export function isUnchanged(source: string, text: string): boolean {
 		return false;
 	}
 
-	return !left.split(" ").every((word) => IDENTICAL_EVERYWHERE.has(word));
+	const kept = keptWords(tag);
+	return !left.split(" ").every((word) => kept.has(word));
 }
 
 const braces = (text: string): string => (text.match(PLACEHOLDER) ?? []).sort().join("|");
@@ -646,7 +677,7 @@ export function slotVerdict(tag: string, source: string, text: string): SlotVerd
 		return "mixed-script";
 	}
 
-	if (isUnchanged(source, text)) {
+	if (isUnchanged(tag, source, text)) {
 		return "unchanged";
 	}
 

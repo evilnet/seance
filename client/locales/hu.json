@@ -105,8 +105,8 @@
   "bans.alreadyGone": "Ez a ban már nem létezett.",
   "bans.aria": "Banok itt: {channel}",
   "bans.count": {
-    "one": "{count} kitiltás",
-    "other": "{count} kitiltás"
+    "one": "{count} ban a listán",
+    "other": "{count} ban a listán"
   },
   "bans.edit": "Szerkesztés…",
   "bans.empty": "Nincs ban itt: {channel}",
@@ -220,6 +220,7 @@
   "browse.showMore": "További csatornák megjelenítése",
   "browse.showing": "Megjelenítve: {shown} / {total}",
   "browse.sort": "Rendezés",
+  "browse.sort.name": "A-tól Z-ig",
   "browse.sort.people": "Legnépesebb",
   "browse.title": "Csatornák böngészése",
   "browse.unlisted": "Nincs a listában",

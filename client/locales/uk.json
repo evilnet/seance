@@ -248,6 +248,7 @@
   "browse.showMore": "Показати ще",
   "browse.showing": "Показано {shown} із {total}",
   "browse.sort": "Сортування",
+  "browse.sort.name": "За абеткою",
   "browse.sort.people": "Найбільше людей",
   "browse.title": "Огляд каналів",
   "browse.unlisted": "Немає в списку",

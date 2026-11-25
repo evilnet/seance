@@ -206,6 +206,7 @@
   "browse.showMore": "แสดงเพิ่มเติม",
   "browse.showing": "แสดง {shown} จาก {total}",
   "browse.sort": "เรียงลำดับ",
+  "browse.sort.name": "เรียงตามตัวอักษร",
   "browse.sort.people": "คนมากที่สุด",
   "browse.title": "เรียกดูช่อง",
   "browse.unlisted": "ไม่อยู่ในรายการ",

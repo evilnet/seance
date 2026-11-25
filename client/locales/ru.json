@@ -248,6 +248,7 @@
   "browse.showMore": "Показать ещё",
   "browse.showing": "Показано {shown} из {total}",
   "browse.sort": "Сортировка",
+  "browse.sort.name": "По алфавиту",
   "browse.sort.people": "Больше всего людей",
   "browse.title": "Обзор каналов",
   "browse.unlisted": "Нет в списке",

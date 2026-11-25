@@ -206,6 +206,7 @@
   "browse.showMore": "さらに表示",
   "browse.showing": "{total} 件中 {shown} 件を表示",
   "browse.sort": "並べ替え",
+  "browse.sort.name": "名前順",
   "browse.sort.people": "人数が多い順",
   "browse.title": "チャンネルを探す",
   "browse.unlisted": "リストにありません",

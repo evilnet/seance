@@ -206,6 +206,7 @@
   "browse.showMore": "더 보기",
   "browse.showing": "{total}개 중 {shown}개 표시 중",
   "browse.sort": "정렬",
+  "browse.sort.name": "이름순",
   "browse.sort.people": "사람 많은 순",
   "browse.title": "채널 둘러보기",
   "browse.unlisted": "목록에 없음",

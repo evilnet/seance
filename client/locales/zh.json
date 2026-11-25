@@ -206,6 +206,7 @@
   "browse.showMore": "显示更多",
   "browse.showing": "显示 {total} 个中的 {shown} 个",
   "browse.sort": "排序",
+  "browse.sort.name": "按字母顺序",
   "browse.sort.people": "人数最多",
   "browse.title": "浏览频道",
   "browse.unlisted": "不在列表中",

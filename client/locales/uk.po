@@ -1114,7 +1114,7 @@ msgstr "Сортування"
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.sort.name"
 msgid "A to Z"
-msgstr ""
+msgstr "За абеткою"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): sort option: by number of users, largest first.
 #: client/components/Windows/ChannelBrowser.vue

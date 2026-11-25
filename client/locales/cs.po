@@ -33,7 +33,7 @@ msgstr "{nick} nemá avatar."
 #: client/components/UserCard.vue
 msgctxt "avatar.cardSignedIn"
 msgid "Signed in as {account}"
-msgstr "Přihlášen jako {account}"
+msgstr "Účet: {account}"
 
 #. User card: the person's avatar is on a site the reader has not chosen to trust, so it is not loaded. {host} is a website's domain.
 #: client/components/UserCard.vue
@@ -1112,7 +1112,7 @@ msgstr "Řazení"
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.sort.name"
 msgid "A to Z"
-msgstr ""
+msgstr "Od A do Z"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): sort option: by number of users, largest first.
 #: client/components/Windows/ChannelBrowser.vue

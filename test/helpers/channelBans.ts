@@ -15,7 +15,7 @@ import {
 	sortBans,
 	wideHost,
 } from "../../client/js/helpers/channelBans";
-import {canSetBans, holdsChannelPower} from "../../client/js/helpers/banMenu";
+import {banSetText, canSetBans, holdsChannelPower} from "../../client/js/helpers/banMenu";
 import {ChanType} from "../../shared/types/chan";
 import type {ClientNetwork} from "../../client/js/types";
 import {describeBan} from "../../client/js/irc/profiles/nefarious/extbans";
@@ -304,6 +304,25 @@ describe("channel ban masks", function () {
 		it("folds as the network says", function () {
 			expect(canSetBans(network("[a]", "{a}", "ascii"), "#c")).to.equal(false);
 			expect(canSetBans(network("A", "a", "ascii"), "#c")).to.equal(true);
+		});
+	});
+
+	describe("banSetText", function () {
+		const threeDaysAgo = () => Date.now() - 3 * 24 * 60 * 60 * 1000;
+
+		it("names who set it, and when when the server said", function () {
+			expect(banSetText({mask: "a!*@*", by: "alice!a@host"})).to.equal("Set by alice");
+			expect(banSetText({mask: "a!*@*", by: "alice", at: threeDaysAgo()})).to.equal(
+				"Set by alice, 3 days ago"
+			);
+		});
+
+		// The server is a sentence of its own, never a {who} (bans.setByServer)
+		it("says the server set it when no one is named", function () {
+			expect(banSetText({mask: "a!*@*", by: ""})).to.equal("Set by the server");
+			expect(banSetText({mask: "a!*@*", by: "*", at: threeDaysAgo()})).to.equal(
+				"Set by the server, 3 days ago"
+			);
 		});
 	});
 

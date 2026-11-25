@@ -276,6 +276,7 @@
   "browse.showMore": "عرض المزيد",
   "browse.showing": "عرض {shown} من {total}",
   "browse.sort": "الترتيب",
+  "browse.sort.name": "أبجديًا",
   "browse.sort.people": "الأكثر ازدحامًا",
   "browse.title": "تصفح القنوات",
   "browse.unlisted": "ليست في القائمة",
