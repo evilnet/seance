@@ -9694,9 +9694,15 @@ html[data-reduce-motion] #chat .msg-translation-caret {
 	margin-top: 3px;
 }
 
+/* Never wider than its message's column: a long word reaction, or one at
+   the largest text steps on a phone, ran out of the row and was cut off
+   there; held to the column, its text ends in an ellipsis instead and the
+   tip below carries it whole. */
 #chat .msg-reaction {
 	display: inline-flex;
 	align-items: center;
+	box-sizing: border-box;
+	max-width: 100%;
 	gap: 4px;
 	padding: 0.15em 0.6em;
 	border: 1px solid rgb(128 128 128 / 35%);
@@ -9775,7 +9781,8 @@ html[data-reduce-motion] #chat .reactions-enter-active {
 }
 
 /* A reaction is free text, so it may be a sentence: keep the badge from
-   pushing the message around, the title attribute carries the whole of it. */
+   pushing the message around; its tip (.reaction-tip) carries the whole of
+   it. */
 #chat .msg-reaction.word .msg-reaction-text {
 	display: inline-block;
 	max-width: 22ch;
@@ -9784,6 +9791,63 @@ html[data-reduce-motion] #chat .reactions-enter-active {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	vertical-align: bottom;
+}
+
+/* Who reacted (MessageReactions.vue): Primer's tooltip, drawn on <body> and
+ * placed by helpers/tipPlacement.ts, because inside the message the row and
+ * the scroller cut it, often to a sliver of its last line. Never wider than
+ * the screen can hold, never taller (a long list of long nicks at the
+ * largest text step), long nicks broken where they must be. */
+.reaction-tip {
+	position: fixed;
+	z-index: 1000000;
+	box-sizing: border-box;
+	max-width: min(20rem, calc(100vw - 1rem));
+	padding: 0.5em 0.75em;
+	border-radius: 3px;
+	background: #1b1f23;
+	color: #fff;
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	text-align: center;
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	pointer-events: none;
+	animation: tooltip-appear 0.1s ease-in 0.4s both;
+}
+
+/* The words, held to the screen's height (their own box, so the pointer
+   outside the tip is not cut with them). */
+.reaction-tip-text {
+	max-height: calc(100vh - 1rem - 1em);
+	overflow: hidden;
+}
+
+/* Its pointer, at the badge's centre (--tip-arrow): under it above the
+   badge, over it below. A tip held over its badge (taller than either
+   side's room) has none. */
+.reaction-tip::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: calc(var(--tip-arrow) - 6px);
+	border: 6px solid transparent;
+	border-top-color: #1b1f23;
+}
+
+.reaction-tip.below::after {
+	top: auto;
+	bottom: 100%;
+	border-top-color: transparent;
+	border-bottom-color: #1b1f23;
+}
+
+.reaction-tip.no-pointer::after {
+	content: none;
+}
+
+html[data-reduce-motion] .reaction-tip {
+	animation: none;
 }
 
 #chat .msg-reaction-add {
