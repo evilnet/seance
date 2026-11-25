@@ -7,7 +7,6 @@
 
 import {isTrustedHost} from "../helpers/mediaTrust";
 import {urlHost} from "../helpers/urlHost";
-import {clientForNetwork} from "../irc/manager";
 import type {TypedStore} from "../store";
 import {avatarView, normalizeAvatarLoad, type AvatarView} from "./policy";
 import {avatarsEnabled, hasFailed, isLoadedOnce, isPersonTrusted} from "./prefs";
@@ -21,9 +20,17 @@ export type AvatarSubject = {
 	self?: boolean;
 };
 
-/** The network's FILEHOST host, where Seance uploads avatars. */
-export function filehostHost(uuid: string): string | null {
-	const url = clientForNetwork(uuid)?.filehostUrl();
+/**
+ * The network's upload host (`draft/FILEHOST`), a source an avatar loads
+ * from by itself: read from the store's copy of the network's server
+ * options, which is reactive. The IrcClient's own copy is not, and a page
+ * load draws the kept lines' avatars before the connection says the host:
+ * a picture on it was drawn veiled and stayed so after a refresh, since
+ * nothing told the avatar to look again once the host was known.
+ */
+export function filehostHost(store: TypedStore, uuid: string): string | null {
+	const url = store.state.networks.find((network) => network.uuid === uuid)?.serverOptions
+		?.FILEHOST;
 	return url ? urlHost(url) : null;
 }
 
@@ -42,7 +49,7 @@ export function viewFor(store: TypedStore, subject: AvatarSubject): AvatarView {
 		self: !!subject.self,
 		enabled: avatarsEnabled(subject.uuid),
 		setting: normalizeAvatarLoad(store.state.settings.avatarLoad),
-		filehostHost: filehostHost(subject.uuid),
+		filehostHost: filehostHost(store, subject.uuid),
 		deployHosts: config?.trustedHosts,
 		proxy: config?.proxy,
 		hostTrusted: isTrustedHost,
