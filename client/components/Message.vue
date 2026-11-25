@@ -43,7 +43,20 @@
 			<component :is="messageComponent" :network="network" :message="message" />
 		</template>
 		<template v-else-if="message.type === 'action'">
-			<span class="from"><span class="only-copy">*&nbsp;</span></span>
+			<!-- An action is a user's line too: their avatar stands in the row's
+			     `.from`, beside the action's icon (the nick is in the text),
+			     outside the text's clip, so a layout can hang it into the gutter
+			     as it does a message's. A click on it opens the user card. -->
+			<span class="from"
+				><Avatar
+					v-if="showAvatar"
+					:uuid="network.uuid"
+					:nick="message.from.nick"
+					:account="message.fromAccount"
+					:self="message.self"
+					@click="openAvatarCard"
+				/><span class="only-copy">*&nbsp;</span></span
+			>
 			<span class="content" dir="auto">
 				<button
 					v-if="message.replyTo"
@@ -272,6 +285,7 @@ import {computed, defineComponent, onMounted, onUnmounted, PropType, ref, watch}
 import {LIVE_HOLD_MS, liveRows, type LiveKind} from "../js/liveRows";
 
 import Username from "./Username.vue";
+import Avatar from "./Avatar.vue";
 import LinkPreview from "./LinkPreview.vue";
 import ParsedMessage from "./ParsedMessage.vue";
 import MessageTypes from "./MessageTypes";
@@ -286,6 +300,7 @@ import {replyQuote} from "../js/helpers/messageUpdates";
 import {readingLanguage, showOriginal} from "../js/translate/reader";
 import {languageName} from "../js/translate/languages";
 import socket from "../js/socket";
+import eventbus from "../js/eventbus";
 import {quoteLayout, toPlainText} from "../js/helpers/ircmessageparser/layout";
 import {MessageType} from "../../shared/types/msg";
 
@@ -354,6 +369,7 @@ watch(selectionActive, (live) => {
 export default defineComponent({
 	name: "Message",
 	components: {
+		Avatar,
 		...MessageTypes,
 		ParsedMessage,
 		LinkPreview,
@@ -384,6 +400,19 @@ export default defineComponent({
 		const showAvatar = computed(
 			() => !!props.message.from?.nick && !props.message.from.nick.includes(".")
 		);
+
+		// An action's avatar (in its `.from`; a message's is inside the nick,
+		// Username.vue): a click opens the user card, as there.
+		const openAvatarCard = (event: MouseEvent) => {
+			event.preventDefault();
+			eventbus.emit("contextmenu:user", {
+				card: true,
+				event,
+				user: props.message.from,
+				network: props.network,
+				channel: props.channel,
+			});
+		};
 
 		// Taken once, as the row mounts: a row mounted again later (another
 		// conversation and back, a past view closed) is not new. The attribute
@@ -822,6 +851,7 @@ export default defineComponent({
 
 		return {
 			showAvatar,
+			openAvatarCard,
 			live,
 			quoteButton,
 			store,
