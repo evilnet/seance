@@ -4075,6 +4075,16 @@ html[dir="rtl"][data-message-layout="bubbles"] #chat .messages > .date-marker-co
 	transform-origin: top right;
 }
 
+/* On a phone's pane the bubble's start, a gutter in, leaves no room for the
+ * whole toolbar at the larger text steps (it ran past the pane's end, cut
+ * off): there it stands at the row's start, the column's own edge, still one
+ * place for every line. The phone layout's own breakpoint. */
+@container chat (max-width: calc(50ch + 2.5rem)) or (max-width: 480px) {
+	html[data-message-layout="bubbles"] #chat .chat .messages > .msg .msg-actions {
+		inset-inline-start: calc(0.5rem - 0.625rem - var(--bubble-gutter));
+	}
+}
+
 html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time {
 	grid-area: time;
 	display: block;

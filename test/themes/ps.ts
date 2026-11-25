@@ -2518,7 +2518,11 @@ describe("the ps theme's embers (spec §9)", function () {
 	});
 
 	it("lights an own message's echo, never its pending copy: four sparks, on the row's and its text's pseudo-elements", function () {
-		const onRows = pseudoSelectors.filter((s) => /\.msg(?![\w-])/.test(s));
+		// The row's pseudo-elements are also Bubbles' whole-line hover boxes,
+		// which draw nothing (the next test).
+		const onRows = pseudoSelectors.filter(
+			(s) => /\.msg(?![\w-])/.test(s) && !s.includes(".msg.has-actions::")
+		);
 		expect([...new Set(onRows)]).to.have.members(SEND);
 		const onPending = pseudoSelectors.filter((s) => /\.pending(?![\w-])/.test(withoutNot(s)));
 		expect(onPending, "no pseudo-element on a pending copy").to.deep.equal([]);
@@ -2526,6 +2530,39 @@ describe("the ps theme's embers (spec §9)", function () {
 		for (const s of onRows) {
 			expect(s, "the echo, not the pending copy").to.include(":not(.pending)");
 			expect(s, "while it is the newest row").to.include(":last-child");
+		}
+	});
+
+	it("leaves Bubbles' whole-line hover boxes empty and placed by their end edge, so a send's sparks keep their place", function () {
+		const hit = [...new Set(pseudoSelectors.filter((s) => s.includes(".msg.has-actions::")))];
+		expect(hit.map((s) => s.slice(s.indexOf("::"))).sort()).to.deep.equal([
+			"::after",
+			"::before",
+		]);
+
+		for (const s of hit) {
+			expect(s, "under Bubbles only").to.match(/data-ps-words="bubbles"/);
+			const props = declsOf(s).map(([p]) => p);
+			expect(props, `${s} is placed by its end edge`).to.include("inset-inline-end");
+
+			// The sparks' own: a hit box naming any of them would move or paint them.
+			for (const p of [
+				"left",
+				"right",
+				"top",
+				"inset",
+				"inset-inline",
+				"inset-inline-start",
+				"width",
+				"height",
+				"background",
+				"background-color",
+				"box-shadow",
+				"animation",
+				"pointer-events",
+			]) {
+				expect(props, `${s} sets no ${p}`).to.not.include(p);
+			}
 		}
 	});
 

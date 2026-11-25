@@ -2945,6 +2945,23 @@ html[dir="rtl"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .mess
 	transform-origin: top right;
 }
 
+/* On a phone's pane the card's start, a gutter in once avatars are on,
+ * leaves no room for the whole toolbar at the larger text steps (it ran past
+ * the pane's end, cut off): there it stands at the row's start, the column's
+ * own edge, 0.5rem in from it past the card's margin (0.625rem, or the
+ * avatar gutter's 3.375rem), still one place for every line. The phone
+ * layout's own breakpoint (style.css). */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: calc(50ch + 2.5rem)) or (max-width: 480px) {
+	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg .msg-actions {
+		inset-inline-start: calc(0.5rem - 0.625rem);
+	}
+
+	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) .msg-actions {
+		inset-inline-start: calc(0.5rem - 3.375rem);
+	}
+}
+
 /* The glass column (§4.2): the message list on the chrome's glass — the
  * float tint (every ground, through the lift) by day, the surface tint at
  * night. On the list, a sibling of the user list, so the list's own blur
