@@ -28,7 +28,7 @@ describe("helpers/mediaPreview", function () {
 		});
 
 		it("recognises every supported audio extension", function () {
-			for (const ext of ["mp3", "ogg", "opus", "wav", "flac", "m4a"]) {
+			for (const ext of ["mp3", "ogg", "oga", "opus", "wav", "flac", "m4a", "aac", "weba"]) {
 				const match = classifyMediaUrl(`https://example.com/track.${ext}`);
 				expect(match?.type, ext).to.equal("audio");
 				expect(match?.mediaType, ext).to.match(/^audio\//);
