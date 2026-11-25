@@ -439,9 +439,10 @@ export default async function run(page) {
 				got.later.every((m) => m === 0.25)
 		);
 	};
-	// Messenger, with a mouse: a run's later line, hovered, shows its time
-	// beside the bubble (before it for our own at the far side), inside the
-	// pane.
+	// Messenger, with a mouse: a run's later line, hovered, keeps its time
+	// hidden (a swipe shows it, as by finger: style.css § By finger and
+	// trackpad), where it would stand beside the bubble (before it for our
+	// own at the far side), inside the pane.
 	const timeBeside = async (label, shot, own = false) => {
 		const pick = `[...document.querySelectorAll('#chat .chat .msg.previous-source[data-type="message"]${
 			own ? ".self" : ":not(.self)"
@@ -460,10 +461,10 @@ export default async function run(page) {
 			return {shown: getComputedStyle(t).visibility, time: box(t), bubble: box(m), list: box(document.querySelector("#chat .chat"))};
 		})()`);
 		page.check(
-			`${label}: a later line's time shows on hover, level with its bubble, inside the pane (${JSON.stringify(
+			`${label}: a later line's time stays hidden on hover, placed level with its bubble, inside the pane (${JSON.stringify(
 				got
 			)})`,
-			got.shown === "visible" &&
+			got.shown === "hidden" &&
 				got.time.left >= got.list.left &&
 				got.time.right <= got.list.right &&
 				got.time.top >= got.bubble.top - 2 &&
@@ -529,8 +530,8 @@ export default async function run(page) {
 		);
 		return g;
 	};
-	// Messenger's action, hovered: its time just past its words, the toolbar
-	// up and inside the pane.
+	// Messenger's action, hovered: its time (hidden, as every row's is until
+	// a swipe) just past its words, the toolbar up and inside the pane.
 	const actionHover = async (text, label) => {
 		await scrollTo("action", text);
 		await page.sleep(150);
@@ -1026,11 +1027,11 @@ export default async function run(page) {
 			`Messenger query: ours in the own fill (${mine.background} = ${ownFill}), theirs not`,
 			mine.background === ownFill && peer1.background !== ownFill
 		);
-		// No row shows a time at rest: Messenger stamps each stretch of the
-		// conversation once, centred (§ Session times), and a row's own
-		// comes on hover.
+		// No row shows a time of its own: Messenger stamps each stretch of
+		// the conversation once, centred (§ Session times), and a swipe shows
+		// every row's.
 		page.check(
-			"Messenger query: a run's first line keeps its time's place at the bubble's end, hidden until hovered, as a later line's is",
+			"Messenger query: a run's first line keeps its time's place at the bubble's end, hidden, as a later line's is",
 			peer1.time.visibility === "hidden" &&
 				peer1.time.left >= peer1.content.right - 1 &&
 				peer2.time.visibility === "hidden"
@@ -1040,8 +1041,8 @@ export default async function run(page) {
 			await page.hover('#chat .chat .msg[data-type="message"]', index);
 			await page.sleep(150);
 			page.check(
-				"Messenger query: hovered, a run's first line shows its time",
-				(await geometry("message", "hey, got a minute")).time.visibility === "visible"
+				"Messenger query: hovered, a run's first line still keeps its time hidden",
+				(await geometry("message", "hey, got a minute")).time.visibility === "hidden"
 			);
 			await unhover();
 			await page.sleep(100);
@@ -1080,10 +1081,10 @@ export default async function run(page) {
 			"Messenger query, our own action"
 		);
 		page.check(
-			`Messenger query, our own action hovered: its time before its words, the toolbar inside the pane (${JSON.stringify(
+			`Messenger query, our own action hovered: its time hidden, placed before its words, the toolbar inside the pane (${JSON.stringify(
 				qOwnHover
 			)})`,
-			qOwnHover.shown === "visible" &&
+			qOwnHover.shown === "hidden" &&
 				qOwnHover.before >= 0 &&
 				qOwnHover.inside &&
 				qOwnHover.toolbar
@@ -1140,10 +1141,10 @@ export default async function run(page) {
 		);
 		const mHover = await actionHover("nods along", "Messenger");
 		page.check(
-			`Messenger, an action hovered: its time just past its words, inside the pane, the toolbar up inside it (${JSON.stringify(
+			`Messenger, an action hovered: its time hidden, placed just past its words, inside the pane, the toolbar up inside it (${JSON.stringify(
 				mHover
 			)})`,
-			mHover.shown === "visible" &&
+			mHover.shown === "hidden" &&
 				mHover.after >= 0 &&
 				mHover.after <= 20 &&
 				mHover.inside &&
@@ -1299,10 +1300,10 @@ export default async function run(page) {
 			"Messenger query, right to left"
 		);
 		page.check(
-			`Messenger query, right to left, our own action hovered: its time before its words, inside the pane (${JSON.stringify(
+			`Messenger query, right to left, our own action hovered: its time hidden, placed inside the pane (${JSON.stringify(
 				rtlOwnAction
 			)})`,
-			rtlOwnAction.shown === "visible" && rtlOwnAction.inside && rtlOwnAction.toolbar
+			rtlOwnAction.shown === "hidden" && rtlOwnAction.inside && rtlOwnAction.toolbar
 		);
 		await page.screenshot("9f-messenger-rtl-query");
 		await page.evaluate(`document.documentElement.dir = "ltr"`);
@@ -1379,10 +1380,10 @@ export default async function run(page) {
 		);
 		const phoneHover = await actionHover("nods along", "phone Messenger");
 		page.check(
-			`phone Messenger, an action hovered: its time inside the pane, the toolbar too (${JSON.stringify(
+			`phone Messenger, an action hovered: its time hidden, placed inside the pane, the toolbar inside it (${JSON.stringify(
 				phoneHover
 			)})`,
-			phoneHover.shown === "visible" && phoneHover.inside && phoneHover.toolbar
+			phoneHover.shown === "hidden" && phoneHover.inside && phoneHover.toolbar
 		);
 		await page.evaluate(update("fontSize", "huge"));
 		await page.sleep(400);

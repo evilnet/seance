@@ -138,8 +138,8 @@ export default async function run(page) {
 		await page.hover('#chat .chat .msg[data-type="message"]', index);
 		await page.sleep(150);
 		page.check(
-			"Messenger: hovered, a run's first line shows its time",
-			(await page.evaluate(TIME_SHOWN("same here"))) === "visible"
+			"Messenger: hovered, a row still shows no time of its own (a swipe does)",
+			(await page.evaluate(TIME_SHOWN("same here"))) === "hidden"
 		);
 		await page.screenshot("1a-messenger-desktop-hover");
 
@@ -169,6 +169,44 @@ export default async function run(page) {
 			await page.evaluate(
 				`(() => { const c = document.querySelector("#chat .chat"); return c.scrollWidth <= c.clientWidth; })()`
 			)
+		);
+		// A trackpad's two-finger swipe toward the pane's start (wheel deltaX,
+		// trackpadSwipe.ts) slides the conversation aside and shows every
+		// row's time, as the finger's does; the other way it does not, and
+		// the gesture going quiet puts it back.
+		const PEEKING = `({peek: document.querySelector("#chat .chat").classList.contains("time-peek"), shown: [...document.querySelectorAll('#chat .chat .msg[data-type="message"] > .time')].filter((t) => getComputedStyle(t).visibility === "visible").length, wide: document.querySelector("#chat .chat").scrollWidth > document.querySelector("#chat .chat").clientWidth})`;
+		const wheel = async (deltaX) => {
+			for (let i = 0; i < 8; i++) {
+				await page.send("Input.dispatchMouseEvent", {
+					type: "mouseWheel",
+					x: 600,
+					y: 450,
+					deltaX,
+					deltaY: 0,
+				});
+				await page.sleep(16);
+			}
+		};
+		await wheel(-12);
+		await page.sleep(60);
+		const backwards = await page.evaluate(PEEKING);
+		await page.sleep(400);
+		await wheel(12);
+		await page.sleep(60);
+		const swiping = await page.evaluate(PEEKING);
+		await page.screenshot("1b-messenger-desktop-trackpad-swipe");
+		await page.sleep(450);
+		const after = await page.evaluate(PEEKING);
+		page.check(
+			`trackpad: a swipe toward the start shows every row's time, and quiet puts them back (${JSON.stringify(
+				{backwards, swiping, after}
+			)})`,
+			!backwards.peek &&
+				swiping.peek &&
+				swiping.shown >= 8 &&
+				!swiping.wide &&
+				!after.peek &&
+				after.shown === 0
 		);
 		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
 

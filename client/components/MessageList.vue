@@ -2,7 +2,11 @@
 	<div
 		ref="chat"
 		class="chat"
-		:class="{selecting, 'selection-live': selectionActive, 'time-peek': timePeek}"
+		:class="{
+			selecting,
+			'selection-live': selectionActive,
+			'time-peek': timePeek || trackpadPeek > TRACKPAD_SLOP,
+		}"
 		tabindex="-1"
 	>
 		<div
@@ -116,6 +120,7 @@ import {messageLayoutShown} from "../js/settings";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import {scrollerTakesSwipe} from "../js/helpers/sidewaysSwipe";
+import {trackpadPeek} from "../js/helpers/trackpadPeek";
 import socket from "../js/socket";
 import {translationOn} from "../js/translate";
 import {onScreen} from "../js/translate/reader";
@@ -963,6 +968,18 @@ export default defineComponent({
 			chat.value?.style.removeProperty("--time-peek");
 		};
 
+		// The same by trackpad (trackpadSwipe.ts): two fingers over the
+		// conversation, past a little sideways drift.
+		const TRACKPAD_SLOP = 12;
+
+		watch(trackpadPeek, (travel) => {
+			if (travel > TRACKPAD_SLOP) {
+				chat.value?.style.setProperty("--time-peek", `${(travel - TRACKPAD_SLOP) * 0.5}px`);
+			} else if (!timePeek.value) {
+				chat.value?.style.removeProperty("--time-peek");
+			}
+		});
+
 		const handleScroll = () => {
 			// The list is moving: a page arriving now is held (scrollSettle.ts).
 			noteScroll();
@@ -1201,6 +1218,8 @@ export default defineComponent({
 			selecting,
 			selectionActive,
 			timePeek,
+			trackpadPeek,
+			TRACKPAD_SLOP,
 			onPointerDown,
 		};
 	},
