@@ -2910,6 +2910,41 @@ html[data-own-messages="band"]:is(:not([data-ps-words]), [data-ps-words="bubbles
 	transform-origin: top left;
 }
 
+/* A card is only as wide as its words, but its row is the whole line: as in
+ * style.css's Bubbles, an empty box runs from the card back to the column's
+ * edge and another on from its end, clipped by the list, so a pointer
+ * anywhere along the line is on the row and not only over the words. Placed
+ * by their end edge, so the sparks of our own last line (the same
+ * pseudo-elements, above) keep theirs. */
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages {
+	overflow-x: clip;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::before,
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::after {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inline-size: 100vw;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::before {
+	inset-inline-end: 100%;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::after {
+	inset-inline-end: -100vw;
+}
+
+html[dir="rtl"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg .msg-actions {
+	transform-origin: bottom right;
+}
+
+html[dir="rtl"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .msg:first-child .msg-actions,
+html[dir="rtl"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+	transform-origin: top right;
+}
+
 /* The glass column (§4.2): the message list on the chrome's glass — the
  * float tint (every ground, through the lift) by day, the surface tint at
  * night. On the list, a sibling of the user list, so the list's own blur

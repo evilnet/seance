@@ -4022,6 +4022,59 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 	border-radius: var(--bubble-radius);
 }
 
+/* A bubble is only as wide as its words, but its row is the whole line: an
+ * empty box runs from the bubble's start back to the column's edge and
+ * another from its end on to the other edge, so a pointer anywhere along the
+ * line is on the row (its toolbar shows, its bubble tints) and not only over
+ * the words. Both sit outside the bubble, so the words and links under them
+ * stay reachable; the avatar, later in the row, paints over the first. They
+ * are as wide as the screen and the list clips them at its edges
+ * (`overflow-x: clip`, which unlike hidden adds nothing to scroll). Placed
+ * by their end edge, so a theme's own pseudo-element on a row (ps's sparks)
+ * keeps its place. */
+html[data-message-layout="bubbles"] #chat .chat .messages {
+	overflow-x: clip;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::before,
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::after {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inline-size: 100vw;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::before {
+	inset-inline-end: 100%;
+}
+
+html[data-message-layout="bubbles"] #chat .chat .messages > .msg.has-actions::after {
+	inset-inline-end: -100vw;
+}
+
+/* The toolbar stands at the bubble's start, where every bubble in the column
+ * begins, so it keeps one place from line to line (at the bubble's end it
+ * followed each line's width, and a short one hung it past the column's
+ * edge); as ps's Bubbles has it. */
+html[data-message-layout="bubbles"] #chat .chat .msg .msg-actions {
+	inset-inline: 0.5rem auto;
+	transform-origin: bottom left;
+}
+
+html[data-message-layout="bubbles"] #chat .messages > .msg:first-child .msg-actions,
+html[data-message-layout="bubbles"] #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+	transform-origin: top left;
+}
+
+html[dir="rtl"][data-message-layout="bubbles"] #chat .chat .msg .msg-actions {
+	transform-origin: bottom right;
+}
+
+html[dir="rtl"][data-message-layout="bubbles"] #chat .messages > .msg:first-child .msg-actions,
+html[dir="rtl"][data-message-layout="bubbles"] #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+	transform-origin: top right;
+}
+
 html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .time {
 	grid-area: time;
 	display: block;
