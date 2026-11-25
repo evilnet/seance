@@ -1171,6 +1171,26 @@ p {
 	content: "\1F3AD"; /* 🎭 performing arts */
 }
 
+/* With an avatar (Message.vue) the mask follows it, so the avatar stands
+ * first, in line with a message's avatar (the user, 2026-11-25). The mask is
+ * drawn by the mark's own ::before, so copied text still leaves it out; with
+ * avatars off the mark is hidden and the row's own glyph stays. */
+#chat .msg[data-type="action"] .action-mark {
+	display: none;
+}
+
+#chat .msg[data-type="action"] .from:has(> .avatar)::before {
+	content: none;
+}
+
+#chat .msg[data-type="action"] .from:has(> .avatar) > .action-mark {
+	display: inline;
+}
+
+#chat .msg[data-type="action"] .from:has(> .avatar) > .action-mark::before {
+	content: "\1F3AD"; /* 🎭 */
+}
+
 #chat .msg[data-type="plugin"] .from::before {
 	content: "\f1e6"; /* http://fontawesome.io/icon/plug/ */
 	transform: rotate(45deg);

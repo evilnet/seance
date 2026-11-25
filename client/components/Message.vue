@@ -46,7 +46,9 @@
 			<!-- An action is a user's line too: their avatar stands in the row's
 			     `.from`, beside the action's icon (the nick is in the text),
 			     outside the text's clip, so a layout can hang it into the gutter
-			     as it does a message's. A click on it opens the user card. -->
+			     as it does a message's. A click on it opens the user card. The
+			     action's mask then follows it (`.action-mark`, style.css), so the
+			     avatar stands first, in line with a message's. -->
 			<span class="from"
 				><Avatar
 					v-if="showAvatar"
@@ -55,7 +57,10 @@
 					:account="message.fromAccount"
 					:self="message.self"
 					@click="openAvatarCard"
-				/><span class="only-copy">*&nbsp;</span></span
+				/><span v-if="showAvatar" class="action-mark" aria-hidden="true" /><span
+					class="only-copy"
+					>*&nbsp;</span
+				></span
 			>
 			<span class="content" dir="auto">
 				<button
