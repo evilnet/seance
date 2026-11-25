@@ -209,6 +209,24 @@ export function markAvatarsStale(uuid: string): void {
 	}
 }
 
+/**
+ * One entry counts as not known again (still drawn): we rejoined a channel,
+ * whose burst names its avatar only when it is set.
+ */
+export function markAvatarStale(uuid: string, nick: string): void {
+	const net = networks.get(uuid);
+
+	if (!net) {
+		return;
+	}
+
+	const key = net.fold(nick);
+
+	if (net.users.has(key)) {
+		unknownValue.add(`${uuid}\n${key}`);
+	}
+}
+
 /** The server said `nick`'s avatar is `value` (`""`: none). */
 export function setAvatarValue(uuid: string, nick: string, value: string): void {
 	const e = entry(uuid, nick);

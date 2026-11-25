@@ -50,7 +50,7 @@ const ours = (client: Parameters<Handler>[0], target: string, visibility: string
 const metadata: Handler = (client, msg) => {
 	// Anyone's avatar, or a channel's (irc/avatars.ts): a public key, so only a public value counts.
 	if (msg.params[1] === AVATAR_KEY && msg.params[2] !== "private") {
-		onAvatarValue(client, msg.params[0] ?? "", msg.params[3] ?? "");
+		onAvatarValue(client, msg.params[0] ?? "", msg.params[3] ?? "", false);
 		return;
 	}
 

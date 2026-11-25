@@ -28,6 +28,7 @@ import {
 	avatarOf,
 	clearAvatars,
 	forgetAvatar,
+	markAvatarStale,
 	markAvatarsStale,
 	noteAccount,
 	renameAvatar,
@@ -108,8 +109,18 @@ export function avatarsClosed(client: IrcClient): void {
 	}
 }
 
-/** A METADATA line or reply naming the avatar key: `value` "" = none. */
-export function onAvatarValue(client: IrcClient, target: string, value: string): void {
+/**
+ * A METADATA line or reply naming the avatar key: `value` "" = none.
+ * `reply`: a 761/766 (a channel SET of ours settles only on one, so a
+ * change notification that reaches us first does not leave its reply to
+ * be shown).
+ */
+export function onAvatarValue(
+	client: IrcClient,
+	target: string,
+	value: string,
+	reply = true
+): void {
 	if (!target || target === "*") {
 		return;
 	}
@@ -119,7 +130,7 @@ export function onAvatarValue(client: IrcClient, target: string, value: string):
 	stateOf(client).waiting.delete(key);
 
 	if (client.isChannelName(target)) {
-		if (stateOf(client).channelPending.get(key)?.value === value) {
+		if (reply && stateOf(client).channelPending.get(key)?.value === value) {
 			settleChannel(client, key);
 		}
 
@@ -174,20 +185,20 @@ export function onAvatarFail(client: IrcClient, msg: IrcMessage): boolean {
 
 	const aboutAvatar = context.includes(AVATAR_KEY);
 
+	const aboutSet = aboutAvatar || code === "VALUE_INVALID" || code === "RATE_LIMITED";
+
 	// A refusal naming a channel we are writing (KEY_NO_PERMISSION #chan avatar).
 	const channelKey = context[0] ? client.casefold(context[0]) : "";
 
-	if (state.channelPending.has(channelKey)) {
+	if (aboutSet && state.channelPending.has(channelKey)) {
 		settleChannel(client, channelKey, description || code);
 		return true;
 	}
 
 	// One that names no target, while only a channel SET of ours is out.
-	if (
-		!state.pending &&
-		state.channelPending.size === 1 &&
-		(aboutAvatar || code === "VALUE_INVALID" || code === "RATE_LIMITED")
-	) {
+	const namesNoTarget = !context[0] || context[0] === "*" || context[0] === AVATAR_KEY;
+
+	if (!state.pending && state.channelPending.size === 1 && aboutSet && namesNoTarget) {
 		settleChannel(client, [...state.channelPending.keys()][0], description || code);
 		return true;
 	}
@@ -278,14 +289,13 @@ export function setChannelAvatar(client: IrcClient, channel: string, value: stri
  * has usually answered it already.
  */
 export function onChannelJoined(client: IrcClient, channel: string): void {
-	if (
-		!avatarsWanted(client) ||
-		!avatarOf(client.uuid, channel) ||
-		avatarKnown(client.uuid, channel)
-	) {
+	if (!avatarsWanted(client) || !avatarOf(client.uuid, channel)) {
 		return;
 	}
 
+	// Known from an earlier stay on this connection is no better: while we
+	// were parted, a removal never reached us. The burst, or the GET, says it.
+	markAvatarStale(client.uuid, channel);
 	const state = stateOf(client);
 	const key = client.casefold(channel);
 	const line = `METADATA ${channel} GET ${AVATAR_KEY}`;

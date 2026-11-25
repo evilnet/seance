@@ -242,11 +242,34 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 			expect(avatarOf(uuid(), "#seance")?.value).to.equal("");
 		});
 
-		it("asks nothing on our join when nothing is remembered, or the burst said it", function () {
+		it("asks nothing on our join when nothing is remembered", function () {
 			h.transport.line(":alice!alice@host.example JOIN #other alice :Alice");
-			h.transport.line(`:irc.test METADATA #seance avatar * :${URL_A}`);
-			h.transport.line(":alice!alice@host.example JOIN #seance alice :Alice");
 			expect(metadataSent()).to.deep.equal([]);
+		});
+
+		it("asks again on a rejoin on the same connection: a removal while parted never came", function () {
+			h.transport.line(`:irc.test METADATA #seance avatar * :${URL_A}`);
+			h.transport.line(":alice!alice@host.example PART #seance");
+			h.sent();
+			h.transport.line(":alice!alice@host.example JOIN #seance alice :Alice");
+			expect(metadataSent()).to.deep.equal(["METADATA #seance GET avatar"]);
+		});
+
+		it("keeps the reply to our SET quiet when the change notification comes first", async function () {
+			const done = setChannelAvatar(h.client, "#seance", URL_A);
+			h.sent();
+			const before = h.messages().length;
+			h.transport.line(`:irc.test METADATA #seance avatar * :${URL_A}`);
+			h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_A}`);
+			await done;
+			expect(h.messages().length).to.equal(before);
+		});
+
+		it("does not take another key's refusal on the channel as the SET's", function () {
+			void setChannelAvatar(h.client, "#seance", URL_A).catch(() => undefined);
+			h.transport.line(":irc.test FAIL METADATA KEY_INVALID #seance foo :Invalid key");
+			h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_A}`);
+			expect(avatarOf(uuid(), "#seance")?.value).to.equal(URL_A);
 		});
 
 		it("resolves a SET when the server confirms it, quietly", async function () {

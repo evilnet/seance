@@ -160,6 +160,7 @@ import {
 	type ChannelAvatarRequest,
 } from "../js/avatars/channel";
 import {clearFailed} from "../js/avatars/prefs";
+import {proxiedSrc} from "../js/avatars/policy";
 import {avatarOf} from "../js/avatars/registry";
 import {avatarLinkProblem, parseAvatarUrl} from "../js/avatars/url";
 import {filehostHost} from "../js/avatars/view";
@@ -222,7 +223,15 @@ export default defineComponent({
 			}
 
 			const host = parseAvatarUrl(link.value)?.host;
-			const trusted = host && request.value && host === filehostHost(request.value.network);
+			// What loads for everyone (avatars/policy.ts): the network's image
+			// host, the deploy's trusted hosts, or anything through its proxy.
+			const config = store.state.branding.avatars;
+			const trusted =
+				!!host &&
+				!!request.value &&
+				(host === filehostHost(request.value.network) ||
+					(config?.trustedHosts ?? []).includes(host) ||
+					!!proxiedSrc(config?.proxy, link.value));
 			return host && !trusted
 				? t("channelAvatar.linkElsewhere", {host})
 				: t("avatar.linkRules");
@@ -232,7 +241,12 @@ export default defineComponent({
 			const c = client();
 			const r = request.value;
 
-			if (!c || !r) {
+			if (!r) {
+				return;
+			}
+
+			if (!c) {
+				status.value = t("channelAvatar.failed", {reason: "unavailable"});
 				return;
 			}
 
@@ -271,6 +285,7 @@ export default defineComponent({
 			const c = client();
 
 			if (!c) {
+				status.value = t("channelAvatar.failed", {reason: "unavailable"});
 				return;
 			}
 

@@ -3872,6 +3872,16 @@ html[data-reduce-motion] .channel-list-item.is-typing > .avatar {
 	font-size: 0.6em;
 }
 
+/* An unsent draft's pen takes the slot back while the row is not selected,
+ * as it does from the topic's emoji. */
+.channel-list-item[data-type="channel"].has-draft:not(.active) > .avatar {
+	display: none;
+}
+
+.channel-list-item[data-type="channel"].has-draft:not(.active):has(> .avatar)::before {
+	display: inline-block;
+}
+
 /* A channel's own avatar in its header, before its name (Chat.vue). */
 #chat .header > .avatar {
 	flex-shrink: 0;
