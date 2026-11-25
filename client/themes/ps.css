@@ -2507,6 +2507,7 @@ html[data-contrast="more"]:root[data-ps-text="light"] #chat .chat {
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .session-marker-text,
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-scope-note {
 	width: fit-content;
@@ -2519,6 +2520,7 @@ html[data-contrast="more"]:root[data-ps-text="light"] #chat .chat {
 :root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
 :root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
 :root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
+:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .session-marker-text,
 :root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
 :root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-scope-note {
 	background-color: rgb(12 17 32 / var(--ps-s-tint));
@@ -2582,7 +2584,8 @@ html[data-own-messages="band"]:is(:not([data-ps-words]), [data-ps-words="bubbles
 }
 
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .msg:first-child .msg-actions,
-:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .date-marker-container:first-child + .msg .msg-actions,
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .date-marker-container:first-child + .session-marker + .msg .msg-actions {
 	transform-origin: top left;
 }
 
@@ -3563,7 +3566,9 @@ html[data-reduce-transparency][data-platform="macos"] #form,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
 :root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
+:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .session-marker-text,
 :root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .unread-marker-text::before,
+:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .session-marker-text,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
 :root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-status,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .search-scope-note,

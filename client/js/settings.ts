@@ -1,3 +1,4 @@
+import {readonly, ref} from "vue";
 import type {TypedStore} from "./store";
 import {mirrorPushPrefs} from "./push-prefs";
 import {activate} from "./i18n";
@@ -5,7 +6,7 @@ import {setHour12Source} from "./i18n/dates";
 import {normalizeFontSize} from "./helpers/fontSize";
 import {normalizeOwnMessageStyle} from "./helpers/ownMessages";
 import {normalizePsWords} from "./helpers/psWords";
-import {messageLayoutFor, themePaintsBubbles} from "./helpers/messageLayout";
+import {messageLayoutFor, themePaintsBubbles, type MessageLayout} from "./helpers/messageLayout";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
@@ -30,11 +31,19 @@ const buildThemeColor =
 
 const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
 
+const shownLayout = ref<MessageLayout | null>(null);
+
+/** The look on screen (`data-message-layout`, null where it is left off),
+ * for a component that draws something only in one look: Messenger's
+ * session times (MessageList.vue). */
+export const messageLayoutShown = readonly(shownLayout);
+
 /** Reflect the look the reader chose onto <html>, for the theme on screen:
  * left off where that theme offers no choice (helpers/messageLayout.ts;
  * the looks are style.css's). */
 function applyMessageLayout(store: TypedStore, theme: string): void {
 	const layout = messageLayoutFor(store.state.settings.messageLayout, theme);
+	shownLayout.value = layout;
 
 	const root = document.documentElement;
 

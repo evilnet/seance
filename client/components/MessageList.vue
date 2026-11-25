@@ -67,6 +67,18 @@
 				>
 					<span class="unread-marker-text" :data-label="t('chat.unreadMarker')" />
 				</div>
+				<div
+					v-if="sessionStartsAt(id)"
+					:key="message.id + '-session'"
+					class="session-marker"
+				>
+					<time
+						class="session-marker-text tooltipped tooltipped-s"
+						:datetime="new Date(message.time).toISOString()"
+						:aria-label="sessionTimeLocale(message)"
+						>{{ sessionTime(message) }}</time
+					>
+				</div>
 
 				<MessageCondensed
 					v-if="message.type === 'condensed'"
@@ -98,6 +110,9 @@ import {ChanState, ChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import clipboard from "../js/clipboard";
 import {continuesRun} from "../js/helpers/messageRuns";
+import {sessionStarts} from "../js/helpers/messageSessions";
+import {formatDateTime, formatTime} from "../js/i18n/dates";
+import {messageLayoutShown} from "../js/settings";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import {scrollerTakesSwipe} from "../js/helpers/sidewaysSwipe";
@@ -154,7 +169,7 @@ export default defineComponent({
 	},
 	setup(props) {
 		const store = useStore();
-		const {t} = useI18n();
+		const {t, locale} = useI18n();
 
 		const chat = ref<HTMLDivElement | null>(null);
 		const loadMoreButton = ref<HTMLButtonElement | null>(null);
@@ -730,6 +745,31 @@ export default defineComponent({
 			return true;
 		};
 
+		// Messenger's session times (helpers/messageSessions.ts): the time,
+		// centred, over the first line of each stretch of conversation. The
+		// other looks show a time on every row and have no use for them.
+		const sessionRows = computed(() =>
+			messageLayoutShown.value === "bubbles" ? sessionStarts(condensedMessages.value) : []
+		);
+
+		const sessionStartsAt = (id: number) => sessionRows.value[id] === true;
+
+		// The clock follows the reader's settings, as each row's does; the
+		// tooltip adds the date. locale.value ties both to the language.
+		const sessionTime = (message: ClientMessage | CondensedMessageContainer) => {
+			void locale.value;
+			return formatTime(
+				new Date(message.time).getTime(),
+				store.state.settings.showSeconds,
+				store.state.settings.use12hClock
+			);
+		};
+
+		const sessionTimeLocale = (message: ClientMessage | CondensedMessageContainer) => {
+			void locale.value;
+			return formatDateTime(new Date(message.time), store.state.settings.use12hClock);
+		};
+
 		// Combine messages (Messenger, Workspace and ps): off, and no line is
 		// a continuation, so every message shows its nick and time.
 		const isPreviousSource = (currentMessage: ClientMessage, id: number) =>
@@ -1148,6 +1188,9 @@ export default defineComponent({
 			onCopy,
 			condensedMessages,
 			shouldDisplayDateMarker,
+			sessionStartsAt,
+			sessionTime,
+			sessionTimeLocale,
 			shouldDisplayUnreadMarker,
 			canAskOlder,
 			gapBefore,

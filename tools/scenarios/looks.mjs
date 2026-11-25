@@ -1026,12 +1026,26 @@ export default async function run(page) {
 			`Messenger query: ours in the own fill (${mine.background} = ${ownFill}), theirs not`,
 			mine.background === ownFill && peer1.background !== ownFill
 		);
+		// No row shows a time at rest: Messenger stamps each stretch of the
+		// conversation once, centred (§ Session times), and a row's own
+		// comes on hover.
 		page.check(
-			"Messenger query: a run's first line shows its time at the bubble's end, a later line's is hidden",
-			peer1.time.visibility === "visible" &&
+			"Messenger query: a run's first line keeps its time's place at the bubble's end, hidden until hovered, as a later line's is",
+			peer1.time.visibility === "hidden" &&
 				peer1.time.left >= peer1.content.right - 1 &&
 				peer2.time.visibility === "hidden"
 		);
+		{
+			const index = await page.evaluate(ROW_WITH("hey, got a minute", "message"));
+			await page.hover('#chat .chat .msg[data-type="message"]', index);
+			await page.sleep(150);
+			page.check(
+				"Messenger query: hovered, a run's first line shows its time",
+				(await geometry("message", "hey, got a minute")).time.visibility === "visible"
+			);
+			await unhover();
+			await page.sleep(100);
+		}
 		await page.screenshot("9-messenger-query");
 		await timeBeside("Messenger query, theirs", "9g-messenger-query-time");
 		await toolbarFits("yep", "Messenger query, a short line of theirs");

@@ -4482,7 +4482,7 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:no
 	transform-origin: bottom left;
 }
 
-html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .messages > :is(.msg:first-child, .date-marker-container:first-child + .msg):not(.chat-view[data-type="query"] .msg.self) .msg-actions {
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .messages > :is(.msg:first-child, .date-marker-container:first-child + .msg, .date-marker-container:first-child + .session-marker + .msg):not(.chat-view[data-type="query"] .msg.self) .msg-actions {
 	transform-origin: top left;
 }
 
@@ -4663,6 +4663,42 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:no
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg[data-type="action"] > .time {
 	font-size: 0.8rem;
 	line-height: 1.75; /* the line's 1.4rem, so the two share a baseline */
+}
+
+/* § Session times. Messenger stamps a conversation the way a phone's
+ * messaging app does: the time, small and centred, over the first line of
+ * each stretch of talk (MessageList.vue; a quiet half hour starts a new one,
+ * helpers/messageSessions.ts), not on every line. The row's own time stays
+ * where it was: a run's header with a mouse, the swipe by finger. */
+html[data-message-layout="bubbles"] #chat .session-marker {
+	margin-block: 0.875rem 0.125rem;
+	margin-inline: 0.625rem;
+	text-align: center;
+	font-size: 0.75rem;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+html[data-message-layout="bubbles"] #chat .session-marker-text {
+	padding-block: 0.0625rem;
+	padding-inline: 0.5rem;
+	border-radius: 0.625rem;
+	background: var(--bubble-time-bg, none);
+	color: var(--body-color-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+/* So no row carries a time of its own until it is asked for: with a mouse
+ * a run's first line shows its time on hover, as a later line does (by
+ * finger the swipe shows them all, § By finger). The room it takes in the
+ * run's header stays, so nothing moves when it shows. */
+html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"]):not(:hover, .actions-open, :focus-within) > .time {
+	visibility: hidden;
+}
+
+/* A day's divider already opens the space above. */
+html[data-message-layout="bubbles"] #chat :is(.date-marker-container, .unread-marker, .gap-marker) + .session-marker {
+	margin-block-start: 0.375rem;
 }
 
 /* By finger no row shows its time, as in Messages on iOS: a swipe toward
@@ -10491,7 +10527,8 @@ html[data-reduce-motion] #chat .reactions-enter-active {
  * that one's toolbar tucks inside the row instead of being clipped by the
  * scroll edge. A leading date marker does not change that. */
 #chat .messages > .msg:first-child .msg-actions,
-#chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+#chat .messages > .date-marker-container:first-child + .msg .msg-actions,
+#chat .messages > .date-marker-container:first-child + .session-marker + .msg .msg-actions {
 	top: 0.125rem;
 	bottom: auto;
 	transform-origin: top right;
@@ -10665,7 +10702,8 @@ html[data-reduce-motion] #chat .reactions-enter-active {
 }
 
 #chat .messages > .msg:first-child .msg-copied,
-#chat .messages > .date-marker-container:first-child + .msg .msg-copied {
+#chat .messages > .date-marker-container:first-child + .msg .msg-copied,
+#chat .messages > .date-marker-container:first-child + .session-marker + .msg .msg-copied {
 	top: 0.125rem;
 	bottom: auto;
 }
