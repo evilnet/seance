@@ -3967,7 +3967,8 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 /* Bubbles (Settings → Appearance → Message layout, applied as
  * <html data-message-layout="bubbles">, helpers/messageLayout.ts;
  * docs/resources/themes.md § Bubbles). One layout for every theme that
- * draws bubbles, ps included. A run of one sender's lines (MessageList.vue's
+ * offers it (ps lays out its own rows, ps.css, its words drawn as Words over
+ * the plains says). A run of one sender's lines (MessageList.vue's
  * `previous-source`, helpers/messageRuns.ts) is a stack of bubbles: the
  * avatar in a gutter before it, level with its first line; the nick and the
  * time over the first line; a later line's time shown only when the line is
@@ -3979,8 +3980,8 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
  *
  * The layout is in two parts. The shape (below, keyed on the attribute
  * alone) is every theme's. The paint (further below, also keyed on
- * `:not([data-bubble-paint])`) is for the themes on plain colours; ps paints
- * its own cards over the scene and sets `data-bubble-paint="theme"`. A theme
+ * `:not([data-bubble-paint])`, which nothing sets since ps went back to its
+ * own rows) is for the themes on plain colours. A theme
  * on plain colours sets the --bubble-* tokens on :root (their defaults
  * follow its colours, at the top of this file) and needs nothing else:
  *   --bubble-bg            a bubble; the text colour 6% over the window
@@ -3990,7 +3991,7 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
  *   --bubble-fg-muted      the times inside one; the muted colour drawn toward the text
  *   --bubble-link          a link inside one; the link colour drawn toward the text
  *   --bubble-notice        a notice's words; the notice colour drawn toward the text
- *   --bubble-radius        0.625rem (shape: every theme, ps too)
+ *   --bubble-radius        0.625rem (shape: every theme)
  *   --bubble-join-radius   where a run's bubbles meet: 0.1875rem (shape)
  * The selectors carry `.chat` so they outrank the narrow @container rules
  * and a theme's own `#chat .msg…`. */

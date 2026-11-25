@@ -5,7 +5,7 @@ import {setHour12Source} from "./i18n/dates";
 import {normalizeFontSize} from "./helpers/fontSize";
 import {normalizeOwnMessageStyle} from "./helpers/ownMessages";
 import {normalizePsWords} from "./helpers/psWords";
-import {messageLayoutFor, themePaintsBubbles} from "./helpers/messageLayout";
+import {messageLayoutFor} from "./helpers/messageLayout";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
@@ -42,12 +42,6 @@ function applyMessageLayout(store: TypedStore, theme: string): void {
 		root.dataset.messageLayout = layout;
 	} else {
 		delete root.dataset.messageLayout;
-	}
-
-	if (themePaintsBubbles(theme)) {
-		root.dataset.bubblePaint = "theme";
-	} else {
-		delete root.dataset.bubblePaint;
 	}
 }
 
