@@ -70,6 +70,7 @@ import {
 	avatarSubKeys,
 	avatarsClosed,
 	avatarsWelcomed,
+	syncAvatarsOfJoinedChannels,
 	expectOwnAvatar,
 } from "./avatars";
 import {avatarsEnabled} from "../avatars/prefs";
@@ -3676,6 +3677,8 @@ export class IrcClient {
 					// login later on this connection still has to subscribe.
 					if (this.isWelcomed && !this.metadataSubscribed) {
 						this.send(`METADATA * SUB ${AVATAR_KEY}`);
+						// After the autojoin: those bursts said no one's avatar.
+						syncAvatarsOfJoinedChannels(this);
 					}
 				}, MUTE_READ_DELAY_MS);
 				(this.muteReadTimer as {unref?: () => void}).unref?.();
@@ -3700,6 +3703,8 @@ export class IrcClient {
 							...avatarSubKeys(this),
 						].join(" ")
 					);
+					// After the autojoin: those bursts said no one's avatar.
+					syncAvatarsOfJoinedChannels(this);
 				}
 
 				// Our own avatar (Settings → Account) rides along: its reply is state.

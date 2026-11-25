@@ -5,7 +5,7 @@
  */
 
 import {newUser, setUserModes} from "../channel";
-import {onHistoryLineFrom} from "../avatars";
+import {onHistoryLineFrom, syncChannelAvatars} from "../avatars";
 import type {Handler} from "../types";
 import {MessageType} from "../../../../shared/types/msg";
 
@@ -72,9 +72,14 @@ const endOfNames: Handler = (client, msg) => {
 	chan.topicWanted = false;
 	client.usersChanged(chan);
 
-	// The lines the device kept for the channel are on screen already: the
-	// avatars of their senders still here are asked for (irc/avatars.ts),
-	// where the burst does not say them (a held session's says none).
+	// A held session's restoration says no one's avatar: one SYNC asks for
+	// every member's (irc/avatars.ts). Elsewhere the lines the device kept
+	// for the channel, on screen already, ask for their senders still here,
+	// where the burst does not say them (a SYNC'd channel's are covered).
+	if (client.restoring) {
+		syncChannelAvatars(client, chan);
+	}
+
 	for (const line of client.conversations.restoredMessages(chan.name)) {
 		const nick = line.from?.nick;
 
