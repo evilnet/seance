@@ -73,6 +73,15 @@ function ensureLoaded(): void {
 	}
 }
 
+/** What is stored changed under this page (another tab, or settings sync):
+ * read it again. What the page itself loaded once or saw fail stays. */
+export function reloadAvatarPrefs(): void {
+	state.off = [];
+	state.people = [];
+	state.loaded = false;
+	ensureLoaded();
+}
+
 function persist(): void {
 	if (state.off.length === 0 && state.people.length === 0) {
 		backend.remove(STORAGE_KEY);

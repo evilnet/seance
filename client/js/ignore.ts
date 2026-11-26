@@ -161,6 +161,13 @@ export function ignoreListFor(networkUuid: string): IgnoreList {
 	return list;
 }
 
+/** The stored lists changed under this page (another tab, or settings sync). */
+export function reloadIgnoreLists(): void {
+	for (const list of lists.values()) {
+		list.reload();
+	}
+}
+
 /** Drop a network's ignore list (the network was removed): the stored copy,
  * the cached one and the service worker's mirror. */
 export function forgetIgnoreList(networkUuid: string): void {

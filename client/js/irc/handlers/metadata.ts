@@ -17,19 +17,22 @@
  * `private` or names our nick (our own legacy public value).
  */
 import type {Handler} from "../types";
+import type {IrcClient} from "../client";
+import type {IrcMessage} from "../message";
 import type {BatchHandler} from "./batch";
 import {sharedBurstRead} from "../presence";
 import {MUTE_KEY, onMuteValue} from "../pushMute";
 import {MODE_KEY, PRESENCE_KEY, onGlobalModeValue, onPresenceValue} from "../presenceShare";
 import {CLOSED_KEY, onClosedValue} from "../closedQueries";
 import {AVATAR_KEY, isQuietAvatarReply, onAvatarValue} from "../avatars";
+import {SYNC_KEY} from "../../sync/file";
 // index.ts imports this module too; `unhandled` is only called at run time.
-import {unhandled} from "./index";
+import {showReply, unhandled} from "./index";
 
 /** The webpush payload tier (webpush.ts writes it through `webpush:metadata`). */
 export const PAYLOAD_KEY = "draft/webpush/payload";
 
-const OWN_KEYS = new Set([MUTE_KEY, PAYLOAD_KEY, PRESENCE_KEY, MODE_KEY, CLOSED_KEY]);
+const OWN_KEYS = new Set([MUTE_KEY, PAYLOAD_KEY, PRESENCE_KEY, MODE_KEY, CLOSED_KEY, SYNC_KEY]);
 
 /** The shared keys this client reads (irc/presenceShare.ts). A Map: the key
  * is the server's, and a plain object answers `constructor` or `__proto__`. */
@@ -69,7 +72,26 @@ const metadata: Handler = (client, msg) => {
 	if (msg.params[1] === CLOSED_KEY && ours(client, msg.params[0] ?? "", msg.params[2] ?? "")) {
 		onClosedValue(client, msg.params[3] ?? "", false);
 	}
+
+	// The settings sync pointer (sync/file.ts). nefarious2 sends every
+	// notification with the visibility `*`, private keys included, so only
+	// the target says whose it is: ours when it names our nick, which nobody
+	// else can set keys on. Someone else's key of this name names theirs.
+	if (msg.params[1] === SYNC_KEY && client.isSelf(msg.params[0] ?? "")) {
+		client.onSyncPointer(msg.params[3] ?? "");
+	}
 };
+
+/**
+ * An avatar reply nothing here was waiting for. About someone else, the
+ * user asked (`/metadata bob get avatar`): it shows where they are. About
+ * ourselves it is as likely the answer to another of the account's devices
+ * reading its own avatar, which a shared session hears too: it goes to the
+ * server window, not into whatever conversation is open.
+ */
+function showAvatarReply(client: IrcClient, msg: IrcMessage, target: string): void {
+	showReply(client, msg, !client.isSelf(target));
+}
 
 // 761 <me> <target> <key> <visibility> :<value>: our own GET (`*` expands to our
 // nick) — never another user's value an oper asked for, private or not.
@@ -83,7 +105,7 @@ const keyValue: Handler = (client, msg) => {
 		}
 
 		if (!quiet) {
-			unhandled(client, msg);
+			showAvatarReply(client, msg, target);
 		}
 
 		return;
@@ -122,6 +144,10 @@ const keyValue: Handler = (client, msg) => {
 	if (msg.params[2] === CLOSED_KEY && client.isSelf(msg.params[1] ?? "")) {
 		onClosedValue(client, msg.params[4] ?? "", true);
 	}
+
+	if (msg.params[2] === SYNC_KEY && client.isSelf(msg.params[1] ?? "")) {
+		client.onSyncPointer(msg.params[4] ?? "");
+	}
 };
 
 // 766 <me> <target> <key> :key not set
@@ -132,7 +158,7 @@ const keyNotSet: Handler = (client, msg) => {
 		onAvatarValue(client, target, "");
 
 		if (!quiet) {
-			unhandled(client, msg);
+			showAvatarReply(client, msg, target);
 		}
 
 		return;
@@ -155,6 +181,10 @@ const keyNotSet: Handler = (client, msg) => {
 
 	if (msg.params[2] === CLOSED_KEY && client.isSelf(msg.params[1] ?? "")) {
 		onClosedValue(client, "", true);
+	}
+
+	if (msg.params[2] === SYNC_KEY && client.isSelf(msg.params[1] ?? "")) {
+		client.onSyncPointer("");
 	}
 };
 

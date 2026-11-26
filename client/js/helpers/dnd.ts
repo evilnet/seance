@@ -198,7 +198,7 @@ function asManual(raw: unknown): DndManual | undefined {
 	return undefined;
 }
 
-function asSchedule(raw: unknown): DndSchedule | undefined {
+export function asSchedule(raw: unknown): DndSchedule | undefined {
 	if (!raw || typeof raw !== "object") {
 		return undefined;
 	}

@@ -79,7 +79,7 @@ export function isValidAliasName(name: string): boolean {
 	return name.length > 0 && name.length <= MAX_NAME_LENGTH && NAME_PATTERN.test(name);
 }
 
-function isValidAlias(entry: unknown): entry is Alias {
+export function isValidAlias(entry: unknown): entry is Alias {
 	if (typeof entry !== "object" || entry === null) {
 		return false;
 	}
