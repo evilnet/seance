@@ -183,7 +183,19 @@ export default defineComponent({
 
 				const devicePixelRatio = window.devicePixelRatio || 2;
 
-				if (Math.abs(distX) > devicePixelRatio) {
+				// One drag is one gesture. The pane is taken up only by a drag
+				// that moves it (toward its end to open it, back to close it);
+				// one the other way may be the conversation's own, Messenger's
+				// swipe to its times (MessageList.vue), and once that has it the
+				// pane stands down, even if the finger comes back past where it
+				// started.
+				if (dragTarget?.closest(".chat.time-peek")) {
+					// eslint-disable-next-line no-use-before-define
+					endDrag(false);
+					return;
+				}
+
+				if ((store.state.sidebarOpen ? -distX : distX) > devicePixelRatio) {
 					// A sideways swipe in something that scrolls sideways (an
 					// oper report's table, its raw lines, a code block) is that
 					// scroll. Asked here, once the gesture is known to be

@@ -871,15 +871,24 @@ export default defineComponent({
 
 		// A sideways swipe toward the pane's start slides the conversation
 		// aside to show the times that take no room (style.css § By finger).
-		// Only the travel is ours: the stylesheet caps it and decides which
-		// looks have such times.
+		// Only the travel is ours: the stylesheet caps it. Only Messenger has
+		// such times (the look applied, `html[data-message-layout]`, which a
+		// theme without looks leaves off), so only there is a swipe watched.
+		// One drag is one gesture: a drag the sidebar has taken (toward the
+		// pane's end, Sidebar.vue) is never also a peek, and once the peek
+		// has it the sidebar stands down.
 		const PEEK_SLOP = 28;
 		const timePeek = ref(false);
 		let peekFrom: Touch | undefined;
 
 		const touchDown = (e: TouchEvent) => {
 			noteTouch(true);
-			peekFrom = e.touches.length === 1 && !selectionActive.value ? e.touches[0] : undefined;
+			peekFrom =
+				e.touches.length === 1 &&
+				!selectionActive.value &&
+				document.documentElement.dataset.messageLayout === "bubbles"
+					? e.touches[0]
+					: undefined;
 		};
 
 		const peekMove = (e: TouchEvent) => {
@@ -895,17 +904,21 @@ export default defineComponent({
 			if (!timePeek.value) {
 				const dy = Math.abs(touch.clientY - peekFrom.clientY);
 
-				// A scroll, or a swipe in something that scrolls sideways itself.
-				if (
-					dy > Math.max(PEEK_SLOP / 2, Math.abs(dx) / 2) ||
-					(e.target instanceof Element && scrollerTakesSwipe(e.target, false))
-				) {
+				// A scroll, or the sidebar's drag.
+				if (dy > Math.max(PEEK_SLOP / 2, Math.abs(dx) / 2) || store.state.sidebarDragging) {
 					peekFrom = undefined;
 					return;
 				}
 
 				// A deliberate swipe: well past a tap's wobble, and flat.
 				if (dx < PEEK_SLOP) {
+					return;
+				}
+
+				// A swipe in something that scrolls sideways itself. Asked once,
+				// now the swipe is one: the walk reads layout.
+				if (e.target instanceof Element && scrollerTakesSwipe(e.target, false)) {
+					peekFrom = undefined;
 					return;
 				}
 
