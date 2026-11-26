@@ -138,6 +138,11 @@ const EXTRA = [
 	// Two of our own in a row: the second's time comes on hover, before it.
 	`@time=${at("12:30")};msgid=x34 ${from(NICK)} PRIVMSG ${PEER} :one moment`,
 	`@time=${at("12:30")};msgid=x35 ${from(NICK)} PRIVMSG ${PEER} :sent, it is in your downloads`,
+	// A notice whose label is long and whose clock is the longest there is
+	// (12-hour with seconds, before midnight).
+	`@time=${DAY}T23:59:59.000Z;msgid=x09 ${from(
+		"LongerNickname"
+	)} NOTICE ${CHANNEL} :maintenance begins later today`,
 	// More reactions on a line of ours in the query than a phone's line
 	// holds, and a line of theirs after it.
 	`@time=${at("12:31")};msgid=x36 ${from(PEER)} PRIVMSG ${NICK} :so many reactions`,
@@ -239,9 +244,19 @@ const PAST_PANE = `(() => {
 	const r = c.getBoundingClientRect();
 	const right = r.left + c.clientWidth;
 	const shown = (e) => getComputedStyle(e).display !== "none" && getComputedStyle(e).visibility === "visible";
+	// A header's box can be squeezed narrower than its text, which then
+	// runs out of it: measured by its text as well as by its box.
+	const ends = (e) => {
+		const b = e.getBoundingClientRect();
+		if (!e.matches(".msg > :is(.from, .time)")) return [b.left, b.right];
+		const range = document.createRange();
+		range.selectNodeContents(e);
+		const t = range.getBoundingClientRect();
+		return [Math.min(b.left, t.left), Math.max(b.right, t.right)];
+	};
 	return [...c.querySelectorAll('.msg-reactions, .msg-reaction, .msg[data-type="action"], .msg[data-type="action"] > *, .msg:is([data-type="message"], [data-type="notice"]) > :is(.from, .time)')]
 		.filter(shown)
-		.filter((e) => e.getBoundingClientRect().right > right + 0.5 || e.getBoundingClientRect().left < r.left - 0.5)
+		.filter((e) => { const [left, end] = ends(e); return end > right + 0.5 || left < r.left - 0.5; })
 		.map((e) => e.className + " " + e.textContent.trim().slice(0, 24));
 })()`;
 
