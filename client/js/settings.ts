@@ -22,7 +22,13 @@ import {setScriptingEnabled} from "./irc/scripting/enabled";
 const defaultSettingConfig = {
 	apply() {},
 	default: null,
-	sync: null,
+	/**
+	 * Whether the setting follows the account to the user's other devices
+	 * (settings sync, sync/entries.ts; which do and why:
+	 * docs/projects/settings-sync.md § The settings). Only a value the user
+	 * chose roams; one still at its default stays each device's own.
+	 */
+	sync: false,
 };
 
 const buildThemeColor =
@@ -147,28 +153,32 @@ const defaultConfig = {
 		default: false,
 	},
 	autocomplete: {
+		sync: true,
 		default: true,
 	},
 	nickPostfix: {
+		sync: true,
 		default: "",
 	},
 	coloredNicks: {
+		sync: true,
 		default: true,
 	},
 	highlightMessages: {
+		sync: true,
 		default: true,
 	},
 	highlights: {
+		sync: true,
 		default: "",
-		sync: "always",
 	},
 	highlightExceptions: {
+		sync: true,
 		default: "",
-		sync: "always",
 	},
 	awayMessage: {
+		sync: true,
 		default: "",
-		sync: "always",
 	},
 	// Android shell only (Settings → General → Background connection): the
 	// foreground service that keeps the connections through Doze. applyAll
@@ -192,12 +202,14 @@ const defaultConfig = {
 	// Translation select and the dev sidebar globe both write this), which
 	// reader.ts `readingLanguage()` reads through `userLanguageRef`.
 	locale: {
+		sync: true,
 		default: "auto",
 		apply(store: TypedStore, value: string) {
 			void activate(value);
 		},
 	},
 	markdown: {
+		sync: true,
 		default: true,
 		// Mirrored to the service worker (it cannot read localStorage) so a
 		// push notification strips Markdown exactly when the page renders it;
@@ -207,22 +219,25 @@ const defaultConfig = {
 		},
 	},
 	motd: {
+		sync: true,
 		default: true,
 	},
 	notification: {
 		default: true,
-		sync: "never",
 	},
 	notifyAllMessages: {
+		sync: true,
 		default: false,
 	},
 	showSeconds: {
+		sync: true,
 		default: false,
 	},
 	// Whichever clock the browser's locale writes times in, until the reader
 	// says otherwise: en-US opens on "3:04 PM", de-DE on "15:04". Asked once,
 	// at load; a stored setting is assigned over it (store-settings.ts).
 	use12hClock: {
+		sync: true,
 		default: prefersTwelveHourClock(),
 		// Every timestamp that names no clock (tooltips, ban lists, whois, the
 		// oper cards) reads this one through the getter, reactively.
@@ -231,11 +246,13 @@ const defaultConfig = {
 		},
 	},
 	statusMessages: {
+		sync: true,
 		default: "condensed",
 	},
 	/** A server's push identity (VAPID key) changed: ask | trust | ignore
 	 * (client/js/webpush.ts, helpers/pushKeys.ts keyChangePolicy). */
 	pushKeyChange: {
+		sync: true,
 		default: "ask",
 	},
 	/**
@@ -258,6 +275,7 @@ const defaultConfig = {
 	 * into `locale` and deleted (`migrateReadingToLocale`).
 	 */
 	translateInto: {
+		sync: true,
 		default: "",
 	},
 	/**
@@ -266,10 +284,12 @@ const defaultConfig = {
 	 * (translate/detect.ts `detectionSkip`). Supported codes; empty by default.
 	 */
 	translateAlsoRead: {
+		sync: true,
 		default: [] as string[],
 	},
 	/** auto | formal | casual, one line of the prompt. */
 	translateFormality: {
+		sync: true,
 		default: "auto",
 	},
 	/** Let the router pick the GPU model / the CPU models. */
@@ -346,12 +366,14 @@ const defaultConfig = {
 	// nothing. Applied as <html data-own-messages="...">; the looks are in
 	// style.css so every theme gets all three (helpers/ownMessages.ts).
 	ownMessages: {
+		sync: true,
 		default: "muted",
 		apply(store: TypedStore, value: string) {
 			document.documentElement.dataset.ownMessages = normalizeOwnMessageStyle(value);
 		},
 	},
 	theme: {
+		sync: true,
 		default: document.getElementById("theme")?.dataset.serverTheme,
 		apply(store: TypedStore) {
 			loadTheme(store);
@@ -374,6 +396,7 @@ const defaultConfig = {
 	// choice; applied with the theme, since a theme change can take it away
 	// or bring it back.
 	messageLayout: {
+		sync: true,
 		default: "lines",
 		apply(store: TypedStore) {
 			if (store.state.settings.theme) {
@@ -404,36 +427,43 @@ const defaultConfig = {
 	// sender's lines under one nick and time (MessageList.vue,
 	// helpers/messageRuns.ts). The name is from when ps alone did.
 	psGroupMessages: {
+		sync: true,
 		default: true,
 	},
 	// Which treatment the words in the message column get over the plains
 	// (helpers/psWords.ts; ps.css reads html[data-ps-words], a missing
 	// attribute is Bubbles). Reflected like fontSize and ownMessages.
 	psWords: {
+		sync: true,
 		default: "bubbles",
 		apply(store: TypedStore, value: string) {
 			document.documentElement.dataset.psWords = normalizePsWords(value);
 		},
 	},
 	media: {
+		sync: true,
 		default: true,
 	},
 	// "click": media previews show a placeholder until the reader reveals them
 	// (or trusts the host, helpers/mediaTrust.ts); "always": load at once.
 	mediaReveal: {
+		sync: true,
 		default: "click",
 	},
 	// Where others' avatars load from by themselves (avatars/policy.ts):
 	// "trusted" (the network's image host, the deploy's and the reader's
 	// trusted hosts and people), "any", or "none" (initials only).
 	avatarLoad: {
+		sync: true,
 		default: "trusted",
 	},
 	uploadCanvas: {
+		sync: true,
 		default: true,
 	},
 	// Report own input activity as `+typing` TAGMSGs (IRCv3 typing client tag).
 	sendTypingNotifications: {
+		sync: true,
 		default: true,
 	},
 	// Keep the recent lines of every conversation, channels and private ones,
@@ -471,6 +501,7 @@ const defaultConfig = {
 	},
 	// Always available: the server's history, or what is loaded when it has no search.
 	searchEnabled: {
+		sync: true,
 		default: true,
 	},
 	// Lua scripting (Settings → Scripts → Enable Lua). Off by

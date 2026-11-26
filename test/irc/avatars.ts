@@ -90,6 +90,22 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 		expect(h.messages().length).to.be.greaterThan(before);
 	});
 
+	it("shows that reply where the user is", function () {
+		h.transport.line(`:irc.test 761 alice bob avatar * :${URL_B}`);
+		expect(h.lastMessage().showInActive).to.equal(true);
+	});
+
+	it("shows a reply about its own avatar that it did not ask for in the server window only", function () {
+		h.transport.line(`:irc.test 761 alice alice avatar * :${URL_A}`);
+		const before = h.messages().length;
+		// Another device of the account read its own avatar: this one hears it.
+		h.transport.line(`:irc.test 761 alice alice avatar * :${URL_A}`);
+
+		expect(h.messages().length).to.equal(before + 1);
+		expect(h.lastMessage().showInActive).to.equal(false);
+		expect(h.lastMessage().text).to.include(URL_A);
+	});
+
 	it("notes accounts from the account tag, extended-join and account-notify", function () {
 		h.transport.line("@account=bobacct :bob!bob@host.example PRIVMSG #seance :hi");
 		expect(avatarOf(uuid(), "bob")?.account).to.equal("bobacct");

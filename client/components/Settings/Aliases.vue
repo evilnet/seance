@@ -263,7 +263,7 @@
 </style>
 
 <script lang="ts">
-import {computed, defineComponent, reactive, ref, watch} from "vue";
+import {computed, defineComponent, onUnmounted, reactive, ref, watch} from "vue";
 import {useI18n} from "../../js/i18n";
 import {KEEP} from "../../js/i18n/core";
 import I18nFrame from "../I18nFrame.vue";
@@ -277,6 +277,7 @@ import {
 	MAX_NAME_LENGTH,
 	type Alias,
 } from "../../js/helpers/aliases";
+import {onAliasesReloaded} from "../../js/sync/reload";
 
 interface AliasRow extends Alias {
 	/** Stable key for the row while names are being typed. */
@@ -322,6 +323,31 @@ export default defineComponent({
 		// Every change persists at once, like the rest of the settings; a row
 		// with an error simply is not part of what is saved yet.
 		watch(validRows, (list) => saveAliases(list), {deep: true});
+
+		// The stored list changed under this page (settings sync, another
+		// tab): the saved rows become what is stored, and a row still being
+		// typed (not saved yet) stays, after them.
+		const stopReload = onAliasesReloaded(() => {
+			const stored = loadAliases();
+
+			if (JSON.stringify(stored) === JSON.stringify(validRows.value)) {
+				return;
+			}
+
+			const saved = new Set(validRows.value.map((alias) => alias.name.toLowerCase()));
+			const typing = rows.filter((row) => !saved.has(row.name.toLowerCase()));
+			const ids = new Map(rows.map((row) => [row.name.toLowerCase(), row.id]));
+			rows.splice(
+				0,
+				rows.length,
+				...stored.map((alias) => ({
+					...alias,
+					id: ids.get(alias.name.toLowerCase()) ?? nextId++,
+				})),
+				...typing
+			);
+		});
+		onUnmounted(stopReload);
 
 		const rowError = (index: number): string | null => {
 			const row = rows[index];

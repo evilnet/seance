@@ -125,6 +125,16 @@ function ensureLoaded(): void {
 	}
 }
 
+/** What is stored changed under this page (another tab, or settings sync): read it again. */
+export function reloadTrustedMedia(): void {
+	for (const kind of TRUST_KINDS) {
+		state[kind] = [];
+	}
+
+	state.loaded = false;
+	ensureLoaded();
+}
+
 function persist(): void {
 	const lists: TrustLists = {host: state.host, channel: state.channel, account: state.account};
 	backend.set(STORAGE_KEY, JSON.stringify(lists));

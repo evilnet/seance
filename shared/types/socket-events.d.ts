@@ -90,6 +90,8 @@ interface ServerToClientEvents {
 		at: number;
 	}>;
 	"mode:shared": EventHandler<{network: string; mode: "online" | "auto" | "away"; at: number}>;
+	/** The account's settings sync pointer was read or changed (`IrcClient.syncPointer`). */
+	"sync:pointer": EventHandler<{network: string}>;
 	/** Another device removed the shared do-not-disturb entry while this one wanted it. */
 	"dnd:cleared": EventHandler<{network: string}>;
 	"network:status": EventHandler<{
