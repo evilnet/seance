@@ -4060,7 +4060,7 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	grid-template-areas:
 		"from time ."
 		"content content content";
-	column-gap: 0.5rem;
+	column-gap: 0; /* the time's margin instead: no gap before the empty track */
 	align-items: baseline;
 	box-sizing: border-box;
 }
@@ -4123,6 +4123,7 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	grid-area: time;
 	display: block;
 	width: auto;
+	margin-inline-start: 0.5rem;
 	padding: 0;
 	font-size: 0.8em;
 	visibility: visible;
