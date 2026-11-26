@@ -8,10 +8,9 @@
 // had names, so nobody's choice changed. The looks live in style.css under
 // `html[data-message-layout]` (docs/resources/themes.md § Looks); a theme
 // only colours them.
-// Not every theme offers the choice. ps is always Messenger: the shape is
-// the same shared one, but ps paints the bubbles itself (its cards, glass
-// and words over the scene), so it also gets `data-bubble-paint="theme"` and
-// style.css leaves the colours to it. The period themes keep the look of
+// Not every theme offers the choice. ps lays out its own rows (ps.css), and
+// how its words are drawn is its own setting, Words over the plains
+// (helpers/psWords.ts): no look is applied there. The period themes keep the look of
 // the client they copy, and day and morning are TheLounge's originals, kept
 // as they were: for those the attribute is left off and the setting is not
 // shown. What the reader chose comes back when they return to a theme that
@@ -27,16 +26,10 @@ export type MessageLayout = (typeof messageLayouts)[number];
 export const defaultMessageLayout: MessageLayout = "lines";
 
 /** The themes that offer the reader the choice of look (themeRegistry.ts,
- * `looks: "offered"`). A new theme on coffee's tokens offers it unless it
- * copies a period client. */
+ * `looks`). A new theme on coffee's tokens offers it unless it copies a
+ * period client. */
 export const lookThemes: ReadonlySet<string> = new Set(
-	THEMES.filter((theme) => theme.looks === "offered").map((theme) => theme.name)
-);
-
-/** The themes that are always Messenger and paint the bubbles themselves
- * (themeRegistry.ts, `looks: "painted"`): ps. */
-const paintingThemes: ReadonlySet<string> = new Set(
-	THEMES.filter((theme) => theme.looks === "painted").map((theme) => theme.name)
+	THEMES.filter((theme) => theme.looks).map((theme) => theme.name)
 );
 
 /** A stored setting can be anything; anything but the three names means the default. */
@@ -54,15 +47,5 @@ export function themeOffersLooks(theme: string): boolean {
 /** The look to apply in `theme`, or null where the theme has no choice
  * and `data-message-layout` is left off. */
 export function messageLayoutFor(value: unknown, theme: string): MessageLayout | null {
-	if (themePaintsBubbles(theme)) {
-		return "bubbles";
-	}
-
 	return themeOffersLooks(theme) ? normalizeMessageLayout(value) : null;
-}
-
-/** Whether `theme` is always Messenger and paints the bubbles itself
- * (`data-bubble-paint="theme"`): ps alone. */
-export function themePaintsBubbles(theme: string): boolean {
-	return paintingThemes.has(theme);
 }

@@ -136,9 +136,6 @@
 :root {
 	color-scheme: light;
 
-	/* The card's corner, read by the shared bubble layout (style.css § The looks). */
-	--bubble-radius: 0.5rem;
-
 	/* Daylight until the scene says otherwise (docs/projects/ps-theme.md §3):
 	 * the midday stop's sky-top, and its horizon lifted 55 % toward white. The
 	 * scene overwrites both on <html> once a minute. */
@@ -478,6 +475,86 @@ strong,
 	font-weight: 700;
 }
 
+/* Stacked rows (the user's B, 2026-10-06, and the time first, 2026-10-08;
+ * spec §8). Every row starts with its time, in a column of the same width in
+ * every row (--ps-time-w: the widest English time of the clock setting, 0.8em
+ * tabular figures, measured in the text's ch; a longer locale's time widens
+ * its own row's column). A message is its time, then the nick, and the text
+ * on the next line under the nick, so the text is indented by the time
+ * column; a run of one sender's lines (MessageList.vue's `previous-source`,
+ * helpers/messageRuns.ts: the same nick, plain messages, ten minutes at
+ * most) shows the nick once and its later lines as the text alone, each
+ * line's time in its column, shown when the line is pointed at or opened by
+ * a long press; a day's divider or the unread line between two of them
+ * starts a new run. Every other row (a join, a mode, a topic, an action) is
+ * its time, its icon (the `.from::before` glyph), then the text, which wraps
+ * under itself; a condensed group's summary lines its text up with the nicks.
+ * A long nick is never cut, and the row is laid out alike at every pane
+ * width. Only the CSS changes: the markup is style.css's. The selectors carry
+ * `.chat` so they outrank style.css's narrow @container rules. */
+#chat {
+	--ps-time-w: 4ch;
+}
+
+#chat.time-12h {
+	--ps-time-w: 6.5ch;
+}
+
+#chat.time-seconds {
+	--ps-time-w: 6ch;
+}
+
+#chat.time-seconds.time-12h {
+	--ps-time-w: 8.5ch;
+}
+
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
+	display: grid;
+	grid-template-columns: minmax(var(--ps-time-w), max-content) minmax(0, 1fr);
+	grid-template-areas:
+		"time from"
+		". content";
+	column-gap: 0.5rem;
+	align-items: baseline;
+	padding-block: 0.25rem 0.125rem;
+	padding-inline: 0.625rem;
+}
+
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .from {
+	grid-area: from;
+	display: block;
+	width: auto;
+	min-width: 0;
+	max-width: 100%;
+	padding: 0;
+	text-align: start;
+	white-space: normal;
+	overflow: visible;
+	overflow-wrap: anywhere;
+}
+
+/* style.css's inline flow puts a space after the nick */
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .from::after {
+	content: none;
+}
+
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .time {
+	grid-area: time;
+	display: block;
+	width: auto;
+	padding: 0;
+	font-size: 0.8em;
+	white-space: nowrap;
+}
+
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content {
+	grid-area: content;
+	display: block;
+	padding-block: 0.0625rem 0.125rem;
+	padding-inline: 0;
+	border: 0;
+}
+
 /* The text's outline (its rim, its second ring and the shadow's 0.625rem
  * blur; the ink treatment's 0.375rem halo) reaches past its box, and with no
  * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
@@ -503,23 +580,188 @@ strong,
 	}
 }
 
-/* The bubbles themselves — the avatar in a gutter beside the run, the time
- * beside the nick, a later line's time on hover, the joined corners, the
- * status lines in the bubbles' column — are the shared layout's (style.css
- * § The looks; ps is always Messenger, helpers/messageLayout.ts), and override
- * the stacked rows above. ps keeps the paint: its cards, glass and words
- * over the scene (`data-bubble-paint="theme"`), and the card's corner
- * (--bubble-radius, with the day palette's tokens above). */
-
-/* A later line's time, shown on hover over the card's end, stands on a fill
- * of its own (style.css reads it): the card is see-through, and the words
- * under it showed. */
-#chat {
-	--bubble-time-bg: rgb(255 251 244 / 94%);
+/* The whois card: style.css hangs each label (`dt`) in the gutter left of
+ * the text, where the nick column stands in the default layout. The stacked
+ * rows have no such gutter and the clip above cut every label away, so here
+ * the card is a two-column grid of its own inside the text: label, value. */
+#chat .chat .whois {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	column-gap: 0.75rem;
 }
 
-html[data-ps-light="night"] #chat {
-	--bubble-time-bg: rgb(12 17 32 / 94%);
+#chat .chat .whois > div {
+	display: contents;
+}
+
+#chat .chat .whois dt {
+	position: static;
+	white-space: nowrap;
+}
+
+#chat .chat .whois dd {
+	min-inline-size: 0;
+	overflow-wrap: anywhere;
+}
+
+/* The card's first line is its own block (whois.vue's `<p>`), which the
+ * rows' `text-indent` reset (below) leaves under the icon: step it past
+ * the icon as every other row's first line does. */
+#chat .chat .msg[data-type="whois"] .content > p:first-child {
+	text-indent: calc(1.25em + 0.375rem);
+}
+
+/* A narrow pane has no room for the label column: each label stands over
+ * its value instead of squeezing it into a sliver. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: 32rem) {
+	#chat .chat .whois {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* Smaller, not dimmer: the colours are solved for contrast. */
+	#chat .chat .whois dt {
+		font-size: 0.875em;
+	}
+
+	#chat .chat .whois dd + dt {
+		margin-block-start: 0.25rem;
+	}
+}
+
+/* A line inside a run: one row, its time in the column beside the text,
+ * kept in place but not drawn until the line is pointed at or opened. */
+#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
+	grid-template-areas: "time content";
+	padding-block-start: 0;
+}
+
+#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) .from {
+	display: none;
+}
+
+#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) .time {
+	visibility: hidden;
+}
+
+#chat .chat .msg.previous-source:is(:hover, .actions-open) .time {
+	visibility: visible;
+}
+
+/* With avatars on (Avatar.vue in every message's nick), a run reads as a
+ * messenger's (the user's pick B, 2026-11-24): the avatar stands at 2.25rem
+ * in a gutter of its own before the row, outside the card under Bubbles,
+ * level with the run's first line, rather than at the nick's own size inside
+ * it, where it was too small to tell anyone by (2026-11-23). Every line of
+ * the run keeps the gutter, so the cards line up under the first. The time
+ * moves from the row's start to beside the nick, and a later line's time,
+ * still shown only when the line is pointed at or opened, over the card's
+ * end (the gutter is too narrow for "12:25 AM"). The avatar hangs from the row
+ * (`.msg`, positioned in style.css) into the gutter, so the markup is
+ * unchanged. Without avatars (switched off for the network) the rows are as
+ * above, the time first. */
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-areas:
+		"from time"
+		"content content";
+	max-width: calc(100% - 4rem);
+	margin-inline-start: 3.375rem;
+}
+
+#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) {
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-areas: "content";
+}
+
+/* A later line's time takes no room (kept in the flow, even hidden, it
+ * reserved its width and the words wrapped early): shown, it stands over
+ * the card's end on a fill of its own, so the words under it don't show through. */
+#chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) > .time {
+	position: absolute;
+	grid-area: auto;
+	inset-block-start: 0;
+	inset-inline-end: 0;
+	padding-block: 0.3rem 0.125rem;
+	padding-inline: 0.5rem 0.6rem;
+	border-radius: 0.5rem;
+	background: rgb(255 251 244 / 94%);
+}
+
+:root[data-ps-light="night"] #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) > .time {
+	background: rgb(12 17 32 / 94%);
+}
+
+#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) > .time {
+	position: static;
+	grid-area: time;
+	padding: 0;
+	background: none;
+}
+
+#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source:has(> .from .avatar) {
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-areas:
+		"from time"
+		"content content";
+}
+
+/* Under Bubbles a run with avatars is one stack, as a messenger groups a
+ * sender's messages: where two of its cards meet, the corners on the
+ * avatar's side are tight. */
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg:has(> .from .avatar):has(+ .msg.previous-source) {
+	border-end-start-radius: 0.1875rem;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.previous-source:has(> .from .avatar):not(:is(.date-marker-container, .unread-marker) + .msg) {
+	border-start-start-radius: 0.1875rem;
+}
+
+/* style.css positions the nick; the avatar hangs from the row instead, so
+ * it measures from the card's edge and not from inside its padding. */
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from:has(.avatar) {
+	position: static;
+}
+
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) > .from .avatar {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline-end: calc(100% + 0.5rem);
+	width: 2.25rem;
+	height: 2.25rem;
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 700;
+}
+
+/* An action is a user's line: with avatars on it stands in the messages'
+ * column beside its avatar, as a message does, rather than in the status
+ * lines' time column, where its time stood in the avatar's place (the user,
+ * 2026-11-25). The avatar (in the row's `.from`, beside the icon,
+ * Message.vue) hangs into the gutter a size smaller, level with the line;
+ * the time follows the words. Without avatars the row is as above. */
+#chat .chat .msg[data-type="action"]:has(> .from .avatar) {
+	grid-template-columns: minmax(0, max-content) auto;
+	grid-template-areas: "content time";
+	justify-content: start;
+	max-width: calc(100% - 4rem);
+	margin-inline-start: 3.375rem;
+}
+
+#chat .chat .msg[data-type="action"] > .from:has(.avatar) {
+	position: static;
+}
+
+#chat .chat .msg[data-type="action"] > .from .avatar {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-end: calc(100% + 0.5rem + 0.375rem);
+	translate: 0 -50%;
+	width: 1.5rem;
+	height: 1.5rem;
+	margin: 0;
+	font-size: 0.75rem;
+	font-weight: 700;
 }
 
 /* A mention keeps style.css's bar at its start (5px, in px there) and
@@ -536,6 +778,113 @@ html[data-ps-light="night"] #chat {
 
 #chat .chat-view[data-type="channel"] .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) .content {
 	border: 0;
+}
+
+/* A day's divider or the "New messages" line starts a run afresh: the line
+ * after it says who is speaking, as the first of a run does. (Only a plain
+ * message is ever `previous-source`.) */
+#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source {
+	grid-template-areas:
+		"time from"
+		". content";
+	padding-block-start: 0.25rem;
+}
+
+#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source .from {
+	display: block;
+}
+
+#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source .time {
+	visibility: visible;
+}
+
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]),
+#chat .chat .condensed-summary {
+	display: grid;
+	grid-template-columns: minmax(var(--ps-time-w), max-content) auto minmax(0, 1fr);
+	grid-template-areas: "time from content";
+	column-gap: 0.5rem;
+	align-items: baseline;
+	padding-block: 0.125rem;
+	padding-inline: 0.625rem;
+}
+
+#chat .chat .msg[data-type="condensed"] {
+	display: block;
+	padding-inline: 0;
+}
+
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) :is(.time, .from, .content),
+#chat .chat .condensed-summary :is(.time, .from, .content) {
+	display: block;
+	width: auto;
+	min-width: 0;
+	flex: none;
+	padding: 0;
+	border: 0;
+	text-align: start;
+}
+
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .time,
+#chat .chat .condensed-summary .time {
+	grid-area: time;
+	font-size: 0.8em;
+	white-space: nowrap;
+}
+
+/* The icon, after the time. Its column no longer clips (style.css's
+ * ellipsis); the text keeps style.css's anti-Zalgo clip. */
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .from {
+	grid-area: from;
+	overflow: visible;
+}
+
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .from::after {
+	content: none;
+}
+
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
+#chat .chat .condensed-summary .content {
+	grid-area: content;
+}
+
+/* A row with an icon (style.css's `.from::before` glyph: an action, a join,
+ * a part, a mode…) keeps its text where every message's text stands, under
+ * the nicks (the user, 2026-10-09: the icon had pushed the whole block
+ * further in): the icon shares the text's cell, at its start, and only the
+ * text's first line steps past it. */
+/* stylelint-disable max-line-length */
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) {
+	grid-template-columns: minmax(var(--ps-time-w), max-content) minmax(0, 1fr);
+	grid-template-areas: "time content";
+}
+
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) .from {
+	grid-area: content;
+	justify-self: start;
+	inline-size: 1.25em;
+}
+
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) .content {
+	text-indent: calc(1.25em + 0.375rem);
+}
+
+/* text-indent is inherited: a block inside the text (a preview, a table,
+ * the reactions) starts at its own edge. */
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) .content * {
+	text-indent: 0;
+}
+/* stylelint-enable max-line-length */
+
+/* A condensed group's summary has no time or icon of its own: its text
+ * stands where the nicks do. */
+#chat .chat .condensed-summary {
+	grid-template-columns: minmax(var(--ps-time-w), max-content) minmax(0, 1fr);
+	grid-template-areas: "time content";
+}
+
+#chat .chat .condensed-summary .from {
+	display: none;
 }
 
 /* ---- motion ---- */
@@ -2584,6 +2933,58 @@ html[data-own-messages="band"]:is(:not([data-ps-words]), [data-ps-words="bubbles
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .msg:first-child .msg-actions,
 :root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
 	transform-origin: top left;
+}
+
+/* A card is only as wide as its words, but its row is the whole line: as in
+ * style.css's Bubbles, an empty box runs from the card back to the column's
+ * edge and another on from its end, clipped by the list, so a pointer
+ * anywhere along the line is on the row and not only over the words. Placed
+ * by their end edge, so the sparks of our own last line (the same
+ * pseudo-elements, above) keep theirs. */
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages {
+	overflow-x: clip;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::before,
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::after {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inline-size: 100vw;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::before {
+	inset-inline-end: 100%;
+}
+
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg.has-actions::after {
+	inset-inline-end: -100vw;
+}
+
+html[dir="rtl"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg .msg-actions {
+	transform-origin: bottom right;
+}
+
+html[dir="rtl"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .msg:first-child .msg-actions,
+html[dir="rtl"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .messages > .date-marker-container:first-child + .msg .msg-actions {
+	transform-origin: top right;
+}
+
+/* On a phone's pane the card's start, a gutter in once avatars are on,
+ * leaves no room for the whole toolbar at the larger text steps (it ran past
+ * the pane's end, cut off): there it stands at the row's start, the column's
+ * own edge, 0.5rem in from it past the card's margin (0.625rem, or the
+ * avatar gutter's 3.375rem), still one place for every line. The phone
+ * layout's own breakpoint (style.css). */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: calc(50ch + 2.5rem)) or (max-width: 480px) {
+	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg .msg-actions {
+		inset-inline-start: calc(0.5rem - 0.625rem);
+	}
+
+	:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .messages > .msg:is([data-type="message"], [data-type="notice"]):has(> .from .avatar) .msg-actions {
+		inset-inline-start: calc(0.5rem - 3.375rem);
+	}
 }
 
 /* The glass column (§4.2): the message list on the chrome's glass — the

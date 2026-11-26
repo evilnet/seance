@@ -15,6 +15,7 @@ import {
 	parseUploadResponse,
 	uploadFile,
 	uploadMaxSize,
+	withCanonicalType,
 	xhrFetch,
 } from "../../client/js/upload";
 
@@ -532,6 +533,51 @@ describe("upload", function () {
 			expect(acceptsType(config, "video/webm")).to.be.true;
 			expect(acceptsType(config, "image/gif")).to.be.false;
 			expect(acceptsType(config, "")).to.be.false;
+		});
+	});
+
+	describe("withCanonicalType", function () {
+		const file = (name: string, type: string) => new File(["x"], name, {type});
+
+		it("names audio by the standard type a host and an accept list use", function () {
+			expect(withCanonicalType(file("song.m4a", "audio/x-m4a")).type).to.equal("audio/mp4");
+			expect(withCanonicalType(file("song.flac", "audio/x-flac")).type).to.equal(
+				"audio/flac"
+			);
+			expect(withCanonicalType(file("song.wav", "audio/vnd.wave")).type).to.equal(
+				"audio/wav"
+			);
+			expect(withCanonicalType(file("song.mp3", "audio/mp3")).type).to.equal("audio/mpeg");
+		});
+
+		it("gives an audio file with no type its type by extension", function () {
+			expect(withCanonicalType(file("song.flac", "")).type).to.equal("audio/flac");
+			expect(withCanonicalType(file("Song.M4A", "")).type).to.equal("audio/mp4");
+			expect(withCanonicalType(file("voice.opus", "")).type).to.equal("audio/ogg");
+		});
+
+		it("keeps the name and the bytes", async function () {
+			const out = withCanonicalType(new File(["hello"], "song.m4a", {type: "audio/x-m4a"}));
+			expect(out.name).to.equal("song.m4a");
+			expect(await out.text()).to.equal("hello");
+		});
+
+		it("leaves a standard type, a non-audio type and an unknown extension alone", function () {
+			for (const f of [
+				file("song.mp3", "audio/mpeg"),
+				file("pic.png", "image/png"),
+				file("clip.mkv", "video/x-matroska"),
+				file("notes.txt", ""),
+			]) {
+				expect(withCanonicalType(f), f.name).to.equal(f);
+			}
+		});
+
+		it("lets a deploy that accepts audio/mp4 take an m4a labelled audio/x-m4a", function () {
+			const config = {endpoint: ENDPOINT, accept: ["audio/mp4", "audio/flac"]};
+			expect(acceptsType(config, withCanonicalType(file("a.m4a", "audio/x-m4a")).type)).to.be
+				.true;
+			expect(acceptsType(config, withCanonicalType(file("a.flac", "")).type)).to.be.true;
 		});
 	});
 

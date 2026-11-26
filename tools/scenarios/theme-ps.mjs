@@ -3974,11 +3974,10 @@ export default async function run(page) {
 			insideOf(quoteCols.quote, quoteCols.content)
 	);
 
-	// ---- bubbles (style.css § Bubbles; ps is always Bubbles): the nick, then
-	// the time beside it, and the text under the nick; the second of two
-	// lines from one sender shows no nick, its time only when pointed at,
-	// over the card's end; a row with an icon has its icon, its words, then
-	// its time, its words where a message's text starts.
+	// ---- stacked rows (spec §8, the user's B and the time first): the time,
+	// then the nick, and the text under the nick; the second of two lines
+	// from one sender shows no nick, its time only when pointed at; a row
+	// with an icon has its time, then the icon.
 	peer.say(`one of two ${RUN}`);
 	peer.say(`two of two ${RUN}`);
 	const ROW_OF = (text) =>
@@ -4019,26 +4018,28 @@ export default async function run(page) {
 		};
 	})()`);
 	page.check(
-		`bubbles: the nick, then the time on the same line (nick ${stacked.from.l.toFixed(
+		`stacked: the time, then the nick on the same line (time ${stacked.time.l.toFixed(
 			0
-		)}–${stacked.from.r.toFixed(0)}, time from ${stacked.time.l.toFixed(
+		)}–${stacked.time.r.toFixed(0)}, nick from ${stacked.from.l.toFixed(
 			0
-		)}; tops ${stacked.from.t.toFixed(0)}, ${stacked.time.t.toFixed(0)})`,
-		stacked.from.r <= stacked.time.l &&
+		)}; tops ${stacked.time.t.toFixed(0)}, ${stacked.from.t.toFixed(0)})`,
+		stacked.time.r <= stacked.from.l &&
 			stacked.time.t < stacked.from.b &&
 			stacked.time.b > stacked.from.t
 	);
 	page.check(
-		`bubbles: the text on the next line, under the nick (text at ${stacked.text.l.toFixed(
+		`stacked: the text on the next line, under the nick (text at ${stacked.text.l.toFixed(
 			0
 		)},${stacked.text.t.toFixed(0)}; the nick from ${stacked.from.l.toFixed(
 			0
-		)}, its bottom ${stacked.from.b.toFixed(0)})`,
-		stacked.text.t >= stacked.from.b - 2 && Math.abs(stacked.text.l - stacked.from.l) < 1.5
+		)}, its bottom ${stacked.from.b.toFixed(0)}; the time from ${stacked.time.l.toFixed(0)})`,
+		stacked.text.t >= stacked.from.b - 2 &&
+			Math.abs(stacked.text.l - stacked.from.l) < 1.5 &&
+			stacked.text.l - stacked.time.l >= 3 * stacked.rem
 	);
-	page.check(`bubbles: the nick is drawn whole, never cut`, stacked.whole);
+	page.check(`stacked: the nick is drawn whole, never cut`, stacked.whole);
 	page.check(
-		`bubbles: the second of two lines shows no nick, its time not drawn (previous-source ${
+		`stacked: the second of two lines shows no nick, its time kept but not drawn (previous-source ${
 			stacked.continuation
 		}; ${stacked.hidden.join(", ")}), its text under the first's (${stacked.secondText.toFixed(
 			0
@@ -4046,9 +4047,10 @@ export default async function run(page) {
 		stacked.continuation &&
 			stacked.hidden[0] === "none" &&
 			stacked.hidden[1] === "hidden" &&
+			Math.abs(stacked.secondTime.l - stacked.time.l) < 1.5 &&
 			Math.abs(stacked.secondText - stacked.text.l) < 2
 	);
-	// Pointing at the second line shows its time, over the card's end.
+	// Pointing at the second line shows its time, in the time column beside it.
 	const secondId = await page.evaluate(`${ROW_OF(`two of two ${RUN}`)}.id`);
 	await page.hover(`#${secondId} .content`);
 	await page.sleep(150);
@@ -4056,20 +4058,24 @@ export default async function run(page) {
 		const m = document.getElementById(${JSON.stringify(secondId)}), t = m.querySelector(".time");
 		const tr = t.getBoundingClientRect(), mr = m.getBoundingClientRect(), cs = getComputedStyle(t);
 		const r = document.createRange(); r.selectNodeContents(m.querySelector(".content")); const text = r.getClientRects()[0];
-		return {visibility: cs.visibility, text: t.textContent.trim(), left: tr.left, sameLine: tr.top < text.bottom && tr.bottom > text.top, atEnd: Math.abs(tr.right - mr.right) < 1.5};
+		return {visibility: cs.visibility, text: t.textContent.trim(), left: tr.left, sameLine: tr.top < text.bottom && tr.bottom > text.top, beforeText: tr.right <= text.left};
 	})()`);
 	page.check(
-		`bubbles: pointing at the second line shows its time over the card's end (${
+		`stacked: pointing at the second line shows its time in the column beside it (${
 			chip.visibility
-		}, "${chip.text}" at ${chip.left.toFixed(0)}, the same line ${chip.sameLine}, at the end ${
-			chip.atEnd
-		})`,
-		chip.visibility === "visible" && chip.text !== "" && chip.sameLine && chip.atEnd
+		}, "${chip.text}" at ${chip.left.toFixed(0)}, the same line ${
+			chip.sameLine
+		}, before the text ${chip.beforeText})`,
+		chip.visibility === "visible" &&
+			chip.text !== "" &&
+			Math.abs(chip.left - stacked.time.l) < 1.5 &&
+			chip.sameLine &&
+			chip.beforeText
 	);
 	await page.hover(`#${await page.evaluate(`${ROW_OF(`one of two ${RUN}`)}.id`)} .content`);
 	await page.sleep(100);
 	page.check(
-		"bubbles: and hides it when the pointer leaves",
+		"stacked: and hides it when the pointer leaves",
 		(await page.evaluate(
 			`getComputedStyle(document.getElementById(${JSON.stringify(
 				secondId
@@ -4077,22 +4083,20 @@ export default async function run(page) {
 		)) === "hidden"
 	);
 	page.check(
-		`bubbles: after the unread line the second shows its nick and time again (${stacked.afterMarker.join(
+		`stacked: after the unread line the second shows its nick and time again (${stacked.afterMarker.join(
 			", "
 		)})`,
 		stacked.afterMarker[0] === "block" && stacked.afterMarker[1] === "visible"
 	);
 	page.check(
-		`bubbles: a ${
+		`stacked: a ${
 			stacked.iconRow?.type
-		} row puts its icon first and its time after, the icon where a message's text starts (icon ${stacked.iconRow?.from.l.toFixed(
+		} row puts its time before its icon, in the same column as the messages' (time ${stacked.iconRow?.time.l.toFixed(
 			0
-		)}–${stacked.iconRow?.from.r.toFixed(0)}, time from ${stacked.iconRow?.time.l.toFixed(
-			0
-		)}; a message's text at ${stacked.text.l.toFixed(0)})`,
+		)}–${stacked.iconRow?.time.r.toFixed(0)}, icon from ${stacked.iconRow?.from.l.toFixed(0)})`,
 		!!stacked.iconRow &&
-			stacked.iconRow.from.r <= stacked.iconRow.time.l &&
-			Math.abs(stacked.iconRow.from.l - stacked.text.l) < 1.5
+			stacked.iconRow.time.r <= stacked.iconRow.from.l &&
+			Math.abs(stacked.iconRow.time.l - stacked.time.l) < 1.5
 	);
 
 	// ---- a phone, at noon: the scene behind the conversation alone

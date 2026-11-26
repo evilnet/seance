@@ -7,6 +7,13 @@ import {MAX_LINE_BYTES, utf8ByteLength} from "../../client/js/irc/message";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
 import {PENDING_TIMEOUT_MS} from "../../client/js/irc/pending";
+import {
+	ConversationStore,
+	flushConversationStores,
+	MemoryBackend,
+	useConversationBackend,
+} from "../../client/js/irc/conversationStore";
+import * as saved from "../../client/js/irc/saved-networks";
 import {ALL_CAPS, batch, Harness, joined, labelOf, setup, stubStorage} from "./support";
 
 interface EditPayload {
@@ -414,12 +421,30 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 	// hand, without `account` (ircd_relay.c relay_private_message), while the
 	// original's echo has it. A live line from our own nick is ours and
 	// carries our account (handlers/privmsg.ts): the edit rule must not turn
-	// our own edit into a second line, nor the query log keep two.
+	// our own edit into a second line, nor the device keep two.
 	describe("our own live lines in a query, without account-tag", function () {
 		const ORIGINAL = "GkAAAaHT[Kn7Bx";
 		const EDIT = "GkAAAaHT]Wt2CL";
 		const ME = "alice!alice@host.example";
 		const editTags = `+evilnet.github.io/edit=${ORIGINAL};+seance/edit=${ORIGINAL}`;
+		let netCount = 0;
+
+		beforeEach(function () {
+			useConversationBackend(new MemoryBackend());
+		});
+
+		afterEach(async function () {
+			await flushConversationStores();
+			useConversationBackend(null);
+		});
+
+		/** The texts a page load would find kept on the device for the query with bob. */
+		async function keptWithBob(h: Harness): Promise<(string | undefined)[]> {
+			await flushConversationStores();
+			return new ConversationStore(h.client.uuid, (s) => s.toLowerCase())
+				.restoredMessages("bob")
+				.map((m) => m.text);
+		}
 
 		/** Logged in (unless `login` is false) with our line in a query with bob, echoed. */
 		function queryWithOwnLine({
@@ -428,7 +453,21 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			login = true,
 			body = "teh",
 		}: {caps?: string; label?: boolean; login?: boolean; body?: string} = {}) {
-			const h = setup();
+			// A saved network: only those keep their lines on the device.
+			const uuid = `edit-query-net-${++netCount}`;
+			saved.save({
+				uuid,
+				name: "",
+				host: "irc.test",
+				port: 8443,
+				tls: true,
+				nick: "alice",
+				join: "#seance",
+				sasl: "",
+				saslAccount: "",
+				saslPassword: "",
+			});
+			const h = setup({uuid});
 			joined(h, caps);
 
 			if (login) {
@@ -438,7 +477,6 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			}
 
 			const query = h.client.announceChannel("bob", ChanType.QUERY);
-			sinon.spy(h.client.conversations, "edit");
 			h.client.input(query.id, body);
 			const tags = [
 				label && caps.includes("labeled-response") ? "label=s1" : "",
@@ -451,11 +489,6 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			return {h, query};
 		}
 
-		/** The edits the device's copy of the conversation was told of (conversationStore.ts). */
-		function kept(h: Harness): unknown[][] {
-			return (h.client.conversations.edit as sinon.SinonSpy).args;
-		}
-
 		/** Our edit of the original, and its echo without an account. */
 		function editAndEcho(h: Harness, queryId: number, label: string, text = "the") {
 			h.client.input(queryId, text, {edit: ORIGINAL});
@@ -465,30 +498,30 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			);
 		}
 
-		it("takes our edit whose labelled echo has no account", function () {
+		it("takes our edit whose labelled echo has no account", async function () {
 			const {h, query} = queryWithOwnLine();
 			editAndEcho(h, query.id, "label=s2;");
 
 			// The echo replaces the original (the pending copy's msg:edit came first).
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
 			expect(h.lastMessage(query.id).fromAccount).to.equal("testaccount");
-			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
+			expect(await keptWithBob(h)).to.deep.equal(["the"]);
 		});
 
-		it("takes our edit whose unlabelled echo has no account", function () {
+		it("takes our edit whose unlabelled echo has no account", async function () {
 			const {h, query} = queryWithOwnLine({label: false});
 			editAndEcho(h, query.id, "");
 
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
-			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
+			expect(await keptWithBob(h)).to.deep.equal(["the"]);
 		});
 
-		it("takes our edit without labeled-response", function () {
+		it("takes our edit without labeled-response", async function () {
 			const {h, query} = queryWithOwnLine({caps: NO_LABELS});
 			editAndEcho(h, query.id, "");
 
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
-			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
+			expect(await keptWithBob(h)).to.deep.equal(["the"]);
 		});
 
 		it("takes our edit whose echo comes after the pending copy timed out", function () {
@@ -502,14 +535,14 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
 		});
 
-		it("takes an edit from another device of our session, of which we hold no copy", function () {
+		it("takes an edit from another device of our session, of which we hold no copy", async function () {
 			const {h, query} = queryWithOwnLine();
 			h.transport.line(
 				`@${editTags};msgid=${EDIT};time=2026-08-25T12:00:02.000Z :alice!alice@other.example PRIVMSG bob :the`
 			);
 
 			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
-			expect(kept(h)).to.deep.equal([["bob", ORIGINAL, EDIT]]);
+			expect(await keptWithBob(h)).to.deep.equal(["the"]);
 		});
 
 		it("takes our action edit whose echo has no account", function () {

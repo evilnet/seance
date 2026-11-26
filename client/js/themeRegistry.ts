@@ -21,12 +21,11 @@ export interface ThemeManifest {
 	 * leave it to the deploy (config.json's themeColor, else the build's). */
 	readonly themeColor: string | null;
 	/**
-	 * The looks (helpers/messageLayout.ts): `offered`, the reader's choice of
-	 * Classic, Messenger or Workspace; `painted`, always Messenger and the
-	 * theme paints the bubbles itself (`data-bubble-paint="theme"`). Absent,
-	 * the theme has no choice and draws Classic.
+	 * Whether it offers the reader the choice of look (helpers/messageLayout.ts):
+	 * Classic, Messenger or Workspace. Absent, no look is applied: the theme
+	 * draws its own rows (Classic, or ps's own).
 	 */
-	readonly looks?: "offered" | "painted";
+	readonly looks?: true;
 	/** Page elements of its own (themeScene.ts), mounted while it is applied. */
 	readonly scene?: SceneLoader;
 }
@@ -35,15 +34,15 @@ export interface ThemeManifest {
 export const THEMES: readonly ThemeManifest[] = [
 	// The four handoff themes (Ink & Amber, Cobalt Frost) carry their
 	// titlebar tone as the browser chrome colour.
-	{name: "coffee", displayName: "Coffee", themeColor: "#1a1816", looks: "offered"},
-	{name: "creama", displayName: "Creama", themeColor: "#efe9de", looks: "offered"},
-	{name: "cobalt", displayName: "Cobalt", themeColor: "#101720", looks: "offered"},
-	{name: "frost", displayName: "Frost", themeColor: "#eef2f7", looks: "offered"},
-	{name: "molokai", displayName: "Molokai", themeColor: "#1b1d1e", looks: "offered"},
-	{name: "princess", displayName: "Princess", themeColor: "#f2f7fc", looks: "offered"},
-	{name: "princess_", displayName: "Princess_", themeColor: "#000000", looks: "offered"},
-	{name: "keeki", displayName: "Keeki", themeColor: "#22143a", looks: "offered"},
-	{name: "keekiblush", displayName: "Keeki Blush", themeColor: "#f1d6e4", looks: "offered"},
+	{name: "coffee", displayName: "Coffee", themeColor: "#1a1816", looks: true},
+	{name: "creama", displayName: "Creama", themeColor: "#efe9de", looks: true},
+	{name: "cobalt", displayName: "Cobalt", themeColor: "#101720", looks: true},
+	{name: "frost", displayName: "Frost", themeColor: "#eef2f7", looks: true},
+	{name: "molokai", displayName: "Molokai", themeColor: "#1b1d1e", looks: true},
+	{name: "princess", displayName: "Princess", themeColor: "#f2f7fc", looks: true},
+	{name: "princess_", displayName: "Princess_", themeColor: "#000000", looks: true},
+	{name: "keeki", displayName: "Keeki", themeColor: "#22143a", looks: true},
+	{name: "keekiblush", displayName: "Keeki Blush", themeColor: "#f1d6e4", looks: true},
 	// The period themes keep the look of the client they copy: no choice of look.
 	{name: "sandrof", displayName: "Sandrof", themeColor: "#020402"},
 	{name: "oikarinen", displayName: "Oikarinen", themeColor: "#040301"},
@@ -61,10 +60,9 @@ export const THEMES: readonly ThemeManifest[] = [
 		name: "ps",
 		displayName: "ps",
 		themeColor: "#3f8fe6",
-		looks: "painted",
 		scene: () => import("./scenes/psng/scene"),
 	},
 	// Light or dark with the system on its own (one file, no pair), and the
 	// Mac app's default (boot.ts).
-	{name: "macos", displayName: "macOS", themeColor: null, looks: "offered"},
+	{name: "macos", displayName: "macOS", themeColor: null, looks: true},
 ];

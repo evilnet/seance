@@ -18,6 +18,9 @@ describe("overlays carry .screen-overlay", function () {
 		// A popover at its anchor; its phone sheet has its own inset rule
 		// (`html[data-shell="native"] .reaction-picker.sheet`).
 		"ReactionPicker.vue": "anchored popover, own sheet rule",
+		// Who reacted: a small label at its badge, kept inside the viewport
+		// by helpers/tipPlacement.ts; it never covers the screen.
+		"MessageReactions.vue": "a label at its badge, inside the viewport",
 		// Header popovers, under the @ and ⋮ buttons: their phone layout
 		// takes the insets in its own native rule
 		// (`html[data-shell="native"] .header-popover`, style.css).
