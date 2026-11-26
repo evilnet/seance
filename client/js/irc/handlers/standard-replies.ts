@@ -263,14 +263,10 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 			command.toUpperCase() === "METADATA" &&
 			rest.slice(0, -1).some((param) => isOwnMetadataKey(param))
 		) {
-			// A refused write of the settings sync pointer: the account still
-			// has the value it had (sync/engine.ts reads it and backs off).
-			if (
-				client.syncPointer !== undefined &&
-				rest.slice(0, -1).includes(SYNC_KEY) &&
-				code !== "KEY_NOT_SET"
-			) {
-				client.onSyncPointerRefused();
+			// A refused pointer SET: the server kept what it had, so the
+			// pointer is read again (only while a SET of ours is out).
+			if (rest.slice(0, -1).includes(SYNC_KEY)) {
+				client.onSyncPointerFail();
 			}
 
 			// A key this client keeps by itself (the push mute, the shared

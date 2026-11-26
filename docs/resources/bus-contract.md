@@ -185,7 +185,7 @@ With `echo-message` the server's echo is the copy of a sent message that goes in
 
 ### 1.13 Settings sync (2026-11-25, docs/projects/settings-sync.md)
 
-- `sync:pointer {network}` — this connection read the account's settings sync pointer (the private metadata key `seance/sync`: the registration burst, the login `GET`'s 761 or 766, or a notification under our own nick), or its value changed. The value is `IrcClient.syncPointer` (undefined until read, `""` when the key is not set); the event only says to look. `handlers/metadata.ts` → `IrcClient.onSyncPointer`; `client/js/sync/index.ts` runs the sync engine for the home network and offers sync on any other.
+- `sync:pointer {network}` — this connection read the account's settings sync pointer (the private metadata key `seance/sync`: the registration burst, the login `GET`'s 761 or 766, or a notification that says `private` or names our own nick), its value changed, or it became unknown again (a refused SET, a change of account after 001). The value is `IrcClient.syncPointer` (undefined until read, `""` when the key is not set); the event only says to look. `handlers/metadata.ts` → `IrcClient.onSyncPointer`; `client/js/sync/index.ts` runs the sync engine for the home network and offers sync on any other.
 
 ## 2. Client→server emits the IrcClient must `handle()`
 

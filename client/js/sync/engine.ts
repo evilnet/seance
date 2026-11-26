@@ -83,8 +83,6 @@ export interface HomeLink {
 	setPointer(value: string): void;
 	/** Ask the server for the pointer again; settles once it has answered. */
 	reread?(): Promise<void>;
-	/** How many of this connection's pointer writes the server refused. */
-	refusals: number;
 }
 
 /**
@@ -156,8 +154,12 @@ export class SyncEngine {
 	 * another tab took a newer one, is not news and is not taken again.
 	 */
 	private handled: string | undefined = undefined;
-	/** The connection's refused writes this engine has backed off for. */
-	private refusalsSeen = 0;
+	/** The pointer this copy last wrote, and the one it wrote over. */
+	private wrote: {pointer: string; over: string} | null = null;
+	/** Writes of this copy's the server did not keep, since one went through. */
+	private lostSets = 0;
+	/** The account this copy was told not to sync with, while its home stays on it. */
+	private declined = "";
 	private idle: Array<() => void> = [];
 
 	constructor(private readonly host: SyncHost) {
@@ -354,20 +356,31 @@ export class SyncEngine {
 			return;
 		}
 
+		this.declined = "";
+
 		if (state.pausedFor) {
 			state = this.update({pausedFor: ""});
-		}
-
-		if (link.refusals > this.refusalsSeen) {
-			// The server did not keep the pointer this device wrote.
-			this.refusalsSeen = link.refusals;
-			state = this.update({retryAt: this.host.now() + this.backoff()});
 		}
 
 		const value = link.pointer;
 
 		if (value === undefined) {
 			return; // not read on this connection yet
+		}
+
+		if (this.wrote && value !== this.wrote.pointer) {
+			if (value === this.wrote.over) {
+				// The server kept what it had (a full key list, a rate limit):
+				// wait longer each time, so a server that refuses every write
+				// is not sent a file every five minutes.
+				const wait = Math.min(RETRY_MS * 2 ** this.lostSets, RETRY_MAX_MS);
+				this.lostSets++;
+				state = this.update({retryAt: Math.max(state.retryAt, this.host.now() + wait)});
+			} else {
+				this.lostSets = 0; // another device's write went through
+			}
+
+			this.wrote = null;
 		}
 
 		const news = value !== this.handled || !state.joined;
@@ -468,7 +481,13 @@ export class SyncEngine {
 	}
 
 	private async otherAccount(home: string, account: string, state: SyncState): Promise<void> {
-		if (sameAccount(state.pausedFor, account) || this.asking) {
+		// Another tab still on the first account clears the stored pause:
+		// this one does not ask again while its home stays on this account.
+		if (
+			sameAccount(state.pausedFor, account) ||
+			sameAccount(this.declined, account) ||
+			this.asking
+		) {
 			return;
 		}
 
@@ -489,6 +508,7 @@ export class SyncEngine {
 			// Another account's file: this device joins it as a new one.
 			this.enable(home, account);
 		} else {
+			this.declined = account;
 			this.update({pausedFor: account});
 		}
 	}
@@ -730,6 +750,7 @@ export class SyncEngine {
 
 		current.setPointer(pointer);
 		this.handled = pointer;
+		this.wrote = {pointer, over: value};
 		this.outcome = "sent";
 		this.failures = 0;
 		const dirty = storage.get(COPY_KEY) !== raw;

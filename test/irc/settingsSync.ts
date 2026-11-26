@@ -1,5 +1,6 @@
 import {expect} from "chai";
 import {readFileSync} from "node:fs";
+import sinon from "sinon";
 import {register, setup, type Harness} from "./support";
 import {SYNC_KEY} from "../../client/js/sync/file";
 import {
@@ -122,15 +123,18 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(h.client.syncPointer).to.equal(POINTER);
 	});
 
-	it("reads it again when the server refuses the write", function () {
+	it("reads it again when the server refuses our write, and only then", function () {
 		const h = connected();
 		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		h.transport.line(`:irc.test FAIL METADATA KEY_INVALID ${SYNC_KEY} :not ours`);
+
+		expect(h.client.syncPointer).to.equal(POINTER);
+
 		h.client.writeSyncPointer(`${POINTER}0`);
 		h.transport.line(`:irc.test FAIL METADATA LIMIT_REACHED alice ${SYNC_KEY} :Too many keys`);
 
-		expect(h.client.syncWriteRefusals).to.equal(1);
 		expect(h.client.syncPointer).to.equal(undefined);
-		// Behind whatever else waits: the write may still be queued ahead of it.
+		// Behind whatever else waits.
 		const read = (line: string) => line === `METADATA * GET ${SYNC_KEY}`;
 		expect(
 			h.sent().some(read) || h.client.background.keys().includes(`metadata:get:${SYNC_KEY}`)
@@ -138,16 +142,36 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(pointers(h)).to.have.length(2);
 	});
 
-	it("forgets the pointer when the connection logs in as another account, and reads it again", function () {
+	it("subscribes and reads the account's keys after a login on the live connection", function () {
+		const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
+		const h = connected(undefined, false);
+
+		try {
+			h.transport.line(":irc.test 900 alice alice!a@h alice :You are now logged in as alice");
+			clock.tick(60_000);
+		} finally {
+			clock.restore();
+		}
+
+		const sent = h.sent();
+		expect(h.client.account).to.equal("alice");
+		expect(
+			sent.some((line) => line.startsWith("METADATA * SUB ") && line.includes(SYNC_KEY))
+		).to.equal(true);
+		expect(
+			sent.some((line) => line.startsWith("METADATA * GET ") && line.includes(SYNC_KEY))
+		).to.equal(true);
+	});
+
+	it("forgets the pointer when the connection logs in as another account or out", function () {
 		const h = connected();
 		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
-		const before = h.sent().length;
 		h.transport.line(":irc.test 900 alice alice!a@h bob :You are now logged in as bob");
 
 		expect(h.client.account).to.equal("bob");
 		expect(h.client.syncPointer).to.equal(undefined);
-		expect(h.sent().slice(before)).to.include(`METADATA * GET ${SYNC_KEY}`);
 
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
 		h.transport.line(":irc.test 901 alice alice!a@h :You are now logged out");
 
 		expect(h.client.syncPointer).to.equal(undefined);

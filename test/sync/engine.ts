@@ -3,6 +3,7 @@ import {FORMAT, MARKER_TTL_MS} from "../../client/js/sync/document";
 import {
 	QUIET_MS,
 	REFUSED_RETRY_MS,
+	RETRY_MAX_MS,
 	RETRY_MS,
 	SPACING_MS,
 	SyncEngine,
@@ -82,7 +83,6 @@ class Device {
 	/** Another copy of the app on the device holds the upload lock. */
 	busy = false;
 	online = true;
-	refusals = 0;
 	/** How far this device's clock runs ahead of the account's. */
 	skew = 0;
 	retentionDays = 30;
@@ -116,7 +116,6 @@ class Device {
 							token: () => this.token(),
 							setPointer: (value) => void (server.pointer = value),
 							reread: () => this.reread(),
-							refusals: this.refusals,
 					  }
 					: null,
 			context: (home) => ({
@@ -976,17 +975,40 @@ describe("settings sync engine (sync/engine.ts)", function () {
 			expect(a.engine.state.joined).to.equal(true);
 		});
 
-		it("backs off when the server refused the pointer it wrote", async function () {
+		it("waits longer each time the server keeps the pointer it had instead of ours", async function () {
 			const a = await firstDevice();
-			a.settings.media = false;
-			await a.changed();
-			server.now += SPACING_MS;
-			a.refusals = 1;
-			a.wakes = [];
+			const kept = server.pointer;
+
+			for (let i = 0; i < 7; i++) {
+				a.settings.media = !a.settings.media;
+				await a.changed();
+				server.now += Math.max(SPACING_MS, a.engine.state.retryAt - server.now);
+				const uploads = server.uploads;
+				await a.run();
+
+				expect(server.uploads, `upload ${i}`).to.equal(uploads + 1);
+
+				server.pointer = kept; // refused: read again, the old value
+				await a.run();
+
+				expect(a.engine.state.retryAt - server.now, `wait ${i}`).to.equal(
+					Math.min(RETRY_MS * 2 ** i, RETRY_MAX_MS)
+				);
+			}
+		});
+
+		it("asks once in a tab about another account, though another tab clears the pause", async function () {
+			const a = await firstDevice();
+			const tab = new Device(server, "alice", a.stored);
+			a.account = "bob";
+			await a.run();
+			await tab.run();
+
+			expect(tab.engine.state.pausedFor).to.equal("");
+
 			await a.run();
 
-			expect(server.uploads).to.equal(1);
-			expect(a.wakes.at(-1)).to.equal(RETRY_MS);
+			expect(a.asked).to.deep.equal(["bob"]);
 		});
 	});
 

@@ -56,9 +56,13 @@ sessions, under the nick of the session that set it (`m_metadata.c`,
 device logged in under another nick, not sharing a bouncer session, is
 heard too. Someone else's public key of the same name names their nick and
 is ignored. A connection that logs in or out after registration forgets
-the pointer it read and reads it again (`IrcClient.syncAccountChanged`); a
-write the server refuses (`FAIL METADATA … seance/sync`, a full key list)
-is read again, and the device waits before it uploads once more.
+the pointer it read, and a login subscribes and reads the account's keys as
+registration does (`IrcClient.onAccountChanged`). A write the server
+refuses (`FAIL METADATA … seance/sync` while our SET is out: a full key
+list, a rate limit) is read again; when the old value comes back the tab
+that wrote waits longer before it uploads again, doubling from a minute up
+to an hour, so a server that refuses every write is not sent a file every
+five minutes.
 
 ### What a device accepts
 
@@ -159,7 +163,8 @@ is kept on the device and never roams.
   the home and the device joins (§ A device joining). "Not now" lasts until
   the app is started again; "never" is kept on the device, and the switch
   still turns sync on.
-- Switching it off stops sync on that device and deletes its copy of the
+- Switching it off stops sync on that device (and the offer is not made
+  again on that page) and deletes its copy of the
   entries' times. The account's file and pointer stay for its other
   devices. Removing the home network from a device (signing out of a
   branded build) switches it off first, so the lists that go with the

@@ -109,7 +109,6 @@ function link(uuid: string): HomeLink | null {
 		token: () => withTimeout(client.backgroundToken(), TOKEN_TIMEOUT_MS),
 		setPointer: (value) => void client.writeSyncPointer(value),
 		reread: () => withTimeout(client.readSyncPointer(), REREAD_TIMEOUT_MS),
-		refusals: client.syncWriteRefusals,
 	};
 }
 
@@ -305,8 +304,18 @@ export async function turnOn(uuid: string): Promise<void> {
 	engine.enable(uuid, client.account);
 }
 
+/** Networks whose offer was put off on this page: asked again at the next launch. */
+const putOff = new Set<string>();
+
 /** The settings switch, off: this device stops syncing; the account's file stays. */
 export function turnOff(): void {
+	const home = readState(storage).home;
+
+	// Not offered again on this page: the user just said no to it.
+	if (home) {
+		putOff.add(home);
+	}
+
 	engine.disable();
 }
 
@@ -314,9 +323,6 @@ export function turnOff(): void {
 export function syncNow(): Promise<SyncNowResult> {
 	return engine.syncNow();
 }
-
-/** Networks whose offer was put off on this page: asked again at the next launch. */
-const putOff = new Set<string>();
 
 /**
  * A device with no sync home that sees an account's pointer asks once:

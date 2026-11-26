@@ -482,6 +482,8 @@ export class IrcClient {
 	 */
 	syncPointer: string | undefined = undefined;
 	private syncPointerWaiters: Array<() => void> = [];
+	/** A pointer SET is out and not answered yet: a FAIL naming the key is its refusal. */
+	private syncSetPending = false;
 	/**
 	 * The mute and the shared keys are subscribed on this connection: before
 	 * `CAP END` when the server offers `draft/metadata-2=before-connect` and
@@ -2167,6 +2169,7 @@ export class IrcClient {
 		this.globalServer = null;
 		this.closedKnown = false;
 		this.syncPointer = undefined;
+		this.syncSetPending = false;
 		this.syncPointerRead();
 		this.metadataSubscribed = false;
 		this.metadataBeforeConnect = false;
@@ -3778,6 +3781,7 @@ export class IrcClient {
 		this.globalServer = null;
 		this.closedKnown = false;
 		this.syncPointer = undefined;
+		this.syncSetPending = false;
 		this.syncPointerRead();
 		this.metadataSubscribed = false;
 		this.mutePending.length = 0;
@@ -3822,6 +3826,8 @@ export class IrcClient {
 
 	/** A `seance/sync` value read: our own key, from the burst, the login read or a notification. */
 	onSyncPointer(value: string): void {
+		this.syncSetPending = false;
+
 		if (this.syncPointer !== value) {
 			this.syncPointer = value;
 			this.dispatchBus("sync:pointer", {network: this.uuid});
@@ -3831,48 +3837,54 @@ export class IrcClient {
 	}
 
 	/**
-	 * The services account changed on this connection (a 900 or 901 after
-	 * registration): the pointer read was the other account's. It is unknown
-	 * until read again, and read again behind whatever the user waits for.
+	 * The connection logged in, out, or as another account once registered
+	 * (`/msg NickServ IDENTIFY`): the pointer read was another account's.
+	 * A login subscribes and reads the account's own keys as registration
+	 * does, so a guest who identifies later hears live changes too; before
+	 * 001, registration's own read is still to come.
 	 */
-	syncAccountChanged(): void {
-		if (this.syncPointer === undefined) {
+	onAccountChanged(): void {
+		if (!this.isWelcomed) {
 			return;
 		}
 
-		this.syncPointer = undefined;
-		this.syncPointerRead();
-		this.dispatchBus("sync:pointer", {network: this.uuid});
-		this.rereadSyncPointerLater();
-	}
+		this.forgetSyncPointer();
 
-	/** How many of this connection's pointer writes the server refused (sync/engine.ts backs off). */
-	syncWriteRefusals = 0;
+		if (this.account !== "") {
+			this.scheduleMuteRead();
+		}
+	}
 
 	/**
-	 * The server refused a write of the pointer (`FAIL METADATA … seance/sync`,
-	 * a full key list for one): the value written is not the account's. Read
-	 * what is.
+	 * A `FAIL METADATA` naming the pointer: if it answers our SET (a full
+	 * key list, a rate limit), the server kept the value it had, which this
+	 * connection no longer knows. Read it again; sync/engine.ts sees the
+	 * old value come back and waits longer before it uploads again.
 	 */
-	onSyncPointerRefused(): void {
-		this.syncWriteRefusals++;
-		this.syncPointer = undefined;
-		this.syncPointerRead();
-		this.dispatchBus("sync:pointer", {network: this.uuid});
-		this.rereadSyncPointerLater();
-	}
-
-	private rereadSyncPointerLater(): void {
-		if (!this.isWelcomed || !this.caps.hasCapability("draft/metadata-2")) {
+	onSyncPointerFail(): void {
+		if (!this.syncSetPending) {
 			return;
 		}
 
+		this.forgetSyncPointer();
 		const line = `METADATA * GET ${SYNC_KEY}`;
 		this.background.add({
 			key: `metadata:get:${SYNC_KEY}`,
 			cost: this.fakeLag.cost(line),
 			run: () => void this.send(line),
 		});
+	}
+
+	/** The pointer is unknown again: whoever follows it hears so. */
+	private forgetSyncPointer(): void {
+		const known = this.syncPointer !== undefined;
+		this.syncPointer = undefined;
+		this.syncSetPending = false;
+		this.syncPointerRead();
+
+		if (known) {
+			this.dispatchBus("sync:pointer", {network: this.uuid});
+		}
 	}
 
 	/** Whoever waits on {@link readSyncPointer} has its answer, or none is coming. */
@@ -3914,7 +3926,9 @@ export class IrcClient {
 		this.background.add({
 			key: `metadata:${SYNC_KEY}`,
 			cost: this.fakeLag.cost(line),
-			run: () => void this.send(line),
+			run: () => {
+				this.syncSetPending = this.send(line);
+			},
 		});
 		return true;
 	}

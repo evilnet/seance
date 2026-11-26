@@ -43,7 +43,7 @@ const loggedIn: Handler = (client, msg) => {
 
 	if (client.account !== account) {
 		client.account = account;
-		client.syncAccountChanged();
+		client.onAccountChanged(); // the settings sync pointer is the account's
 	}
 
 	if (!feed(client, msg)) {
@@ -52,8 +52,13 @@ const loggedIn: Handler = (client, msg) => {
 };
 
 const loggedOut: Handler = (client, msg) => {
+	const before = client.account;
 	client.account = "";
-	client.syncAccountChanged();
+
+	if (before !== "") {
+		client.onAccountChanged();
+	}
+
 	client.pushMessage(client.lobby, {time: client.timeOf(msg), text: text(msg.params)});
 };
 
