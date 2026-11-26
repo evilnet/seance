@@ -1700,6 +1700,8 @@ export default async function run(page) {
 		await page.sleep(300);
 		await page.evaluate(update("showSeconds", false));
 	} finally {
+		// The client dials again once the fixture is gone: that refusal is ours.
+		page.expectWsErrors = true;
 		await ircd.close();
 	}
 
