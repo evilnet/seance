@@ -138,6 +138,16 @@ const EXTRA = [
 	// Two of our own in a row: the second's time comes on hover, before it.
 	`@time=${at("12:30")};msgid=x34 ${from(NICK)} PRIVMSG ${PEER} :one moment`,
 	`@time=${at("12:30")};msgid=x35 ${from(NICK)} PRIVMSG ${PEER} :sent, it is in your downloads`,
+	// More reactions on a line of ours in the query than a phone's line
+	// holds, and a line of theirs after it.
+	`@time=${at("12:31")};msgid=x36 ${from(PEER)} PRIVMSG ${NICK} :so many reactions`,
+	`@time=${at("12:31")};msgid=x37 ${from(NICK)} PRIVMSG ${PEER} :react to this`,
+	...react(
+		"x37",
+		NICK,
+		["one", "two", "three", "four", "five", "six", "seven", "eight"].map((word) => [PEER, word])
+	),
+	`@time=${at("12:32")};msgid=x38 ${from(PEER)} PRIVMSG ${NICK} :done reacting`,
 	// Short lines, for the toolbar: one in the channel, one in the query.
 	`@time=${at("12:23")};msgid=x07 ${from("frank")} PRIVMSG ${CHANNEL} :yep`,
 	`@time=${at("12:23")};msgid=x08 ${from(PEER)} PRIVMSG ${NICK} :yep`,
@@ -218,8 +228,21 @@ const ACTION = (text) => `(() => {
 		nickColor: getComputedStyle(nick).color, nickClassColor,
 		content: content.getBoundingClientRect().left,
 		time: getComputedStyle(row.querySelector(":scope > .time")).visibility,
+		avatar: (() => { const a = row.querySelector(":scope > .from .avatar"); if (!a || getComputedStyle(a).display === "none") return "none"; const r = a.getBoundingClientRect(), l = row.closest(".chat").getBoundingClientRect(); return r.left >= l.left && r.right <= l.right ? "shown" : "clipped"; })(),
 		size: parseFloat(getComputedStyle(row).fontSize),
 		bodySize: parseFloat(getComputedStyle(document.querySelector('#chat .chat .msg[data-type="message"]')).fontSize)};
+})()`;
+
+/** What of the chips, the actions and the shown headers reaches past the pane's sides. */
+const PAST_PANE = `(() => {
+	const c = document.querySelector("#chat .chat");
+	const r = c.getBoundingClientRect();
+	const right = r.left + c.clientWidth;
+	const shown = (e) => getComputedStyle(e).display !== "none" && getComputedStyle(e).visibility === "visible";
+	return [...c.querySelectorAll('.msg-reactions, .msg-reaction, .msg[data-type="action"], .msg[data-type="action"] > *, .msg:is([data-type="message"], [data-type="notice"]) > :is(.from, .time)')]
+		.filter(shown)
+		.filter((e) => e.getBoundingClientRect().right > right + 0.5 || e.getBoundingClientRect().left < r.left - 0.5)
+		.map((e) => e.className + " " + e.textContent.trim().slice(0, 24));
 })()`;
 
 /** A Messenger bubble's reaction chips against the bubble and the row after it, by its words. */
@@ -472,24 +495,40 @@ export default async function run(page) {
 		await page.screenshot(shot);
 		await unhover();
 	};
-	// A later line's hover time over a link: the link still takes the click.
-	const timeLetsThrough = async (label) => {
-		await scrollTo("message", LONG_LINK);
+	// A later line's hover time takes the pointer, so its tooltip (the full
+	// date) opens under a mouse resting on it; over a link, the link keeps
+	// the rest of its length.
+	const timeTakesPointer = async (text, label) => {
+		await scrollTo("message", text);
 		await page.sleep(150);
-		const index = await page.evaluate(ROW_WITH(LONG_LINK, "message"));
+		const index = await page.evaluate(ROW_WITH(text, "message"));
 		await page.hover('#chat .chat .msg[data-type="message"]', index);
 		await page.sleep(150);
+		const at = await page.evaluate(`(() => {
+			const t = ${rowAt("message", index)}.querySelector(".time").getBoundingClientRect();
+			return {x: t.left + t.width / 2, y: t.top + t.height / 2};
+		})()`);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", ...at});
+		await page.sleep(200);
 		const got = await page.evaluate(`(() => {
 			const m = ${rowAt("message", index)};
-			const t = m.querySelector(".time").getBoundingClientRect();
-			const hit = document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2);
-			return {shown: getComputedStyle(m.querySelector(".time")).visibility, hit: hit?.closest(".time") ? "time" : hit?.closest("a") ? "link" : hit?.className ?? null};
+			const t = m.querySelector(".time");
+			const a = m.querySelector(".content a");
+			const r = a?.getBoundingClientRect();
+			const hit = document.elementFromPoint(${at.x}, ${at.y});
+			return {shown: getComputedStyle(t).visibility, hit: hit?.closest(".time") ? "time" : hit?.className ?? null,
+				hover: t.matches(":hover"), tip: getComputedStyle(t, "::after").display,
+				link: !a || document.elementFromPoint(r.left + 4, r.top + r.height / 2)?.closest("a") === a};
 		})()`);
 		page.check(
-			`${label}: a later line's hover time shows, and the link under it takes the pointer (${JSON.stringify(
+			`${label}: a later line's hover time takes the pointer and opens its date, a link under it keeps the rest (${JSON.stringify(
 				got
 			)})`,
-			got.shown === "visible" && got.hit === "link"
+			got.shown === "visible" &&
+				got.hit === "time" &&
+				got.hover &&
+				got.tip !== "none" &&
+				got.link
 		);
 		await unhover();
 	};
@@ -774,10 +813,11 @@ export default async function run(page) {
 
 		const action = await page.evaluate(ACTION("waves at everyone"));
 		page.check(
-			`an action: italic, in the text colour, no icon, the nick bold in its colour, the words at the text column, its time hidden (${JSON.stringify(
+			`an action: italic, in the text colour, no icon and no avatar, the nick bold in its colour, the words at the text column, its time hidden (${JSON.stringify(
 				action
 			)})`,
 			action.italic &&
+				action.avatar === "none" &&
 				action.icon === "none" &&
 				action.color === action.rowColor &&
 				action.nickItalic === "normal" &&
@@ -1053,11 +1093,14 @@ export default async function run(page) {
 				qActions.oursLeft > qActions.middle
 		);
 		const qOwnAction = await page.evaluate(ACTION("sends the screenshot"));
+		const qTheirAction = await page.evaluate(ACTION("squints at it"));
 		page.check(
-			`Messenger query: our own action, no icon, italic, the nick in its colour (${JSON.stringify(
-				qOwnAction
+			`Messenger query: our own action, no icon, italic, the nick in its colour, and no avatar on either side (${JSON.stringify(
+				{...qOwnAction, theirAvatar: qTheirAction.avatar}
 			)})`,
-			qOwnAction.icon === "none" &&
+			qOwnAction.avatar === "none" &&
+				qTheirAction.avatar === "none" &&
+				qOwnAction.icon === "none" &&
 				qOwnAction.italic &&
 				qOwnAction.nickColor === qOwnAction.nickClassColor
 		);
@@ -1098,10 +1141,11 @@ export default async function run(page) {
 		// space above and below, read as Workspace reads it.
 		const mAction = await page.evaluate(ACTION("nods along"));
 		page.check(
-			`Messenger: an action, italic, in the text colour, no icon, the nick bold in its colour, at the bubbles' text column, its time hidden (${JSON.stringify(
+			`Messenger: an action, italic, in the text colour, no icon, its avatar in the gutter, the nick bold in its colour, at the bubbles' text column, its time hidden (${JSON.stringify(
 				mAction
 			)})`,
 			mAction.italic &&
+				mAction.avatar === "shown" &&
 				mAction.icon === "none" &&
 				mAction.color === mAction.rowColor &&
 				mAction.nickItalic === "normal" &&
@@ -1329,7 +1373,7 @@ export default async function run(page) {
 		);
 		await scrollTo("part", "second pair of eyes");
 		await page.screenshot("11a-phone-workspace-huge-status");
-		await timeLetsThrough("phone Workspace at the largest text step");
+		await timeTakesPointer(LONG_LINK, "phone Workspace at the largest text step");
 		await page.evaluate(update("fontSize", "medium"));
 		await page.sleep(300);
 		await whoisSpaced("phone Workspace");
@@ -1347,6 +1391,10 @@ export default async function run(page) {
 		await scrollTo("message", "vote on the release name");
 		await page.screenshot("12a-phone-messenger-reactions");
 		await timeBeside("phone Messenger channel", "12d-phone-messenger-time");
+		await timeTakesPointer(
+			"the middle one, reacted to",
+			"phone Messenger channel, a short later line"
+		);
 		// The time's tooltip (the full date) opens over the bubble from its
 		// start, inside the pane.
 		const tip = await page.evaluate(`(() => {
@@ -1373,20 +1421,12 @@ export default async function run(page) {
 		await page.evaluate(update("fontSize", "huge"));
 		await page.sleep(400);
 		await chipsHang("vote on the release name", "phone Messenger at the largest text step");
-		// What reaches past the pane: the chips and the actions add nothing
-		// sideways. (A first line's header can, here: a nick and its time wider
-		// than the bubble, the notice's "Notice: @alice 12:07 PM", run its time
-		// out past the bubble; that is the header's, from before the chips.)
-		const pastPane = await page.evaluate(`(() => {
-			const c = document.querySelector("#chat .chat");
-			const r = c.getBoundingClientRect();
-			const right = r.left + c.clientWidth;
-			return [...c.querySelectorAll('.msg-reactions, .msg-reaction, .msg[data-type="action"], .msg[data-type="action"] > *')]
-				.filter((e) => e.getBoundingClientRect().right > right + 0.5 || e.getBoundingClientRect().left < r.left - 0.5)
-				.map((e) => e.className);
-		})()`);
+		// What reaches past the pane: the chips, the actions and a first
+		// line's header (a nick or a notice's label, and the time beside it)
+		// add nothing sideways.
+		const pastPane = await page.evaluate(PAST_PANE);
 		page.check(
-			`phone Messenger at the largest text step: no chip, row of chips or action reaches past the pane (${JSON.stringify(
+			`phone Messenger at the largest text step: no chip, row of chips, action or header reaches past the pane (${JSON.stringify(
 				pastPane
 			)})`,
 			pastPane.length === 0
@@ -1409,6 +1449,96 @@ export default async function run(page) {
 		await scrollTo("action", "sends the screenshot");
 		await page.screenshot("12c-phone-messenger-query-reactions");
 
+		// At the largest text step: more chips than the line holds stay on
+		// one line that scrolls along, clear of the next row, each in reach.
+		await page.evaluate(update("fontSize", "huge"));
+		await page.sleep(300);
+		await scrollTo("message", "react to this");
+		await page.sleep(150);
+		const manyChips = await page.evaluate(`(() => {
+			const rows = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')];
+			const row = rows.find((m) => m.textContent.includes("react to this"));
+			const next = rows.find((m) => m.textContent.includes("done reacting"));
+			const line = row.querySelector(".msg-reactions");
+			const chips = [...line.querySelectorAll(".msg-reaction:not(.msg-reaction-add)")];
+			const reach = (c) => { const b = c.getBoundingClientRect(); return document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)?.closest(".msg-reaction") === c; };
+			const l = line.getBoundingClientRect();
+			const seen = chips.filter((c) => { const b = c.getBoundingClientRect(); return b.left >= l.left && b.right <= l.right; });
+			const tops = new Set(chips.map((c) => Math.round(c.getBoundingClientRect().top)));
+			const lastBottom = Math.max(...chips.map((c) => c.getBoundingClientRect().bottom));
+			const before = {n: chips.length, lines: tops.size, scrolls: line.scrollWidth > line.clientWidth,
+				clear: next.getBoundingClientRect().top >= lastBottom, seen: seen.length, reach: seen.every(reach)};
+			line.scrollLeft = line.scrollWidth;
+			const last = chips.at(-1);
+			return {...before, lastReach: reach(last)};
+		})()`);
+		page.check(
+			`phone Messenger query at the largest text step: eight chips stay on one line that scrolls, clear of the next row, the ones in view and the last, scrolled to, in reach (${JSON.stringify(
+				manyChips
+			)})`,
+			manyChips.n === 8 &&
+				manyChips.lines === 1 &&
+				manyChips.scrolls &&
+				manyChips.clear &&
+				manyChips.seen > 0 &&
+				manyChips.reach &&
+				manyChips.lastReach
+		);
+		await page.screenshot("12h-phone-messenger-query-many-chips");
+
+		// The long press's toolbar on an older line of ours, the jump-to-recent
+		// arrow up: inside the pane, left to right and right to left.
+		const pressToolbar = async (label) => {
+			await scrollTo("message", "here it is, the phone at 390");
+			await page.sleep(200);
+			const at = await page.evaluate(`(() => {
+				const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("here it is, the phone at 390"));
+				const r = m.querySelector(".content").getBoundingClientRect();
+				return {x: Math.round(r.left + 8), y: Math.round(r.top + r.height / 2)};
+			})()`);
+			await page.send("Input.dispatchTouchEvent", {
+				type: "touchStart",
+				touchPoints: [{...at, id: 1}],
+			});
+			await page.sleep(750);
+			const got = await page.evaluate(`(() => {
+				const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("here it is, the phone at 390"));
+				const c = document.querySelector("#chat .chat");
+				const left = c.getBoundingClientRect().left + c.clientLeft;
+				const right = left + c.clientWidth;
+				const buttons = [...m.querySelectorAll(".msg-actions button")].filter((b) => b.getBoundingClientRect().width > 0)
+					.map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)]; });
+				return {open: m.classList.contains("actions-open"), arrow: !!document.querySelector("#chat .scroll-down-shown"),
+					left, right, buttons};
+			})()`);
+			await page.send("Input.dispatchTouchEvent", {type: "touchEnd", touchPoints: []});
+			await page.sleep(150);
+			page.check(
+				`${label}: a long press on an older line of ours, the arrow up, puts every button of the toolbar inside the pane (${JSON.stringify(
+					got
+				)})`,
+				got.open &&
+					got.arrow &&
+					got.buttons.length >= 4 &&
+					got.buttons.every(([l, r]) => l >= got.left && r <= got.right)
+			);
+			// A tap outside the scrollback puts it away (Message.vue).
+			await page.evaluate(
+				`document.body.dispatchEvent(new MouseEvent("click", {bubbles: true}))`
+			);
+			await page.waitFor(`!document.querySelector("#chat .msg.actions-open")`, {
+				label: "the toolbar put away",
+			});
+		};
+		await pressToolbar("phone Messenger query at the largest text step");
+		await page.evaluate(`document.documentElement.dir = "rtl"`);
+		await page.sleep(200);
+		await pressToolbar("phone Messenger query at the largest text step, right to left");
+		await page.evaluate(`document.documentElement.dir = "ltr"`);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+		await page.evaluate(update("fontSize", "medium"));
+		await page.sleep(300);
+
 		// By finger, with the longest clock (12-hour with seconds): no time is
 		// drawn until a swipe toward the pane's start slides the conversation
 		// aside; then every later line's stands past its bubble, inside the
@@ -1430,14 +1560,29 @@ export default async function run(page) {
 				type: "touchStart",
 				touchPoints: point(330),
 			});
+			// Every step of the way, nothing to scroll sideways.
+			const wideAt = [];
 			for (const x of [300, 240, 180, 100, 40]) {
 				await page.send("Input.dispatchTouchEvent", {
 					type: "touchMove",
 					touchPoints: point(x),
 				});
+				await page.sleep(50);
+				const c = await page.evaluate(
+					`(() => { const c = document.querySelector("#chat .chat"); return c.scrollWidth - c.clientWidth; })()`
+				);
+				if (c > 0) {
+					wideAt.push([x, c]);
+				}
 			}
 			await page.sleep(150);
 			const during = await page.evaluate(state);
+			page.check(
+				`${label}: while the finger travels the pane has nothing to scroll sideways (${JSON.stringify(
+					wideAt
+				)})`,
+				wideAt.length === 0
+			);
 			await page.screenshot(shot);
 			await page.send("Input.dispatchTouchEvent", {type: "touchEnd", touchPoints: []});
 			await page.sleep(150);
@@ -1468,6 +1613,76 @@ export default async function run(page) {
 		);
 		await page.sleep(150);
 		await peek("phone Messenger channel", "12g-phone-messenger-swipe");
+
+		// One drag is one gesture: a drag the sidebar took (toward the pane's
+		// end) never also slides the times out, even back past where it
+		// started; a drag the times took never also moves the sidebar.
+		const drag = async (xs) => {
+			const point = (x) => [{x, y: 420, id: 1}];
+			await page.send("Input.dispatchTouchEvent", {
+				type: "touchStart",
+				touchPoints: point(xs[0]),
+			});
+			const seen = {peeked: false, sidebar: false};
+			for (const x of xs.slice(1)) {
+				await page.send("Input.dispatchTouchEvent", {
+					type: "touchMove",
+					touchPoints: point(x),
+				});
+				await page.sleep(40);
+				const now = await page.evaluate(
+					`({peeked: !!document.querySelector("#chat .chat.time-peek"), sidebar: ${STORE}.state.sidebarDragging})`
+				);
+				seen.peeked ||= now.peeked;
+				seen.sidebar ||= now.sidebar;
+			}
+			await page.send("Input.dispatchTouchEvent", {type: "touchEnd", touchPoints: []});
+			await page.sleep(400);
+			const open = await page.evaluate(`${STORE}.state.sidebarOpen`);
+			if (open) {
+				await page.evaluate(`${STORE}.commit("sidebarOpen", false)`);
+				await page.sleep(400);
+			}
+			return {...seen, open};
+		};
+		for (const [dir, flip] of [
+			["ltr", (x) => x],
+			["rtl", (x) => 390 - x],
+		]) {
+			await page.evaluate(`document.documentElement.dir = "${dir}"`);
+			await page.sleep(200);
+			const sidebarFirst = await drag([150, 220, 250, 210, 140, 100, 40].map(flip));
+			page.check(
+				`phone Messenger, ${dir}: a drag the sidebar took, brought back past its start, never slides the times out (${JSON.stringify(
+					sidebarFirst
+				)})`,
+				sidebarFirst.sidebar && !sidebarFirst.peeked
+			);
+			const timesFirst = await drag([300, 260, 200, 150, 220, 300, 380].map(flip));
+			page.check(
+				`phone Messenger, ${dir}: a drag the times took, brought back past its start, never moves the sidebar (${JSON.stringify(
+					timesFirst
+				)})`,
+				timesFirst.peeked && !timesFirst.sidebar && !timesFirst.open
+			);
+		}
+		await page.evaluate(`document.documentElement.dir = "ltr"`);
+
+		// With a mouse, at the largest text step and the longest clock: every
+		// header (a nick or a notice's label, and the time beside it) inside
+		// the pane.
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+		await page.evaluate(update("fontSize", "huge"));
+		await page.sleep(400);
+		const longClock = await page.evaluate(PAST_PANE);
+		page.check(
+			`phone Messenger at the largest text step, 12-hour clock with seconds: no header reaches past the pane (${JSON.stringify(
+				longClock
+			)})`,
+			longClock.length === 0
+		);
+		await page.evaluate(update("fontSize", "medium"));
+		await page.sleep(300);
 		await page.evaluate(update("showSeconds", false));
 	} finally {
 		await ircd.close();

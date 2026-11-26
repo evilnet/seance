@@ -4048,7 +4048,9 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	--bubble-gutter: 2.75rem;
 }
 
-/* A message's inks are the bubble tokens' in both looks. */
+/* A message's inks are the bubble tokens' in both looks. A long sender
+ * label (a notice's) gives way before the time does, so a narrow pane at a
+ * large text step keeps the whole clock inside it. */
 html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
 	--body-color-muted: var(--bubble-fg-muted);
 	--chat-fg-muted: var(--bubble-fg-muted);
@@ -4056,10 +4058,10 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	--notice-color: var(--bubble-notice);
 
 	display: grid;
-	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, auto) max-content minmax(0, 1fr);
 	grid-template-areas:
-		"from time"
-		"content content";
+		"from time ."
+		"content content content";
 	column-gap: 0.5rem;
 	align-items: baseline;
 	box-sizing: border-box;
@@ -4206,6 +4208,12 @@ html[data-message-layout="bubbles"] #chat .chat .messages > .msg[data-type="acti
 	font-weight: 700;
 }
 
+/* A private conversation has no avatars (below): nor has an action there.
+ * The gutter it would hang in is not there either. */
+html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .messages > .msg[data-type="action"] > .from .avatar {
+	display: none;
+}
+
 /* A later line of a run: the text alone, close under the line before. A
  * day's divider, the "New messages" line or a gap starts a run afresh (the
  * `:where`, weightless): the line after it says who is speaking, as the
@@ -4257,7 +4265,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:where(:not(
 	padding-inline: 0.4375rem;
 	border-radius: 0.75rem;
 	white-space: nowrap;
-	pointer-events: none;
+	z-index: 1; /* over the row's whole-line box, so the pointer reaches its date */
 }
 
 /* One stack: where two of a run's bubbles meet, the corners on the
@@ -4571,6 +4579,32 @@ html[dir="rtl"][data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .m
 	}
 }
 
+/* Our own at the far side of a private conversation keep the end, and the
+ * arrow's offset with it, but never pass the pane's start: on a phone at the
+ * larger text steps, with the arrow up and the long press's Copy text, there
+ * was not the room, and React went off the start edge. The bar stands from
+ * the column's start (the bubble ends 0.625rem in from the list's end, a
+ * size container) and slides toward its end by the room there is, never
+ * back past it. `translate` is physical, hence the mirror. */
+html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .messages > .msg.self .msg-actions {
+	--msg-actions-end: 0.5rem;
+
+	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
+	inset-inline: calc(100% + 1.125rem - 100cqi) auto;
+	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
+	translate: max(0px, calc(100cqi - 1.125rem - var(--msg-actions-end) - 100%));
+	transition: translate 0.2s; /* the glide the end inset has elsewhere */
+}
+
+html[dir="rtl"][data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .messages > .msg.self .msg-actions {
+	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
+	translate: min(0px, calc(100% + 1.125rem + var(--msg-actions-end) - 100cqi));
+}
+
+html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat-content:has(.scroll-down-shown) .chat .messages > .msg.self .msg-actions {
+	--msg-actions-end: calc(var(--scroll-down-inset) + var(--scroll-down-size) + 0.5rem);
+}
+
 /* Messenger's private conversation is a two-sided chat: the header names
  * who it is, so neither side shows an avatar or a nick (a notice keeps its
  * label), and our own bubbles stand at the far side in the own fill,
@@ -4771,6 +4805,18 @@ html[dir="rtl"][data-message-layout="bubbles"][data-input="touch"] #chat .chat.t
 	translate: min(var(--time-peek, 0px), calc(var(--bubble-time) + 2.5rem));
 }
 
+/* Without the list's clip the whole-line row boxes (a pointer's, above)
+ * would reach a screen past the pane and give the scroller that much
+ * sideways range: a finger has no use for them. */
+html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .messages > .msg.has-actions::before,
+html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .messages > .msg.has-actions::after {
+	display: none;
+}
+
+/* Each time starts at the list's end and is only as wide as the travel has
+ * brought into the pane, the rest cut where the pane would cut it: at no
+ * point of the swipe does a time reach past the pane, which would give the
+ * scroller sideways range. */
 html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .messages .msg > .time {
 	display: block;
 	grid-area: auto; /* placed against the row, not its header's cell */
@@ -4780,7 +4826,8 @@ html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .m
 	inset-inline: calc(100cqi - var(--bubble-gutter) - 0.625rem) auto;
 	translate: 0 -50%;
 	margin: 0;
-	padding: 0 0.25rem;
+	padding-block: 0;
+	padding-inline: min(0.25rem, var(--time-peek, 0px) / 2);
 	border-radius: 0.25rem;
 	background: var(--bubble-time-bg, none);
 	color: var(--body-color-muted);
@@ -4789,11 +4836,23 @@ html[data-message-layout="bubbles"][data-input="touch"] #chat .chat.time-peek .m
 	white-space: nowrap;
 	visibility: visible;
 	pointer-events: none;
+	box-sizing: border-box;
+	max-inline-size: min(var(--time-peek, 0px), var(--bubble-time) + 2.5rem);
+	overflow: hidden;
 }
 
-/* Our own, at the far side of a private conversation: from its own end. */
+/* A mention's bar is in the bubble's border, which the time is placed
+ * inside of. */
+html[data-message-layout="bubbles"][data-input="touch"] #chat .chat-view[data-type="channel"] .chat.time-peek .messages .msg.highlight > .time {
+	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
+	inset-inline-start: calc(100cqi - var(--bubble-gutter) - 0.625rem - 0.1875rem);
+}
+
+/* Our own, at the far side of a private conversation: from its own end
+ * (an action's own time has its own padding, which this outweighs). */
 html[data-message-layout="bubbles"][data-input="touch"] #chat .chat-view[data-type="query"] .chat.time-peek .messages .msg.self > .time {
 	inset-inline: calc(100% + 0.625rem) auto;
+	padding-inline: min(0.25rem, var(--time-peek, 0px) / 2);
 }
 
 /* Messenger's reactions hang off the bubble they answer: the chip row
@@ -4857,24 +4916,37 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:is
  * bubble's corner instead (`.msg` is positioned), left where it falls below
  * the words, and `.content` keeps its clip and its baseline, which the time
  * is set on; the bubble's own padding is the third of a chip on it. Placed
- * so, the row makes no room for a second line: two people seldom leave a
- * line's worth of different reactions on one message. */
+ * so, the row makes no room for a second line (two people seldom leave a
+ * line's worth of different reactions on one message), so it never wraps:
+ * what does not fit the line scrolls along it, where a wrapped line had
+ * covered the next row and given it the clicks. The padding is the rings'
+ * room inside the scroller, the inset and margins giving it back; the add
+ * chip takes its place in the line rather than hanging past its end, which
+ * would scroll. */
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]):has(> .content > .msg-reactions) {
 	padding-block-end: calc(var(--reaction-chip) / 3 + 0.125rem);
 }
 
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]) > .content > .msg-reactions {
 	position: absolute;
-	inset-inline: 0.5rem auto;
+	inset-inline: 0.375rem auto;
+	flex-wrap: nowrap;
 	inline-size: max-content;
 	max-inline-size: var(--reaction-row);
-	margin-block-end: 0;
-	margin-inline: 0;
+	margin: 0;
+	padding: 0.125rem;
+	overflow-x: auto;
+	overscroll-behavior-x: contain;
+	scrollbar-width: thin;
+}
+
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]) > .content > .msg-reactions .msg-reaction {
+	flex-shrink: 0;
 }
 
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self:is([data-type="message"], [data-type="notice"]) > .content > .msg-reactions {
-	inset-inline: auto 0.5rem;
-	justify-content: flex-end;
+	inset-inline: auto 0.375rem;
+	justify-content: safe flex-end;
 	transform-origin: calc(100% - 0.75rem) 50%;
 }
 
@@ -4933,9 +5005,13 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg:is
 	opacity: 0;
 }
 
+/* In a private conversation the line scrolls (above): the add chip is in it. */
+html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg:is([data-type="message"], [data-type="notice"]) .msg-reactions .msg-reaction-add {
+	margin-inline: 0;
+}
+
 html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat-view[data-type="query"] .chat .msg.self:is([data-type="message"], [data-type="notice"]) .msg-reactions .msg-reaction-add {
 	order: -1;
-	margin-inline: calc(-1 * (var(--reaction-chip) + 0.3125rem)) 0;
 }
 
 html[data-reduce-motion][data-message-layout="bubbles"]:not([data-bubble-paint]) #chat .chat .msg .msg-reactions .msg-reaction-add {
@@ -5017,9 +5093,10 @@ html[data-message-layout="workspace"] #chat .chat .msg:is([data-type="message"],
 /* A later line's time comes over the row's end, as in Messenger, on the
  * row's own surface (the window, under a band if the row has one, under the
  * hover tint it shows with: the row's, spelled out, since `currentcolor`
- * here would be the time's), so the words under it don't show through. */
+ * here would be the time's), so the words under it don't show through.
+ * It takes the pointer, as what is seen there is the time: its tooltip
+ * carries the full date. */
 html[data-message-layout="workspace"] #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) > .time {
-	pointer-events: none; /* a link or a control under it still takes the click */
 	background-color: var(--window-bg-color);
 	background-image:
 		linear-gradient(var(--msg-hover-bg, color-mix(in srgb, var(--body-color) 8%, transparent)) 0 0),
@@ -5055,6 +5132,10 @@ html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"]
  * empty: the row draws no avatar. */
 html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] {
 	padding-block: 0.5rem 0.125rem;
+}
+
+html[data-message-layout="workspace"] #chat .chat .msg[data-type="action"] > .from .avatar {
+	display: none;
 }
 
 /* The status lines, a block of them set off by a run's space before it and
