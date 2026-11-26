@@ -20,7 +20,6 @@
 		:title="getAriaLabel()"
 		:data-name="channel.name"
 		:data-type="channel.type"
-		:data-mentioned="mentioned ? '' : undefined"
 		:data-emoji="emoji || undefined"
 		:aria-controls="'#chan-' + channel.id"
 		:aria-selected="active"
@@ -93,12 +92,6 @@ export default defineComponent({
 		// non-zero value here always means a pulse that is still running.
 		const hasActivity = computed(() => props.channel.activityUntil > 0);
 
-		// A live mention here while another conversation is open: the row
-		// carries `data-mentioned` for a theme to pulse (docs/resources/themes.md
-		// § Live rows), on the same deadline-and-sweep as the pulse above
-		// (socket-events/activity.ts sets it, opening the conversation ends it).
-		// style.css shows nothing for it.
-		const mentioned = computed(() => props.channel.mentionUntil > 0 && !props.active);
 		// A channel whose topic opens with an emoji: the row draws it in place
 		// of the speech bubbles (style.css, .channel-list-item[data-emoji]).
 		const emoji = computed(() =>
@@ -196,7 +189,6 @@ export default defineComponent({
 			isChannelVisible,
 			isTyping,
 			hasActivity,
-			mentioned,
 			emoji,
 			getAriaLabel,
 			click,

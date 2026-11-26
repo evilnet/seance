@@ -6,7 +6,7 @@ import {setHour12Source} from "./i18n/dates";
 import {normalizeFontSize} from "./helpers/fontSize";
 import {normalizeOwnMessageStyle} from "./helpers/ownMessages";
 import {normalizePsWords} from "./helpers/psWords";
-import {messageLayoutFor, themePaintsBubbles, type MessageLayout} from "./helpers/messageLayout";
+import {messageLayoutFor, type MessageLayout} from "./helpers/messageLayout";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
@@ -51,12 +51,6 @@ function applyMessageLayout(store: TypedStore, theme: string): void {
 		root.dataset.messageLayout = layout;
 	} else {
 		delete root.dataset.messageLayout;
-	}
-
-	if (themePaintsBubbles(theme)) {
-		root.dataset.bubblePaint = "theme";
-	} else {
-		delete root.dataset.bubblePaint;
 	}
 }
 
@@ -415,7 +409,7 @@ const defaultConfig = {
 			themeScene.setPauseWhenAway(value !== false);
 		},
 	},
-	// Whether Messenger and Workspace (ps included) combine a run of one
+	// Whether Messenger, Workspace and ps combine a run of one
 	// sender's lines under one nick and time (MessageList.vue,
 	// helpers/messageRuns.ts). The name is from when ps alone did.
 	psGroupMessages: {

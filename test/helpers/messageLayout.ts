@@ -6,7 +6,6 @@ import {
 	messageLayouts,
 	normalizeMessageLayout,
 	themeOffersLooks,
-	themePaintsBubbles,
 } from "../../client/js/helpers/messageLayout";
 import configuration from "../../client/js/configuration";
 
@@ -39,13 +38,11 @@ describe("messageLayout", () => {
 		}
 	});
 
-	it("keeps ps on Messenger, painted by ps, whatever the setting says", () => {
+	it("leaves ps to lay out its own rows, whatever the setting says", () => {
 		expect(themeOffersLooks("ps")).to.equal(false);
-		expect(messageLayoutFor("lines", "ps")).to.equal("bubbles");
-		expect(messageLayoutFor("workspace", "ps")).to.equal("bubbles");
-		expect(messageLayoutFor(undefined, "ps")).to.equal("bubbles");
-		expect(themePaintsBubbles("ps")).to.equal(true);
-		expect(themePaintsBubbles("keeki")).to.equal(false);
+		expect(messageLayoutFor("workspace", "ps")).to.equal(null);
+		expect(messageLayoutFor("bubbles", "ps")).to.equal(null);
+		expect(messageLayoutFor(undefined, "ps")).to.equal(null);
 	});
 
 	it("leaves the period themes and TheLounge's own without the choice", () => {

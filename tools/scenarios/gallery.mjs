@@ -240,12 +240,10 @@ async function boot(page, viewport, first) {
 	}
 
 	// The sidebar's activity dot keeps its colour under reduced motion, and
-	// its deadline reads the clock the cells below keep putting back; so does
-	// a mention elsewhere (data-mentioned). The live hooks a theme may style
-	// (docs/resources/themes.md § Live rows) run out too.
+	// its deadline reads the clock the cells below keep putting back.
 	await page.waitFor(
-		`document.querySelectorAll("#chat .msg[data-live], #chat .msg-reaction[data-arrived], .channel-list-item.has-activity, .channel-list-item[data-mentioned]").length === 0`,
-		{label: "no live row or chip, no activity dot or mention", timeout: 8000}
+		`document.querySelectorAll("#chat .msg[data-live], .channel-list-item.has-activity").length === 0`,
+		{label: "no live row, no activity dot", timeout: 8000}
 	);
 }
 

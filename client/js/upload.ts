@@ -258,6 +258,63 @@ export function acceptsType(config: BrandingUploads, type: string): boolean {
 	});
 }
 
+// Audio as browsers and systems label it, by the names a host keys on: a
+// FILEHOST picks the stored file's extension from the declared type (a type
+// it does not know is stored as `.bin`, and a `.bin` link plays nowhere,
+// helpers/mediaPreview.ts), and a deploy's `accept` list names the standard
+// type. `.m4a` and `.flac` come as `audio/x-m4a` and `audio/x-flac` on some
+// systems, and with no type at all on others.
+const AUDIO_TYPE_ALIASES: Readonly<Record<string, string>> = {
+	"audio/x-m4a": "audio/mp4",
+	"audio/m4a": "audio/mp4",
+	"audio/x-mp4": "audio/mp4",
+	"audio/x-flac": "audio/flac",
+	"audio/x-wav": "audio/wav",
+	"audio/wave": "audio/wav",
+	"audio/vnd.wave": "audio/wav",
+	"audio/mp3": "audio/mpeg",
+	"audio/x-mp3": "audio/mpeg",
+	"audio/mpeg3": "audio/mpeg",
+	"audio/x-mpeg": "audio/mpeg",
+	"audio/x-mpeg-3": "audio/mpeg",
+	"audio/x-aac": "audio/aac",
+	"audio/aacp": "audio/aac",
+	"audio/x-ogg": "audio/ogg",
+};
+
+/** An audio file's type from its extension, for a file that came without one. */
+const AUDIO_TYPE_BY_EXTENSION: Readonly<Record<string, string>> = {
+	mp3: "audio/mpeg",
+	m4a: "audio/mp4",
+	m4b: "audio/mp4",
+	aac: "audio/aac",
+	flac: "audio/flac",
+	wav: "audio/wav",
+	ogg: "audio/ogg",
+	oga: "audio/ogg",
+	opus: "audio/ogg",
+	weba: "audio/webm",
+};
+
+/**
+ * `file` under the standard name of its type: an audio alias (`audio/x-m4a`)
+ * becomes the type hosts and `accept` lists use (`audio/mp4`), and an audio
+ * file with no type gets one from its extension. Anything else, and a file
+ * already standard, comes back as it was. A new File shares the bytes.
+ */
+export function withCanonicalType(file: File): File {
+	const type = file.type.toLowerCase();
+	const extension = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toLowerCase() ?? "";
+	const canonical =
+		AUDIO_TYPE_ALIASES[type] ?? (type ? undefined : AUDIO_TYPE_BY_EXTENSION[extension]);
+
+	if (!canonical || canonical === file.type) {
+		return file;
+	}
+
+	return new File([file], file.name, {type: canonical, lastModified: file.lastModified});
+}
+
 /** Build the multipart `POST` for `file` as the configured endpoint expects it. */
 export function buildUploadRequest(
 	file: File,
@@ -927,10 +984,14 @@ export class Uploader {
 		const maxFileSize = config ? uploadMaxSize(config) : DEFAULT_UPLOAD_MAX_BYTES;
 		const accepted: File[] = [];
 
-		for (const file of files) {
-			if (!file) {
+		for (const offered of files) {
+			if (!offered) {
 				continue;
 			}
+
+			// Under its type's standard name from here on: the type check, the
+			// dialog and the request all read it.
+			const file = withCanonicalType(offered);
 
 			if (file.size > maxFileSize) {
 				host.showError(t("upload.tooLarge", {file: file.name}));

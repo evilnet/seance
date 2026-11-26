@@ -4,7 +4,7 @@
 // helpers/messageSessions.ts), and nowhere else; joins and parts in a pause
 // neither start nor continue one; Classic and Workspace show none. Then a
 // phone: the markers there, the swipe still showing every row's time, and
-// ps, which paints its own over the scene.
+// ps, which lays out its own rows and draws none.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/session-times.mjs
@@ -256,13 +256,10 @@ export default async function run(page) {
 			during.peek && during.shown >= 8
 		);
 
-		// ---- ps paints its own
+		// ---- ps lays out its own rows: no look, no session times
 		await page.evaluate(update("theme", "ps"));
 		await page.sleep(1200);
-		page.check(
-			"ps: the session times are there",
-			(await page.count("#chat .chat .session-marker")) === 4
-		);
+		page.check("ps: no session times", (await page.count("#chat .chat .session-marker")) === 0);
 		await page.screenshot("4-ps-phone");
 	} finally {
 		await ircd.close();

@@ -426,7 +426,7 @@ export default defineComponent({
 			}
 
 			const host = parseAvatarUrl(link.value)?.host;
-			const trusted = host && host === filehostHost(props.uuid);
+			const trusted = host && host === filehostHost(store, props.uuid);
 			return host && !trusted ? t("avatar.linkElsewhere", {host}) : t("avatar.linkRules");
 		});
 

@@ -63,10 +63,10 @@
 			</label>
 		</div>
 		<!-- The look (Classic, Messenger or Workspace), in the themes that
-		     offer the choice (helpers/messageLayout.ts); a theme that always
-		     draws its own bubbles (ps) shows only the combining switch, which
-		     the two looks with runs use too. -->
-		<template v-if="offersLooks || paintsBubbles">
+		     offer the choice (helpers/messageLayout.ts); ps lays out its own
+		     rows (its words are Words over the plains, below), so it shows only
+		     the combining switch, which the two looks with runs use too. -->
+		<template v-if="offersLooks || isPs">
 			<h2 id="label-message-layout">{{ t("settings.appearance.psLayoutHeading") }}</h2>
 			<div role="group" aria-labelledby="label-message-layout" class="scene-motion-options">
 				<template v-if="offersLooks">
@@ -81,7 +81,7 @@
 						<span class="opt-hint">{{ messageLayoutHints[layout] }}</span>
 					</label>
 				</template>
-				<label v-if="paintsBubbles || messageLayout !== 'lines'" class="opt">
+				<label v-if="isPs || messageLayout !== 'lines'" class="opt">
 					<input
 						v-switch
 						:checked="store.state.settings.psGroupMessages"
@@ -525,7 +525,6 @@ import {
 	messageLayouts,
 	normalizeMessageLayout,
 	themeOffersLooks,
-	themePaintsBubbles,
 	type MessageLayout,
 } from "../../js/helpers/messageLayout";
 import {
@@ -634,7 +633,6 @@ export default defineComponent({
 		// The look (helpers/messageLayout.ts). A light/dark pair offers the
 		// choice in both halves or neither, so the chosen theme decides.
 		const offersLooks = computed(() => themeOffersLooks(store.state.settings.theme));
-		const paintsBubbles = computed(() => themePaintsBubbles(store.state.settings.theme));
 		const isPs = computed(() => store.state.settings.theme === "ps");
 		const messageLayout = computed(() =>
 			normalizeMessageLayout(store.state.settings.messageLayout)
@@ -795,7 +793,6 @@ export default defineComponent({
 			psWords,
 			psWordsValue,
 			offersLooks,
-			paintsBubbles,
 			isPs,
 			messageLayout,
 			messageLayouts,

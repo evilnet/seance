@@ -1,4 +1,7 @@
 import {expect} from "chai";
+import {computed, reactive} from "vue";
+import {filehostHost, viewFor} from "../../client/js/avatars/view";
+import type {TypedStore} from "../../client/js/store";
 import {AVATAR_MAX_BYTES, avatarLinkProblem, parseAvatarUrl} from "../../client/js/avatars/url";
 import {
 	avatarView,
@@ -180,6 +183,35 @@ describe("avatar loading policy (avatars/policy.ts)", function () {
 		expect(proxiedSrc("https://proxy.example/", href)).to.equal(undefined);
 		expect(proxiedSrc(undefined, href)).to.equal(undefined);
 		expect(avatarView(inputs({proxy: "http://proxy.example/{url}"})).kind).to.equal("veiled");
+	});
+});
+
+describe("avatar view (avatars/view.ts)", function () {
+	const uuid = "view-net";
+
+	beforeEach(function () {
+		bindNetwork(uuid, (s) => s.toLowerCase());
+		clearAvatars(uuid);
+	});
+
+	// A page load draws the kept lines' avatars before the connection says
+	// the network's upload host: the view must look again once the store does.
+	it("draws a picture on the network's upload host once the store knows the host, though drawn before it did", function () {
+		setAvatarValue(uuid, "bob", "https://files.example/f/bob.png");
+		const state = reactive({
+			networks: [{uuid, serverOptions: {} as {FILEHOST?: string}}],
+			branding: {},
+			settings: {avatarLoad: "trusted"},
+		});
+		const store = {state} as unknown as TypedStore;
+		const kind = computed(() => viewFor(store, {uuid, nick: "bob"}).kind);
+
+		expect(filehostHost(store, uuid)).to.equal(null);
+		expect(kind.value).to.equal("veiled");
+
+		state.networks[0].serverOptions.FILEHOST = "https://files.example/upload";
+		expect(filehostHost(store, uuid)).to.equal("files.example");
+		expect(kind.value).to.equal("image");
 	});
 });
 
