@@ -48,6 +48,7 @@
 				t("avatar.change")
 			}}</router-link
 		>
+		<SyncSwitch v-if="live" :uuid="live.uuid" />
 	</div>
 </template>
 
@@ -64,6 +65,7 @@ import socket from "../../js/socket";
 import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
 import Avatar from "../Avatar.vue";
+import SyncSwitch from "./SyncSwitch.vue";
 
 /**
  * Settings → Networks on a sign-in deploy that keeps its network as it set
@@ -73,7 +75,7 @@ import Avatar from "../Avatar.vue";
  */
 export default defineComponent({
 	name: "AccountSettings",
-	components: {Avatar},
+	components: {Avatar, SyncSwitch},
 	setup() {
 		const store = useStore();
 		const {t} = useI18n();

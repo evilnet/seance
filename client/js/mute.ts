@@ -93,3 +93,20 @@ export function applyStoredMute(networkUuid: string, chan: ClientChan, stored = 
 		chan.muted = true;
 	}
 }
+
+/**
+ * The stored mutes changed under this page (another tab, or settings sync):
+ * every conversation shown takes its stored flag, on or off, and the push
+ * worker its copy.
+ */
+export function reloadMutes(): void {
+	const stored = readMuted();
+
+	for (const network of store.state.networks) {
+		for (const chan of network.channels) {
+			chan.muted = stored.has(mutedKey(network.uuid, chan.name));
+		}
+	}
+
+	void mirrorPushPrefs({muted: Array.from(stored)});
+}

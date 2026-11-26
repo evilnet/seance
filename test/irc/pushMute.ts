@@ -259,8 +259,8 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		expect(metadata()).to.deep.equal([]);
 		clock.tick(1);
 		expect(metadata()).to.deep.equal([
-			"METADATA * SUB draft/webpush/mute seance/presence seance/mode seance/closed avatar",
-			"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed avatar",
+			"METADATA * SUB draft/webpush/mute seance/presence seance/mode seance/closed seance/sync avatar",
+			"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed seance/sync avatar",
 		]);
 	});
 
@@ -268,7 +268,7 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		const h = connect();
 		clock.tick(MUTE_READ_DELAY_MS);
 		const get = h.transport.sent.find((l) => l.startsWith("METADATA * GET "));
-		expect(get).to.match(/ draft\/webpush\/payload seance\/closed avatar$/);
+		expect(get).to.match(/ draft\/webpush\/payload seance\/closed seance\/sync avatar$/);
 	});
 
 	it("rewrites a public payload tier as private, keeping its value", function () {

@@ -50,6 +50,10 @@
 						size="list"
 					/>{{ t("avatar.change") }}</router-link
 				>
+				<SyncSwitch
+					v-if="live(network.uuid) || syncHome === network.uuid"
+					:uuid="network.uuid"
+				/>
 			</li>
 		</ul>
 	</div>
@@ -174,6 +178,8 @@ import {computed, defineComponent, ref} from "vue";
 import {brandingFeatures} from "../../js/branding";
 import AccountSettings from "./Account.vue";
 import Avatar from "../Avatar.vue";
+import SyncSwitch from "./SyncSwitch.vue";
+import {syncState} from "../../js/sync";
 import eventbus from "../../js/eventbus";
 import {createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
@@ -189,6 +195,7 @@ export default defineComponent({
 	components: {
 		AccountSettings,
 		Avatar,
+		SyncSwitch,
 	},
 	setup() {
 		const store = useStore();
@@ -274,7 +281,11 @@ export default defineComponent({
 			);
 		};
 
+		/** This device's sync home (SyncSwitch.vue): its switch shows offline too, to turn it off. */
+		const syncHome = computed(() => syncState.value.home);
+
 		return {
+			syncHome,
 			editable,
 			live,
 			networks,

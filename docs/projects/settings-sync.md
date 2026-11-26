@@ -1,6 +1,7 @@
 # Settings that follow the account
 
-Design chosen 2026-11-24; nothing is built. Settings and the user's lists
+Design chosen 2026-11-24, built 2026-11-25 in `client/js/sync/` (§ The
+code). Settings and the user's lists
 are kept per device (localStorage), and since #323 the copies of the app on
 one device (two tabs, the installed app and a tab) keep `settings` in step.
 This carries them between devices: one network is the user's sync home, and
@@ -68,7 +69,9 @@ account, and IRC operators. Decided 2026-11-25:
   (`draft/FILEHOST`, the host avatars already load from unasked,
   `avatars/policy.ts` `filehostHost`). A pointer to anywhere else is
   ignored with the same notice, so nobody can send the account's devices
-  to a site of their choosing. If the network moves its file host, old
+  to a site of their choosing. Plain `http` passes only where the file
+  host itself is plain `http`, which a client takes on an unencrypted
+  connection alone (a development server). If the network moves its file host, old
   pointers stop passing; every device still holds its entries, and the
   next change uploads to the new host.
 - **Which version.** The pointer's first word, and a field of the
@@ -94,6 +97,17 @@ together. That is at most 12 of the account's 30 uploads an hour (§ The
 upload host), the rest left for pictures and avatars; a 429 is waited out
 for the time it names. A change waiting its turn is in the device's storage
 with its time already, so it goes out later, after a restart too.
+
+**Sync now** (added 2026-11-26), a button under the switch while the home
+is connected, is the user's way past that pacing: someone who turned sync
+on and then favorited three channels waited the five minutes, and a second
+device joining meanwhile saw none of them. It reads the pointer again
+(`METADATA * GET seance/sync`, sent at once: the user is waiting), takes
+what another device sent, and uploads what this device holds without the
+quiet spell, the spacing or a wait an earlier refusal set, from whichever
+tab it was pressed in. One upload for one press; a refusal (a 429 too) is
+said next to the button and the retry is left to the timer
+(`SyncEngine.syncNow`).
 
 One tab uploads for a device (decided 2026-11-25). Two tabs, or the
 installed app and a tab, share the device's storage, so each sees the
@@ -125,7 +139,14 @@ is kept on the device and never roams.
   its own keys after registration, subscribed or not, so a device with no
   home that sees a `seance/sync` pointer asks once: use the account's
   settings here, not now, or never on this device. A yes makes that network
-  the home and the device joins (§ A device joining).
+  the home and the device joins (§ A device joining). "Not now" lasts until
+  the app is started again; "never" is kept on the device, and the switch
+  still turns sync on.
+- Switching it off stops sync on that device and deletes its copy of the
+  entries' times. The account's file and pointer stay for its other
+  devices. Removing the home network from a device (signing out of a
+  branded build) switches it off first, so the lists that go with the
+  network are not uploaded as removals.
 - Switching it on for another network while a home is set asks whether to
   move the home there; there are never two.
 - The device remembers the account it syncs with. Signed in at the home as
@@ -218,6 +239,13 @@ Decided 2026-11-24:
   the sidebar (`thelounge.favorites.collapsed`,
   `thelounge.networks.collapsed`, decided 2026-11-25: screen layout).
 - `userStyles` is not needed; size is no longer a reason to leave it out.
+- **The first version carries the home network's entries** (§ Open): its
+  mutes, favorites and their order, ignore list, channel order, trusted
+  media channels and accounts, trusted avatar people, oper preferences and
+  per-channel translation choices. Trusted media hosts belong to no network
+  and roam whole. The order of the networks is a list of each device's own
+  uuids and does not roam yet. The entry ids and their values are the table
+  at the top of `sync/entries.ts`.
 
 An alias is a command, and may stand in for a built-in one (`msg`). A synced
 alias comes from whoever can write the account's `seance/sync` key: the
@@ -234,7 +262,15 @@ field (nothing reads it today). Only a setting the user has chosen roams;
 one still at its default stays out of the file, so every device keeps its
 own platform's default (as the backup restore does,
 `helpers/platformDefaults.ts`): a clock nobody set stays 12-hour on one
-device and 24-hour on another.
+device and 24-hour on another. Once chosen, a setting stays in the file:
+choosing the default again is a choice, and roams as that value. The same
+holds for the do-not-disturb schedule and a channel's translation choices.
+
+A value a device cannot hold (a theme its build does not ship, an alias it
+finds invalid) is skipped there and kept in the file as received: the
+device notes what it holds instead (`l` on the entry in its own copy,
+`sync/document.ts` `reconcile`), so the difference is not read as a change
+made on that device and uploaded over the other devices' value.
 
 - **Roams (29)**: `autocomplete`, `nickPostfix`, `coloredNicks`,
   `highlightMessages`, `highlights`, `highlightExceptions`, `awayMessage`,
@@ -259,22 +295,27 @@ device and 24-hour on another.
 ## Applying what arrives
 
 A change from another device is written to this device's localStorage, and
-the running app has to take it from there. Settings, favorites, do not
-disturb and the saved networks follow their keys already (a `storage`
-listener each). Eight stores that roam have none: aliases
-(`helpers/aliases.ts`), mutes (`mute.ts`), ignore lists (`ignore.ts`),
-trusted media (`helpers/mediaTrust.ts`), avatar choices (`avatars/prefs.ts`),
-the orders (`sort.ts`), oper preferences (`irc/operprefs.ts`) and per-channel
-translation (`translate/channelStore.ts`). Aliases and oper preferences are
-read from storage where they are used, so only a screen showing them goes
-stale; the others hold a copy in memory (a channel's `muted` flag, the
-cached `IgnoreList`, the loaded trust lists) and would not act on a change
-before a reload.
+the running app takes it from there (`sync/reload.ts` `reloadStored`, called
+with the keys an apply wrote). Settings are written through the settings
+store (`settings/update`), which applies each one. The stores read their
+key again:
 
-Each learns to reload as part of this work, not ahead of it (decided
-2026-11-25); that keeps two tabs in step for them too. A reload goes through
-the store's own functions, so what mirrors a store follows: the push
-worker's copy of the mutes and the ignore lists (`push-prefs.ts`).
+| Store                                                 | Reload                                                                                                                          |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| mutes (`mute.ts`)                                     | `reloadMutes`: every conversation shown takes its stored flag, and the push worker its copy                                     |
+| ignore lists (`ignore.ts`)                            | `reloadIgnoreLists`: each cached `IgnoreList` reloads and mirrors to the push worker                                            |
+| trusted media (`helpers/mediaTrust.ts`)               | `reloadTrustedMedia`                                                                                                            |
+| avatar choices (`avatars/prefs.ts`)                   | `reloadAvatarPrefs`                                                                                                             |
+| channel order (`sort.ts`)                             | `applyStoredChannelOrder` on every network                                                                                      |
+| per-channel translation (`translate/channelStore.ts`) | the store's `translateChannelsLoaded`                                                                                           |
+| aliases (`helpers/aliases.ts`)                        | read from storage where they are used; Settings → Aliases follows through `onAliasesReloaded` and keeps a row still being typed |
+| favorites (`favorites.ts`)                            | `reloadFavorites`                                                                                                               |
+| do not disturb (`dnd.ts`)                             | `reloadDnd`                                                                                                                     |
+| oper preferences (`irc/operprefs.ts`)                 | none: read from storage where they are used                                                                                     |
+
+The same reloads run on the `storage` event (`followOtherTabs`), so two tabs
+stay in step for these stores too; favorites and do not disturb already
+listened for it themselves.
 
 ## Open
 
@@ -300,12 +341,14 @@ worker's copy of the mutes and the ignore lists (`push-prefs.ts`).
 PASTE's `filehost.php`, read in its source and asked at
 `paste.boxlabs.uk/filehost` on 2026-11-24:
 
-- **It refuses the upload until its accepted types change.** `Accept-Post`
-  is `image/*, video/*, text/*` (`FILEHOST_ACCEPT`) and the encrypted
-  document is `application/octet-stream`, a 415. The host's operator agreed
-  on 2026-11-25 to add that type; the host did not list it yet that day
-  (`OPTIONS /filehost`, `Accept-Post`). A type outside image, video and
-  audio must match what the content sniffs as, which encrypted bytes do.
+- **It lists the upload's type.** The encrypted document is
+  `application/octet-stream`, which `Accept-Post` (`FILEHOST_ACCEPT`) has
+  listed since 2026-11-26, after `image/*`, `video/*`, `text/*` and
+  `audio/*` (read with `OPTIONS /filehost` at 18:25 GMT); before that it
+  listed the first three only and the upload was a 415.
+  No upload of a settings file has been made there yet. A type outside
+  image, video and audio must match what the content sniffs as, which
+  encrypted bytes do.
   Base64 as `text/plain` is no
   way round: the host takes it, but as a paste on the site, whose raw URL
   (`/raw/<id>`, `paste.php`) is served without
@@ -319,9 +362,46 @@ PASTE's `filehost.php`, read in its source and asked at
   records the account, the network and the IP address of each upload.
 
 AfterNET's `draft/FILEHOST` names this host
-(`https://paste.boxlabs.uk/filehost`, read from its 005 on 2026-11-25). To
-check before building: that its `Accept-Post` lists
-`application/octet-stream`.
+(`https://paste.boxlabs.uk/filehost`, read from its 005 on 2026-11-25). Where a
+host refuses the type, a device says once in the home
+network's window that the file host did not take the settings file, and
+tries again every hour (`sync/engine.ts` `REFUSED_RETRY_MS`); nothing is
+lost meanwhile, each device keeps its entries and their times.
+
+## The code
+
+- `client/js/sync/document.ts`: the document, the merge, the join, dating
+  a device's changes (`diff`). Pure.
+- `client/js/sync/file.ts`: the pointer (`SYNC_KEY`, `parsePointer`,
+  `formatPointer`), gzip and AES-GCM (`seal`, `open`), the size limits, which
+  URL a device fetches (`acceptableUrl`), `download` and `upload`.
+- `client/js/sync/entries.ts`: each roaming store read into entries and
+  written back from them, validating what arrives (`collect`, `apply`).
+- `client/js/sync/state.ts`: what a device remembers
+  (`thelounge.state.sync`: the home, the account, the pointer applied, when
+  it may upload next; `thelounge.state.sync.entries`: its copy of the
+  document). Neither is in a settings backup.
+- `client/js/sync/engine.ts`: `SyncEngine`, one run at a time: read the
+  pointer's file, join or merge, apply, upload when due. Everything outside
+  it is a `SyncHost`, so it runs under mocha.
+- `client/js/sync/index.ts`: the page's host: the settings port, the
+  dialogs, the notices, the Web Lock, and what asks for a run (the pointer,
+  a write to a roaming store through `localStorage.ts` `onStorageWrite`,
+  another tab's write to the sync state, the wake timer).
+  `client/js/sync/reload.ts`: § Applying what arrives.
+- IRC side: `IrcClient.syncPointer` (undefined until this connection read
+  it), `onSyncPointer` → the bus event `sync:pointer`, `writeSyncPointer`
+  and `backgroundToken` (both through `IrcClient.background`); the key rides
+  in the `METADATA * SUB` and login `GET` lines the shared keys already use;
+  `handlers/metadata.ts` takes a value only under our own nick.
+- UI: `components/Settings/SyncSwitch.vue`, under each network in Settings
+  → Networks and on the single network of a branded build
+  (`Settings/Account.vue`).
+- Which settings roam: `sync: true` in `client/js/settings.ts`.
+- Tests: `test/sync/` (document, file, entries, engine) and
+  `test/irc/settingsSync.ts` (the pointer on the wire, the device state,
+  the 29 marked settings). Browser check, two devices against a scripted
+  ircd and a stand-in file host: `tools/scenarios/settings-sync.mjs`.
 
 ## Considered and dropped
 
