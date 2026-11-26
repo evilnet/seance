@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 import sinon from "sinon";
 import {register, setup, type Harness} from "./support";
 import {SYNC_KEY} from "../../client/js/sync/file";
+import {IRCU_FAKE_LAG} from "../../client/js/irc/fakelag";
 import {
 	forgetSyncNetwork,
 	readState,
@@ -233,6 +234,38 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(h.sent()).to.include("TOKEN GENERATE FILEHOST");
 		h.transport.line(":irc.test TOKEN GENERATE FILEHOST :secret");
 		expect(await token).to.equal("secret");
+	});
+
+	it("does not take a read answered before our queued SET went out for a refusal of it", function () {
+		const h = setup({join: "", fakeLag: IRCU_FAKE_LAG});
+		register(h, CAPS, [LOGIN]);
+		const OLD = POINTER;
+		const NEW = `1 https://files.example/f/2 ${"B".repeat(43)} 1800000001000`;
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${OLD}`);
+
+		// The connect burst: the fake-lag clock is over the background budget.
+		for (let i = 0; i < 4; i++) {
+			h.client.send(`PRIVMSG #a :line ${i}`);
+		}
+
+		expect(h.client.writeSyncPointer(NEW)).to.equal(true);
+		expect(h.client.background.keys()).to.include(`metadata:${SYNC_KEY}`);
+		void h.client.readSyncPointer();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${OLD}`);
+
+		expect(h.client.syncPointer).to.equal(NEW);
+	});
+
+	it("forgets the first account's own keys when the connection logs in as another", function () {
+		const h = connected();
+		h.transport.line(":irc.test 766 alice alice draft/webpush/mute :key not set");
+		h.transport.line(":irc.test 766 alice alice seance/closed :key not set");
+
+		expect([h.client.muteKnown, h.client.closedKnown]).to.deep.equal([true, true]);
+
+		h.transport.line(":irc.test 900 alice alice!a@h bob :You are now logged in as bob");
+
+		expect([h.client.muteKnown, h.client.closedKnown]).to.deep.equal([false, false]);
 	});
 });
 

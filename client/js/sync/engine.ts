@@ -328,9 +328,16 @@ export class SyncEngine {
 
 		// Entries kept without being taken: one an older build did not know
 		// and this one does, and one dated ahead whose time has come. They
-		// are taken now, rather than what the device holds read as a choice.
+		// are taken now, rather than what the device holds read as a choice;
+		// but where the device already holds a choice for a newly known id
+		// (the one the user just made, which made the store), that choice
+		// is newer and diff dates it.
+		const unchosen = (id: string) =>
+			!Object.hasOwn(local.current, id) || local.isDefault(id, local.current[id]);
 		const adopt = Object.keys(copy).filter(
-			(id) => (copy[id].u && local.owns(id)) || (copy[id].d && copy[id].t <= now + SKEW_MS)
+			(id) =>
+				(copy[id].u && local.owns(id) && unchosen(id)) ||
+				(copy[id].d && copy[id].t <= now + SKEW_MS)
 		);
 
 		if (adopt.length > 0) {

@@ -44,6 +44,8 @@ describe("settings sync document (sync/document.ts)", function () {
 		it("is the clock, or one millisecond past the newest entry held if that is later", function () {
 			expect(stampAfter({a: {t: NOW - 5}}, NOW)).to.equal(NOW);
 			expect(stampAfter({a: {t: NOW + 40, v: 1}, b: {t: NOW + 9}}, NOW)).to.equal(NOW + 41);
+			// One dated more than a minute ahead (a clock since put right) does not count.
+			expect(stampAfter({a: {t: NOW + 3 * 3600_000, v: 1}}, NOW)).to.equal(NOW);
 		});
 	});
 

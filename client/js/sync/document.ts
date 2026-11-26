@@ -136,8 +136,12 @@ export function newer(a: Entry, b: Entry): boolean {
 export function stampAfter(entries: Entries, now: number): number {
 	let newest = 0;
 
+	// One dated ahead of the clock does not count: after a clock that ran
+	// ahead is put right, every later change would be dated ahead too.
 	for (const id in entries) {
-		newest = Math.max(newest, entries[id].t);
+		if (entries[id].t <= now + SKEW_MS) {
+			newest = Math.max(newest, entries[id].t);
+		}
 	}
 
 	return Math.max(now, newest + 1);

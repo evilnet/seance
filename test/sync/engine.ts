@@ -1190,4 +1190,32 @@ describe("settings sync engine (sync/engine.ts)", function () {
 
 		expect(a.engine.state.never).to.deep.equal(["some-network"]);
 	});
+
+	it("does not undo the choice that made a store known with the entry kept unknown", async function () {
+		const a = await firstDevice();
+		a.stored.set(
+			"thelounge.translate",
+			JSON.stringify({version: 2, [`${HOME}/#chan`]: {write: "de", terms: [], once: null}})
+		);
+		await a.changed();
+		await a.engine.syncNow();
+
+		// b has never used translation: tr:* waits there, unknown.
+		const b = new Device(server);
+		await b.enable();
+
+		// Its user picks French for #chan: the store writes its first blob.
+		b.stored.set(
+			"thelounge.translate",
+			JSON.stringify({version: 2, [`${HOME}/#chan`]: {write: "fr", terms: [], once: null}})
+		);
+		await b.changed();
+
+		const blob = JSON.parse(b.stored.get("thelounge.translate")!) as Record<
+			string,
+			{write: string}
+		>;
+		expect(blob[`${HOME}/#chan`].write).to.equal("fr");
+		expect(b.engine.state.dirty).to.equal(true);
+	});
 });

@@ -487,6 +487,8 @@ export class IrcClient {
 	private syncPointerWaiters: Array<() => void> = [];
 	/** A pointer SET is out and not answered yet: a FAIL naming the key is its refusal. */
 	private syncSetPending = false;
+	/** A pointer SET is queued behind what the user waits for, and not sent yet. */
+	private syncSetQueued = false;
 	/**
 	 * The mute and the shared keys are subscribed on this connection: before
 	 * `CAP END` when the server offers `draft/metadata-2=before-connect` and
@@ -2173,6 +2175,7 @@ export class IrcClient {
 		this.closedKnown = false;
 		this.syncPointer = undefined;
 		this.syncSetPending = false;
+		this.syncSetQueued = false;
 		this.syncPointerRead();
 		this.metadataSubscribed = false;
 		this.metadataBeforeConnect = false;
@@ -3832,6 +3835,13 @@ export class IrcClient {
 		this.syncSetPending = false;
 		this.syncRereading = false;
 
+		// Our SET still waits in the background queue: a read answered now
+		// says what the server held before it, not a refusal of it.
+		if (this.syncSetQueued) {
+			this.syncPointerRead();
+			return;
+		}
+
 		if (this.syncPointer !== value) {
 			this.syncPointer = value;
 			this.dispatchBus("sync:pointer", {network: this.uuid});
@@ -3853,6 +3863,14 @@ export class IrcClient {
 		}
 
 		this.forgetSyncPointer();
+		// The other own keys were the first account's too: unknown until
+		// read again, as after a reconnect, so nothing is written on them.
+		this.muteKnown = false;
+		this.presenceKnown = false;
+		this.presenceServer = null;
+		this.globalKnown = false;
+		this.globalServer = null;
+		this.closedKnown = false;
 
 		if (this.account !== "") {
 			this.scheduleMuteRead();
@@ -3961,10 +3979,12 @@ export class IrcClient {
 		}
 
 		this.syncPointer = value;
+		this.syncSetQueued = true;
 		this.background.add({
 			key: `metadata:${SYNC_KEY}`,
 			cost: this.fakeLag.cost(line),
 			run: () => {
+				this.syncSetQueued = false;
 				this.syncSetPending = this.send(line);
 			},
 		});
