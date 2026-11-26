@@ -353,11 +353,11 @@ subscribed bell is green. */
 
 /* Workspace and Messenger draw an action as a line of the conversation, the
  * actor in their own nick colour (style.css § The looks), so the nick is
- * left alone there (not in ps, which paints its own bubbles); `:where` keeps
+ * left alone there; `:where` keeps
  * the rule's weight in the other looks. */
 #chat .msg[data-type="action"] .from,
 #chat .msg[data-type="action"] .content,
-:where(html:not([data-message-layout="workspace"], [data-message-layout="bubbles"]:not([data-bubble-paint]))) #chat .msg[data-type="action"] .user {
+:where(html:not([data-message-layout="workspace"], [data-message-layout="bubbles"])) #chat .msg[data-type="action"] .user {
 	color: var(--action-color);
 }
 

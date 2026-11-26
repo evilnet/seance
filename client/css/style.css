@@ -4048,7 +4048,13 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	--bubble-gutter: 2.75rem;
 }
 
+/* A message's inks are the bubble tokens' in both looks. */
 html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
+	--body-color-muted: var(--bubble-fg-muted);
+	--chat-fg-muted: var(--bubble-fg-muted);
+	--link-color: var(--bubble-link);
+	--notice-color: var(--bubble-notice);
+
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
 	grid-template-areas:
@@ -4372,38 +4378,38 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
  * own following Your own messages. Where it stands and where its time comes
  * is each look's own. Not ps (`data-bubble-paint`), which draws its own;
  * `:where` keeps the weight Workspace's rules had on their own. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg[data-type="action"] {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="action"] {
 	column-gap: 0;
 	font-size: 1rem;
 }
 
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg[data-type="action"] > .from {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="action"] > .from {
 	padding: 0;
 }
 
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg[data-type="action"] > .from::before,
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg[data-type="action"] > .from > .action-mark {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="action"] > .from::before,
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="action"] > .from > .action-mark {
 	display: none;
 }
 
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg[data-type="action"] > .content {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="action"] > .content {
 	color: inherit;
 	font-style: italic;
 }
 
 /* The actor upright and bold; a nick inside the words stays in their italic. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg[data-type="action"] > .content > .user {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="action"] > .content > .user {
 	font-style: normal;
 	font-weight: 700;
 }
 
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg[data-type="action"] > .content :is(.msg-reply-quote, .msg-edited, .msg-machine-translated, .msg-redacted, .msg-reactions, .preview) {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg[data-type="action"] > .content :is(.msg-reply-quote, .msg-edited, .msg-machine-translated, .msg-redacted, .msg-reactions, .preview) {
 	font-style: normal;
 }
 
 /* Our own, under Your own messages: muted (the default), greyed as our own
  * messages are. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])):not([data-own-messages="band"], [data-own-messages="plain"]) #chat .chat .msg.self[data-type="action"] > .content {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):not([data-own-messages="band"], [data-own-messages="plain"]) #chat .chat .msg.self[data-type="action"] > .content {
 	color: var(--body-color-muted);
 }
 
@@ -4494,15 +4500,6 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-/* A message's inks, in Messenger on the themes on plain colours and in
- * Workspace. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:is([data-type="message"], [data-type="notice"]) {
-	--body-color-muted: var(--bubble-fg-muted);
-	--chat-fg-muted: var(--bubble-fg-muted);
-	--link-color: var(--bubble-link);
-	--notice-color: var(--bubble-notice);
 }
 
 /* Messenger's paint, for the themes on plain colours. */
@@ -4716,12 +4713,12 @@ html[data-message-layout="bubbles"]:not([data-bubble-paint]) #chat.avatars-on .c
  * bold (a theme that bolds every nick, princess, too). A whois, a block of
  * server text and an error keep their own colour: what was asked for, and
  * what went wrong. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .condensed-summary > .content {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"], [data-type="error"], [data-type="whois"], [data-type="monospace_block"]) > .content,
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .condensed-summary > .content {
 	color: var(--body-color-muted);
 }
 
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) .user {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) .user {
 	font-weight: 400;
 }
 
@@ -5142,7 +5139,7 @@ html[data-message-layout="workspace"] #chat .chat .msg.has-actions[data-type="ac
 }
 
 /* In both looks: Messenger's (above) and Workspace's. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint])) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
+html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
 	visibility: visible;
 }
 
@@ -5264,12 +5261,11 @@ html[data-message-layout="workspace"] #chat .chat-view[data-type="channel"] .cha
 	color: var(--body-color-muted);
 }
 
-/* Not the nick under Workspace or Messenger on plain colours, which keep the
- * actor's nick colour (§ The looks: ps paints its own); `:where` keeps the
- * rule's weight everywhere else. */
+/* Not the nick under Workspace or Messenger, which keep the actor's nick
+ * colour (§ The looks); `:where` keeps the rule's weight everywhere else. */
 #chat .msg[data-type="action"] .from,
 #chat .msg[data-type="action"] .content,
-:where(html:not([data-message-layout="workspace"], [data-message-layout="bubbles"]:not([data-bubble-paint]))) #chat .msg[data-type="action"] .user {
+:where(html:not([data-message-layout="workspace"], [data-message-layout="bubbles"])) #chat .msg[data-type="action"] .user {
 	color: #f39c12;
 }
 

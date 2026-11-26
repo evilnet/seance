@@ -181,8 +181,6 @@ interface ServerToClientEvents {
 		text: string;
 		nick: string;
 		remove: boolean;
-		/** Replayed with history (a catch-up, an older page): not a live arrival. */
-		replay?: boolean;
 	}>;
 	/** A REDACT resolved to the loaded message it targets. */
 	"msg:redact": EventHandler<{chan: number; id: number; by: string; reason?: string; time: Date}>;

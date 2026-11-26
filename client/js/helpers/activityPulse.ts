@@ -17,7 +17,6 @@
 // No store/DOM imports so it can be unit-tested under mocha.
 import {ExpirySweep, SWEEP_INTERVAL} from "./expirySweep";
 import {MessageType, type SharedMsg} from "../../../shared/types/msg";
-import {LIVE_HOLD_MS} from "../liveRows";
 
 /** Anything carrying an activity deadline; a `ClientChan` in practice. */
 export type ActivityHolder = {activityUntil: number};
@@ -59,38 +58,24 @@ export function noteActivity(holder: ActivityHolder, now: number): void {
 }
 
 /**
- * A mention elsewhere (docs/resources/themes.md § Live rows): a conversation
- * that is not the open one got a live mention, and its sidebar row carries
- * `data-mentioned` until this deadline, the same hold as a live row. Set by
- * socket-events/activity.ts, cleared by the same sweep as the pulse, so it
- * lasts at least LIVE_HOLD_MS and goes within a sweep period after.
+ * Clear a lapsed deadline and report whether one is still running. Leaves the
+ * holder untouched otherwise, so reactive watchers only fire on a real stop.
  */
-export type MentionHolder = {mentionUntil: number};
+export function expireActivity(holder: ActivityHolder, now: number): boolean {
+	if (holder.activityUntil === 0) {
+		return false;
+	}
 
-/** Start (or extend) the mention hold on `holder`. */
-export function noteMention(holder: MentionHolder, now: number): void {
-	holder.mentionUntil = now + LIVE_HOLD_MS;
-}
-
-/**
- * Clear the lapsed deadlines (the pulse's and the mention's) and report
- * whether either is still running. Leaves a deadline untouched otherwise, so
- * reactive watchers only fire on a real stop.
- */
-export function expireActivity(holder: ActivityHolder & MentionHolder, now: number): boolean {
-	if (holder.activityUntil !== 0 && holder.activityUntil <= now) {
+	if (holder.activityUntil <= now) {
 		holder.activityUntil = 0;
+		return false;
 	}
 
-	if (holder.mentionUntil !== 0 && holder.mentionUntil <= now) {
-		holder.mentionUntil = 0;
-	}
-
-	return holder.activityUntil !== 0 || holder.mentionUntil !== 0;
+	return true;
 }
 
-export class ActivityExpiry extends ExpirySweep<ActivityHolder & MentionHolder> {
-	constructor(holders: () => Iterable<ActivityHolder & MentionHolder>) {
-		super(holders, expireActivity, ACTIVITY_SWEEP_INTERVAL);
+export class ActivityExpiry extends ExpirySweep<ActivityHolder> {
+	constructor(holders: () => Iterable<ActivityHolder>, interval = ACTIVITY_SWEEP_INTERVAL) {
+		super(holders, expireActivity, interval);
 	}
 }

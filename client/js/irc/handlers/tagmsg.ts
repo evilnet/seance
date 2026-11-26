@@ -9,8 +9,7 @@
  * batches for channels (never for queries). The reaction becomes
  * `msg:react {chan, id, text, nick, remove}` for the loaded message the
  * msgid resolves to; without one it is dropped. Inside a history replay the
- * lookup waits until the batch's messages have ids (`IrcClient.afterReplay`),
- * and the event says `replay: true`: it is not news (a theme's live chip).
+ * lookup waits until the batch's messages have ids (`IrcClient.afterReplay`).
  *
  * Typing notifications (bus-contract §1.5): `+typing=active|paused|done`
  * from someone else becomes `typing {chan, nick, state}` — never from our
@@ -89,8 +88,6 @@ const tagmsg: Handler = (client, msg) => {
 		});
 	}
 
-	const replay = client.replaying;
-
 	client.afterReplay(() => {
 		const id = target.idOf(reaction.parent);
 
@@ -101,7 +98,6 @@ const tagmsg: Handler = (client, msg) => {
 				text: reaction.text,
 				nick,
 				remove: reaction.remove,
-				...(replay ? {replay: true} : {}),
 			});
 		}
 	});

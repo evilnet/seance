@@ -103,7 +103,7 @@ A run is `MessageList.vue`'s `previous-source` (`helpers/messageRuns.ts`, under 
 
 Messenger's reactions hang off the bubble they answer rather than sit in it: the chip row overlaps the bubble's bottom edge by a third of a chip (`--reaction-chip`, 1.625rem), inset 0.5rem from the bubble's start corner (its end corner for our own bubbles at the far side of a private conversation), each chip on an opaque fill of its own (`--bubble-reaction-bg`, ours `--bubble-reaction-own-bg`) ringed in the window's colour so it reads as lying on the edge. The bubble grows only by that third, and by a line where the chips wrap; its margin below makes the room, so the next bubble, of the same run or not, starts clear of them. In a channel the row is in the flow of `.content` (so a wrap makes its own room) with margins that add up to nothing in the bubble's width (a short bubble does not widen to its chips; they wrap at the pane's end, measured in `cqi` of the message list), laid out in the page's direction rather than the words', and `.content`'s Zalgo clip becomes a `clip-path` open below and to the sides. In a private conversation a run's first line keeps its time beside its words, so the bubble's end is not the words' end: there the row is placed from the bubble's corner (`.msg` is positioned) and `.content` keeps its clip and the baseline the time sits on; placed so, it makes no room for a second line, which two people seldom fill. The add chip ("+") is a round, quiet chip at the row's end (before the chips at the far side), whose margin takes back its width so it never wraps the row or moves anything: with a pointer it shows with the message's hover, its toolbar, a keyboard's focus (it stays in the tab order) or its open picker; after a finger (`data-input="touch"`) it is always there, since a finger has no hover to bring it. Increase Contrast draws every chip's edge in the text colour; forced colours, which drop the ring, give each a system-coloured edge. A reaction on an action, and every reaction under Workspace and Classic, stays under its line; ps keeps its own.
 
-The looks are written once, in `style.css` § The looks. The **shape** Messenger and Workspace share (the grid, the avatar's gutter, the runs, the hover time, the status lines, the reply strip, the whois card) is keyed on `html:is([data-message-layout="bubbles"], [data-message-layout="workspace"])`, which weighs exactly what `html[data-message-layout="bubbles"]` alone did, so a theme's or a user's rule written against the latter wins or loses as before; each look's own geometry follows on its own value. Messenger's **paint** is keyed on `:not([data-bubble-paint])` as well (nothing sets it since ps went back to its own rows) and reads tokens on `:root`, each with a default from the theme's own colours in `style.css`'s `:root`: `--bubble-bg` (the text colour 6% over the window), `--bubble-own-bg` (the link colour 14%; under Your own messages: highlighted row, and every own line of a private conversation), `--bubble-highlight-bg` (the mention bar's colour 16%), `--bubble-reaction-bg` and `--bubble-reaction-own-bg` (a reaction chip's fill: the text colour 12%, ours the button colour 20%, both over the window), `--bubble-fg-muted`, `--bubble-link` and `--bubble-notice` (the times, links and a notice's words, the theme's own colours drawn toward its text so they hold 4.5:1 on the fill) and two that are shape and read by every bubble theme: `--bubble-radius` (0.625rem) and `--bubble-join-radius` (0.1875rem). Keeki, Keeki Blush and macOS set a few; the rest use the defaults. Workspace has no paint of its own: its rows are painted as Classic paints a row (the mention band and bar from `--highlight-bg-color` and `--highlight-border-color`, the bar thinner; Your own messages exactly as in Classic; a theme's row bands, the Princess pair's), the hover tint across the row, and its rows take the three `--bubble-*` inks above so the times, links, notices and the status lines' words and icons hold on those bands. An action's nick keeps its nick colour under Workspace and under Messenger on plain colours because the action-colour rule on `.user` (in `style.css` and `coffee.css`) is skipped there through a `:where(html:not([data-message-layout="workspace"], [data-message-layout="bubbles"]:not([data-bubble-paint])))` prefix, which weighs nothing, so the rule matches and weighs exactly as before in Classic and ps. The action's reading the two looks share is one block keyed on `html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]):where(:not([data-bubble-paint]))`, the weight Workspace's own rules had. `test/tests/themeContract.ts` measures the text, the times and the links on all three bubble fills, a notice's words on a bubble, a chip's text and count on both chip fills, and the same four inks on Workspace's plain row, hover tint, mention band and own band, in every theme that offers the looks.
+The looks are written once, in `style.css` § The looks. The **shape** Messenger and Workspace share (the grid, the avatar's gutter, the runs, the hover time, the status lines, the reply strip, the whois card) is keyed on `html:is([data-message-layout="bubbles"], [data-message-layout="workspace"])`, which weighs exactly what `html[data-message-layout="bubbles"]` alone did, so a theme's or a user's rule written against the latter wins or loses as before; each look's own geometry follows on its own value. Messenger's **paint** is keyed on `:not([data-bubble-paint])` as well (nothing sets it since ps went back to its own rows) and reads tokens on `:root`, each with a default from the theme's own colours in `style.css`'s `:root`: `--bubble-bg` (the text colour 6% over the window), `--bubble-own-bg` (the link colour 14%; under Your own messages: highlighted row, and every own line of a private conversation), `--bubble-highlight-bg` (the mention bar's colour 16%), `--bubble-reaction-bg` and `--bubble-reaction-own-bg` (a reaction chip's fill: the text colour 12%, ours the button colour 20%, both over the window), `--bubble-fg-muted`, `--bubble-link` and `--bubble-notice` (the times, links and a notice's words, the theme's own colours drawn toward its text so they hold 4.5:1 on the fill) and two that are shape and read by every bubble theme: `--bubble-radius` (0.625rem) and `--bubble-join-radius` (0.1875rem). Keeki, Keeki Blush and macOS set a few; the rest use the defaults. Workspace has no paint of its own: its rows are painted as Classic paints a row (the mention band and bar from `--highlight-bg-color` and `--highlight-border-color`, the bar thinner; Your own messages exactly as in Classic; a theme's row bands, the Princess pair's), the hover tint across the row, and its rows take the three `--bubble-*` inks above so the times, links, notices and the status lines' words and icons hold on those bands. An action's nick keeps its nick colour under Workspace and under Messenger on plain colours because the action-colour rule on `.user` (in `style.css` and `coffee.css`) is skipped there through a `:where(html:not([data-message-layout="workspace"], [data-message-layout="bubbles"]))` prefix, which weighs nothing, so the rule matches and weighs exactly as before in Classic and ps. The action's reading the two looks share is one block keyed on `html:is([data-message-layout="bubbles"], [data-message-layout="workspace"])`, the weight Workspace's own rules had. `test/tests/themeContract.ts` measures the text, the times and the links on all three bubble fills, a notice's words on a bubble, a chip's text and count on both chip fills, and the same four inks on Workspace's plain row, hover tint, mention band and own band, in every theme that offers the looks.
 
 Who offers them is the registry's `looks` (`lookThemes` in `messageLayout.ts`, § The theme registry): the themes on coffee's tokens. The period themes (bourbaki, gates, mardam, zelenzy, panasync, sandrof, oikarinen) keep the look of the client they copy, and day and morning are TheLounge's originals kept as they were; there the attribute is left off and the setting is not shown. `ps` is not offered them: ps lays out its own rows (`ps.css`), and how its words are drawn over the scene is its own setting, Words over the plains (`helpers/psWords.ts`: bubbles, glass, scrim, outline, rim or glow). A new theme on coffee's tokens takes `looks: true` unless it copies a period client.
 
@@ -138,7 +138,7 @@ What a theme may rely on, and what is checked. A theme is plain CSS loaded after
 
 ## Live rows
 
-A theme can tell something that just happened from something it is drawing again, without shipping code (`client/js/liveRows.ts`). When a line arrives live in the open conversation, its row in the chat list carries `data-live` for three seconds from the moment it is drawn (`LIVE_HOLD_MS`; an arrival animation keyed on it must finish within that), so an entry animation keyed on it plays once, for that row, and an old row has nothing to replay when Reduce Motion is turned off or a stylesheet changes later. A reaction's chip and a sidebar row have hooks of the same kind:
+A theme can tell a line that just arrived from one it is drawing again, without shipping code (`client/js/liveRows.ts`). When someone else's message, mention or join arrives live in the open conversation, its row in the chat list carries `data-live="message"` (or `mention`, `join`) for three seconds from the moment it is drawn (`LIVE_HOLD_MS`; an arrival animation keyed on it must finish within that), so an entry animation keyed on it plays once, for that row, and an old row has nothing to replay when Reduce Motion is turned off or a stylesheet changes later:
 
 ```css
 html:not([data-reduce-motion]) #chat .msg[data-live] {
@@ -146,66 +146,11 @@ html:not([data-reduce-motion]) #chat .msg[data-live] {
 }
 ```
 
-| Attribute        | Values                         | On                                                                                 | Set when                                                                                                                                                                                                        | Held                                                                                                    |
-| ---------------- | ------------------------------ | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `data-live`      | `message`, `mention`           | `#chat .msg`                                                                       | someone else's message or action arrives (`mention`: it highlights us)                                                                                                                                          | `LIVE_HOLD_MS` (3 s) from the row's first draw                                                          |
-| `data-live`      | `self`                         | `#chat .msg.self`                                                                  | our own message or action is confirmed: the server's echo that replaces the pending copy, or, without echo-message, the line itself as it is sent (also a line of ours sent from another device of the account) | 3 s from the row's first draw                                                                           |
-| `data-live`      | `join`, `part`, `quit`, `kick` | `#chat .msg`, or the condensed group (`.msg[data-type="condensed"]`) it folds into | someone joins or leaves (a kick by anyone, us included; never our own join, part or quit)                                                                                                                       | 3 s from the row's first draw, or for a group from the newest line folded in                            |
-| `data-arrived`   | `first`, `new`, `more`         | `#chat .msg-reaction` (a chip)                                                     | a reaction arrives on a message of the open conversation: the message's first chip, another chip, or another nick on a chip already shown (ours too, when the server echoes it)                                 | 3 s from when the chip takes it                                                                         |
-| `data-mentioned` | (empty)                        | `.channel-list-item`                                                               | a mention arrives in a conversation that is not the open one (and is not muted)                                                                                                                                 | at least 3 s, gone within a second after (the activity pulse's sweep); opening the conversation ends it |
+Nothing is marked for history, catch-up, a placed line, a notice rerouted to the open window, an edit, a pending copy or our own lines (`socket-events/msg.ts`, `liveKindOf`), nor while the page is hidden, a past view holds the live lines out of sight, or status messages are hidden (a join then has no row). `mention` is the message's own highlight, so it does not follow the highlightMessages setting or a jump's focus the way the row's `.highlight` class does.
 
-None is ever set for history, a catch-up (`catchup.ts`) or a reconnect's replay, a placed line, the lines the device kept and shows at page load, a notice rerouted to the open window, an edit or a redaction, a pending copy, a reaction taken off, nor while the page is hidden or a past view holds the live lines out of sight (`socket-events/msg.ts`, `liveKindOf`; `socket-events/msg_updates.ts`, `reactionArrival`; `socket-events/activity.ts`). A status line (join, part, quit, kick) under hidden status messages has no row and is not marked. `mention` is the message's own highlight, so it does not follow the highlightMessages setting or a jump's focus the way the row's `.highlight` class does.
+The note is held outside the store and taken once, by the row's first mount within `LIVE_MS` (1 s) of the line's arrival (`Message.vue`, `in-chat` from `MessageList.vue`). Rows are keyed by message id, but the whole list is drawn again on a conversation switch or a past view closing (a status-message setting change regroups the status rows), and a flag stored on the message would replay every live row's animation on each of those; a row drawn later is never marked, and a join folded into a condensed group has its note taken by the group, so a regrouping does not mark it either. The search results and other lists of `Message` rows never take a note.
 
-The note for a row or a chip is held outside the store and taken once, by the first draw within `LIVE_MS` (1 s) of the arrival (`Message.vue`, `in-chat` from `MessageList.vue`; `MessageReactions.vue`; `MessageCondensed.vue`). Rows are keyed by message id, but the whole list is drawn again on a conversation switch or a past view closing (a status-message setting change regroups the status rows), and a flag stored on the message would replay every live row's animation on each of those; a row or chip drawn later is never marked. The search results and other lists of `Message` rows never take a note.
-
-- **Condensed groups.** With status messages condensed (the default), a single status line is its own row; once a second one follows it the two are one group's row (`2 users have left`), so the mark is on whatever is drawn: the lone part's row while it stands alone, then the group's row when a quit folds it in (its value the newest arrival's, its hold restarted). A theme selecting `.msg[data-live="part"]` therefore also wants `.msg[data-type="condensed"][data-live]` if it is to catch every departure. The rows inside an expanded group are never marked.
-- **Several at once.** A chip that takes another nick within its hold keeps `data-arrived="more"` and restarts the hold; the attribute does not change, so an animation keyed on it does not play again. The same for a sidebar row mentioned again within its hold (the hold is extended) and a condensed group taking another line of the same kind. A reaction taken off and put back is new again (`new`, or `first` if it was the only one).
-- **Telling the first chip apart.** `first` is the chip that brings the message's reaction group in with it (style.css's `.reactions-enter-active`), `new` a chip added beside others (`.reaction-enter-active`), `more` a chip already shown (no enter class at all).
-- **Another tab.** Each tab is its own client with its own open conversation, so a mention in a conversation another tab has open marks this tab's sidebar row.
-
-`style.css` animates nothing on any of them: whether rows move is the theme's choice, and a period theme may want them still. Anything that moves goes behind `:not([data-reduce-motion])`, and a theme can answer reduced motion with something still (a colour, a border) on the same attribute. The attributes are set under reduced motion too.
-
-Our own line settling in:
-
-```css
-html:not([data-reduce-motion]) #chat .msg[data-live="self"] {
-  animation: my-settle 0.3s ease-out;
-}
-```
-
-Someone leaving, on its own row or the group it folds into:
-
-```css
-html:not([data-reduce-motion])
-  #chat
-  .msg:is([data-live="part"], [data-live="quit"], [data-live="kick"]) {
-  animation: my-fade-out-hint 0.6s ease-out;
-}
-```
-
-A reaction arriving, a bigger pop for the message's first:
-
-```css
-html:not([data-reduce-motion]) #chat .msg-reaction[data-arrived] {
-  animation: my-pop 0.2s ease-out;
-}
-
-html:not([data-reduce-motion]) #chat .msg-reaction[data-arrived="first"] {
-  animation-duration: 0.4s;
-}
-```
-
-A mention in another conversation, its sidebar row pulsing (still under reduced motion: an outline instead):
-
-```css
-html:not([data-reduce-motion]) .channel-list-item[data-mentioned] {
-  animation: my-pulse 1.5s ease-in-out 2;
-}
-
-html[data-reduce-motion] .channel-list-item[data-mentioned] {
-  outline: 0.125rem solid var(--highlight-border-color, currentColor);
-}
-```
+`style.css` animates nothing on it: whether rows move is the theme's choice, and a period theme may want them still. Anything that moves goes behind `:not([data-reduce-motion])`, and a theme can answer reduced motion with something still (a colour, a border) on the same attribute.
 
 A user's own stylesheet can use it too. The greeting the chat-cue draft (#318) shipped for two nicks, as a user stylesheet:
 
@@ -242,7 +187,7 @@ html:not([data-reduce-motion])
 }
 ```
 
-Tests `test/tests/liveRows.ts`, `test/tests/activityPulse.ts`; browser check `tools/scenarios/live-rows.mjs` (no ircd: `lib/tiny-ircd.mjs`).
+Tests `test/tests/liveRows.ts`; browser check `tools/scenarios/live-rows.mjs` (no ircd: `lib/tiny-ircd.mjs`).
 
 ## Accessibility every theme inherits
 

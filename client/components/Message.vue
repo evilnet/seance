@@ -145,12 +145,7 @@
 						:channel="channel"
 					/>
 				</template>
-				<MessageReactions
-					:message="message"
-					:channel="channel"
-					:network="network"
-					:in-chat="inChat"
-				/>
+				<MessageReactions :message="message" :channel="channel" :network="network" />
 			</span>
 		</template>
 		<template v-else>
@@ -277,12 +272,7 @@
 						:channel="channel"
 					/>
 				</template>
-				<MessageReactions
-					:message="message"
-					:channel="channel"
-					:network="network"
-					:in-chat="inChat"
-				/>
+				<MessageReactions :message="message" :channel="channel" :network="network" />
 			</span>
 		</template>
 		<MessageActions

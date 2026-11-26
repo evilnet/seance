@@ -1,5 +1,5 @@
 <template>
-	<div :class="['msg', {closed: isCollapsed}]" data-type="condensed" :data-live="live">
+	<div :class="['msg', {closed: isCollapsed}]" data-type="condensed">
 		<div class="condensed-summary">
 			<span class="time" />
 			<span class="from" />
@@ -17,8 +17,8 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, onBeforeUnmount, PropType, ref, watch} from "vue";
-import {LIVE_HOLD_MS, liveRows, type LiveKind} from "../js/liveRows";
+import {computed, defineComponent, PropType, ref, watch} from "vue";
+import {liveRows} from "../js/liveRows";
 import {condensedTypes} from "../../shared/irc";
 import {MessageType} from "../../shared/types/msg";
 import {ClientMessage, ClientNetwork} from "../js/types";
@@ -46,35 +46,14 @@ export default defineComponent({
 	setup(props) {
 		const {t, tCount} = useI18n();
 
-		// A status line folded in here has no row of its own: the group is
-		// the row drawn for it, so the group takes its live note and carries
-		// it as `data-live` for LIVE_HOLD_MS (liveRows.ts), the newest arrival's
-		// kind when several fold in within that time. Notes are taken once, so
-		// the group a regrouping or a conversation switch draws again is not new.
-		const live = ref<LiveKind>();
-		let liveTimer: number | undefined;
-
+		// A join folded in here has no row of its own: its live note is taken
+		// and dropped, so the row a regrouping draws later is not new
+		// (liveRows.ts).
 		watch(
 			() => props.messages.map((m) => m.id),
-			(ids) => {
-				let kind: LiveKind | undefined;
-
-				for (const id of ids) {
-					kind = liveRows.take(id) ?? kind;
-				}
-
-				if (kind) {
-					live.value = kind;
-					window.clearTimeout(liveTimer);
-					liveTimer = window.setTimeout(() => {
-						live.value = undefined;
-					}, LIVE_HOLD_MS);
-				}
-			},
+			(ids) => ids.forEach((id) => liveRows.take(id)),
 			{immediate: true}
 		);
-
-		onBeforeUnmount(() => window.clearTimeout(liveTimer));
 
 		const isCollapsed = ref(true);
 
@@ -175,7 +154,6 @@ export default defineComponent({
 		});
 
 		return {
-			live,
 			isCollapsed,
 			condensedText,
 			onCollapseClick,
