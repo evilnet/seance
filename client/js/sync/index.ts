@@ -6,8 +6,9 @@
  *
  * What asks the engine for a run: the home's pointer read or changed
  * (`sync:pointer`), a write to a store that roams (localStorage.ts
- * `onStorageWrite`, dated at once), another tab's write to the shared sync
- * state, the wake timer, and this tab becoming the one that uploads.
+ * `onStorageWrite`, dated a moment later), another tab's write to the
+ * shared sync state, and the wake timer. Any tab whose home is connected
+ * uploads; a Web Lock held for the upload alone keeps it to one at a time.
  */
 
 import {ref, type Ref} from "vue";
@@ -31,7 +32,7 @@ const SCAN_DELAY_MS = 1_000;
 const TOKEN_TIMEOUT_MS = 90_000;
 /** How long the server may take to say the pointer again before a sync now goes on without it. */
 const REREAD_TIMEOUT_MS = 10_000;
-/** One upload at a time on this device, whichever tab holds this lock. */
+/** One upload at a time on this device: held for an upload, by whichever tab makes it. */
 const UPLOAD_LOCK = "seance-settings-sync";
 
 /** The stored sync state, for the settings page to follow. */
@@ -108,6 +109,7 @@ function link(uuid: string): HomeLink | null {
 		token: () => withTimeout(client.backgroundToken(), TOKEN_TIMEOUT_MS),
 		setPointer: (value) => void client.writeSyncPointer(value),
 		reread: () => withTimeout(client.readSyncPointer(), REREAD_TIMEOUT_MS),
+		refusals: client.syncWriteRefusals,
 	};
 }
 
@@ -136,8 +138,6 @@ function noticeText(notice: Notice): string {
 
 const networkName = (uuid: string): string => store.getters.findNetwork(uuid)?.name ?? "";
 
-/** Whether this tab uploads for the device: the one holding the Web Lock. */
-let uploader = typeof navigator === "undefined" || !navigator.locks;
 let wakeTimer: number | null = null;
 let scanTimer: number | null = null;
 
@@ -176,7 +176,15 @@ const engine = new SyncEngine({
 			);
 		});
 	},
-	isUploader: () => uploader,
+	exclusively<T>(upload: () => Promise<T>): Promise<T | undefined> {
+		if (typeof navigator === "undefined" || !navigator.locks) {
+			return upload();
+		}
+
+		return navigator.locks.request(UPLOAD_LOCK, {ifAvailable: true}, (lock) =>
+			lock ? upload() : undefined
+		);
+	},
 	wake(ms) {
 		if (wakeTimer !== null) {
 			window.clearTimeout(wakeTimer);
@@ -259,6 +267,19 @@ export async function turnOn(uuid: string): Promise<void> {
 	const client = clientForNetwork(uuid);
 
 	if (!client || unavailable(uuid) !== null) {
+		return;
+	}
+
+	// The pointer as read at connect may be old: another device of the
+	// account, under another nick, may have switched sync on since. A
+	// device that joins an account's file must not take it for the first.
+	try {
+		await withTimeout(client.readSyncPointer(), REREAD_TIMEOUT_MS);
+	} catch {
+		// No answer in time: go on with the pointer as last read.
+	}
+
+	if (unavailable(uuid) !== null) {
 		return;
 	}
 
@@ -393,14 +414,15 @@ export function startSettingsSync(): void {
 		}
 	});
 
-	if (typeof navigator !== "undefined" && navigator.locks) {
-		void navigator.locks.request(UPLOAD_LOCK, () => {
-			uploader = true;
-			engine.run();
-			// Held until this tab goes; then the next one in line uploads.
-			return new Promise<void>(() => undefined);
-		});
-	}
+	// A change made in the moment before the tab goes is dated now, not
+	// at the next launch, where it would beat newer choices made elsewhere.
+	window.addEventListener("pagehide", () => {
+		if (scanTimer !== null) {
+			window.clearTimeout(scanTimer);
+			scanTimer = null;
+			engine.localChange();
+		}
+	});
 
 	engine.run();
 }

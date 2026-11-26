@@ -3830,6 +3830,51 @@ export class IrcClient {
 		this.syncPointerRead();
 	}
 
+	/**
+	 * The services account changed on this connection (a 900 or 901 after
+	 * registration): the pointer read was the other account's. It is unknown
+	 * until read again, and read again behind whatever the user waits for.
+	 */
+	syncAccountChanged(): void {
+		if (this.syncPointer === undefined) {
+			return;
+		}
+
+		this.syncPointer = undefined;
+		this.syncPointerRead();
+		this.dispatchBus("sync:pointer", {network: this.uuid});
+		this.rereadSyncPointerLater();
+	}
+
+	/** How many of this connection's pointer writes the server refused (sync/engine.ts backs off). */
+	syncWriteRefusals = 0;
+
+	/**
+	 * The server refused a write of the pointer (`FAIL METADATA … seance/sync`,
+	 * a full key list for one): the value written is not the account's. Read
+	 * what is.
+	 */
+	onSyncPointerRefused(): void {
+		this.syncWriteRefusals++;
+		this.syncPointer = undefined;
+		this.syncPointerRead();
+		this.dispatchBus("sync:pointer", {network: this.uuid});
+		this.rereadSyncPointerLater();
+	}
+
+	private rereadSyncPointerLater(): void {
+		if (!this.isWelcomed || !this.caps.hasCapability("draft/metadata-2")) {
+			return;
+		}
+
+		const line = `METADATA * GET ${SYNC_KEY}`;
+		this.background.add({
+			key: `metadata:get:${SYNC_KEY}`,
+			cost: this.fakeLag.cost(line),
+			run: () => void this.send(line),
+		});
+	}
+
 	/** Whoever waits on {@link readSyncPointer} has its answer, or none is coming. */
 	private syncPointerRead(): void {
 		for (const resolve of this.syncPointerWaiters.splice(0)) {

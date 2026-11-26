@@ -51,10 +51,19 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(h.client.syncPointer).to.equal(POINTER);
 	});
 
+	it("takes a private notification under another nick: another device of the account", function () {
+		// nefarious2 sends a private key's change to the account's own
+		// sessions only, under the nick of the one that set it.
+		const h = connected();
+		h.transport.line(`:irc.test METADATA alice_ ${SYNC_KEY} private :${POINTER}`);
+
+		expect(h.client.syncPointer).to.equal(POINTER);
+		expect(pointers(h)).to.deep.equal([{network: h.client.uuid}]);
+	});
+
 	it("ignores someone else's key of the same name", function () {
 		const h = connected();
 		h.transport.line(`:irc.test METADATA mallory ${SYNC_KEY} * :${POINTER}`);
-		h.transport.line(`:irc.test METADATA mallory ${SYNC_KEY} private :${POINTER}`);
 		h.transport.line(`:irc.test 761 alice mallory ${SYNC_KEY} * :${POINTER}`);
 
 		expect(h.client.syncPointer).to.equal(undefined);
@@ -111,6 +120,37 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(h.client.writeSyncPointer(POINTER)).to.equal(true);
 		expect(h.sent()).to.include(`METADATA * SET ${SYNC_KEY} private :${POINTER}`);
 		expect(h.client.syncPointer).to.equal(POINTER);
+	});
+
+	it("reads it again when the server refuses the write", function () {
+		const h = connected();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		h.client.writeSyncPointer(`${POINTER}0`);
+		h.transport.line(`:irc.test FAIL METADATA LIMIT_REACHED alice ${SYNC_KEY} :Too many keys`);
+
+		expect(h.client.syncWriteRefusals).to.equal(1);
+		expect(h.client.syncPointer).to.equal(undefined);
+		// Behind whatever else waits: the write may still be queued ahead of it.
+		const read = (line: string) => line === `METADATA * GET ${SYNC_KEY}`;
+		expect(
+			h.sent().some(read) || h.client.background.keys().includes(`metadata:get:${SYNC_KEY}`)
+		).to.equal(true);
+		expect(pointers(h)).to.have.length(2);
+	});
+
+	it("forgets the pointer when the connection logs in as another account, and reads it again", function () {
+		const h = connected();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		const before = h.sent().length;
+		h.transport.line(":irc.test 900 alice alice!a@h bob :You are now logged in as bob");
+
+		expect(h.client.account).to.equal("bob");
+		expect(h.client.syncPointer).to.equal(undefined);
+		expect(h.sent().slice(before)).to.include(`METADATA * GET ${SYNC_KEY}`);
+
+		h.transport.line(":irc.test 901 alice alice!a@h :You are now logged out");
+
+		expect(h.client.syncPointer).to.equal(undefined);
 	});
 
 	it("does not write it where the server cannot keep a key private", function () {
