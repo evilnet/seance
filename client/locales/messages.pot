@@ -15487,6 +15487,42 @@ msgctxt "settings.sync.noPrivate"
 msgid "This server cannot keep the sync key private, so settings are not synced here."
 msgstr ""
 
+#. Settings → Networks: button under the settings sync switch. Sends this device's settings to the account and takes the account's, at once instead of after the usual wait.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now"
+msgid "Sync now"
+msgstr ""
+
+#. Settings → Networks: label of the Sync now button while the sync it started is under way.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.busy"
+msgid "Syncing…"
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button when the upload did not go through (the file host refused it or could not be reached).
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.failed"
+msgid "The settings could not be sent just now. Sync will try again later."
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button when the network is not connected.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.offline"
+msgid "Connect to this network to sync."
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button after it uploaded this device's settings.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.sent"
+msgid "Your settings were sent to your account."
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button when this device held nothing the account did not already have.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.upToDate"
+msgid "Nothing new to send from this device."
+msgstr ""
+
 #. Settings → Networks: why the settings sync switch is disabled: the network is not connected.
 #: client/components/Settings/SyncSwitch.vue:82
 msgctxt "settings.sync.offline"

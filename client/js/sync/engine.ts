@@ -79,7 +79,15 @@ export interface HomeLink {
 	token(): Promise<string>;
 	/** Write the pointer; the connection reads it as set from here on. */
 	setPointer(value: string): void;
+	/** Ask the server for the pointer again; settles once it has answered. */
+	reread?(): Promise<void>;
 }
+
+/**
+ * How a sync the user asked for ended: a file went up, there was nothing
+ * to send, the home is not connected, or the upload did not go through.
+ */
+export type SyncNowResult = "sent" | "upToDate" | "offline" | "failed";
 
 /** What the device says once in the home network's window. */
 export type Notice =
@@ -128,6 +136,9 @@ export class SyncEngine {
 	private again = false;
 	private asking = false;
 	private failures = 0;
+	/** The user asked for a sync: the next upload does not wait its turn. */
+	private urgent = false;
+	private outcome: "sent" | "failed" | null = null;
 	private idle: Array<() => void> = [];
 
 	constructor(private readonly host: SyncHost) {}
@@ -163,6 +174,39 @@ export class SyncEngine {
 	localChange(): void {
 		this.scan();
 		this.run();
+	}
+
+	/**
+	 * The user asked to sync now: read the pointer again, take what another
+	 * device sent, and upload what this one holds without the quiet spell,
+	 * the spacing or a wait an earlier refusal set. One upload at most.
+	 */
+	async syncNow(): Promise<SyncNowResult> {
+		const home = this.state.home;
+		const link = home ? this.host.link(home) : null;
+
+		if (!link) {
+			return "offline";
+		}
+
+		try {
+			await link.reread?.();
+		} catch {
+			// No answer in time: sync with the pointer as last read.
+		}
+
+		await this.settled();
+		this.outcome = null;
+		this.urgent = true;
+		this.run();
+		await this.settled();
+		this.urgent = false;
+
+		if (this.outcome) {
+			return this.outcome;
+		}
+
+		return this.state.dirty ? "failed" : "upToDate";
 	}
 
 	/** Ask for a run; one is started unless one is under way. */
@@ -304,22 +348,25 @@ export class SyncEngine {
 			return;
 		}
 
+		// One upload for one ask: a failed one arms the wake like any other.
+		const urgent = this.urgent;
+		this.urgent = false;
 		const due = Math.max(
 			state.changedAt + QUIET_MS,
 			state.uploadedAt > 0 ? state.uploadedAt + SPACING_MS : 0,
 			state.retryAt
 		);
 
-		if (now < due) {
+		if (!urgent && now < due) {
 			this.host.wake(due - now);
 			return;
 		}
 
-		if (!this.host.isUploader() || !link.canWrite || !link.filehost) {
+		if ((!urgent && !this.host.isUploader()) || !link.canWrite || !link.filehost) {
 			return;
 		}
 
-		await this.upload(home, link, value);
+		await this.upload(home, link, value, urgent);
 	}
 
 	/** The first device of an account: everything it holds that is not a default goes up. */
@@ -476,7 +523,12 @@ export class SyncEngine {
 		}
 	}
 
-	private async upload(home: string, link: HomeLink, value: string): Promise<void> {
+	private async upload(
+		home: string,
+		link: HomeLink,
+		value: string,
+		urgent = false
+	): Promise<void> {
 		const {storage} = this.host;
 		const raw = storage.get(COPY_KEY);
 		let sealed: {bytes: Uint8Array; key: string};
@@ -489,6 +541,7 @@ export class SyncEngine {
 				this.host.say(home, {kind: "upload-too-large"});
 			}
 
+			this.outcome = "failed";
 			return;
 		}
 
@@ -512,6 +565,7 @@ export class SyncEngine {
 				this.update({retryAt: now + this.backoff()});
 			}
 
+			this.outcome = "failed";
 			this.again = true; // to arm the wake
 			return;
 		}
@@ -528,6 +582,7 @@ export class SyncEngine {
 			}
 
 			this.update({retryAt: now + REFUSED_RETRY_MS, saidRefusal: true});
+			this.outcome = "failed";
 			return;
 		}
 
@@ -541,11 +596,14 @@ export class SyncEngine {
 			!current.canWrite ||
 			current.pointer !== value
 		) {
+			// What the user asked for is still owed after the merge.
+			this.urgent = urgent;
 			this.again = true;
 			return;
 		}
 
 		current.setPointer(pointer);
+		this.outcome = "sent";
 		this.failures = 0;
 		const dirty = storage.get(COPY_KEY) !== raw;
 		this.update({

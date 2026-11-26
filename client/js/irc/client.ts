@@ -481,6 +481,7 @@ export class IrcClient {
 	 * is not set. sync/index.ts follows it through `sync:pointer`.
 	 */
 	syncPointer: string | undefined = undefined;
+	private syncPointerWaiters: Array<() => void> = [];
 	/**
 	 * The mute and the shared keys are subscribed on this connection: before
 	 * `CAP END` when the server offers `draft/metadata-2=before-connect` and
@@ -2166,6 +2167,7 @@ export class IrcClient {
 		this.globalServer = null;
 		this.closedKnown = false;
 		this.syncPointer = undefined;
+		this.syncPointerRead();
 		this.metadataSubscribed = false;
 		this.metadataBeforeConnect = false;
 		this.mutePending.length = 0;
@@ -3776,6 +3778,7 @@ export class IrcClient {
 		this.globalServer = null;
 		this.closedKnown = false;
 		this.syncPointer = undefined;
+		this.syncPointerRead();
 		this.metadataSubscribed = false;
 		this.mutePending.length = 0;
 		// Nor is this connection in sync until that read: the registration
@@ -3823,6 +3826,31 @@ export class IrcClient {
 			this.syncPointer = value;
 			this.dispatchBus("sync:pointer", {network: this.uuid});
 		}
+
+		this.syncPointerRead();
+	}
+
+	/** Whoever waits on {@link readSyncPointer} has its answer, or none is coming. */
+	private syncPointerRead(): void {
+		for (const resolve of this.syncPointerWaiters.splice(0)) {
+			resolve();
+		}
+	}
+
+	/**
+	 * Read the settings sync pointer again, for a user who asked to sync
+	 * now (sync/engine.ts `syncNow`): resolves once the server answered, or
+	 * at once where there is nothing to ask.
+	 */
+	readSyncPointer(): Promise<void> {
+		if (!this.isWelcomed || !this.caps.hasCapability("draft/metadata-2")) {
+			return Promise.resolve();
+		}
+
+		return new Promise((resolve) => {
+			this.syncPointerWaiters.push(resolve);
+			this.send(`METADATA * GET ${SYNC_KEY}`);
+		});
 	}
 
 	/**

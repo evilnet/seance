@@ -69,6 +69,7 @@ class Device {
 	answer = false;
 	uploader = true;
 	online = true;
+	reread: () => Promise<void> = () => Promise.resolve();
 	engine: SyncEngine;
 
 	constructor(readonly server: Account, public account = "alice") {
@@ -90,6 +91,7 @@ class Device {
 							canWrite: true,
 							token: () => Promise.resolve("token"),
 							setPointer: (value) => void (server.pointer = value),
+							reread: () => this.reread(),
 					  }
 					: null,
 			context: (home) => ({
@@ -320,6 +322,89 @@ describe("settings sync engine (sync/engine.ts)", function () {
 
 		expect(server.uploads).to.equal(2);
 		expect(await server.values()).to.include({"set:theme": "night", "set:media": false});
+	});
+
+	describe("a sync the user asked for (syncNow)", function () {
+		it("uploads at once, inside the quiet spell and the spacing", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+			await a.changed();
+
+			expect(server.uploads).to.equal(1);
+			expect(await a.engine.syncNow()).to.equal("sent");
+			expect(server.uploads).to.equal(2);
+			expect((await server.values())["set:media"]).to.equal(false);
+			expect(a.engine.state.dirty).to.equal(false);
+		});
+
+		it("dates a change nothing had scanned yet", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+
+			expect(await a.engine.syncNow()).to.equal("sent");
+			expect((await server.values())["set:media"]).to.equal(false);
+		});
+
+		it("uploads nothing when the device holds nothing new", async function () {
+			const a = await firstDevice();
+
+			expect(await a.engine.syncNow()).to.equal("upToDate");
+			expect(server.uploads).to.equal(1);
+		});
+
+		it("takes what another device sent, without a file of its own", async function () {
+			const a = await firstDevice();
+			const b = new Device(server);
+			await b.enable();
+			a.settings.media = false;
+			await a.engine.syncNow();
+
+			expect(await b.engine.syncNow()).to.equal("upToDate");
+			expect(b.settings.media).to.equal(false);
+			expect(server.uploads).to.equal(2);
+		});
+
+		it("uploads from a tab that is not the device's uploader", async function () {
+			const a = await firstDevice();
+			a.uploader = false;
+			a.settings.media = false;
+
+			expect(await a.engine.syncNow()).to.equal("sent");
+		});
+
+		it("tries once when the host refuses, and leaves the retry to the timer", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+			server.refuse = new Response("", {status: 429, headers: {"Retry-After": "600"}});
+
+			expect(await a.engine.syncNow()).to.equal("failed");
+			expect(a.wakes.at(-1)).to.equal(600_000);
+			expect(a.engine.state.dirty).to.equal(true);
+
+			server.refuse = null;
+
+			expect(await a.engine.syncNow()).to.equal("sent");
+			expect(server.uploads).to.equal(2);
+		});
+
+		it("says the home is not connected", async function () {
+			const a = await firstDevice();
+			a.online = false;
+
+			expect(await a.engine.syncNow()).to.equal("offline");
+		});
+
+		it("reads the pointer again first", async function () {
+			const a = await firstDevice();
+			let asked = 0;
+			a.reread = () => {
+				asked++;
+				return Promise.resolve();
+			};
+			await a.engine.syncNow();
+
+			expect(asked).to.equal(1);
+		});
 	});
 
 	it("keeps a change waiting with its time across a restart", async function () {

@@ -98,6 +98,17 @@ upload host), the rest left for pictures and avatars; a 429 is waited out
 for the time it names. A change waiting its turn is in the device's storage
 with its time already, so it goes out later, after a restart too.
 
+**Sync now** (added 2026-11-26), a button under the switch while the home
+is connected, is the user's way past that pacing: someone who turned sync
+on and then favorited three channels waited the five minutes, and a second
+device joining meanwhile saw none of them. It reads the pointer again
+(`METADATA * GET seance/sync`, sent at once: the user is waiting), takes
+what another device sent, and uploads what this device holds without the
+quiet spell, the spacing or a wait an earlier refusal set, from whichever
+tab it was pressed in. One upload for one press; a refusal (a 429 too) is
+said next to the button and the retry is left to the timer
+(`SyncEngine.syncNow`).
+
 One tab uploads for a device (decided 2026-11-25). Two tabs, or the
 installed app and a tab, share the device's storage, so each sees the
 other's change and each would upload it. The tab that holds a Web Lock

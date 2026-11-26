@@ -79,6 +79,31 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(pointers(h)).to.have.length(1);
 	});
 
+	it("reads the pointer again on request, and says when the server answered", async function () {
+		const h = connected();
+		h.transport.line(`:irc.test 766 alice alice ${SYNC_KEY} :no matching key`);
+		let answered = false;
+		const read = h.client.readSyncPointer().then(() => void (answered = true));
+
+		expect(h.sent()).to.include(`METADATA * GET ${SYNC_KEY}`);
+		await Promise.resolve();
+		expect(answered).to.equal(false);
+
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		await read;
+
+		expect(h.client.syncPointer).to.equal(POINTER);
+	});
+
+	it("does not leave a reader waiting when the connection goes", async function () {
+		const h = connected();
+		const read = h.client.readSyncPointer();
+		h.transport.closed();
+		await read;
+
+		expect(h.client.syncPointer).to.equal(undefined);
+	});
+
 	it("writes the pointer private, and holds it as read from then on", function () {
 		const h = connected();
 

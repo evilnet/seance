@@ -342,7 +342,34 @@ export default async function run(page) {
 		await page.goto(`${BASE}#/settings/networks`, {waitForSelector: ".network-settings-sync"});
 		await page.screenshot("settings-sync-synced");
 
-		// --- 5. ---
+		// --- 5. "Sync now": inside the five minutes, with nothing waited out ---
+		const NOW_BUTTON = `document.querySelector(".network-settings-sync-now button")`;
+		const NOW_TEXT = `(document.querySelector(".network-settings-sync-now [role=status]")?.textContent ?? "")`;
+		await page.waitFor(`!!${NOW_BUTTON}`, {label: "the first device shows Sync now"});
+		await page.evaluate(`${NOW_BUTTON}.click()`);
+		await page.waitFor(`${NOW_TEXT}.includes("Nothing new")`, {
+			label: "with nothing changed it says there is nothing to send",
+			timeout: 15000,
+		});
+		page.check("and uploads nothing", filehost.posts.length === 2);
+		await flip(page, "appearance", "showSeconds");
+		await page.goto(`${BASE}#/settings/networks`, {
+			waitForSelector: ".network-settings-sync-now button",
+		});
+		await page.evaluate(`${NOW_BUTTON}.click()`);
+		await page.waitFor(`${NOW_TEXT}.includes("were sent")`, {
+			label: "after a change it says the settings were sent",
+			timeout: 15000,
+		});
+		page.check("in one upload, at once", filehost.posts.length === 3);
+		await page.screenshot("settings-sync-now");
+		const seconds = await page.evaluate(`${stored("settings")}?.showSeconds`);
+		await b.waitFor(`${stored("settings")}?.showSeconds === ${seconds}`, {
+			label: "the second device took the change",
+			timeout: 10000,
+		});
+
+		// --- 6. ---
 		page.check(
 			`no console errors on B (${b.consoleErrors.join(" | ")})`,
 			b.consoleErrors.length === 0

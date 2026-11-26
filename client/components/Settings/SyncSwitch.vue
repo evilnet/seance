@@ -12,6 +12,12 @@
 			{{ t("settings.sync.label") }}
 		</label>
 		<p class="network-settings-sync-note">{{ note }}</p>
+		<p v-if="canSyncNow" class="network-settings-sync-now">
+			<button type="button" class="btn btn-sm" :disabled="busy" @click="now">
+				{{ busy ? t("settings.sync.now.busy") : t("settings.sync.now") }}
+			</button>
+			<span role="status" class="network-settings-sync-note">{{ result }}</span>
+		</p>
 	</div>
 </template>
 
@@ -25,13 +31,25 @@
 	font-size: 0.875rem;
 	color: var(--body-color-muted);
 }
+
+.network-settings-sync-now {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0.5rem 0 0;
+}
+
+.network-settings-sync-now .btn {
+	margin: 0;
+}
 </style>
 
 <script lang="ts">
-import {computed, defineComponent} from "vue";
+import {computed, defineComponent, ref} from "vue";
 import {useI18n} from "../../js/i18n";
 import {sameAccount} from "../../js/sync/state";
-import {syncState, syncTick, turnOff, turnOn, unavailable} from "../../js/sync";
+import {syncNow, syncState, syncTick, turnOff, turnOn, unavailable} from "../../js/sync";
 import {clientForNetwork} from "../../js/irc/manager";
 
 /**
@@ -105,7 +123,48 @@ export default defineComponent({
 			}
 		};
 
-		return {t, on, reason, note, toggle};
+		/** The button shows while this device can sync here: on, connected, the same account, not waiting on an update. */
+		const canSyncNow = computed(() => {
+			void syncTick.value;
+			const state = syncState.value;
+			const client = clientForNetwork(props.uuid);
+
+			return (
+				on.value &&
+				!state.blocked &&
+				!!client?.isWelcomed &&
+				sameAccount(client.account, state.account)
+			);
+		});
+
+		const busy = ref(false);
+		/** How the last "Sync now" ended. */
+		const result = ref("");
+
+		const now = async () => {
+			busy.value = true;
+			result.value = "";
+
+			try {
+				switch (await syncNow()) {
+					case "sent":
+						result.value = t("settings.sync.now.sent");
+						break;
+					case "upToDate":
+						result.value = t("settings.sync.now.upToDate");
+						break;
+					case "offline":
+						result.value = t("settings.sync.now.offline");
+						break;
+					default:
+						result.value = t("settings.sync.now.failed");
+				}
+			} finally {
+				busy.value = false;
+			}
+		};
+
+		return {t, on, reason, note, toggle, canSyncNow, busy, result, now};
 	},
 });
 </script>

@@ -17,6 +17,8 @@
  * `private` or names our nick (our own legacy public value).
  */
 import type {Handler} from "../types";
+import type {IrcClient} from "../client";
+import type {IrcMessage} from "../message";
 import type {BatchHandler} from "./batch";
 import {sharedBurstRead} from "../presence";
 import {MUTE_KEY, onMuteValue} from "../pushMute";
@@ -25,7 +27,7 @@ import {CLOSED_KEY, onClosedValue} from "../closedQueries";
 import {AVATAR_KEY, isQuietAvatarReply, onAvatarValue} from "../avatars";
 import {SYNC_KEY} from "../../sync/file";
 // index.ts imports this module too; `unhandled` is only called at run time.
-import {unhandled} from "./index";
+import {showReply, unhandled} from "./index";
 
 /** The webpush payload tier (webpush.ts writes it through `webpush:metadata`). */
 export const PAYLOAD_KEY = "draft/webpush/payload";
@@ -80,6 +82,17 @@ const metadata: Handler = (client, msg) => {
 	}
 };
 
+/**
+ * An avatar reply nothing here was waiting for. About someone else, the
+ * user asked (`/metadata bob get avatar`): it shows where they are. About
+ * ourselves it is as likely the answer to another of the account's devices
+ * reading its own avatar, which a shared session hears too: it goes to the
+ * server window, not into whatever conversation is open.
+ */
+function showAvatarReply(client: IrcClient, msg: IrcMessage, target: string): void {
+	showReply(client, msg, !client.isSelf(target));
+}
+
 // 761 <me> <target> <key> <visibility> :<value>: our own GET (`*` expands to our
 // nick) — never another user's value an oper asked for, private or not.
 const keyValue: Handler = (client, msg) => {
@@ -92,7 +105,7 @@ const keyValue: Handler = (client, msg) => {
 		}
 
 		if (!quiet) {
-			unhandled(client, msg);
+			showAvatarReply(client, msg, target);
 		}
 
 		return;
@@ -145,7 +158,7 @@ const keyNotSet: Handler = (client, msg) => {
 		onAvatarValue(client, target, "");
 
 		if (!quiet) {
-			unhandled(client, msg);
+			showAvatarReply(client, msg, target);
 		}
 
 		return;

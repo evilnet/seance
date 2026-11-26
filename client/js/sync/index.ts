@@ -19,7 +19,7 @@ import storage, {onStorageWrite} from "../localStorage";
 import {config, createState} from "../settings";
 import socket from "../socket";
 import {store} from "../store";
-import {SyncEngine, type HomeLink, type Notice} from "./engine";
+import {SyncEngine, type HomeLink, type Notice, type SyncNowResult} from "./engine";
 import {isRoamingKey, type SettingsPort} from "./entries";
 import {fileSupported, parsePointer} from "./file";
 import {followOtherTabs, reloadStored} from "./reload";
@@ -29,6 +29,8 @@ import {COPY_KEY, readState, sameAccount, STATE_KEY, type SyncState} from "./sta
 const SCAN_DELAY_MS = 1_000;
 /** How long a token for the file host may take, queue included. */
 const TOKEN_TIMEOUT_MS = 90_000;
+/** How long the server may take to say the pointer again before a sync now goes on without it. */
+const REREAD_TIMEOUT_MS = 10_000;
 /** One upload at a time on this device, whichever tab holds this lock. */
 const UPLOAD_LOCK = "seance-settings-sync";
 
@@ -105,6 +107,7 @@ function link(uuid: string): HomeLink | null {
 		canWrite: client.canWriteSyncPointer,
 		token: () => withTimeout(client.backgroundToken(), TOKEN_TIMEOUT_MS),
 		setPointer: (value) => void client.writeSyncPointer(value),
+		reread: () => withTimeout(client.readSyncPointer(), REREAD_TIMEOUT_MS),
 	};
 }
 
@@ -284,6 +287,11 @@ export async function turnOn(uuid: string): Promise<void> {
 /** The settings switch, off: this device stops syncing; the account's file stays. */
 export function turnOff(): void {
 	engine.disable();
+}
+
+/** The "Sync now" button: take what the account has and send what this device holds, without the waits. */
+export function syncNow(): Promise<SyncNowResult> {
+	return engine.syncNow();
 }
 
 /** Networks whose offer was put off on this page: asked again at the next launch. */
