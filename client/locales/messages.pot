@@ -30,8 +30,9 @@ msgctxt "avatar.cardNone"
 msgid "{nick} has no avatar."
 msgstr ""
 
-#. User card: the services account this person is logged in to.
+#. User card: the services account this person is logged in to. About someone else, never the reader: not the Account page's settings.account.signedIn.
 #: client/components/UserCard.vue
+#, distinct
 msgctxt "avatar.cardSignedIn"
 msgid "Signed in as {account}"
 msgstr ""
@@ -97,6 +98,12 @@ msgstr ""
 #. Avatar settings, explaining who sees the avatar.
 msgctxt "avatar.help"
 msgid "Everyone who shares a channel with you on {network} can see it. It is kept with your account, so other devices and IRC apps show it too."
+msgstr ""
+
+#. Avatar settings, explaining who sees the avatar, when the network has no name yet (avatar.help is the same sentence with the network's name).
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.helpUnnamed"
+msgid "Everyone who shares a channel with you on this network can see it. It is kept with your account, so other devices and IRC apps show it too."
 msgstr ""
 
 #. Avatar settings, under the link field, when the link points somewhere other than the network's image host.
@@ -194,11 +201,6 @@ msgstr ""
 #. User menu: undo "Always show {nick}'s avatar".
 msgctxt "avatar.stopPerson"
 msgid "Stop always showing {nick}'s avatar"
-msgstr ""
-
-#. Stands in for a network's name in avatar.help when it has none yet.
-msgctxt "avatar.thisNetwork"
-msgid "this network"
 msgstr ""
 
 #. Avatar crop dialog: the chosen file is too large to read.
@@ -706,6 +708,18 @@ msgctxt "bans.setBy"
 msgid "Set by {who}"
 msgstr ""
 
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): under a ban's mask when the server named nobody as its setter and gave no time.
+#: client/js/helpers/banMenu.ts
+msgctxt "bans.setByServer"
+msgid "Set by the server"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): under a ban's mask when the server named nobody as its setter. {when} is a relative time such as "3 days ago".
+#: client/js/helpers/banMenu.ts
+msgctxt "bans.setByServerWhen"
+msgid "Set by the server, {when}"
+msgstr ""
+
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): under a ban's mask. {who} is a nick, verbatim; {when} is a relative time such as "3 days ago".
 #: client/js/helpers/banMenu.ts
 msgctxt "bans.setByWhen"
@@ -734,12 +748,6 @@ msgstr ""
 #: client/components/Windows/BanList.vue
 msgctxt "bans.sort.setter"
 msgid "By who set them"
-msgstr ""
-
-#. Bans window: who a ban was set by, when the server did not name anyone. Fills {who} in "Set by {who}".
-#: client/js/helpers/banMenu.ts
-msgctxt "bans.theServer"
-msgid "the server"
 msgstr ""
 
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the window's heading, next to the channel's name.

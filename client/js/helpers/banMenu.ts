@@ -139,9 +139,15 @@ export function changeChannelBans(network: string, change: BanChange): Promise<B
 
 /** `Set by alice, 3 days ago`: a row of the Bans window, the top of the edit dialog. */
 export function banSetText(row: BanEntry): string {
-	const who = banSetter(row.by) || t("bans.theServer");
+	const who = banSetter(row.by);
+	const when = row.at ? formatRelativeTime(row.at) : "";
 
-	return row.at
-		? t("bans.setByWhen", {who, when: formatRelativeTime(row.at)})
-		: t("bans.setBy", {who});
+	// The server is a sentence of its own, not a {who}: a phrase dropped
+	// into a frame made for a nick cannot take the case or agreement the
+	// frame needs ("Nastaveno uživatelem server").
+	if (!who) {
+		return when ? t("bans.setByServerWhen", {when}) : t("bans.setByServer");
+	}
+
+	return when ? t("bans.setByWhen", {who, when}) : t("bans.setBy", {who});
 }

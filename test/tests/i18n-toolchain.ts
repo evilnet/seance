@@ -925,6 +925,16 @@ describe("i18n toolchain", () => {
 				expect(slotVerdict("hu", "{count} G-line", "{count} G-line")).to.equal(null);
 				expect(slotVerdict("de", "Kill", "Kill")).to.equal(null);
 				expect(slotVerdict("de", "Kill this user", "Kill this user")).to.equal("unchanged");
+				// A term a catalog keeps as the English word (the IRC NOTICE
+				// in 15 of them, tools/i18n/terms/) is no echo there, so the
+				// sweep must not take it back out...
+				expect(slotVerdict("ru", "Notice:", "Notice:")).to.equal(null);
+				expect(slotVerdict("ru", "IAuth notices", "Notice IAuth")).to.equal(null);
+				expect(slotVerdict("zh", "WHOIS notices", "WHOIS NOTICE")).to.equal(null);
+				// ...but it is in a catalog with a word of its own for it.
+				expect(slotVerdict("ko", "Notice", "Notice")).to.equal("unchanged");
+				expect(slotVerdict("es", "Server notice", "Server notice")).to.equal("unchanged");
+				expect(slotVerdict("ja", "Bouncer", "Bouncer")).to.equal("unchanged");
 			});
 
 			it("refuses an answer that dropped the source's own padding", () => {

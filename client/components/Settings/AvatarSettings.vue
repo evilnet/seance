@@ -397,7 +397,9 @@ export default defineComponent({
 		const fileInput = ref<HTMLInputElement>();
 
 		const helpText = computed(() =>
-			t("avatar.help", {network: networkName.value || t("avatar.thisNetwork")})
+			networkName.value
+				? t("avatar.help", {network: networkName.value})
+				: t("avatar.helpUnnamed")
 		);
 
 		const notEditableText = computed(() =>
