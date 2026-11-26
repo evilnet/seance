@@ -142,6 +142,43 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(pointers(h)).to.have.length(2);
 	});
 
+	it("reads it again when nefarious2's rate limit, which names no key, answers our write", function () {
+		const h = connected();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		h.client.writeSyncPointer(`${POINTER}0`);
+		h.transport.line(
+			":irc.test FAIL METADATA RATE_LIMITED :Too many metadata commands, slow down"
+		);
+
+		expect(h.client.syncPointer).to.equal(undefined);
+	});
+
+	it("asks again later when the read after a refused write is refused too", function () {
+		const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
+
+		try {
+			const h = connected();
+			h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+			h.client.writeSyncPointer(`${POINTER}0`);
+			h.transport.line(
+				`:irc.test FAIL METADATA LIMIT_REACHED alice ${SYNC_KEY} :Too many keys`
+			);
+			clock.tick(10_000);
+			const read = (line: string) => line === `METADATA * GET ${SYNC_KEY}`;
+			expect(h.sent().some(read)).to.equal(true);
+			h.transport.line(":irc.test FAIL METADATA RATE_LIMITED :slow down");
+			clock.tick(60_000);
+
+			expect(h.sent().some(read)).to.equal(true);
+
+			h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+
+			expect(h.client.syncPointer).to.equal(POINTER);
+		} finally {
+			clock.restore();
+		}
+	});
+
 	it("subscribes and reads the account's keys after a login on the live connection", function () {
 		const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
 		const h = connected(undefined, false);

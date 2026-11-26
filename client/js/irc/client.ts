@@ -230,6 +230,9 @@ import {
 	UNREACT_TAG,
 } from "./wire";
 
+/** How long after a refused read of the sync pointer it is asked again. */
+const SYNC_REREAD_DELAY_MS = 30_000;
+
 export interface HighlightKeywords {
 	keywords: string[];
 	exceptions: string[];
@@ -3827,6 +3830,7 @@ export class IrcClient {
 	/** A `seance/sync` value read: our own key, from the burst, the login read or a notification. */
 	onSyncPointer(value: string): void {
 		this.syncSetPending = false;
+		this.syncRereading = false;
 
 		if (this.syncPointer !== value) {
 			this.syncPointer = value;
@@ -3838,10 +3842,10 @@ export class IrcClient {
 
 	/**
 	 * The connection logged in, out, or as another account once registered
-	 * (`/msg NickServ IDENTIFY`): the pointer read was another account's.
-	 * A login subscribes and reads the account's own keys as registration
-	 * does, so a guest who identifies later hears live changes too; before
-	 * 001, registration's own read is still to come.
+	 * (a 900 or 901: a SASL exchange after 001; nefarious2 sends none for a
+	 * login through services): the pointer read was another account's. A
+	 * login subscribes and reads the account's own keys as registration
+	 * does; before 001, registration's own read is still to come.
 	 */
 	onAccountChanged(): void {
 		if (!this.isWelcomed) {
@@ -3862,17 +3866,51 @@ export class IrcClient {
 	 * old value come back and waits longer before it uploads again.
 	 */
 	onSyncPointerFail(): void {
-		if (!this.syncSetPending) {
+		if (this.syncSetPending) {
+			this.forgetSyncPointer();
+			this.rereadSyncPointer(0);
+		} else if (this.syncRereading) {
+			// The read was refused too (a rate limit): ask again later, or
+			// the pointer stays unknown until a reconnect.
+			this.rereadSyncPointer(SYNC_REREAD_DELAY_MS);
+		}
+	}
+
+	/** A read of the pointer after a refused SET is out and not answered yet. */
+	private syncRereading = false;
+	private syncRereadTimer: ReturnType<typeof setTimeout> | null = null;
+
+	private rereadSyncPointer(delayMs: number): void {
+		if (this.syncRereadTimer !== null) {
+			clearTimeout(this.syncRereadTimer);
+		}
+
+		this.syncRereadTimer = null;
+		this.syncRereading = false;
+		const read = () => {
+			this.syncRereadTimer = null;
+
+			if (!this.isWelcomed || this.syncPointer !== undefined) {
+				return;
+			}
+
+			const line = `METADATA * GET ${SYNC_KEY}`;
+			this.background.add({
+				key: `metadata:get:${SYNC_KEY}`,
+				cost: this.fakeLag.cost(line),
+				run: () => {
+					this.syncRereading = this.send(line);
+				},
+			});
+		};
+
+		if (delayMs <= 0) {
+			read();
 			return;
 		}
 
-		this.forgetSyncPointer();
-		const line = `METADATA * GET ${SYNC_KEY}`;
-		this.background.add({
-			key: `metadata:get:${SYNC_KEY}`,
-			cost: this.fakeLag.cost(line),
-			run: () => void this.send(line),
-		});
+		this.syncRereadTimer = setTimeout(read, delayMs);
+		(this.syncRereadTimer as {unref?: () => void}).unref?.();
 	}
 
 	/** The pointer is unknown again: whoever follows it hears so. */

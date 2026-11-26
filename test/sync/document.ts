@@ -103,7 +103,9 @@ describe("settings sync document (sync/document.ts)", function () {
 				NOW
 			);
 
-			expect(Object.keys(merged.entries)).to.deep.equal(["soon"]);
+			expect(merged.taken).to.deep.equal(["soon"]);
+			// Kept to pass on, marked as not taken yet.
+			expect(merged.entries.late).to.deep.equal({t: NOW + SKEW_MS + 1, v: 2, d: true});
 		});
 
 		it("says when the earliest of them comes, within a day", function () {
@@ -116,6 +118,11 @@ describe("settings sync document (sync/document.ts)", function () {
 			expect(merge({}, ahead, NOW).deferred).to.equal(NOW + 2 * SKEW_MS);
 			expect(join(ahead, local({}), NOW).deferred).to.equal(NOW + 2 * SKEW_MS);
 			expect(merge({}, {far: ahead.far}, NOW).deferred).to.equal(0);
+			expect(merge({}, {far: ahead.far}, NOW).entries).to.deep.equal({});
+			// Not one the device already holds as new.
+			expect(merge({a: {t: NOW + 3 * SKEW_MS, v: 1}}, {a: ahead.a}, NOW).deferred).to.equal(
+				0
+			);
 		});
 
 		it("keeps an entry this build does not know, as received", function () {

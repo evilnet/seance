@@ -55,11 +55,14 @@ sessions, under the nick of the session that set it (`m_metadata.c`,
 `private` or names our own nick (`handlers/metadata.ts` `ours`): another
 device logged in under another nick, not sharing a bouncer session, is
 heard too. Someone else's public key of the same name names their nick and
-is ignored. A connection that logs in or out after registration forgets
-the pointer it read, and a login subscribes and reads the account's keys as
-registration does (`IrcClient.onAccountChanged`). A write the server
-refuses (`FAIL METADATA … seance/sync` while our SET is out: a full key
-list, a rate limit) is read again; when the old value comes back the tab
+is ignored. A connection that logs in or out after registration (a 900
+or 901 from a SASL exchange after 001; nefarious2 sends neither for a
+login through services) forgets the pointer it read, and a login
+subscribes and reads the account's keys as registration does
+(`IrcClient.onAccountChanged`). A write the server refuses
+(`FAIL METADATA … seance/sync` while our SET is out: a full key list; or
+nefarious2's `RATE_LIMITED`, `VALUE_INVALID` and `INTERNAL_ERROR`, which
+name no key) is read again, and a refused read is asked again 30 s later; when the old value comes back the tab
 that wrote waits longer before it uploads again, doubling from a minute up
 to an hour, so a server that refuses every write is not sent a file every
 five minutes.
@@ -123,7 +126,8 @@ tab, share the device's storage, so each sees the other's change and each
 would upload it. A tab whose home is connected uploads while it holds a Web
 Lock (`navigator.locks`, `ifAvailable`), taken for the upload alone and
 checked again once held: a tab finding it taken looks again a little
-later, by which time the shared state says the change went. (The first
+later, by which time the shared state says the change went; Sync now
+waits for the lock instead. (The first
 version held the lock for a tab's whole life, so a tab whose home was
 offline, or that the browser had suspended, kept every other tab from
 uploading.) A browser without it lets every tab upload: the files are the
@@ -202,10 +206,12 @@ entry:
   device takes it, rather than reading its own default as a choice made
   then;
 - nothing dated more than a minute after this device's clock is taken (the
-  rule the presence keys use). Such a file waits: it is taken once the
-  entry's time is within the minute, and the device uploads nothing over it
-  before then, so the change is neither lost nor left out of the next file.
-  An entry dated more than a day ahead is not taken at all.
+  rule the presence keys use). The rest of the file is taken; such an
+  entry, if it is newer than the device's, is kept in the device's copy as
+  received (`d`), passed on in its uploads, and taken once its time is
+  within the minute (the engine wakes for it), so it is neither lost nor
+  left out of the next file. An entry dated more than a day ahead is not
+  taken at all.
 
 That is a last-writer-wins map, one of the simplest CRDTs. It needs no
 library; it is `helpers/settingsSync.ts` (#323) with a time per entry and the
@@ -237,7 +243,9 @@ on, and a device taking itself for the first would date everything it holds
 at now and win over the account. A device that has not joined and finds a
 pointer it will not read (damaged, too large, on another host) says so and
 joins as if the account's file were gone, so the switch does not stay on
-doing nothing.
+doing nothing; but what it holds goes up dated as the oldest of choices
+(time 1), so a device that can read the account's own file keeps its side
+and its next upload puts it back.
 
 A device that last synced more than 90 days ago joins again by the same
 rule: the markers for what was removed meanwhile may be gone, and by its

@@ -25,8 +25,9 @@ export const MARKER_TTL_MS = 90 * 24 * 3600 * 1000;
 /** How far ahead of this device's clock an entry may be dated and still be taken. */
 export const SKEW_MS = 60_000;
 /**
- * An entry dated up to this far ahead waits on the reader until its time
- * comes ({@link Merged.deferred}); one dated further ahead is not taken.
+ * An entry dated up to this far ahead is kept, but waits on the reader until
+ * its time comes (`d`, {@link Merged.deferred}); one dated further ahead is
+ * not taken.
  */
 export const DEFER_MS = 24 * 3600 * 1000;
 
@@ -46,6 +47,12 @@ export interface Entry {
 	 * (sync/engine.ts), not read as a change made here. Never uploaded.
 	 */
 	u?: true;
+	/**
+	 * Device copy only: the entry is dated ahead of this device's clock, so
+	 * it is kept and uploaded as received but not taken until its time
+	 * comes (sync/engine.ts). Never uploaded as a mark.
+	 */
+	d?: true;
 }
 
 export type Entries = Record<string, Entry>;
@@ -196,16 +203,30 @@ export interface Merged {
 	/** The device holds something the file does not: it uploads. */
 	ahead: boolean;
 	/**
-	 * The earliest time of an entry dated past `now` + {@link SKEW_MS} but
-	 * within {@link DEFER_MS}, or 0: such a file is taken once that time is
-	 * near, so the entry is neither lost nor left out of the next upload.
+	 * The earliest time of an entry kept as deferred (`d`: dated past `now`
+	 * + {@link SKEW_MS} but within {@link DEFER_MS}), or 0. The rest of the
+	 * file is taken now; such an entry is taken once its time is near.
 	 */
 	deferred: number;
 }
 
-/** The earlier of a deferral and an entry's time, if the entry waits. */
-function deferral(deferred: number, entry: Entry, now: number): number {
-	return entry.t <= now + DEFER_MS ? Math.min(deferred || Infinity, entry.t) : deferred;
+/** Whether `entry` is dated too far ahead to take now; then `waits` says if it is kept. */
+const ahead = (entry: Entry, now: number) => ({
+	early: entry.t > now + SKEW_MS,
+	waits: entry.t <= now + DEFER_MS,
+});
+
+/** The earliest `t` of the entries kept as deferred, or 0. */
+export function deferredUntil(entries: Entries): number {
+	let first = 0;
+
+	for (const id in entries) {
+		if (entries[id].d) {
+			first = first ? Math.min(first, entries[id].t) : entries[id].t;
+		}
+	}
+
+	return first;
 }
 
 /**
@@ -216,8 +237,7 @@ function deferral(deferred: number, entry: Entry, now: number): number {
 export function merge(mine: Entries, theirs: Entries, now: number): Merged {
 	const entries = dict<Entry>();
 	const taken: string[] = [];
-	let ahead = false;
-	let deferred = 0;
+	let isAhead = false;
 
 	for (const id in mine) {
 		entries[id] = mine[id];
@@ -230,16 +250,20 @@ export function merge(mine: Entries, theirs: Entries, now: number): Merged {
 			continue;
 		}
 
-		if (theirEntry.t > now + SKEW_MS) {
-			deferred = deferral(deferred, theirEntry, now);
+		const myEntry = entries[id];
+
+		if (myEntry && !newer(theirEntry, myEntry)) {
 			continue;
 		}
 
-		const myEntry = entries[id];
+		const {early, waits} = ahead(theirEntry, now);
 
-		if (!myEntry || newer(theirEntry, myEntry)) {
+		if (!early) {
 			entries[id] = bare(theirEntry);
 			taken.push(id);
+		} else if (waits) {
+			// Kept and passed on as received; taken when its time comes.
+			entries[id] = {...bare(theirEntry), d: true};
 		}
 	}
 
@@ -254,11 +278,16 @@ export function merge(mine: Entries, theirs: Entries, now: number): Merged {
 		const theirEntry = theirs[id];
 
 		if (!theirEntry || !wellFormed(theirEntry) || newer(entry, theirEntry)) {
-			ahead = true;
+			isAhead = true;
 		}
 	}
 
-	return {entries, taken: taken.filter((id) => id in entries), ahead, deferred};
+	return {
+		entries,
+		taken: taken.filter((id) => id in entries),
+		ahead: isAhead,
+		deferred: deferredUntil(entries),
+	};
 }
 
 /** What a device holds now, and how to read it. */
@@ -333,8 +362,7 @@ export function diff(
 export function join(theirs: Entries, local: Local, now: number): Merged {
 	const entries = dict<Entry>();
 	const taken: string[] = [];
-	let ahead = false;
-	let deferred = 0;
+	let isAhead = false;
 
 	for (const id in theirs) {
 		const entry = theirs[id];
@@ -343,9 +371,11 @@ export function join(theirs: Entries, local: Local, now: number): Merged {
 			continue;
 		}
 
-		if (entry.t > now + SKEW_MS) {
-			deferred = deferral(deferred, entry, now);
-		} else if (!expired(entry, now)) {
+		const {early, waits} = ahead(entry, now);
+
+		if (early && waits) {
+			entries[id] = {...bare(entry), d: true};
+		} else if (!early && !expired(entry, now)) {
 			entries[id] = bare(entry);
 			taken.push(id);
 		}
@@ -359,10 +389,10 @@ export function join(theirs: Entries, local: Local, now: number): Merged {
 		}
 
 		entries[id] = {t, v: local.current[id]};
-		ahead = true;
+		isAhead = true;
 	}
 
-	return {entries, taken, ahead, deferred};
+	return {entries, taken, ahead: isAhead, deferred: deferredUntil(entries)};
 }
 
 /**
@@ -377,6 +407,10 @@ export function reconcile(entries: Entries, local: Local): Entries {
 	for (const id in entries) {
 		const entry = bare(entries[id]);
 		out[id] = entry;
+
+		if (entries[id].d) {
+			entry.d = true; // not taken yet: what the device holds is its own
+		}
 
 		if (!local.owns(id)) {
 			entry.u = true;

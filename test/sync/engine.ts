@@ -136,7 +136,8 @@ class Device {
 				this.asked.push(other);
 				return Promise.resolve(this.answer);
 			},
-			exclusively: (upload) => (this.busy ? Promise.resolve(undefined) : upload()),
+			exclusively: (upload, wait) =>
+				this.busy && !wait ? Promise.resolve(undefined) : upload(),
 			wake: (ms) => void this.wakes.push(ms),
 			retentionMs: () => this.retentionDays * DAY,
 		});
@@ -769,28 +770,60 @@ describe("settings sync engine (sync/engine.ts)", function () {
 			expect(await server.values()).to.include({"set:media": false});
 		});
 
-		it("takes a change from a device whose clock runs ahead once its time comes, and sends nothing over it before", async function () {
+		it("takes the rest of a fast clock's file at once, and keeps what it dated ahead until its time", async function () {
 			const a = await firstDevice();
 			const b = new Device(server);
 			await b.enable();
 			a.skew = 3 * 60_000;
 			a.settings.theme = "night";
+			a.aliases([["hug", "/me hugs"]]);
 			await a.engine.syncNow();
+			a.skew = 0; // the clock is put right; the file still says ahead
+			a.settings.media = false;
+			await a.changed();
 			b.settings.media = false;
-			await b.changed();
+			server.downloads = 0;
 			b.wakes = [];
 			await b.run();
-
-			expect(b.settings.theme).to.equal("day");
-			expect(b.wakes.at(-1)).to.equal(2 * 60_000 + 1);
-
-			server.now += 2 * 60_000 + 1;
 			await b.run();
+
+			// The rest is taken; the theme waits for its time, the file once.
+			expect(b.aliasNames()).to.deep.equal(["wave"]);
+			expect(b.settings.theme).to.equal("day");
+			expect(b.wakes).to.include(2 * 60_000 + 1);
+			expect(server.downloads).to.equal(1);
+
+			// What b sends meanwhile carries the theme on as it came.
+			b.settings.media = true;
+			await b.changed();
 			server.now += SPACING_MS;
 			await b.run();
 
+			expect(await server.values()).to.include({"set:theme": "night", "set:media": true});
+			expect(b.settings.theme).to.equal("night"); // its time came meanwhile
+		});
+
+		it("takes an entry dated ahead when its time comes, and not before", async function () {
+			const a = await firstDevice();
+			const b = new Device(server);
+			await b.enable();
+			a.skew = 10 * 60_000;
+			a.settings.theme = "night";
+			await a.engine.syncNow();
+			await b.run();
+
+			expect(b.settings.theme).to.equal("day");
+
+			server.now += 8 * 60_000;
+			await b.run();
+
+			expect(b.settings.theme).to.equal("day");
+
+			server.now += 60_000 + 1;
+			await b.run();
+
 			expect(b.settings.theme).to.equal("night");
-			expect(await server.values()).to.include({"set:theme": "night", "set:media": false});
+			expect(b.engine.state.dirty).to.equal(false);
 		});
 
 		it("never uploads again for a host that keeps files, and halves a short keep", async function () {
@@ -819,18 +852,32 @@ describe("settings sync engine (sync/engine.ts)", function () {
 			expect(server.uploads).to.equal(3);
 		});
 
-		it("joins as the first device when the account's pointer cannot be read", async function () {
-			server.pointer = `1 https://files.example/f/9 ${"A".repeat(43)} ${server.now}`;
-			server.files.set("https://files.example/f/9", new Uint8Array(64));
+		it("joins when the account's pointer cannot be read, without winning over a device that can read its file", async function () {
+			const a = await firstDevice();
+			const good = server.pointer!;
+			const pointer = parsePointer(good) as Pointer;
+			const bytes = server.files.get(pointer.url)!;
+			server.files.set(pointer.url, new Uint8Array(64)); // a proxy's page, this once
 			const b = new Device(server);
 			b.settings.theme = "night";
 			await b.enable();
+			server.files.set(pointer.url, bytes);
 			server.now += QUIET_MS;
 			await b.run();
 
 			expect(b.said).to.deep.equal([{kind: "damaged"}]);
 			expect(b.engine.state.joined).to.equal(true);
-			expect(await server.values()).to.include({"set:theme": "night"});
+			expect(server.pointer).to.not.equal(good);
+
+			// The device that reads the account's side keeps it, and puts it back.
+			await a.run();
+			server.now += SPACING_MS;
+			await a.run();
+			await b.run();
+
+			expect(a.settings.theme).to.equal("day");
+			expect(await server.values()).to.include({"set:theme": "day"});
+			expect(b.settings.theme).to.equal("day");
 		});
 
 		it("does not say up to date when the account's file could not be read", async function () {
@@ -995,6 +1042,92 @@ describe("settings sync engine (sync/engine.ts)", function () {
 					Math.min(RETRY_MS * 2 ** i, RETRY_MAX_MS)
 				);
 			}
+		});
+
+		it("does not roll the device back to a pointer a tab's connection has not heard replaced", async function () {
+			const a = await firstDevice();
+			const old = server.pointer;
+			// The device's second tab, loaded with everything in step.
+			const tab = new Device(server, "alice", a.stored);
+			tab.settings = a.settings;
+			await tab.run();
+			a.settings.media = false;
+			await a.changed();
+			server.now += SPACING_MS;
+			await a.run();
+			tab.sees = () => old; // its connection has not heard the SET yet
+			server.downloads = 0;
+			await tab.run();
+			server.now += SPACING_MS;
+			await a.run();
+
+			expect(a.engine.state.pointer).to.equal(server.pointer);
+			expect(a.engine.state.dirty).to.equal(false);
+			expect(server.downloads).to.equal(0);
+			expect(server.uploads).to.equal(2);
+		});
+
+		it("does not take a fresh tab's unset for the key going, after the first upload", async function () {
+			const a = await firstDevice();
+			const tab = new Device(server, "alice", a.stored);
+			tab.settings = a.settings;
+			tab.sees = () => ""; // read before the first device's SET
+			await tab.run();
+
+			expect(a.engine.state.pointer).to.equal(server.pointer);
+			expect(a.engine.state.dirty).to.equal(false);
+		});
+
+		it("starts the wait over once a write of ours stood", async function () {
+			const a = await firstDevice();
+			const refuse = async () => {
+				const kept = server.pointer;
+				a.settings.media = !a.settings.media;
+				await a.changed();
+				server.now += Math.max(SPACING_MS, a.engine.state.retryAt - server.now);
+				await a.run();
+				server.pointer = kept;
+				await a.run();
+				return a.engine.state.retryAt - server.now;
+			};
+
+			expect(await refuse()).to.equal(RETRY_MS);
+
+			// The next one goes through, and stands until the one after.
+			server.now += RETRY_MS;
+			await a.run();
+			a.settings.theme = "night";
+			await a.changed();
+			server.now += SPACING_MS;
+			await a.run();
+
+			expect(await refuse()).to.equal(RETRY_MS);
+		});
+
+		it("waits for another tab's upload on Sync now instead of saying it failed", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+			a.busy = true; // another tab holds the lock
+
+			expect(await a.engine.syncNow()).to.equal("sent");
+		});
+
+		it("marks what an earlier copy kept unknown, so a later build takes it", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+			await a.engine.syncNow();
+			const b = new Device(server);
+			delete b.settings.media;
+			await b.enable();
+			// The copy as the first version wrote it: no mark.
+			const copy = JSON.parse(b.stored.get("thelounge.state.sync.entries")!);
+			delete copy["set:media"].u;
+			b.stored.set("thelounge.state.sync.entries", JSON.stringify(copy));
+			await b.changed(); // a scan under this build, still without the setting
+			b.settings.media = true; // then the update that has it
+			await b.changed();
+
+			expect(b.settings.media).to.equal(false);
 		});
 
 		it("asks once in a tab about another account, though another tab clears the pause", async function () {

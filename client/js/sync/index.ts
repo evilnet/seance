@@ -175,12 +175,12 @@ const engine = new SyncEngine({
 			);
 		});
 	},
-	exclusively<T>(upload: () => Promise<T>): Promise<T | undefined> {
+	exclusively<T>(upload: () => Promise<T>, wait: boolean): Promise<T | undefined> {
 		if (typeof navigator === "undefined" || !navigator.locks) {
 			return upload();
 		}
 
-		return navigator.locks.request(UPLOAD_LOCK, {ifAvailable: true}, (lock) =>
+		return navigator.locks.request(UPLOAD_LOCK, {ifAvailable: !wait}, (lock) =>
 			lock ? upload() : undefined
 		);
 	},
@@ -257,6 +257,9 @@ function joinQuestion(uuid: string, account: string): Record<string, unknown> {
 	};
 }
 
+/** Networks whose offer was put off on this page: asked again at the next launch. */
+const putOff = new Set<string>();
+
 /**
  * The settings switch, on: make `uuid` this device's sync home. Asks first
  * when another network is the home (there is never more than one), and when
@@ -268,6 +271,10 @@ export async function turnOn(uuid: string): Promise<void> {
 	if (!client || unavailable(uuid) !== null) {
 		return;
 	}
+
+	// The question below is this one's: the offer the re-read may prompt
+	// (a pointer this device had not heard of) is not asked as well.
+	putOff.add(uuid);
 
 	// The pointer as read at connect may be old: another device of the
 	// account, under another nick, may have switched sync on since. A
@@ -303,9 +310,6 @@ export async function turnOn(uuid: string): Promise<void> {
 
 	engine.enable(uuid, client.account);
 }
-
-/** Networks whose offer was put off on this page: asked again at the next launch. */
-const putOff = new Set<string>();
 
 /** The settings switch, off: this device stops syncing; the account's file stays. */
 export function turnOff(): void {
