@@ -330,12 +330,14 @@ listened for it themselves.
 PASTE's `filehost.php`, read in its source and asked at
 `paste.boxlabs.uk/filehost` on 2026-11-24:
 
-- **It refuses the upload until its accepted types change.** `Accept-Post`
-  is `image/*, video/*, text/*` (`FILEHOST_ACCEPT`) and the encrypted
-  document is `application/octet-stream`, a 415. The host's operator agreed
-  on 2026-11-25 to add that type; the host did not list it yet that day
-  (`OPTIONS /filehost`, `Accept-Post`). A type outside image, video and
-  audio must match what the content sniffs as, which encrypted bytes do.
+- **It lists the upload's type.** The encrypted document is
+  `application/octet-stream`, which `Accept-Post` (`FILEHOST_ACCEPT`) has
+  listed since 2026-11-26, after `image/*`, `video/*`, `text/*` and
+  `audio/*` (read with `OPTIONS /filehost` at 18:25 GMT); before that it
+  listed the first three only and the upload was a 415.
+  No upload of a settings file has been made there yet. A type outside
+  image, video and audio must match what the content sniffs as, which
+  encrypted bytes do.
   Base64 as `text/plain` is no
   way round: the host takes it, but as a paste on the site, whose raw URL
   (`/raw/<id>`, `paste.php`) is served without
@@ -349,9 +351,8 @@ PASTE's `filehost.php`, read in its source and asked at
   records the account, the network and the IP address of each upload.
 
 AfterNET's `draft/FILEHOST` names this host
-(`https://paste.boxlabs.uk/filehost`, read from its 005 on 2026-11-25). Its
-`Accept-Post` did not list `application/octet-stream` on 2026-11-25
-14:56 GMT. While a host refuses the type, a device says once in the home
+(`https://paste.boxlabs.uk/filehost`, read from its 005 on 2026-11-25). Where a
+host refuses the type, a device says once in the home
 network's window that the file host did not take the settings file, and
 tries again every hour (`sync/engine.ts` `REFUSED_RETRY_MS`); nothing is
 lost meanwhile, each device keeps its entries and their times.
