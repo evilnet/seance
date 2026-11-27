@@ -4,7 +4,16 @@
 // helpers/messageSessions.ts), and nowhere else; joins and parts in a pause
 // neither start nor continue one; Classic and Workspace show none. Then a
 // phone: the markers there, the swipe still showing every row's time, and
-// ps, which lays out its own rows and draws none.
+// ps, which lays out its own rows and draws none. On the way: a keyboard's
+// focus shows a row's time; an action's toolbar comes up from anywhere on
+// its line; a session time's full date opens over the bubble under it; a
+// line that arrives late with an earlier time does not turn the session
+// clock back; and a trackpad swipe in a private conversation moves no row,
+// left to right and right to left.
+//
+// Run it once more with `--touch-laptop` (a browser that calls its
+// touchscreen the primary input but has a trackpad too): there it checks
+// only that the trackpad's swipe still shows the times.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/session-times.mjs
@@ -50,8 +59,32 @@ const LINES = [
 	[`@time=${at("10:20")};msgid=j2 ${from("carol")} PART ${CHANNEL}`, false],
 	[say("10:40", "alice", "lunch was good"), true],
 	[say("10:41", "alice", "anyone around?"), false],
-	[say("13:05", "bob", "I am now"), true],
+	[say("10:42", "alice", "notes at https://example.invalid/notes"), false],
+	[say("10:43", "bob", "\x01ACTION waves from the doorway\x01"), false],
+	[
+		say(
+			"13:05",
+			"bob",
+			`I am now, ${"and this line runs on across the middle of the pane ".repeat(3)}`
+		),
+		true,
+	],
 	[say("09:30", "alice", "a new day", "2026-11-25"), true],
+	// Delayed: said before the line above, sent after it. The next line is
+	// 28 minutes after the newest, so no new stretch.
+	[say("09:28", "bob", "a line that arrives late", "2026-11-25"), false],
+	[say("09:58", "alice", "still the same stretch", "2026-11-25"), false],
+];
+
+/** A private conversation: its first line wraps at a narrow pane. */
+const QUERY = [
+	`@time=${at("11:00")};msgid=q1 ${from(
+		"alice"
+	)} PRIVMSG ${NICK} :I sent these exact words so that this first bubble wraps over a few lines at a narrow pane.`,
+	`@time=${at("11:01")};msgid=q2 ${from("alice")} PRIVMSG ${NICK} :and a later one`,
+	`@time=${at("11:02")};msgid=q3 ${from(
+		NICK
+	)} PRIVMSG alice :mine, at the far side, long enough to wrap there as well when the pane is narrow`,
 ];
 
 export default async function run(page) {
@@ -61,6 +94,7 @@ export default async function run(page) {
 		onLine(line, ctx) {
 			if (line.startsWith("JOIN ")) {
 				for (const [out] of LINES) ctx.send(out);
+				for (const out of QUERY) ctx.send(out);
 				return true;
 			}
 
@@ -79,7 +113,7 @@ export default async function run(page) {
 		await page.goto(page.url, {waitForSelector: "#connect form"});
 		await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
 		await page.waitFor(
-			`[...document.querySelectorAll("#chat .msg")].some((m) => m.textContent.includes("a new day"))`,
+			`[...document.querySelectorAll("#chat .msg")].some((m) => m.textContent.includes("still the same stretch"))`,
 			{label: "the conversation"}
 		);
 		await page.evaluate(update("use12hClock", false));
@@ -97,6 +131,37 @@ export default async function run(page) {
 
 		await page.evaluate(update("messageLayout", "bubbles"));
 		await page.sleep(300);
+
+		if (page.flags.has("--touch-laptop")) {
+			// The browser calls the touchscreen the primary input; the
+			// trackpad's swipe still shows the times (trackpadSwipe.ts listens
+			// on every machine: a finger sends no wheel events).
+			await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 600, y: 450});
+			for (let i = 0; i < 8; i++) {
+				await page.send("Input.dispatchMouseEvent", {
+					type: "mouseWheel",
+					x: 600,
+					y: 450,
+					deltaX: 12,
+					deltaY: 0,
+				});
+				await page.sleep(16);
+			}
+			await page.sleep(60);
+			const hybrid = await page.evaluate(`({
+				primaryTouch: matchMedia("(hover: none) and (pointer: coarse)").matches,
+				finePointer: matchMedia("(any-pointer: fine)").matches,
+				peek: document.querySelector("#chat .chat").classList.contains("time-peek")
+			})`);
+			page.check(
+				`touch-primary laptop: a trackpad swipe shows the times (${JSON.stringify(
+					hybrid
+				)})`,
+				hybrid.primaryTouch && hybrid.finePointer && hybrid.peek
+			);
+			return;
+		}
+
 		const marked = await page.evaluate(MARKED);
 		page.check(
 			`Messenger: a time over each stretch's first line, and only there (${JSON.stringify(
@@ -209,6 +274,164 @@ export default async function run(page) {
 				after.shown === 0
 		);
 		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+		await page.sleep(300);
+
+		// A keyboard's focus on a row shows its time, a later line's too.
+		const focused = await page.evaluate(`(() => {
+			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("notes at"));
+			m.querySelector(".content a").focus({focusVisible: true});
+			const got = {later: m.classList.contains("previous-source"), shown: getComputedStyle(m.querySelector(":scope > .time")).visibility};
+			document.activeElement.blur();
+			return {...got, after: getComputedStyle(m.querySelector(":scope > .time")).visibility};
+		})()`);
+		page.check(
+			`Messenger: a keyboard's focus on a later line shows its time, and leaving takes it away (${JSON.stringify(
+				focused
+			)})`,
+			focused.later && focused.shown === "visible" && focused.after === "hidden"
+		);
+
+		// An action with a msgid has a toolbar: the pointer anywhere on its
+		// line, not only on its words, brings it up.
+		await page.evaluate(
+			`[...document.querySelectorAll("#chat .chat .msg")].find((m) => m.textContent.includes("waves from the doorway")).scrollIntoView({block: "center"})`
+		);
+		await page.sleep(150);
+		const beside = await page.evaluate(`(() => {
+			const m = [...document.querySelectorAll("#chat .chat .msg")].find((x) => x.textContent.includes("waves from the doorway"));
+			const r = m.getBoundingClientRect(), pane = document.querySelector("#chat .chat").getBoundingClientRect();
+			return {x: pane.right - 35, y: (r.top + r.bottom) / 2};
+		})()`);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", ...beside});
+		await page.sleep(150);
+		const action = await page.evaluate(`(() => {
+			const m = [...document.querySelectorAll("#chat .chat .msg")].find((x) => x.textContent.includes("waves from the doorway"));
+			return {type: m.dataset.type, actions: m.classList.contains("has-actions"), hovered: m.matches(":hover"), toolbar: getComputedStyle(m.querySelector(".msg-actions")).display};
+		})()`);
+		page.check(
+			`Messenger: beside an action, past its words, the pointer is on its row and its toolbar is up (${JSON.stringify(
+				action
+			)})`,
+			action.type === "action" &&
+				action.actions &&
+				action.hovered &&
+				action.toolbar === "flex"
+		);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+
+		// A session time's tooltip (the full date) opens downward over the
+		// bubble under it: nothing paints over it. Raising the marker by hand
+		// changes no pixel of it.
+		const MARKER = `[...document.querySelectorAll("#chat .chat .session-marker")].find((m) => m.nextElementSibling?.textContent.includes("I am now"))`;
+		await page.evaluate(`${MARKER}.scrollIntoView({block: "center"})`);
+		await page.sleep(150);
+		const tipAt = await page.evaluate(`(() => {
+			const t = ${MARKER}.querySelector(".session-marker-text"), r = t.getBoundingClientRect();
+			return {x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2, bottom: r.bottom};
+		})()`);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: tipAt.x, y: tipAt.y});
+		await page.sleep(700);
+		const tip = await page.evaluate(`(() => {
+			const t = ${MARKER}.querySelector(".session-marker-text"), a = getComputedStyle(t, "::after");
+			const next = ${MARKER}.nextElementSibling.getBoundingClientRect();
+			return {opacity: Number(a.opacity), visibility: a.visibility, under: next.left < ${tipAt.x} && next.right > ${tipAt.x}};
+		})()`);
+		const clip = {
+			x: Math.floor(tipAt.x - 90),
+			y: Math.ceil(tipAt.bottom + 6),
+			width: 180,
+			height: 14,
+			scale: 1,
+		};
+		const shot = async () =>
+			(await page.send("Page.captureScreenshot", {format: "png", clip})).data;
+		const asIs = await shot();
+		await page.evaluate(`${MARKER}.style.zIndex = "5"`);
+		const raised = await shot();
+		await page.evaluate(`${MARKER}.style.removeProperty("z-index")`);
+		await page.screenshot("1c-messenger-session-tooltip");
+		page.check(
+			`Messenger: a session time's full date opens over the bubble under it (${JSON.stringify(
+				{
+					...tip,
+					same: asIs === raised,
+				}
+			)})`,
+			tip.under && tip.visibility === "visible" && tip.opacity > 0.95 && asIs === raised
+		);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+
+		// A private conversation at a narrow pane with the longest clock: a
+		// trackpad swipe slides the times in and no row changes size or
+		// moves up or down, left to right and right to left (a first line's
+		// time takes no room to give back).
+		await page.evaluate(update("use12hClock", true));
+		await page.evaluate(update("showSeconds", true));
+		await page.evaluate(
+			`document.querySelector('.channel-list-item[data-name="alice"]').click()`
+		);
+		await page.waitFor(
+			`[...document.querySelectorAll("#chat .chat .msg")].some((m) => m.textContent.includes("exact words"))`,
+			{label: "the private conversation"}
+		);
+		await page.send("Emulation.setDeviceMetricsOverride", {
+			width: 390,
+			height: 844,
+			deviceScaleFactor: 1,
+			mobile: false,
+		});
+		await page.sleep(400);
+		const ROWS = `(() => {
+			const c = document.querySelector("#chat .chat");
+			return {peek: c.classList.contains("time-peek"), wide: c.scrollWidth > c.clientWidth,
+				rows: [...c.querySelectorAll(".messages > .msg")].map((m) => { const r = m.getBoundingClientRect(); return [r.width, r.height, r.top].map((v) => Math.round(v * 4) / 4); }),
+				shown: [...c.querySelectorAll('.messages > .msg[data-type="message"] > .time')].filter((t) => getComputedStyle(t).visibility === "visible").length};
+		})()`;
+		for (const dir of ["ltr", "rtl"]) {
+			await page.evaluate(`document.documentElement.dir = "${dir}"`);
+			await page.sleep(400);
+			const y = await page.evaluate(
+				`(() => { const r = [...document.querySelectorAll("#chat .chat .msg")].find((m) => m.textContent.includes("exact words")).getBoundingClientRect(); return r.top + 12; })()`
+			);
+			await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 195, y});
+			const rest = await page.evaluate(ROWS);
+			for (let i = 0; i < 6; i++) {
+				await page.send("Input.dispatchMouseEvent", {
+					type: "mouseWheel",
+					x: 195,
+					y,
+					deltaX: dir === "rtl" ? -15 : 15,
+					deltaY: 0,
+				});
+				await page.sleep(16);
+			}
+			await page.sleep(60);
+			const peeking = await page.evaluate(ROWS);
+			await page.screenshot(`1d-messenger-query-trackpad-${dir}`);
+			page.check(
+				`Messenger query, ${dir}: a trackpad swipe shows the times and moves no row (${JSON.stringify(
+					{
+						rest,
+						peeking,
+					}
+				)})`,
+				!rest.peek &&
+					peeking.peek &&
+					peeking.shown === 3 &&
+					!peeking.wide &&
+					JSON.stringify(rest.rows) === JSON.stringify(peeking.rows)
+			);
+			await page.sleep(450);
+		}
+		await page.evaluate(`document.documentElement.dir = "ltr"`);
+		await page.send("Emulation.clearDeviceMetricsOverride");
+		await page.evaluate(update("use12hClock", false));
+		await page.evaluate(update("showSeconds", false));
+		await page.evaluate(
+			`document.querySelector('.channel-list-item[data-name="${CHANNEL}"]').click()`
+		);
+		await page.sleep(400);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
 
 		// ---- a phone, by finger
 		await page.send("Emulation.setDeviceMetricsOverride", {
@@ -228,7 +451,7 @@ export default async function run(page) {
 			"phone: the session times stay while row times are hidden",
 			(await page.count("#chat .chat .session-marker")) === 4 &&
 				(await page.evaluate(
-					`[...document.querySelectorAll("#chat .chat .msg .time")].every((t) => getComputedStyle(t).display === "none")`
+					`[...document.querySelectorAll("#chat .chat .msg .time")].every((t) => getComputedStyle(t).visibility === "hidden")`
 				))
 		);
 		page.check(
@@ -246,7 +469,7 @@ export default async function run(page) {
 		}
 		await page.sleep(150);
 		const during = await page.evaluate(
-			`({peek: document.querySelector("#chat .chat").classList.contains("time-peek"), shown: [...document.querySelectorAll("#chat .chat .msg[data-type=message] .time")].filter((t) => getComputedStyle(t).display !== "none").length})`
+			`({peek: document.querySelector("#chat .chat").classList.contains("time-peek"), shown: [...document.querySelectorAll("#chat .chat .msg[data-type=message] .time")].filter((t) => getComputedStyle(t).visibility === "visible").length})`
 		);
 		await page.screenshot("3-messenger-phone-swipe");
 		await page.send("Input.dispatchTouchEvent", {type: "touchEnd", touchPoints: []});

@@ -4214,26 +4214,34 @@ html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #cha
 	visibility: hidden;
 }
 
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg.previous-source:is(:hover, .actions-open) > .time {
+/* Workspace's on hover or a long press; Messenger shows no row's time
+ * there (below). */
+html[data-message-layout="workspace"] #chat .chat .msg.previous-source:is(:hover, .actions-open) > .time {
 	visibility: visible;
 }
 
-/* Messenger: a small tag in the bubble's own colours (so its contrast is
- * the bubble's). With a mouse, on hover, beside the bubble past its end,
- * held inside the pane where the bubble runs to it. By finger it is past the
- * pane's end, and a swipe brings every line's into view (§ By finger,
- * below). */
-html[data-message-layout="bubbles"] #chat .chat .msg.previous-source:where(:not(:is(.date-marker-container, .unread-marker, .gap-marker) + .msg)):is([data-type="message"], [data-type="notice"]) > .time {
+/* Messenger: no row's time takes room, a run's first line's no more than a
+ * later one's (no bubble gives up width for a time, the user, 2026-11-24),
+ * so nothing moves when it shows, whatever the input: a small tag in the
+ * bubble's own colours (so its contrast is the bubble's) beside the bubble
+ * past its end, held inside the pane where the bubble runs to it. It shows
+ * only to a keyboard's focus (§ Session times) or a swipe (§ By finger and
+ * trackpad, below); the session times stand for the rest. */
+html[data-message-layout="bubbles"] #chat .chat .messages .msg:is([data-type="message"], [data-type="notice"]) > .time {
+	grid-area: auto; /* placed against the row, not its header's cell */
+	position: absolute;
 	inset-block-start: 50%;
 	/* stylelint-disable-next-line unit-no-unknown -- cqi: the message list is an inline-size container; stylelint predates it */
 	inset-inline: min(100%, calc(100cqi - var(--bubble-gutter) - 2.125rem - var(--bubble-time))) auto;
 	translate: 0 -50%;
-	margin-inline-start: 0.375rem;
+	margin-block: 0;
+	margin-inline: 0.375rem 0;
 	padding-block: 0.125rem;
 	padding-inline: 0.4375rem;
 	border-radius: 0.75rem;
+	background-color: inherit;
 	white-space: nowrap;
-	z-index: 1; /* over the row's whole-line box, so the pointer reaches its date */
+	visibility: hidden;
 }
 
 /* One stack: where two of a run's bubbles meet, the corners on the
@@ -4527,7 +4535,7 @@ html[data-message-layout="bubbles"] #chat .chat .msg:not(.chat-view[data-type="q
 	transform-origin: bottom left;
 }
 
-html[data-message-layout="bubbles"] #chat .messages > :is(.msg:first-child, .date-marker-container:first-child + .msg, .session-marker:first-child + .msg, .date-marker-container:first-child + .session-marker + .msg):not(.chat-view[data-type="query"] .msg.self) .msg-actions {
+html[data-message-layout="bubbles"] #chat .messages > :is(.msg:first-child, .date-marker-container:first-child + .msg, .date-marker-container:first-child + .session-marker + .msg):not(.chat-view[data-type="query"] .msg.self) .msg-actions {
 	transform-origin: top left;
 }
 
@@ -4535,7 +4543,7 @@ html[dir="rtl"][data-message-layout="bubbles"] #chat .chat .msg:not(.chat-view[d
 	transform-origin: bottom right;
 }
 
-html[dir="rtl"][data-message-layout="bubbles"] #chat .messages > :is(.msg:first-child, .date-marker-container:first-child + .msg):not(.chat-view[data-type="query"] .msg.self) .msg-actions {
+html[dir="rtl"][data-message-layout="bubbles"] #chat .messages > :is(.msg:first-child, .date-marker-container:first-child + .msg, .date-marker-container:first-child + .session-marker + .msg):not(.chat-view[data-type="query"] .msg.self) .msg-actions {
 	transform-origin: top right;
 }
 
@@ -4579,8 +4587,8 @@ html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat-co
  * who it is, so neither side shows an avatar or a nick (a notice keeps its
  * label), and our own bubbles stand at the far side in the own fill,
  * whatever Your own messages says of the fill (it still decides the words).
- * A run's first line shows its time at the bubble's end; a later line's
- * comes on hover or a long press, as everywhere. Not ps, which paints its
+ * Times as everywhere in Messenger: none takes room, our own stands before
+ * the bubble, the others past its end. Not ps, which paints its
  * cards over the yurt's inside and keeps them as a channel's. */
 html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] {
 	--bubble-gutter: 0rem;
@@ -4596,7 +4604,7 @@ html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .m
 }
 
 /* Our own bubble is at the far side: its time stands before it. */
-html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .msg.self.previous-source:is([data-type="message"], [data-type="notice"]) > .time {
+html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .msg.self:is([data-type="message"], [data-type="notice"]) > .time {
 	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
 	inset-inline: auto min(100%, calc(100cqi - 2.125rem - var(--bubble-time)));
 	margin-inline: 0 0.375rem;
@@ -4607,14 +4615,11 @@ html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .m
 	display: none;
 }
 
+/* With no nick over it and its time taking no room, a first line is its
+ * words alone, as a later one is. */
 html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .msg[data-type="message"]:is(:not(.previous-source), :is(.date-marker-container, .unread-marker, .gap-marker) + .msg) {
-	grid-template-columns: minmax(0, 1fr) auto;
-	grid-template-areas: "content time";
-}
-
-/* On the last line of the words, where they wrap. */
-html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .msg[data-type="message"]:is(:not(.previous-source), :is(.date-marker-container, .unread-marker, .gap-marker) + .msg) > .time {
-	align-self: last baseline;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-areas: "content";
 }
 
 html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .msg.self:is([data-type="message"], [data-type="notice"]) {
@@ -4636,8 +4641,8 @@ html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .m
 /* Messenger's action (the reading it shares with Workspace is above): not a
  * bubble, since it is narration rather than speech, but a line in the
  * bubbles' text column with a run's space above it (the bubble after it
- * starts a run and brings its own). Its time comes on hover or a long press,
- * as a run's later line's does, taking no room in the line: just past its
+ * starts a run and brings its own). Its time comes only with a keyboard's
+ * focus or the swipe, as a message's does, taking no room in the line: just past its
  * words, or, where the line runs nearly to the column's end, over its end on
  * the window's colour (`--action-time` is about what the time takes), so it
  * never leaves the pane. The message list is a size container (below). */
@@ -4686,8 +4691,7 @@ html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat .m
  * Workspace. A step smaller, in the muted ink, the nicks in theirs but not
  * bold, a block of them held close; as wide as the column, so a long host
  * wraps at the pane's end and not in a narrow strip beside a time column
- * (the user, 2026-11-24). The time takes no room: it comes on hover or a
- * long press, as an action's does (above). */
+ * (the user, 2026-11-24). The time takes no room, as an action's (above). */
 html[data-message-layout="bubbles"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="action"]) {
 	--action-time: 5rem;
 	--body-color-muted: var(--bubble-fg-muted);
@@ -4757,9 +4761,15 @@ html[data-message-layout="bubbles"] #chat .chat .msg[data-type="action"] > .time
 /* § Session times. Messenger stamps a conversation the way a phone's
  * messaging app does: the time, small and centred, over the first line of
  * each stretch of talk (MessageList.vue; a quiet half hour starts a new one,
- * helpers/messageSessions.ts), not on every line. The row's own time stays
- * where it was: a run's header with a mouse, the swipe by finger. */
+ * helpers/messageSessions.ts), not on every line. A row's own time comes
+ * only with a keyboard's focus on the row or a swipe (§ By finger and
+ * trackpad, below): hover shows none, since a time shown on a bubble that
+ * runs to the pane's end covered its words (the user, 2026-11-25). The
+ * marker stands over the rows (`z-index`), so the full date its tooltip
+ * opens downward is not under the bubble after it. */
 html[data-message-layout="bubbles"] #chat .session-marker {
+	position: relative;
+	z-index: 1;
 	margin-block: 0.875rem 0.125rem;
 	margin-inline: 0.625rem;
 	text-align: center;
@@ -4776,15 +4786,9 @@ html[data-message-layout="bubbles"] #chat .session-marker-text {
 	font-variant-numeric: tabular-nums;
 }
 
-/* So no row carries a time of its own until it is asked for: a swipe shows
- * them all, a finger's or a trackpad's (§ By finger and trackpad), as in
- * Messages; hover shows none, since a time shown on a bubble that runs to
- * the pane's end covered its words (the user, 2026-11-25). A keyboard's
- * focus on a row still shows its time. The room a run's first line keeps
- * for it in the header stays, so nothing moves. */
-html[data-message-layout="bubbles"] #chat .chat:not(.time-peek) .msg:is([data-type="message"], [data-type="notice"]):not(:focus-within) > .time,
-html[data-message-layout="bubbles"] #chat .chat:not(.time-peek) .msg:not([data-type="message"], [data-type="notice"]):not(:focus-within) > .time {
-	visibility: hidden;
+/* A keyboard's focus on a row shows its time, where it stands hidden. */
+html[data-message-layout="bubbles"] #chat .chat .messages .msg:focus-within > .time {
+	visibility: visible;
 }
 
 /* The hover that shows a row's toolbar is the whole row's, not the bubble's
@@ -4799,20 +4803,24 @@ html[data-message-layout="bubbles"] #chat .chat:not(.time-peek) .msg:not([data-t
  * row paints over any of it that reaches under that row), and the list
  * clips what reaches past its sides, so nothing scrolls sideways. With a
  * finger there is no hover, and while a swipe shows the times the areas
- * stand down, so the column past the pane's end is not clipped. */
-html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat:not(.time-peek) .messages {
+ * stand down, so the column past the pane's end is not clipped. The clip
+ * is every input's at rest: a row's hidden time, beside its bubble, is held
+ * inside the pane only as far as `--bubble-time` guesses its width. */
+html[data-message-layout="bubbles"] #chat .chat:not(.time-peek) .messages {
 	overflow-x: clip;
 }
 
-html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > :is(.msg, .session-marker, .unread-marker, .gap-marker) {
+html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > :is(.msg, .unread-marker, .gap-marker) {
 	z-index: 0;
 }
 
-html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > :is(.session-marker, .unread-marker, .gap-marker) {
+html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > :is(.unread-marker, .gap-marker) {
 	position: relative;
 }
 
-html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat:not(.time-peek) .messages > .msg:is([data-type="message"], [data-type="notice"])::before {
+/* Every line people say, and any other row with a toolbar (an action, a
+ * line with a msgid). */
+html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat:not(.time-peek) .messages > .msg:is([data-type="message"], [data-type="notice"], .has-actions)::before {
 	content: "";
 	position: absolute;
 	z-index: -1;
@@ -4820,13 +4828,13 @@ html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat:not(.t
 	inset-inline: -100vw;
 }
 
-html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > .msg:is([data-type="message"], [data-type="notice"]):has(+ .msg.previous-source)::before {
+html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > .msg:is([data-type="message"], [data-type="notice"], .has-actions):has(+ .msg.previous-source)::before {
 	inset-block-end: -0.1875rem;
 }
 
-/* A run's first line also takes the space above it, up to the line before,
- * unless that line's reactions hang into it. */
-html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > .msg:not(:has(.msg-reaction)) + .msg:is([data-type="message"], [data-type="notice"]):not(.previous-source)::before {
+/* A run's first line, or an action, also takes the space above it, up to
+ * the line before, unless that line's reactions hang into it. */
+html[data-message-layout="bubbles"]:not([data-input="touch"]) #chat .chat .messages > .msg:not(:has(.msg-reaction)) + .msg:is([data-type="message"], [data-type="notice"], .has-actions):not(.previous-source)::before {
 	inset-block-start: -0.5rem;
 }
 
@@ -4835,28 +4843,23 @@ html[data-message-layout="bubbles"] #chat :is(.date-marker-container, .unread-ma
 	margin-block-start: 0.375rem;
 }
 
-/* By finger and trackpad no row shows its time, as in Messages: a swipe
+/* § By finger and trackpad. No row shows its time, as in Messages: a swipe
  * toward the pane's start slides the conversation aside (MessageList.vue
  * sets `.time-peek` and `--time-peek`, the finger's travel, or two fingers'
  * on a trackpad, trackpadSwipe.ts) and shows every row's in one column past
  * the pane's end, level with its row; lifting the finger, or the trackpad's
- * gesture going quiet, puts it back. (The `:is()` that matches every page
- * keeps the weight these rules had when they were the finger's alone.) No bubble gives up width for a time (the user,
- * 2026-11-24). */
-html[data-message-layout="bubbles"][data-input="touch"] #chat .chat .messages .msg > .time {
-	display: none;
-}
-
-/* While the times are out, no toolbar comes up over them. */
+ * gesture going quiet, puts it back. Every row's time already takes no room
+ * (above), so the swipe moves nothing but the slide. While the times are
+ * out, no toolbar comes up over them. */
 html[data-message-layout="bubbles"] #chat .chat.time-peek .msg-actions {
 	display: none;
 }
 
-html[data-message-layout="bubbles"]:is([data-input], :not([data-input])) #chat .chat.time-peek .messages {
+html[data-message-layout="bubbles"] #chat .chat.time-peek .messages {
 	translate: calc(-1 * min(var(--time-peek, 0px), var(--bubble-time) + 2.5rem));
 }
 
-html[dir="rtl"][data-message-layout="bubbles"]:is([data-input], :not([data-input])) #chat .chat.time-peek .messages {
+html[dir="rtl"][data-message-layout="bubbles"] #chat .chat.time-peek .messages {
 	translate: min(var(--time-peek, 0px), calc(var(--bubble-time) + 2.5rem));
 }
 
@@ -4865,9 +4868,7 @@ html[dir="rtl"][data-message-layout="bubbles"]:is([data-input], :not([data-input
  * point of the swipe does a time reach past the pane, which would give the
  * scroller sideways range. (The whole-line row boxes stand down while the
  * times are out, above.) */
-html[data-message-layout="bubbles"]:is([data-input], :not([data-input])) #chat .chat.time-peek .messages .msg > .time {
-	display: block;
-	grid-area: auto; /* placed against the row, not its header's cell */
+html[data-message-layout="bubbles"] #chat .chat.time-peek .messages .msg > .time {
 	position: absolute;
 	inset-block: 50% auto;
 	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
@@ -4891,14 +4892,14 @@ html[data-message-layout="bubbles"]:is([data-input], :not([data-input])) #chat .
 
 /* A mention's bar is in the bubble's border, which the time is placed
  * inside of. */
-html[data-message-layout="bubbles"]:is([data-input], :not([data-input])) #chat .chat-view[data-type="channel"] .chat.time-peek .messages .msg.highlight > .time {
+html[data-message-layout="bubbles"] #chat .chat-view[data-type="channel"] .chat.time-peek .messages .msg.highlight > .time {
 	/* stylelint-disable-next-line unit-no-unknown -- cqi, as above */
 	inset-inline-start: calc(100cqi - var(--bubble-gutter) - 0.625rem - 0.1875rem);
 }
 
 /* Our own, at the far side of a private conversation: from its own end
  * (an action's own time has its own padding, which this outweighs). */
-html[data-message-layout="bubbles"]:is([data-input], :not([data-input])) #chat .chat-view[data-type="query"] .chat.time-peek .messages .msg.self > .time {
+html[data-message-layout="bubbles"] #chat .chat-view[data-type="query"] .chat.time-peek .messages .msg.self > .time {
 	inset-inline: calc(100% + 0.625rem) auto;
 	padding-inline: min(0.25rem, var(--time-peek, 0px) / 2);
 }
@@ -4958,12 +4959,9 @@ html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [
 	transform-origin: calc(100% - 0.75rem) 50%;
 }
 
-/* A private conversation's bubbles: a run's first line keeps its time
- * beside its words, on their last line, so the bubble's end is not the
- * words' end (the time stands between). The row is placed from the
- * bubble's corner instead (`.msg` is positioned), left where it falls below
- * the words, and `.content` keeps its clip and its baseline, which the time
- * is set on; the bubble's own padding is the third of a chip on it. Placed
+/* A private conversation's bubbles: the row is placed from the bubble's
+ * corner (`.msg` is positioned), left where it falls below the words, and
+ * `.content` keeps its clip; the bubble's own padding is the third of a chip on it. Placed
  * so, the row makes no room for a second line (two people seldom leave a
  * line's worth of different reactions on one message), so it never wraps:
  * what does not fit the line scrolls along it, where a wrapped line had
@@ -5267,8 +5265,8 @@ html[data-message-layout="workspace"] #chat .chat .msg.has-actions[data-type="ac
 		linear-gradient(var(--workspace-band, transparent) 0 0);
 }
 
-/* In both looks: Messenger's (above) and Workspace's. */
-html:is([data-message-layout="bubbles"], [data-message-layout="workspace"]) #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
+/* On hover or a long press, as a later line's (Messenger shows none). */
+html[data-message-layout="workspace"] #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]):is(:hover, .actions-open) > .time {
 	visibility: visible;
 }
 
@@ -10770,11 +10768,11 @@ html[data-reduce-motion] .reaction-tip {
 
 /* The first message in the scrollback has nothing above it to float over:
  * that one's toolbar tucks inside the row instead of being clipped by the
- * scroll edge. A leading date marker does not change that. */
+ * scroll edge. A leading date marker, or Messenger's session time under
+ * it, does not change that. */
 #chat .messages > .msg:first-child .msg-actions,
 #chat .messages > .date-marker-container:first-child + .msg .msg-actions,
-#chat .messages > .date-marker-container:first-child + .session-marker + .msg .msg-actions,
-#chat .messages > .session-marker:first-child + .msg .msg-actions {
+#chat .messages > .date-marker-container:first-child + .session-marker + .msg .msg-actions {
 	top: 0.125rem;
 	bottom: auto;
 	transform-origin: top right;
@@ -10949,8 +10947,7 @@ html[data-reduce-motion] .reaction-tip {
 
 #chat .messages > .msg:first-child .msg-copied,
 #chat .messages > .date-marker-container:first-child + .msg .msg-copied,
-#chat .messages > .date-marker-container:first-child + .session-marker + .msg .msg-copied,
-#chat .messages > .session-marker:first-child + .msg .msg-copied {
+#chat .messages > .date-marker-container:first-child + .session-marker + .msg .msg-copied {
 	top: 0.125rem;
 	bottom: auto;
 }
