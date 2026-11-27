@@ -25,6 +25,7 @@ import {multilineCooldown, multilineRejected} from "../multiline";
 import {failPendingLabel} from "../pending";
 import {inRestorationWindow, noteRestorationActivity, persistenceFailed} from "../persistence";
 import {isOwnMetadataKey} from "./metadata";
+import {SYNC_KEY} from "../../sync/file";
 import {onAvatarFail} from "../avatars";
 import type {Handler} from "../types";
 import type {IrcClient} from "../client";
@@ -152,6 +153,9 @@ function webpushFailed(client: IrcClient, msg: IrcMessage): void {
  * (`ircd/m_batch.c` counts them down in whole seconds). Zero when the server
  * named none, which only costs one round trip to find out.
  */
+/** METADATA failures nefarious2 sends without naming the key (m_metadata.c). */
+const UNNAMED_METADATA_FAILS = new Set(["RATE_LIMITED", "VALUE_INVALID", "INTERNAL_ERROR"]);
+
 function cooldownSeconds(rest: string[]): number {
 	const seconds = rest.slice(0, -1).find((param) => /^\d+$/.test(param));
 
@@ -255,6 +259,18 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 			// The avatar's own (irc/avatars.ts): a refused SET goes to the
 			// settings that asked, a GET for a user who left is nothing.
 			return;
+		}
+
+		// A refused pointer SET, or a refused read of it after one: the
+		// server kept what it had, so the pointer is read again (only while
+		// one of ours is out). nefarious2 names no key in RATE_LIMITED,
+		// VALUE_INVALID or INTERNAL_ERROR, so those count too.
+		if (
+			kind === "FAIL" &&
+			command.toUpperCase() === "METADATA" &&
+			(rest.slice(0, -1).includes(SYNC_KEY) || UNNAMED_METADATA_FAILS.has(code.toUpperCase()))
+		) {
+			client.onSyncPointerFail();
 		}
 
 		if (

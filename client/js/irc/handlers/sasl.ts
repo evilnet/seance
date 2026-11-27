@@ -39,7 +39,12 @@ const authenticate: Handler = (client, msg) => {
 
 const loggedIn: Handler = (client, msg) => {
 	// <nick> <nick!user@host> <account> :You are now logged in as <account>
-	client.account = msg.params[2] ?? "";
+	const account = msg.params[2] ?? "";
+
+	if (client.account !== account) {
+		client.account = account;
+		client.onAccountChanged(); // the settings sync pointer is the account's
+	}
 
 	if (!feed(client, msg)) {
 		client.pushMessage(client.lobby, {time: client.timeOf(msg), text: text(msg.params)});
@@ -47,7 +52,13 @@ const loggedIn: Handler = (client, msg) => {
 };
 
 const loggedOut: Handler = (client, msg) => {
+	const before = client.account;
 	client.account = "";
+
+	if (before !== "") {
+		client.onAccountChanged();
+	}
+
 	client.pushMessage(client.lobby, {time: client.timeOf(msg), text: text(msg.params)});
 };
 

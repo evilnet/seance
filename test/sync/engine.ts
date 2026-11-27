@@ -3,6 +3,8 @@ import {FORMAT, MARKER_TTL_MS} from "../../client/js/sync/document";
 import {
 	QUIET_MS,
 	REFUSED_RETRY_MS,
+	RETRY_MAX_MS,
+	RETRY_MS,
 	SPACING_MS,
 	SyncEngine,
 	type Notice,
@@ -23,6 +25,11 @@ class Account {
 	/** What the next upload is answered with instead of a 201. */
 	refuse: Response | null = null;
 	filehost: string | undefined = ENDPOINT;
+	downloads = 0;
+	/** Downloads are answered with a 500. */
+	failGets = false;
+	/** Where the next upload says it put the file, instead of the host's own. */
+	location: string | null = null;
 
 	fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url =
@@ -36,7 +43,13 @@ class Account {
 			expect((init.headers as Record<string, string>).Authorization).to.equal("Bearer token");
 			const name = `https://files.example/f/${++this.uploads}`;
 			this.files.set(name, new Uint8Array(await (init.body as Blob).arrayBuffer()));
-			return new Response("", {status: 201, headers: {Location: name}});
+			return new Response("", {status: 201, headers: {Location: this.location ?? name}});
+		}
+
+		this.downloads++;
+
+		if (this.failGets) {
+			return new Response("", {status: 500});
 		}
 
 		const bytes = this.files.get(url);
@@ -67,12 +80,23 @@ class Device {
 	applied: string[][] = [];
 	asked: string[] = [];
 	answer = false;
-	uploader = true;
+	/** Another copy of the app on the device holds the upload lock. */
+	busy = false;
 	online = true;
+	/** How far this device's clock runs ahead of the account's. */
+	skew = 0;
+	retentionDays = 30;
+	/** What this copy's connection says the pointer is, where not the account's. */
+	sees: (() => string | undefined) | null = null;
+	token: () => Promise<string> = () => Promise.resolve("token");
 	reread: () => Promise<void> = () => Promise.resolve();
 	engine: SyncEngine;
 
-	constructor(readonly server: Account, public account = "alice") {
+	constructor(readonly server: Account, public account = "alice", stored?: Map<string, string>) {
+		if (stored) {
+			this.stored = stored;
+		}
+
 		const storage = {
 			get: (key: string) => this.stored.get(key) ?? null,
 			set: (key: string, value: string) => void this.stored.set(key, value),
@@ -80,16 +104,16 @@ class Device {
 		};
 		this.engine = new SyncEngine({
 			storage,
-			now: () => server.now,
+			now: () => server.now + this.skew,
 			fetch: server.fetch,
 			link: () =>
 				this.online
 					? {
 							account: this.account,
-							pointer: server.pointer,
+							pointer: this.sees ? this.sees() : server.pointer,
 							filehost: server.filehost,
 							canWrite: true,
-							token: () => Promise.resolve("token"),
+							token: () => this.token(),
 							setPointer: (value) => void (server.pointer = value),
 							reread: () => this.reread(),
 					  }
@@ -112,9 +136,10 @@ class Device {
 				this.asked.push(other);
 				return Promise.resolve(this.answer);
 			},
-			isUploader: () => this.uploader,
+			exclusively: (upload, wait) =>
+				this.busy && !wait ? Promise.resolve(undefined) : upload(),
 			wake: (ms) => void this.wakes.push(ms),
-			retentionMs: () => 30 * DAY,
+			retentionMs: () => this.retentionDays * DAY,
 		});
 	}
 
@@ -144,6 +169,13 @@ class Device {
 	async enable(): Promise<void> {
 		this.engine.enable(HOME, this.account);
 		await this.engine.settled();
+	}
+}
+
+/** Until the engine has got as far as `reached` says (an upload waiting on its token). */
+async function untilAsked(reached: () => boolean): Promise<void> {
+	while (!reached()) {
+		await new Promise((resolve) => setTimeout(resolve, 1));
 	}
 }
 
@@ -364,14 +396,6 @@ describe("settings sync engine (sync/engine.ts)", function () {
 			expect(server.uploads).to.equal(2);
 		});
 
-		it("uploads from a tab that is not the device's uploader", async function () {
-			const a = await firstDevice();
-			a.uploader = false;
-			a.settings.media = false;
-
-			expect(await a.engine.syncNow()).to.equal("sent");
-		});
-
 		it("tries once when the host refuses, and leaves the retry to the timer", async function () {
 			const a = await firstDevice();
 			a.settings.media = false;
@@ -423,9 +447,9 @@ describe("settings sync engine (sync/engine.ts)", function () {
 		expect((await server.entries())["set:media"]).to.deep.equal({t: dated, v: false});
 	});
 
-	it("uploads from one tab of a device only", async function () {
+	it("leaves the upload to the copy of the app that holds the lock, and looks again", async function () {
 		const a = await firstDevice();
-		a.uploader = false;
+		a.busy = true; // another tab is uploading
 		a.settings.media = false;
 		await a.changed();
 		server.now += SPACING_MS;
@@ -433,8 +457,9 @@ describe("settings sync engine (sync/engine.ts)", function () {
 
 		expect(server.uploads).to.equal(1);
 		expect(a.engine.state.dirty).to.equal(true);
+		expect(a.wakes.at(-1)).to.equal(QUIET_MS);
 
-		a.uploader = true; // the lock passed on
+		a.busy = false;
 		await a.run();
 
 		expect(server.uploads).to.equal(2);
@@ -705,6 +730,421 @@ describe("settings sync engine (sync/engine.ts)", function () {
 		});
 	});
 
+	describe("what the review of the first version found", function () {
+		it("does not trade the pointer with a tab whose connection still says an older one", async function () {
+			const a = await firstDevice();
+			const old = server.pointer;
+			a.settings.media = false;
+			await a.engine.syncNow();
+			// The device's second tab: the same storage, its own connection.
+			const tab = new Device(server);
+			tab.stored = a.stored;
+			tab.settings = {...a.settings};
+			tab.sees = () => old;
+			server.downloads = 0;
+
+			for (let i = 0; i < 10; i++) {
+				await tab.run();
+				await a.run();
+			}
+
+			expect(server.downloads).to.be.at.most(1);
+			expect(a.settings.media).to.equal(false);
+		});
+
+		it("takes an entry an older build kept, once this build knows it, instead of overwriting it", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+			await a.engine.syncNow();
+			// An older build: it has no `media` setting.
+			const b = new Device(server);
+			delete b.settings.media;
+			await b.enable();
+			// The app is updated: the setting is there, at its default.
+			b.settings.media = true;
+			await b.changed();
+			server.now += SPACING_MS;
+			await b.run();
+
+			expect(b.settings.media).to.equal(false);
+			expect(await server.values()).to.include({"set:media": false});
+		});
+
+		it("takes the rest of a fast clock's file at once, and keeps what it dated ahead until its time", async function () {
+			const a = await firstDevice();
+			const b = new Device(server);
+			await b.enable();
+			a.skew = 3 * 60_000;
+			a.settings.theme = "night";
+			a.aliases([["hug", "/me hugs"]]);
+			await a.engine.syncNow();
+			a.skew = 0; // the clock is put right; the file still says ahead
+			a.settings.media = false;
+			await a.changed();
+			b.settings.media = false;
+			server.downloads = 0;
+			b.wakes = [];
+			await b.run();
+			await b.run();
+
+			// The rest is taken; the theme waits for its time, the file once.
+			expect(b.aliasNames()).to.deep.equal(["wave"]);
+			expect(b.settings.theme).to.equal("day");
+			expect(b.wakes).to.include(2 * 60_000 + 1);
+			expect(server.downloads).to.equal(1);
+
+			// What b sends meanwhile carries the theme on as it came.
+			b.settings.media = true;
+			await b.changed();
+			server.now += SPACING_MS;
+			await b.run();
+
+			expect(await server.values()).to.include({"set:theme": "night", "set:media": true});
+			expect(b.settings.theme).to.equal("night"); // its time came meanwhile
+		});
+
+		it("takes an entry dated ahead when its time comes, and not before", async function () {
+			const a = await firstDevice();
+			const b = new Device(server);
+			await b.enable();
+			a.skew = 10 * 60_000;
+			a.settings.theme = "night";
+			await a.engine.syncNow();
+			await b.run();
+
+			expect(b.settings.theme).to.equal("day");
+
+			server.now += 8 * 60_000;
+			await b.run();
+
+			expect(b.settings.theme).to.equal("day");
+
+			server.now += 60_000 + 1;
+			await b.run();
+
+			expect(b.settings.theme).to.equal("night");
+			expect(b.engine.state.dirty).to.equal(false);
+		});
+
+		it("never uploads again for a host that keeps files, and halves a short keep", async function () {
+			const a = await firstDevice();
+			a.retentionDays = 0;
+			server.now += 40 * DAY;
+			await a.run();
+
+			expect(server.uploads).to.equal(1);
+
+			// A host that keeps files 4 days: uploaded again after 2.
+			a.retentionDays = 4;
+			a.settings.media = false;
+			await a.engine.syncNow();
+			server.now += DAY;
+			a.wakes = [];
+			await a.run();
+			await a.run();
+
+			expect(server.uploads).to.equal(2);
+			expect(a.wakes.at(-1)).to.equal(DAY);
+
+			server.now += DAY;
+			await a.run();
+
+			expect(server.uploads).to.equal(3);
+		});
+
+		it("joins when the account's pointer cannot be read, without winning over a device that can read its file", async function () {
+			const a = await firstDevice();
+			const good = server.pointer!;
+			const pointer = parsePointer(good) as Pointer;
+			const bytes = server.files.get(pointer.url)!;
+			server.files.set(pointer.url, new Uint8Array(64)); // a proxy's page, this once
+			const b = new Device(server);
+			b.settings.theme = "night";
+			await b.enable();
+			server.files.set(pointer.url, bytes);
+			server.now += QUIET_MS;
+			await b.run();
+
+			expect(b.said).to.deep.equal([{kind: "damaged"}]);
+			expect(b.engine.state.joined).to.equal(true);
+			expect(server.pointer).to.not.equal(good);
+
+			// The device that reads the account's side keeps it, and puts it back.
+			await a.run();
+			server.now += SPACING_MS;
+			await a.run();
+			await b.run();
+
+			expect(a.settings.theme).to.equal("day");
+			expect(await server.values()).to.include({"set:theme": "day"});
+			expect(b.settings.theme).to.equal("day");
+		});
+
+		it("does not say up to date when the account's file could not be read", async function () {
+			const a = await firstDevice();
+			const b = new Device(server);
+			await b.enable();
+			a.settings.media = false;
+			await a.engine.syncNow();
+			server.failGets = true;
+
+			expect(await b.engine.syncNow()).to.equal("failed");
+
+			server.failGets = false;
+
+			expect(await b.engine.syncNow()).to.equal("upToDate");
+			expect(b.settings.media).to.equal(false);
+		});
+
+		it("reads a file it refused again on Sync now", async function () {
+			const a = await firstDevice();
+			const good = server.pointer!;
+			const pointer = parsePointer(good) as Pointer;
+			const bytes = server.files.get(pointer.url)!;
+			server.files.set(pointer.url, new Uint8Array(64)); // a proxy's page
+			server.pointer = `${good.slice(0, -1)}1`;
+			const b = new Device(server);
+			b.stored = new Map(a.stored);
+			b.settings = {...a.settings};
+			await b.run();
+
+			expect(b.said).to.deep.equal([{kind: "damaged"}]);
+			expect(await b.engine.syncNow()).to.equal("failed");
+
+			server.files.set(pointer.url, bytes);
+			server.downloads = 0;
+
+			expect(await b.engine.syncNow()).to.equal("upToDate");
+			expect(server.downloads).to.equal(1);
+			expect(b.engine.state.pointer).to.equal(server.pointer);
+		});
+
+		it("starts over when sync is switched off and on during an upload", async function () {
+			const a = await firstDevice();
+			let release: (() => void) | null = null;
+			a.token = () => new Promise((resolve) => (release = () => resolve("token")));
+			a.settings.media = false;
+			await a.changed();
+			server.now += SPACING_MS;
+			a.engine.run();
+			await untilAsked(() => release !== null);
+			a.engine.disable();
+			a.engine.enable(HOME, "alice");
+			a.token = () => Promise.resolve("token");
+			release!();
+			await a.engine.settled();
+			server.now += SPACING_MS;
+			await a.run();
+
+			expect(a.engine.state.joined).to.equal(true);
+			expect(a.engine.state.dirty).to.equal(false);
+			expect(await server.values()).to.include({"set:media": false});
+		});
+
+		it("does not write one account's file into another's pointer", async function () {
+			const a = await firstDevice();
+			const before = server.pointer;
+			let release: (() => void) | null = null;
+			a.token = () => new Promise((resolve) => (release = () => resolve("token")));
+			a.settings.media = false;
+			await a.changed();
+			server.now += SPACING_MS;
+			a.engine.run();
+			await untilAsked(() => release !== null);
+			a.account = "bob"; // a login on the same connection
+			release!();
+			await a.engine.settled();
+
+			expect(server.pointer).to.equal(before);
+			expect(a.asked).to.deep.equal(["bob"]);
+		});
+
+		it("tries again later when the host answers with a URL elsewhere", async function () {
+			const a = await firstDevice();
+			server.location = "https://elsewhere.example/f/1";
+			a.settings.media = false;
+			await a.changed();
+			server.now += SPACING_MS;
+			a.wakes = [];
+			await a.run();
+
+			expect(a.said).to.deep.equal([{kind: "elsewhere"}]);
+			expect(a.wakes.at(-1)).to.equal(REFUSED_RETRY_MS);
+		});
+
+		it("is no longer blocked by a newer format once the key is gone", async function () {
+			const a = await firstDevice();
+			server.pointer = "2 some newer shape";
+			await a.run();
+
+			expect(a.engine.state.blocked).to.equal(true);
+
+			server.pointer = "";
+			await a.run();
+			server.now += SPACING_MS;
+			await a.run();
+
+			expect(a.engine.state.blocked).to.equal(false);
+			expect(await server.values()).to.include({"set:theme": "day"});
+		});
+
+		it("does not download a newer-format file again on every run, and a new build reads it", async function () {
+			const a = await firstDevice();
+			const newer = await seal({format: FORMAT, version: 2, entries: {}});
+			server.files.set("https://files.example/f/v2", newer.bytes);
+			server.pointer = `1 https://files.example/f/v2 ${newer.key} ${server.now}`;
+			server.downloads = 0;
+			await a.run();
+			await a.run();
+
+			expect(server.downloads).to.equal(1);
+
+			// The app is loaded again: the block is looked at once more.
+			const restarted = new Device(server, "alice", a.stored);
+			await restarted.run();
+
+			expect(server.downloads).to.equal(2);
+		});
+
+		it("waits for the file host before it judges where a file is", async function () {
+			const a = await firstDevice();
+			server.filehost = undefined;
+			const b = new Device(server);
+			await b.enable();
+
+			expect(b.said).to.deep.equal([]);
+			expect(b.engine.state.refused).to.equal(null);
+
+			server.filehost = ENDPOINT;
+			await b.run();
+
+			expect(b.settings.theme).to.equal("day");
+			expect(a.engine.state.joined).to.equal(true);
+		});
+
+		it("waits longer each time the server keeps the pointer it had instead of ours", async function () {
+			const a = await firstDevice();
+			const kept = server.pointer;
+
+			for (let i = 0; i < 7; i++) {
+				a.settings.media = !a.settings.media;
+				await a.changed();
+				server.now += Math.max(SPACING_MS, a.engine.state.retryAt - server.now);
+				const uploads = server.uploads;
+				await a.run();
+
+				expect(server.uploads, `upload ${i}`).to.equal(uploads + 1);
+
+				server.pointer = kept; // refused: read again, the old value
+				await a.run();
+
+				expect(a.engine.state.retryAt - server.now, `wait ${i}`).to.equal(
+					Math.min(RETRY_MS * 2 ** i, RETRY_MAX_MS)
+				);
+			}
+		});
+
+		it("does not roll the device back to a pointer a tab's connection has not heard replaced", async function () {
+			const a = await firstDevice();
+			const old = server.pointer;
+			// The device's second tab, loaded with everything in step.
+			const tab = new Device(server, "alice", a.stored);
+			tab.settings = a.settings;
+			await tab.run();
+			a.settings.media = false;
+			await a.changed();
+			server.now += SPACING_MS;
+			await a.run();
+			tab.sees = () => old; // its connection has not heard the SET yet
+			server.downloads = 0;
+			await tab.run();
+			server.now += SPACING_MS;
+			await a.run();
+
+			expect(a.engine.state.pointer).to.equal(server.pointer);
+			expect(a.engine.state.dirty).to.equal(false);
+			expect(server.downloads).to.equal(0);
+			expect(server.uploads).to.equal(2);
+		});
+
+		it("does not take a fresh tab's unset for the key going, after the first upload", async function () {
+			const a = await firstDevice();
+			const tab = new Device(server, "alice", a.stored);
+			tab.settings = a.settings;
+			tab.sees = () => ""; // read before the first device's SET
+			await tab.run();
+
+			expect(a.engine.state.pointer).to.equal(server.pointer);
+			expect(a.engine.state.dirty).to.equal(false);
+		});
+
+		it("starts the wait over once a write of ours stood", async function () {
+			const a = await firstDevice();
+			const refuse = async () => {
+				const kept = server.pointer;
+				a.settings.media = !a.settings.media;
+				await a.changed();
+				server.now += Math.max(SPACING_MS, a.engine.state.retryAt - server.now);
+				await a.run();
+				server.pointer = kept;
+				await a.run();
+				return a.engine.state.retryAt - server.now;
+			};
+
+			expect(await refuse()).to.equal(RETRY_MS);
+
+			// The next one goes through, and stands until the one after.
+			server.now += RETRY_MS;
+			await a.run();
+			a.settings.theme = "night";
+			await a.changed();
+			server.now += SPACING_MS;
+			await a.run();
+
+			expect(await refuse()).to.equal(RETRY_MS);
+		});
+
+		it("waits for another tab's upload on Sync now instead of saying it failed", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+			a.busy = true; // another tab holds the lock
+
+			expect(await a.engine.syncNow()).to.equal("sent");
+		});
+
+		it("marks what an earlier copy kept unknown, so a later build takes it", async function () {
+			const a = await firstDevice();
+			a.settings.media = false;
+			await a.engine.syncNow();
+			const b = new Device(server);
+			delete b.settings.media;
+			await b.enable();
+			// The copy as the first version wrote it: no mark.
+			const copy = JSON.parse(b.stored.get("thelounge.state.sync.entries")!);
+			delete copy["set:media"].u;
+			b.stored.set("thelounge.state.sync.entries", JSON.stringify(copy));
+			await b.changed(); // a scan under this build, still without the setting
+			b.settings.media = true; // then the update that has it
+			await b.changed();
+
+			expect(b.settings.media).to.equal(false);
+		});
+
+		it("asks once in a tab about another account, though another tab clears the pause", async function () {
+			const a = await firstDevice();
+			const tab = new Device(server, "alice", a.stored);
+			a.account = "bob";
+			await a.run();
+			await tab.run();
+
+			expect(tab.engine.state.pausedFor).to.equal("");
+
+			await a.run();
+
+			expect(a.asked).to.deep.equal(["bob"]);
+		});
+	});
+
 	it("joins again, the account winning, after more than 90 days without syncing", async function () {
 		const a = await firstDevice();
 		const b = new Device(server);
@@ -749,5 +1189,33 @@ describe("settings sync engine (sync/engine.ts)", function () {
 		a.engine.disable();
 
 		expect(a.engine.state.never).to.deep.equal(["some-network"]);
+	});
+
+	it("does not undo the choice that made a store known with the entry kept unknown", async function () {
+		const a = await firstDevice();
+		a.stored.set(
+			"thelounge.translate",
+			JSON.stringify({version: 2, [`${HOME}/#chan`]: {write: "de", terms: [], once: null}})
+		);
+		await a.changed();
+		await a.engine.syncNow();
+
+		// b has never used translation: tr:* waits there, unknown.
+		const b = new Device(server);
+		await b.enable();
+
+		// Its user picks French for #chan: the store writes its first blob.
+		b.stored.set(
+			"thelounge.translate",
+			JSON.stringify({version: 2, [`${HOME}/#chan`]: {write: "fr", terms: [], once: null}})
+		);
+		await b.changed();
+
+		const blob = JSON.parse(b.stored.get("thelounge.translate")!) as Record<
+			string,
+			{write: string}
+		>;
+		expect(blob[`${HOME}/#chan`].write).to.equal("fr");
+		expect(b.engine.state.dirty).to.equal(true);
 	});
 });

@@ -73,11 +73,12 @@ const metadata: Handler = (client, msg) => {
 		onClosedValue(client, msg.params[3] ?? "", false);
 	}
 
-	// The settings sync pointer (sync/file.ts). nefarious2 sends every
-	// notification with the visibility `*`, private keys included, so only
-	// the target says whose it is: ours when it names our nick, which nobody
-	// else can set keys on. Someone else's key of this name names theirs.
-	if (msg.params[1] === SYNC_KEY && client.isSelf(msg.params[0] ?? "")) {
+	// The settings sync pointer (sync/file.ts). A private key's notification
+	// says `private` and goes only to the account's own sessions, under the
+	// nick of the one that set it: another device of the account logged in
+	// under another nick is still ours. A public key of this name on our
+	// nick is ours too; on anyone else's it is theirs.
+	if (msg.params[1] === SYNC_KEY && ours(client, msg.params[0] ?? "", msg.params[2] ?? "")) {
 		client.onSyncPointer(msg.params[3] ?? "");
 	}
 };

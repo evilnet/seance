@@ -190,12 +190,16 @@ const aliases: Codec = {
 	},
 	write(ctx, wanted) {
 		const want = new Map<string, Alias>();
+		const mine = new Map(storedAliases(ctx).map((alias) => [alias.name.toLowerCase(), alias]));
 
 		for (const name of suffixes(wanted, "alias:")) {
 			const value = wanted[`alias:${name}`];
 
 			if (isValidAlias(value) && value.name.toLowerCase() === name) {
 				want.set(name, {name: value.name, body: value.body});
+			} else if (mine.has(name)) {
+				// A value this build cannot hold is skipped: the device's own stays.
+				want.set(name, mine.get(name)!);
 			}
 		}
 
@@ -306,6 +310,15 @@ const favorites: Codec = {
 				(value.type === "channel" || value.type === "query")
 			) {
 				want.set(key, {network: ctx.home, name: value.name, type: value.type});
+			} else {
+				// A value this build cannot hold is skipped: the device's own stays.
+				const mine = storedFavorites(ctx).find(
+					(f) => f.network === ctx.home && fold(f.name) === key
+				);
+
+				if (mine) {
+					want.set(key, mine);
+				}
 			}
 		}
 
@@ -411,12 +424,22 @@ const ignores: Codec = {
 	},
 	write(ctx, wanted) {
 		const want = new Map<string, StoredIgnore>();
+		// The first of a mask, as `read` takes it.
+		const mine = new Map(
+			storedIgnores(ctx)
+				.reverse()
+				.map((entry) => [maskOf(entry), entry])
+		);
 
 		for (const mask of suffixes(wanted, "ignore:")) {
 			const value = wanted[`ignore:${mask}`];
 
 			if (isIgnore(value) && maskOf(value) === mask) {
 				const {nick, ident, hostname, when} = value;
+				want.set(mask, {nick, ident, hostname, when});
+			} else if (mine.has(mask)) {
+				// A value this build cannot hold is skipped: the device's own stays.
+				const {nick, ident, hostname, when} = mine.get(mask)!;
 				want.set(mask, {nick, ident, hostname, when});
 			}
 		}

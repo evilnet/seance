@@ -6,8 +6,9 @@
 //   SEANCE_PORT=8020 node tools/browser-drive.mjs tools/scenarios/settings-sync.mjs
 //
 // No ircd and no file host needed: lib/tiny-ircd.mjs is scripted to log both
-// devices in to one account, keep its metadata, notify the other device of
-// a SET (under that device's own nick) and hand out file host tokens, and a
+// devices in to one account (separate logins, so two nicks), keep its
+// metadata, notify the other device of a SET as nefarious2 does (under the
+// setter's nick, visibility `private`) and hand out file host tokens, and a
 // small HTTP server here stands in for `draft/FILEHOST`.
 //
 // Claims:
@@ -160,10 +161,20 @@ function startIrcd() {
 					metadata.delete(key);
 				}
 
-				// The account's other connections hear it, each under its own nick.
-				for (const [other, otherNick] of conns) {
+				// nefarious2 m_metadata.c: the setter's 761, then a private key's
+				// change to the account's other sessions, named by the setter's
+				// nick (not theirs: these are separate logins).
+				send(
+					value
+						? `:tiny.test 761 ${nick} ${nick} ${key} private :${value}`
+						: `:tiny.test 766 ${nick} ${nick} ${key} :key not set`
+				);
+
+				for (const other of conns.keys()) {
 					if (other !== send) {
-						other(`:tiny.test METADATA ${otherNick} ${key} * :${value}`);
+						other(
+							`:tiny.test METADATA ${nick} ${key} private${value ? ` :${value}` : ""}`
+						);
 					}
 				}
 			}
