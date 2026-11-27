@@ -37,6 +37,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"avatar.failedClosed",
 	"avatar.failedTimeout",
 	"avatar.failedUnavailable",
+	"avatar.failedUnsent",
 	"avatar.forgetRecent",
 	"avatar.heading",
 	"avatar.help",

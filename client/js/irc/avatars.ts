@@ -233,17 +233,24 @@ function setAvatar(client: IrcClient, channel: string | undefined, value: string
 			reject: (reason, code) => reject(new AvatarSetError(reason, code)),
 			timer,
 		};
-		client.send(
+		const sent = client.send(
 			value === ""
 				? `METADATA ${target} SET ${AVATAR_KEY}`
 				: `METADATA ${target} SET ${AVATAR_KEY} :${value}`
 		);
+
+		// Not sent, so no answer is coming: fail now rather than at the
+		// timeout. A line over the limit (a long link on a long channel
+		// name) is refused while the socket is open; otherwise it closed.
+		if (!sent) {
+			settle(client, client.transport.state === "open" ? "unsent" : "closed");
+		}
 	});
 }
 
 /**
  * Write our own avatar (`""` clears it). Resolves when the server confirms,
- * rejects with its reason (or "closed"/"timeout"/"unavailable").
+ * rejects with its reason (or "closed"/"timeout"/"unavailable"/"unsent").
  */
 export function setOwnAvatar(client: IrcClient, value: string): Promise<void> {
 	return setAvatar(client, undefined, value);

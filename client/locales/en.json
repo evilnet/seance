@@ -34,6 +34,7 @@
   "avatar.failedClosed": "The connection was lost before the change was confirmed.",
   "avatar.failedTimeout": "The network did not answer. Try again.",
   "avatar.failedUnavailable": "Not connected to this network, or it does not support avatars.",
+  "avatar.failedUnsent": "The change could not be sent. The link may be too long.",
   "avatar.forgetRecent": "Remove from recent avatars",
   "avatar.heading": "Your avatar",
   "avatar.help": "Everyone who shares a channel with you on {network} can see it. It is kept with your account, so other devices and IRC apps show it too.",

@@ -195,6 +195,12 @@ msgctxt "avatar.failedUnavailable"
 msgid "Not connected to this network, or it does not support avatars."
 msgstr ""
 
+#. Avatar settings and the channel avatar dialog: status when the line setting the avatar was refused before it left (too long for the network).
+#: client/components/Settings/AvatarSettings.vue
+msgctxt "avatar.failedUnsent"
+msgid "The change could not be sent. The link may be too long."
+msgstr ""
+
 #. Button on a recent avatar that forgets it on this device.
 msgctxt "avatar.forgetRecent"
 msgid "Remove from recent avatars"

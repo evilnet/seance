@@ -705,6 +705,8 @@ export default defineComponent({
 					return t("avatar.failedClosed");
 				case "unavailable":
 					return t("avatar.failedUnavailable");
+				case "unsent":
+					return t("avatar.failedUnsent");
 				case "KEY_NO_PERMISSION":
 					if (props.channel) {
 						return t("avatar.channelFailedPermission", {channel: props.channel});

@@ -389,6 +389,24 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 				"unavailable"
 			);
 		});
+
+		it("fails at once, not at the timeout, when the line could not be sent", async function () {
+			const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
+
+			try {
+				// The transport refuses a line over its limit while open.
+				sinon.stub(h.transport, "send").throws(new RangeError("line is 600 bytes"));
+				let code = "";
+
+				await setChannelAvatar(h.client, "#seance", URL_C).catch((err: unknown) => {
+					code = (err as AvatarSetError).code;
+				});
+				expect(code).to.equal("unsent");
+				expect(clock.countTimers()).to.equal(0);
+			} finally {
+				clock.restore();
+			}
+		});
 	});
 
 	describe("switching avatars on and off", function () {
