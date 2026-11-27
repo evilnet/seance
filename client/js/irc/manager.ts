@@ -20,7 +20,7 @@ import {store} from "../store";
 import {parseKeywordList} from "../highlight";
 import {setMuteStatus} from "../mute";
 import {ignoreListFor} from "../ignore";
-import {registerBusHandlers} from "./bus";
+import {networkInfo, registerBusHandlers, type ClientRegistry} from "./bus";
 import {IrcClient} from "./client";
 import {flushConversationStores} from "./conversationStore";
 import {forgetLogin, typedCredentialsDiffer} from "./saslTrust";
@@ -647,7 +647,7 @@ export function reconnectAll(opts: {networkBack?: boolean} = {}): void {
 	}
 }
 
-registerBusHandlers(socket, {
+const registry: ClientRegistry = {
 	clientForChannel,
 	clientForNetwork,
 	allClients,
@@ -657,7 +657,32 @@ registerBusHandlers(socket, {
 		clients.delete(uuid);
 		forgetLogin(uuid);
 	},
-});
+};
+
+registerBusHandlers(socket, registry);
+
+/**
+ * The saved networks were written under the running app (settings sync
+ * took another device's services support, or another tab saved the form):
+ * each connection takes its saved services support, as an edit does, and
+ * the network's view follows.
+ */
+export function reloadSavedServices(): void {
+	for (const client of clients.values()) {
+		const services = saved.get(client.uuid)?.services;
+
+		if (JSON.stringify(services) === JSON.stringify(client.services)) {
+			continue;
+		}
+
+		client.setServices(services);
+		const info = networkInfo(registry, client.uuid);
+
+		if (info) {
+			socket.dispatch("network:info", info);
+		}
+	}
+}
 
 // Saved-network policies layered on top of the client's own events.
 

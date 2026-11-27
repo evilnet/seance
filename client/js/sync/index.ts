@@ -6,7 +6,8 @@
  *
  * What asks the engine for a run: the home's pointer read or changed
  * (`sync:pointer`), a write to a store that roams (localStorage.ts
- * `onStorageWrite`, dated a moment later), another tab's write to the
+ * `onStorageWrite`, or saved-networks.ts `onSavedNetworksChange` for the
+ * services support; dated a moment later), another tab's write to the
  * shared sync state, and the wake timer. Any tab whose home is connected
  * uploads; a Web Lock held for the upload alone keeps it to one at a time.
  */
@@ -16,6 +17,7 @@ import {retentionDays} from "../avatars/actions";
 import eventbus from "../eventbus";
 import {t} from "../i18n/core";
 import {clientForNetwork} from "../irc/manager";
+import {onSavedNetworksChange} from "../irc/saved-networks";
 import storage, {onStorageWrite} from "../localStorage";
 import {config, createState} from "../settings";
 import socket from "../socket";
@@ -411,6 +413,13 @@ export function startSettingsSync(): void {
 		const home = readState(storage).home;
 
 		if (home && isRoamingKey(key, home)) {
+			scanSoon();
+		}
+	});
+
+	// A saved network edited on this page: its services support roams.
+	onSavedNetworksChange(() => {
+		if (readState(storage).home) {
 			scanSoon();
 		}
 	});

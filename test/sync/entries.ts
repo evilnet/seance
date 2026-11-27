@@ -344,4 +344,78 @@ describe("settings sync entries (sync/entries.ts)", function () {
 		expect(isRoamingKey("thelounge.networks", HOME)).to.equal(false);
 		expect(isRoamingKey("thelounge.state.sync", HOME)).to.equal(false);
 	});
+
+	describe("the home network's services support", function () {
+		const X3 = {
+			package: "x3",
+			bots: {
+				oper: "O3",
+				account: "AuthServ",
+				channel: "ChanServ",
+				report: "#operserv",
+				snoop: "",
+			},
+		};
+		const net = (uuid: string, extra: Record<string, unknown> = {}) => ({
+			uuid,
+			name: uuid,
+			host: `irc.${uuid}.example`,
+			port: 6697,
+			tls: true,
+			nick: "me",
+			...extra,
+		});
+
+		it("carries the home's block alone, and nothing else of the saved network", function () {
+			const a = device();
+			a.put("thelounge.networks", [
+				net(HOME, {services: X3, saslPassword: "phone-secret", rememberPassword: true}),
+				net(OTHER, {services: {...X3, bots: {...X3.bots, oper: "Other"}}}),
+			]);
+			const b = device();
+			b.put("thelounge.networks", [
+				net(OTHER),
+				net(HOME, {nick: "mac", saslPassword: "mac-secret", rememberPassword: true}),
+			]);
+
+			expect(collect(a.ctx).current.services).to.deep.equal(X3);
+			carry(a, b);
+
+			expect(b.read("thelounge.networks")).to.deep.equal([
+				net(OTHER),
+				net(HOME, {
+					nick: "mac",
+					saslPassword: "mac-secret",
+					rememberPassword: true,
+					services: X3,
+				}),
+			]);
+		});
+
+		it("removes the block when the other device set it back to none", function () {
+			const b = device();
+			b.put("thelounge.networks", [net(HOME, {services: X3})]);
+			apply(b.ctx, {services: {t: 5}});
+
+			expect(b.read("thelounge.networks")).to.deep.equal([net(HOME)]);
+			expect(collect(b.ctx).current).not.to.have.property("services");
+		});
+
+		it("keeps the device's own block when the incoming one names no package it knows", function () {
+			const b = device();
+			b.put("thelounge.networks", [net(HOME, {services: X3})]);
+			apply(b.ctx, {services: {t: 5, v: {package: "anope", bots: {}}}});
+
+			expect(b.read("thelounge.networks")).to.deep.equal([net(HOME, {services: X3})]);
+		});
+
+		it("writes nothing on a device that has not saved the home network", function () {
+			const b = device();
+			b.put("thelounge.networks", [net(OTHER)]);
+			const {keys} = apply(b.ctx, {services: {t: 5, v: X3}});
+
+			expect(keys).to.deep.equal([]);
+			expect(b.read("thelounge.networks")).to.deep.equal([net(OTHER)]);
+		});
+	});
 });

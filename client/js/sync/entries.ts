@@ -22,6 +22,7 @@
  * | `oper:snomask`         | the snomask                    | `thelounge.oper`           |
  * | `oper:note:<about>`    | the note                       | `thelounge.oper`           |
  * | `tr:<channel>`         | the channel's translation choices | `thelounge.translate`   |
+ * | `services`             | the home's services support    | `thelounge.networks`       |
  *
  * Everything keyed by a network is the home network's alone (§ Open): the
  * home is the same network on every device, so its entries need no name,
@@ -40,6 +41,7 @@ import {asSchedule, defaultDndState, parseDndState, serializeDndState} from "../
 import {isValidAlias, MAX_ALIASES, type Alias} from "../helpers/aliases";
 import {normalizeHost} from "../helpers/urlHost";
 import {casefold} from "../irc/casemap";
+import {asServices} from "../irc/saved-networks";
 import {isSupported} from "../translate/languages";
 import {sameValue, type Entries, type Local} from "./document";
 
@@ -753,7 +755,72 @@ const translation: Codec = {
 	},
 };
 
-/** The storage keys a roaming store writes, for the home `home`: a write to one may be a change to date. */
+// --- the home network's services support ---
+
+const NETWORKS_KEY = "thelounge.networks";
+const SERVICES = "services";
+
+/** The saved network list as stored: written back with only the home's services changed. */
+function storedNetworks(ctx: EntryContext): unknown[] {
+	const parsed = readJson(ctx.storage, NETWORKS_KEY);
+	return Array.isArray(parsed) ? parsed : [];
+}
+
+function isHome(ctx: EntryContext, entry: unknown): entry is Record<string, unknown> {
+	return isObject(entry) && entry.uuid === ctx.home;
+}
+
+/**
+ * The services block of the home's saved network (the network form's
+ * Services support). The rest of the saved network stays on the device: it
+ * holds passwords, and each device's own nick, server and channels.
+ */
+const services: Codec = {
+	owns: (_ctx, id) => id === SERVICES,
+	read(ctx) {
+		const out = dict<unknown>();
+		const home = storedNetworks(ctx).find((entry) => isHome(ctx, entry));
+		const config = home ? asServices(home.services) : undefined;
+
+		if (config) {
+			out[SERVICES] = config;
+		}
+
+		return out;
+	},
+	write(ctx, wanted) {
+		const list = storedNetworks(ctx);
+		const index = list.findIndex((entry) => isHome(ctx, entry));
+
+		// A device that has not saved the home has nowhere to keep it.
+		if (index === -1) {
+			return;
+		}
+
+		const home = list[index] as Record<string, unknown>;
+		const mine = asServices(home.services);
+		// A value this build cannot hold is skipped: the device's own stays.
+		const next = Object.hasOwn(wanted, SERVICES)
+			? asServices(wanted[SERVICES]) ?? mine
+			: undefined;
+
+		if (sameValue(next, mine)) {
+			return;
+		}
+
+		const {services: _old, ...rest} = home;
+		list[index] = next ? {...rest, services: next} : rest;
+		ctx.storage.set(NETWORKS_KEY, JSON.stringify(list));
+	},
+};
+
+/**
+ * The storage keys a roaming store writes, for the home `home`: a write to
+ * one may be a change to date. Not the saved networks: their history cursor
+ * is written with every message, and would put the dating off for as long as
+ * a channel is busy. An edit of a saved network is heard through
+ * saved-networks.ts `onSavedNetworksChange` instead (sync/index.ts).
+ */
 export function isRoamingKey(key: string, home: string): boolean {
 	return (
 		[
@@ -783,6 +850,7 @@ const CODECS: readonly Codec[] = [
 	dnd,
 	oper,
 	translation,
+	services,
 ];
 
 const codecOf = (ctx: EntryContext, id: string): Codec | undefined =>

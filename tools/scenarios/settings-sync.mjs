@@ -19,7 +19,8 @@
 //      the account's settings and aliases (each alias said in the network's
 //      window) and keeps what only it had;
 //   3. a mute roams although the two devices know the network by different
-//      uuids;
+//      uuids, and so does the network's services support, which the second
+//      device's connection takes at once (its saved network otherwise kept);
 //   4. a change on the second device reaches the first live, which uploads
 //      nothing back;
 //   5. no console errors on either device.
@@ -55,6 +56,11 @@ const net = (uuid, nick) => ({
 	saslPassword: "",
 	autoconnect: true,
 });
+
+const SERVICES = {
+	package: "x3",
+	bots: {oper: "O3", account: "AuthServ", channel: "ChanServ", report: "#operserv", snoop: ""},
+};
 
 /** The stand-in for the network's file host: CORS as PASTE's filehost.php answers it. */
 function startFilehost() {
@@ -214,7 +220,7 @@ export default async function run(page) {
 	try {
 		// --- 1. the first device ---
 		await seed(page, {
-			"thelounge.networks": [net("aaaa-home", "deva")],
+			"thelounge.networks": [{...net("aaaa-home", "deva"), services: SERVICES}],
 			"thelounge.aliases": [{name: "wave", body: "/me waves at $1"}],
 			"thelounge.muted": ["aaaa-home/#tiny"],
 		});
@@ -308,6 +314,18 @@ export default async function run(page) {
 			await b.evaluate(
 				`!!document.querySelector('.channel-list-item[data-name="#tiny"].is-muted')`
 			)
+		);
+		const bNetwork = await b.evaluate(`${stored("thelounge.networks")}[0]`);
+		page.check(
+			"the services support roamed, the saved network otherwise kept",
+			JSON.stringify(bNetwork.services) === JSON.stringify(SERVICES) &&
+				bNetwork.nick === "devb"
+		);
+		page.check(
+			"and the connection took it without a reload",
+			(await b.evaluate(
+				`JSON.stringify(document.querySelector("[data-v-app]").__vue_app__.config.globalProperties.$store.getters.findNetwork("bbbb-home")?.services)`
+			)) === JSON.stringify(SERVICES)
 		);
 		await b.click('#network-bbbb-home .channel-list-item[data-type="lobby"]');
 		await b.waitFor(`(${LOBBY_TEXT}).includes("/wave")`, {

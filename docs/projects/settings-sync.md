@@ -274,8 +274,15 @@ Decided 2026-11-24:
   the notice routes, the temporary ones, the snomask and the investigation
   notes. The notes are the oper's remarks about channels, IP addresses and
   accounts, and the network's other operators can read the file's key.
-- **Stays on the device**: the saved network list (`thelounge.networks`, which
-  holds passwords), Lua scripts and their data (`thelounge.scripts`,
+- **Services support** (the network form's package, bots and report and
+  snoop channels, kept in the saved network's `services`; added
+  2026-11-27) roams: an oper who set it on one device had to set it again
+  on every other. It holds no secret. A device that has not saved the home
+  network has nowhere to keep it, and takes it once it has. A change is
+  heard through `onSavedNetworksChange`, not as a write to the key, which
+  the history cursor rewrites with every message.
+- **Stays on the device**: the rest of the saved network list
+  (`thelounge.networks`, which holds passwords), Lua scripts and their data (`thelounge.scripts`,
   `thelounge.script_storage.*`), and the recently used reactions
   (`thelounge.reactions.recent`, decided 2026-11-25: they change with every
   reaction, and each change would be an upload), and what is folded shut in
@@ -284,8 +291,8 @@ Decided 2026-11-24:
 - `userStyles` is not needed; size is no longer a reason to leave it out.
 - **The first version carries the home network's entries** (§ Open): its
   mutes, favorites and their order, ignore list, channel order, trusted
-  media channels and accounts, trusted avatar people, oper preferences and
-  per-channel translation choices. Trusted media hosts belong to no network
+  media channels and accounts, trusted avatar people, oper preferences,
+  services support and per-channel translation choices. Trusted media hosts belong to no network
   and roam whole. The order of the networks is a list of each device's own
   uuids and does not roam yet. The entry ids and their values are the table
   at the top of `sync/entries.ts`.
