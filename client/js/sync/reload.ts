@@ -7,6 +7,7 @@
  *
  * Settings are not here: sync writes them through the settings store, which
  * applies them. Oper preferences are read from storage where they are used.
+ * The home's saved network is handed to its connection.
  */
 
 import {reloadAvatarPrefs} from "../avatars/prefs";
@@ -14,6 +15,7 @@ import {reloadDnd} from "../dnd";
 import {reloadFavorites} from "../favorites";
 import {reloadTrustedMedia} from "../helpers/mediaTrust";
 import {reloadIgnoreLists} from "../ignore";
+import {reloadSavedNetworks} from "../irc/manager";
 import {collator} from "../i18n/collation";
 import {reloadMutes} from "../mute";
 import {applyStoredChannelOrder} from "../sort";
@@ -59,6 +61,7 @@ const RELOADS: Array<{match: (key: string) => boolean; reload: () => void; follo
 	},
 	{match: (key) => key === "thelounge.favorites", reload: reloadFavorites, follows: true},
 	{match: (key) => key === "thelounge.dnd", reload: reloadDnd, follows: true},
+	{match: (key) => key === "thelounge.networks", reload: reloadSavedNetworks},
 ];
 
 /** Storage keys were written under the running app: their stores read them again. */

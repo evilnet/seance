@@ -296,6 +296,64 @@ describe("settings sync engine (sync/engine.ts)", function () {
 		expect(b.engine.state.dirty).to.equal(false);
 	});
 
+	it("carries the home's services support set after sync was on to a device that joins later, and keeps its login", async function () {
+		const net = (extra: Record<string, unknown>) =>
+			JSON.stringify([
+				{
+					uuid: HOME,
+					name: "AfterNET",
+					host: "irc.example",
+					port: 6697,
+					tls: true,
+					...extra,
+				},
+			]);
+		const x3 = {
+			package: "x3",
+			bots: {
+				oper: "O3",
+				account: "AuthServ",
+				channel: "ChanServ",
+				report: "#operserv",
+				snoop: "#snoop",
+			},
+		};
+		const phone = await firstDevice();
+		phone.stored.set("thelounge.networks", net({nick: "phone"}));
+		server.now += SPACING_MS;
+		await phone.run();
+
+		phone.stored.set(
+			"thelounge.networks",
+			net({nick: "phone", services: x3, commands: ["/mode phone +x"]})
+		);
+		await phone.changed();
+		server.now += QUIET_MS;
+		await phone.run();
+
+		const mac = new Device(server);
+		mac.stored.set(
+			"thelounge.networks",
+			net({nick: "mac", saslPassword: "kept", rememberPassword: true})
+		);
+		await mac.enable();
+
+		expect(JSON.parse(mac.stored.get("thelounge.networks")!)).to.deep.equal(
+			JSON.parse(
+				net({
+					nick: "phone",
+					saslPassword: "kept",
+					rememberPassword: true,
+					services: x3,
+					commands: ["/mode phone +x"],
+				})
+			)
+		);
+		expect(mac.applied.flat()).to.include("thelounge.networks");
+		// What runs at each registration is said, as an alias is.
+		expect(mac.said).to.deep.include({kind: "commands-changed", commands: ["/mode phone +x"]});
+	});
+
 	it("carries a removal, which stays removed on a device that still held the entry", async function () {
 		const a = await firstDevice();
 		const b = new Device(server);

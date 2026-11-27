@@ -20,7 +20,7 @@ import {store} from "../store";
 import {parseKeywordList} from "../highlight";
 import {setMuteStatus} from "../mute";
 import {ignoreListFor} from "../ignore";
-import {registerBusHandlers} from "./bus";
+import {networkInfo, registerBusHandlers, type ClientRegistry} from "./bus";
 import {IrcClient} from "./client";
 import {flushConversationStores} from "./conversationStore";
 import {forgetLogin, typedCredentialsDiffer} from "./saslTrust";
@@ -647,7 +647,7 @@ export function reconnectAll(opts: {networkBack?: boolean} = {}): void {
 	}
 }
 
-registerBusHandlers(socket, {
+const registry: ClientRegistry = {
 	clientForChannel,
 	clientForNetwork,
 	allClients,
@@ -657,7 +657,51 @@ registerBusHandlers(socket, {
 		clients.delete(uuid);
 		forgetLogin(uuid);
 	},
-});
+};
+
+registerBusHandlers(socket, registry);
+
+/**
+ * The saved networks were written under the running app (settings sync
+ * took another device's choices for the home, or another tab saved the
+ * form): each connection takes what can change without a reconnect, as an
+ * edit does. The services support and the display name apply at once, the
+ * autojoin list at the next registration; a nick applies at the next
+ * launch (sending NICK for a choice made elsewhere is not this device's
+ * to do), and the commands on connect are read at each registration.
+ */
+export function reloadSavedNetworks(): void {
+	for (const client of clients.values()) {
+		const entry = saved.get(client.uuid);
+
+		if (!entry) {
+			continue;
+		}
+
+		let changed = false;
+
+		if (JSON.stringify(entry.services) !== JSON.stringify(client.services)) {
+			client.setServices(entry.services);
+			changed = true;
+		}
+
+		if (entry.name && entry.name !== client.name) {
+			client.setNetworkName(entry.name);
+			changed = true;
+		}
+
+		if (entry.join !== client.nextOptions.join) {
+			client.setJoin(entry.join);
+			changed = true;
+		}
+
+		const info = changed ? networkInfo(registry, client.uuid) : undefined;
+
+		if (info) {
+			socket.dispatch("network:info", info);
+		}
+	}
+}
 
 // Saved-network policies layered on top of the client's own events.
 

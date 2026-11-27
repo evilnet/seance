@@ -344,4 +344,132 @@ describe("settings sync entries (sync/entries.ts)", function () {
 		expect(isRoamingKey("thelounge.networks", HOME)).to.equal(false);
 		expect(isRoamingKey("thelounge.state.sync", HOME)).to.equal(false);
 	});
+
+	describe("the home network's saved network", function () {
+		const X3 = {
+			package: "x3",
+			bots: {
+				oper: "O3",
+				account: "AuthServ",
+				channel: "ChanServ",
+				report: "#operserv",
+				snoop: "",
+			},
+		};
+		/** Where and how a device reaches the network: never in the file. */
+		const reach = (extra: Record<string, unknown>) => ({
+			host: "irc.example",
+			port: 6697,
+			tls: true,
+			sasl: "plain",
+			saslAccount: "me",
+			saslPassword: "secret",
+			rememberPassword: true,
+			autoconnect: true,
+			pushEnabled: true,
+			trustedCertificates: ["ab".repeat(32)],
+			cursor: {msgid: "m1", time: 5},
+			...extra,
+		});
+		const net = (uuid: string, extra: Record<string, unknown> = {}) => ({
+			uuid,
+			name: "",
+			nick: "me",
+			join: "",
+			commands: [],
+			...extra,
+		});
+
+		it("carries the home's name, nick, channels, commands and services, and nothing of how to reach it", function () {
+			const a = device();
+			a.put("thelounge.networks", [
+				net(HOME, {
+					name: "AfterNET",
+					nick: "phone",
+					join: "#afternet,#seance",
+					commands: ["/mode phone +x"],
+					services: X3,
+					...reach({}),
+				}),
+				net(OTHER, {nick: "elsewhere", services: X3}),
+			]);
+			const b = device();
+			const macReach = reach({
+				host: "irc.mac.example",
+				tls: false,
+				saslPassword: "mac-secret",
+				autoconnect: false,
+				pushEnabled: false,
+				trustedCertificates: [],
+				cursor: {msgid: "m9", time: 9},
+			});
+			b.put("thelounge.networks", [net(OTHER), net(HOME, {nick: "mac", ...macReach})]);
+
+			expect(
+				Object.keys(collect(a.ctx).current)
+					.filter((id) => id.startsWith("net:"))
+					.sort()
+			).to.deep.equal(["net:commands", "net:join", "net:name", "net:nick", "net:services"]);
+			carry(a, b);
+
+			expect(b.read("thelounge.networks")).to.deep.equal([
+				net(OTHER),
+				net(HOME, {
+					name: "AfterNET",
+					nick: "phone",
+					join: "#afternet,#seance",
+					commands: ["/mode phone +x"],
+					services: X3,
+					...macReach,
+				}),
+			]);
+		});
+
+		it("reads a network nobody customised as defaults, but for the nick", function () {
+			const d = device();
+			d.put("thelounge.networks", [net(HOME)]);
+			const local = collect(d.ctx);
+
+			expect(local.isDefault("net:name", local.current["net:name"])).to.equal(true);
+			expect(local.isDefault("net:join", local.current["net:join"])).to.equal(true);
+			expect(local.isDefault("net:commands", local.current["net:commands"])).to.equal(true);
+			expect(local.isDefault("net:nick", local.current["net:nick"])).to.equal(false);
+			expect(local.current).not.to.have.property("net:services");
+		});
+
+		it("removes the services support when the other device set it back to none", function () {
+			const b = device();
+			b.put("thelounge.networks", [net(HOME, {services: X3})]);
+			apply(b.ctx, {"net:services": {t: 5}});
+
+			expect(b.read("thelounge.networks")).to.deep.equal([net(HOME)]);
+			expect(collect(b.ctx).current).not.to.have.property("net:services");
+		});
+
+		it("keeps the device's own value where the incoming one is one it cannot hold", function () {
+			const b = device();
+			b.put("thelounge.networks", [net(HOME, {nick: "mac", services: X3})]);
+			apply(b.ctx, {
+				"net:services": {t: 5, v: {package: "anope", bots: {}}},
+				"net:nick": {t: 5, v: "two words"},
+				"net:commands": {t: 5, v: ["/ok", "/bad\r\nQUIT"]},
+			});
+
+			expect(b.read("thelounge.networks")).to.deep.equal([
+				net(HOME, {nick: "mac", services: X3}),
+			]);
+		});
+
+		it("writes nothing on a device that has not saved the home network", function () {
+			const b = device();
+			b.put("thelounge.networks", [net(OTHER)]);
+			const {keys} = apply(b.ctx, {
+				"net:services": {t: 5, v: X3},
+				"net:nick": {t: 5, v: "x"},
+			});
+
+			expect(keys).to.deep.equal([]);
+			expect(b.read("thelounge.networks")).to.deep.equal([net(OTHER)]);
+		});
+	});
 });

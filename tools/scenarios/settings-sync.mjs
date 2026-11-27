@@ -19,7 +19,9 @@
 //      the account's settings and aliases (each alias said in the network's
 //      window) and keeps what only it had;
 //   3. a mute roams although the two devices know the network by different
-//      uuids;
+//      uuids, and so do the home's name, nick, channels and services support
+//      (its server and login kept); the connection takes the services
+//      support at once, and keeps its nick until the next launch;
 //   4. a change on the second device reaches the first live, which uploads
 //      nothing back;
 //   5. no console errors on either device.
@@ -55,6 +57,11 @@ const net = (uuid, nick) => ({
 	saslPassword: "",
 	autoconnect: true,
 });
+
+const SERVICES = {
+	package: "x3",
+	bots: {oper: "O3", account: "AuthServ", channel: "ChanServ", report: "#operserv", snoop: ""},
+};
 
 /** The stand-in for the network's file host: CORS as PASTE's filehost.php answers it. */
 function startFilehost() {
@@ -214,7 +221,9 @@ export default async function run(page) {
 	try {
 		// --- 1. the first device ---
 		await seed(page, {
-			"thelounge.networks": [net("aaaa-home", "deva")],
+			"thelounge.networks": [
+				{...net("aaaa-home", "deva"), name: "Tiny Home", services: SERVICES},
+			],
 			"thelounge.aliases": [{name: "wave", body: "/me waves at $1"}],
 			"thelounge.muted": ["aaaa-home/#tiny"],
 		});
@@ -308,6 +317,28 @@ export default async function run(page) {
 			await b.evaluate(
 				`!!document.querySelector('.channel-list-item[data-name="#tiny"].is-muted')`
 			)
+		);
+		const bNetwork = await b.evaluate(`${stored("thelounge.networks")}[0]`);
+		page.check(
+			"the home's name, nick and services support roamed, its server kept",
+			JSON.stringify(bNetwork.services) === JSON.stringify(SERVICES) &&
+				bNetwork.name === "Tiny Home" &&
+				bNetwork.nick === "deva" &&
+				bNetwork.port === IRCD_PORT &&
+				bNetwork.uuid === "bbbb-home"
+		);
+		page.check(
+			"and the connection took it without a reload",
+			(await b.evaluate(
+				`JSON.stringify(document.querySelector("[data-v-app]").__vue_app__.config.globalProperties.$store.getters.findNetwork("bbbb-home")?.services)`
+			)) === JSON.stringify(SERVICES)
+		);
+		const live = await b.evaluate(
+			`(() => { const n = document.querySelector("[data-v-app]").__vue_app__.config.globalProperties.$store.getters.findNetwork("bbbb-home"); return JSON.stringify({name: n?.name, nick: n?.nick}); })()`
+		);
+		page.check(
+			"with the name, while the nick waits for the next launch",
+			live === JSON.stringify({name: "Tiny Home", nick: "devb"})
 		);
 		await b.click('#network-bbbb-home .channel-list-item[data-type="lobby"]');
 		await b.waitFor(`(${LOBBY_TEXT}).includes("/wave")`, {
