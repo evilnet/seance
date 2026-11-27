@@ -10,6 +10,7 @@ import {
 	rgbHex,
 } from "../../client/js/scenes/ps/colour";
 import {momentFor, sunTimes} from "../../client/js/scenes/ps/engine";
+import {THEMES} from "../../client/js/themeRegistry";
 import {
 	DAY_BRIGHTNESS,
 	DAY_GLASS_MARK,
@@ -676,13 +677,9 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 	});
 
 	it("gives ps the daylight fallback's canvas as its theme-color before the scene loads", function () {
-		const config = fs.readFileSync(
-			path.resolve(__dirname, "../../client/js/configuration.ts"),
-			"utf8"
-		);
 		const canvas = valueOf(DAY, "--canvas-bg-color");
 		expect(canvas).to.equal("#3f8fe6");
-		expect(config).to.include(`{name: "ps", displayName: "ps", themeColor: "${canvas}"}`);
+		expect(THEMES.find((theme) => theme.name === "ps")?.themeColor).to.equal(canvas);
 	});
 
 	it("draws both badges alike, the generated fill and a white numeral: the mockup's one badge", function () {
@@ -1140,7 +1137,9 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 			for (const selector of r.selectors) {
 				const surface = subjectOf(selector);
 
-				if (!surface) {
+				// Never under ps: the looks (style.css § The looks) are keyed on
+				// `data-message-layout`, which ps never carries.
+				if (!surface || /^html\S*\[data-message-layout/.test(selector)) {
 					continue;
 				}
 
@@ -2014,7 +2013,7 @@ describe("the ps theme's type", function () {
 	it("sets words in Source Sans 3 500 with 700 for bold, and names in Newsreader 700, each weight inside its face's files", function () {
 		expect(css).to.match(/font-family:\s*"Source Sans 3",[^;]*;\s*font-weight:\s*500;/);
 		expect(css).to.match(
-			/b,\s*strong,\s*\.msg \.content b,\s*#chat \.msg\.highlight \.content \{\s*font-weight:\s*700;\s*\}/
+			/b,\s*strong,\s*\.msg \.content b,\s*#chat \.chat-view\[data-type="channel"\] \.msg\.highlight \.content \{\s*font-weight:\s*700;\s*\}/
 		);
 		// Bold is the words' heaviest weight in use: nothing asks for more.
 		expect(css).to.not.match(/font-weight:\s*(800|900|bolder)\b/);
@@ -2194,7 +2193,7 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 	});
 
 	it("lines a mention up with the rows around it: its 5px bar is taken off the row's start", function () {
-		const H = `#chat .chat .msg.highlight:is(${M})`;
+		const H = `#chat .chat-view[data-type="channel"] .chat .msg.highlight:is(${M})`;
 		// style.css's bar, which this takes off
 		expect(
 			declsOf('#chat .chat-view[data-type="channel"] .msg.highlight', "", style).find(
@@ -3273,9 +3272,9 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 		expect(valueOf(view(`:root${WORDS_SURFACE}`, "channel"), "background")).to.equal(
 			"rgb(255 214 230 / var(--ps-g-tint-card, var(--ps-s-tint)))"
 		);
-		expect(valueOf(view(`:root${WORDS_SURFACE}`, "query"), "background")).to.equal(
-			"rgb(255 214 230 / var(--ps-g-tint-card, var(--ps-s-tint)))"
-		);
+		// A private conversation flags every line to us as a highlight (it
+		// drives the badge): none of them is painted as a mention.
+		expect(valueOf(view(`:root${WORDS_SURFACE}`, "query"), "background")).to.equal(undefined);
 		expect(
 			valueOf(view(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "channel"), "background")
 		).to.equal("rgb(40 20 48 / var(--ps-s-tint))");
@@ -3316,9 +3315,7 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 			own(BUBBLES),
 			own(BUBBLES_NIGHT),
 			wash(`:root${WORDS_SURFACE}`, "channel"),
-			wash(`:root${WORDS_SURFACE}`, "query"),
 			wash(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "channel"),
-			wash(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "query"),
 			...PILLS.flatMap((p) => [
 				`${BUBBLES} #chat .chat ${p}`,
 				`${BUBBLES_NIGHT} #chat .chat ${p}`,

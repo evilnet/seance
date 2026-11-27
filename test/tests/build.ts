@@ -2,6 +2,7 @@ import {expect} from "chai";
 import fs from "fs";
 import path from "path";
 import {THEME_PAIRS} from "../../client/js/helpers/themeAppearance";
+import {THEMES} from "../../client/js/themeRegistry";
 
 describe("public folder", function () {
 	const publicFolder = path.join(process.cwd(), "public");
@@ -324,28 +325,7 @@ describe("public folder", function () {
 	it("style files are built", function () {
 		expect(fs.existsSync(path.join(publicFolder, "css", "style.css"))).to.be.true;
 
-		for (const theme of [
-			"coffee",
-			"creama",
-			"cobalt",
-			"frost",
-			"molokai",
-			"princess",
-			"princess_",
-			"keeki",
-			"keekiblush",
-			"sandrof",
-			"oikarinen",
-			"bourbaki",
-			"gates",
-			"mardam",
-			"zelenzy",
-			"panasync",
-			"day",
-			"morning",
-			"macos",
-			"ps",
-		]) {
+		for (const {name: theme} of THEMES) {
 			expect(fs.existsSync(path.join(publicFolder, "themes", `${theme}.css`))).to.be.true;
 		}
 	});

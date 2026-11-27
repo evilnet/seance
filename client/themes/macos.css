@@ -47,7 +47,7 @@
 	--window-shadow: none;
 	--menu-bg: #fff;
 
-	/* Bubbles (style.css § Bubbles): Messages' grey and its round corners;
+	/* Bubbles (style.css § The looks): Messages' grey and its round corners;
 	 * our own lines a pale wash of the accent, the text as ever (a solid
 	 * accent bubble read as iMessage, not as IRC). */
 	--bubble-bg: #e9e9eb;

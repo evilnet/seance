@@ -10,6 +10,7 @@
 // an uploader endpoint.
 
 import type {SharedConfiguration} from "../../shared/types/config";
+import {THEMES} from "./themeRegistry";
 
 const configuration: SharedConfiguration = {
 	public: false,
@@ -30,34 +31,9 @@ const configuration: SharedConfiguration = {
 	gitCommit: process.env.SEANCE_COMMIT || null,
 	buildTrack: process.env.SEANCE_TRACK || "",
 	gitBranch: process.env.SEANCE_BRANCH || null,
-	// One CSS file each under client/themes/; docs/resources/themes.md. The
-	// four handoff themes (Ink & Amber, Cobalt Frost) carry their titlebar
-	// tone as the browser chrome colour, the older two leave it to the
-	// deploy's themeColor.
-	themes: [
-		{name: "coffee", displayName: "Coffee", themeColor: "#1a1816"},
-		{name: "creama", displayName: "Creama", themeColor: "#efe9de"},
-		{name: "cobalt", displayName: "Cobalt", themeColor: "#101720"},
-		{name: "frost", displayName: "Frost", themeColor: "#eef2f7"},
-		{name: "molokai", displayName: "Molokai", themeColor: "#1b1d1e"},
-		{name: "princess", displayName: "Princess", themeColor: "#f2f7fc"},
-		{name: "princess_", displayName: "Princess_", themeColor: "#000000"},
-		{name: "keeki", displayName: "Keeki", themeColor: "#22143a"},
-		{name: "keekiblush", displayName: "Keeki Blush", themeColor: "#f1d6e4"},
-		{name: "sandrof", displayName: "Sandrof", themeColor: "#020402"},
-		{name: "oikarinen", displayName: "Oikarinen", themeColor: "#040301"},
-		{name: "bourbaki", displayName: "Bourbaki", themeColor: "#000000"},
-		{name: "gates", displayName: "Gates", themeColor: "#0000aa"},
-		{name: "mardam", displayName: "Mardam", themeColor: "#d4d0c8"},
-		{name: "zelenzy", displayName: "Zelenzy", themeColor: "#ece9d8"},
-		{name: "panasync", displayName: "Panasync", themeColor: "#000000"},
-		{name: "day", displayName: "Day", themeColor: null},
-		{name: "morning", displayName: "Morning", themeColor: null},
-		{name: "ps", displayName: "ps", themeColor: "#3f8fe6"},
-		// Light or dark with the system on its own (one file, no pair), and
-		// the Mac app's default (boot.ts).
-		{name: "macos", displayName: "macOS", themeColor: null},
-	],
+	// One CSS file each under client/themes/, listed in themeRegistry.ts;
+	// docs/resources/themes.md.
+	themes: THEMES.map(({name, displayName, themeColor}) => ({name, displayName, themeColor})),
 	defaultTheme: "coffee",
 	lockNetwork: false,
 	defaults: {

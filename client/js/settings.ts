@@ -36,9 +36,9 @@ const buildThemeColor =
 
 const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
 
-/** Reflect the message layout the reader chose onto <html>, for the theme
- * on screen: left off where that theme offers no choice
- * (helpers/messageLayout.ts; the layout is style.css's). */
+/** Reflect the look the reader chose onto <html>, for the theme on screen:
+ * left off where that theme offers no choice (helpers/messageLayout.ts;
+ * the looks are style.css's). */
 function applyMessageLayout(store: TypedStore, theme: string): void {
 	const layout = messageLayoutFor(store.state.settings.messageLayout, theme);
 
@@ -391,9 +391,10 @@ const defaultConfig = {
 			loadTheme(store);
 		},
 	},
-	// Lines or Bubbles (helpers/messageLayout.ts), in the themes that offer
-	// the choice; applied with the theme, since a theme change can take it
-	// away or bring it back.
+	// The look: Classic ("lines"), Messenger ("bubbles") or Workspace
+	// ("workspace") (helpers/messageLayout.ts), in the themes that offer the
+	// choice; applied with the theme, since a theme change can take it away
+	// or bring it back.
 	messageLayout: {
 		sync: true,
 		default: "lines",
@@ -422,8 +423,9 @@ const defaultConfig = {
 			themeScene.setPauseWhenAway(value !== false);
 		},
 	},
-	// Whether the ps theme combines a run of one sender's lines under one nick
-	// and time (MessageList.vue, helpers/messageRuns.ts).
+	// Whether Messenger, Workspace and ps combine a run of one
+	// sender's lines under one nick and time (MessageList.vue,
+	// helpers/messageRuns.ts). The name is from when ps alone did.
 	psGroupMessages: {
 		sync: true,
 		default: true,

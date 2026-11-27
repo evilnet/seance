@@ -442,7 +442,7 @@ body,
 b,
 strong,
 .msg .content b,
-#chat .msg.highlight .content {
+#chat .chat-view[data-type="channel"] .msg.highlight .content {
 	font-weight: 700;
 }
 
@@ -768,15 +768,15 @@ strong,
  * nothing else: the row's own start is moved back by the bar so its time,
  * nick and text line up with the rows around it, and style.css's highlight
  * padding (the time's, the narrow row's) and the text's 1px rule go. */
-#chat .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) {
+#chat .chat-view[data-type="channel"] .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) {
 	padding-inline-start: calc(0.625rem - 5px);
 }
 
-#chat .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) .time {
+#chat .chat-view[data-type="channel"] .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) .time {
 	padding: 0;
 }
 
-#chat .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) .content {
+#chat .chat-view[data-type="channel"] .chat .msg.highlight:is([data-type="message"], [data-type="notice"]) .content {
 	border: 0;
 }
 
@@ -938,8 +938,7 @@ strong,
 	animation-name: ps-settle;
 }
 
-#chat .chat-view[data-type="channel"] .msg.highlight,
-#chat .chat-view[data-type="query"] .msg.highlight {
+#chat .chat-view[data-type="channel"] .msg.highlight {
 	animation: ps-fade 340ms ease-out backwards, ps-glow 1.8s ease-out 2;
 }
 
@@ -2749,14 +2748,12 @@ html[data-contrast="more"]:root[data-ps-text="light"] #chat .chat {
  * washes are in its section). The selectors keep style.css's specificity: its channel
  * rule paints --highlight-bg-color, opaque, and must not win. */
 /* stylelint-disable-next-line no-duplicate-selectors -- same rows the motion section animates, now with the fill */
-#chat .chat-view[data-type="channel"] .msg.highlight,
-#chat .chat-view[data-type="query"] .msg.highlight {
+#chat .chat-view[data-type="channel"] .msg.highlight {
 	background: rgb(255 214 230 / 85%);
 }
 
 /* stylelint-disable max-line-length -- the shadow family's scope is long */
-:root:is([data-ps-words="outline"], [data-ps-words="rim"], [data-ps-words="glow"])[data-ps-text="light"] #chat .chat-view[data-type="channel"] .msg.highlight,
-:root:is([data-ps-words="outline"], [data-ps-words="rim"], [data-ps-words="glow"])[data-ps-text="light"] #chat .chat-view[data-type="query"] .msg.highlight {
+:root:is([data-ps-words="outline"], [data-ps-words="rim"], [data-ps-words="glow"])[data-ps-text="light"] #chat .chat-view[data-type="channel"] .msg.highlight {
 	background: rgb(20 14 30 / 50%);
 }
 /* stylelint-enable max-line-length */
@@ -2908,17 +2905,15 @@ html[data-own-messages="band"]:is(:not([data-ps-words]), [data-ps-words="bubbles
 /* A mention keeps style.css's 5px bar at the card's start, the text lined up
  * with the rows around it (the stacked rows' rule, restated for the card's
  * padding), and its wash as the card's fill (the floors test reads both). */
-:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg.highlight {
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat-view[data-type="channel"] .chat .msg.highlight {
 	padding-inline-start: calc(0.6rem - 5px);
 }
 
-:root:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
-:root:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight {
+:root:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight {
 	background: rgb(255 214 230 / var(--ps-g-tint-card, var(--ps-s-tint)));
 }
 
-:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
-:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight {
+:root[data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight {
 	background: rgb(40 20 48 / var(--ps-s-tint));
 }
 
@@ -3963,9 +3958,7 @@ html[data-reduce-transparency][data-platform="macos"] #form,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg,
 :root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .msg,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
-:root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight,
 :root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="channel"] .msg.highlight,
-:root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"], [data-ps-words="glass"], [data-ps-words="scrim"]) #chat .chat-view[data-type="query"] .msg.highlight,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
 :root[data-reduce-transparency][data-ps-light="night"]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .show-more .btn,
 :root[data-reduce-transparency]:is(:not([data-ps-words]), [data-ps-words="bubbles"]) #chat .chat .date-marker-text::before,
