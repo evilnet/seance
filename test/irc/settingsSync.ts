@@ -1,7 +1,9 @@
 import {expect} from "chai";
 import {readFileSync} from "node:fs";
+import sinon from "sinon";
 import {register, setup, type Harness} from "./support";
 import {SYNC_KEY} from "../../client/js/sync/file";
+import {IRCU_FAKE_LAG} from "../../client/js/irc/fakelag";
 import {
 	forgetSyncNetwork,
 	readState,
@@ -51,10 +53,19 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(h.client.syncPointer).to.equal(POINTER);
 	});
 
+	it("takes a private notification under another nick: another device of the account", function () {
+		// nefarious2 sends a private key's change to the account's own
+		// sessions only, under the nick of the one that set it.
+		const h = connected();
+		h.transport.line(`:irc.test METADATA alice_ ${SYNC_KEY} private :${POINTER}`);
+
+		expect(h.client.syncPointer).to.equal(POINTER);
+		expect(pointers(h)).to.deep.equal([{network: h.client.uuid}]);
+	});
+
 	it("ignores someone else's key of the same name", function () {
 		const h = connected();
 		h.transport.line(`:irc.test METADATA mallory ${SYNC_KEY} * :${POINTER}`);
-		h.transport.line(`:irc.test METADATA mallory ${SYNC_KEY} private :${POINTER}`);
 		h.transport.line(`:irc.test 761 alice mallory ${SYNC_KEY} * :${POINTER}`);
 
 		expect(h.client.syncPointer).to.equal(undefined);
@@ -113,6 +124,97 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(h.client.syncPointer).to.equal(POINTER);
 	});
 
+	it("reads it again when the server refuses our write, and only then", function () {
+		const h = connected();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		h.transport.line(`:irc.test FAIL METADATA KEY_INVALID ${SYNC_KEY} :not ours`);
+
+		expect(h.client.syncPointer).to.equal(POINTER);
+
+		h.client.writeSyncPointer(`${POINTER}0`);
+		h.transport.line(`:irc.test FAIL METADATA LIMIT_REACHED alice ${SYNC_KEY} :Too many keys`);
+
+		expect(h.client.syncPointer).to.equal(undefined);
+		// Behind whatever else waits.
+		const read = (line: string) => line === `METADATA * GET ${SYNC_KEY}`;
+		expect(
+			h.sent().some(read) || h.client.background.keys().includes(`metadata:get:${SYNC_KEY}`)
+		).to.equal(true);
+		expect(pointers(h)).to.have.length(2);
+	});
+
+	it("reads it again when nefarious2's rate limit, which names no key, answers our write", function () {
+		const h = connected();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		h.client.writeSyncPointer(`${POINTER}0`);
+		h.transport.line(
+			":irc.test FAIL METADATA RATE_LIMITED :Too many metadata commands, slow down"
+		);
+
+		expect(h.client.syncPointer).to.equal(undefined);
+	});
+
+	it("asks again later when the read after a refused write is refused too", function () {
+		const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
+
+		try {
+			const h = connected();
+			h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+			h.client.writeSyncPointer(`${POINTER}0`);
+			h.transport.line(
+				`:irc.test FAIL METADATA LIMIT_REACHED alice ${SYNC_KEY} :Too many keys`
+			);
+			clock.tick(10_000);
+			const read = (line: string) => line === `METADATA * GET ${SYNC_KEY}`;
+			expect(h.sent().some(read)).to.equal(true);
+			h.transport.line(":irc.test FAIL METADATA RATE_LIMITED :slow down");
+			clock.tick(60_000);
+
+			expect(h.sent().some(read)).to.equal(true);
+
+			h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+
+			expect(h.client.syncPointer).to.equal(POINTER);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("subscribes and reads the account's keys after a login on the live connection", function () {
+		const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
+		const h = connected(undefined, false);
+
+		try {
+			h.transport.line(":irc.test 900 alice alice!a@h alice :You are now logged in as alice");
+			clock.tick(60_000);
+		} finally {
+			clock.restore();
+		}
+
+		const sent = h.sent();
+		expect(h.client.account).to.equal("alice");
+		expect(
+			sent.some((line) => line.startsWith("METADATA * SUB ") && line.includes(SYNC_KEY))
+		).to.equal(true);
+		expect(
+			sent.some((line) => line.startsWith("METADATA * GET ") && line.includes(SYNC_KEY))
+		).to.equal(true);
+	});
+
+	it("forgets the pointer when the connection logs in as another account or out", function () {
+		const h = connected();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		h.transport.line(":irc.test 900 alice alice!a@h bob :You are now logged in as bob");
+
+		expect(h.client.account).to.equal("bob");
+		expect(h.client.syncPointer).to.equal(undefined);
+
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${POINTER}`);
+		h.transport.line(":irc.test 901 alice alice!a@h :You are now logged out");
+
+		expect(h.client.syncPointer).to.equal(undefined);
+	});
+
 	it("does not write it where the server cannot keep a key private", function () {
 		const h = connected("ergo-v2.14.0");
 
@@ -132,6 +234,38 @@ describe("the settings sync pointer on the wire (seance/sync)", function () {
 		expect(h.sent()).to.include("TOKEN GENERATE FILEHOST");
 		h.transport.line(":irc.test TOKEN GENERATE FILEHOST :secret");
 		expect(await token).to.equal("secret");
+	});
+
+	it("does not take a read answered before our queued SET went out for a refusal of it", function () {
+		const h = setup({join: "", fakeLag: IRCU_FAKE_LAG});
+		register(h, CAPS, [LOGIN]);
+		const OLD = POINTER;
+		const NEW = `1 https://files.example/f/2 ${"B".repeat(43)} 1800000001000`;
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${OLD}`);
+
+		// The connect burst: the fake-lag clock is over the background budget.
+		for (let i = 0; i < 4; i++) {
+			h.client.send(`PRIVMSG #a :line ${i}`);
+		}
+
+		expect(h.client.writeSyncPointer(NEW)).to.equal(true);
+		expect(h.client.background.keys()).to.include(`metadata:${SYNC_KEY}`);
+		void h.client.readSyncPointer();
+		h.transport.line(`:irc.test 761 alice alice ${SYNC_KEY} private :${OLD}`);
+
+		expect(h.client.syncPointer).to.equal(NEW);
+	});
+
+	it("forgets the first account's own keys when the connection logs in as another", function () {
+		const h = connected();
+		h.transport.line(":irc.test 766 alice alice draft/webpush/mute :key not set");
+		h.transport.line(":irc.test 766 alice alice seance/closed :key not set");
+
+		expect([h.client.muteKnown, h.client.closedKnown]).to.deep.equal([true, true]);
+
+		h.transport.line(":irc.test 900 alice alice!a@h bob :You are now logged in as bob");
+
+		expect([h.client.muteKnown, h.client.closedKnown]).to.deep.equal([false, false]);
 	});
 });
 

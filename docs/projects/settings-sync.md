@@ -48,12 +48,24 @@ gunzip, merge).
 
 Live changes come as the key's notification, the path `seance/presence`
 already takes between two devices (browser check
-`tools/scenarios/presence-shared.mjs`). nefarious2 sends every
-notification with the visibility `*`, private keys included (`m_metadata.c`),
-so a notification counts only when it names our own nick
-(`handlers/metadata.ts` `ours`): the account's devices share one through
-the bouncer session, and nobody else can change our nick's keys. Someone
-else's key of the same name names their nick and is ignored.
+`tools/scenarios/presence-shared.mjs`). nefarious2 sends a private key's
+notification with the visibility `private`, and only to the account's own
+sessions, under the nick of the session that set it (`m_metadata.c`,
+`metadata_notify_subscribers`). So a notification is ours when it says
+`private` or names our own nick (`handlers/metadata.ts` `ours`): another
+device logged in under another nick, not sharing a bouncer session, is
+heard too. Someone else's public key of the same name names their nick and
+is ignored. A connection that logs in or out after registration (a 900
+or 901 from a SASL exchange after 001; nefarious2 sends neither for a
+login through services) forgets the pointer it read, and a login
+subscribes and reads the account's keys as registration does
+(`IrcClient.onAccountChanged`). A write the server refuses
+(`FAIL METADATA … seance/sync` while our SET is out: a full key list; or
+nefarious2's `RATE_LIMITED`, `VALUE_INVALID` and `INTERNAL_ERROR`, which
+name no key) is read again, and a refused read is asked again 30 s later; when the old value comes back the tab
+that wrote waits longer before it uploads again, doubling from a minute up
+to an hour, so a server that refuses every write is not sent a file every
+five minutes.
 
 ### What a device accepts
 
@@ -109,19 +121,32 @@ tab it was pressed in. One upload for one press; a refusal (a 429 too) is
 said next to the button and the retry is left to the timer
 (`SyncEngine.syncNow`).
 
-One tab uploads for a device (decided 2026-11-25). Two tabs, or the
-installed app and a tab, share the device's storage, so each sees the
-other's change and each would upload it. The tab that holds a Web Lock
-(`navigator.locks`, which nothing here uses yet) uploads, and the lock
-passes on when that tab closes; the others only apply what arrives. A
-browser without it lets every tab upload: the files are the same, and the
-cost is an upload each.
+One upload at a time for a device. Two tabs, or the installed app and a
+tab, share the device's storage, so each sees the other's change and each
+would upload it. A tab whose home is connected uploads while it holds a Web
+Lock (`navigator.locks`, `ifAvailable`), taken for the upload alone and
+checked again once held: a tab finding it taken looks again a little
+later, by which time the shared state says the change went; Sync now
+waits for the lock instead. (The first
+version held the lock for a tab's whole life, so a tab whose home was
+offline, or that the browser had suspended, kept every other tab from
+uploading.) A browser without it lets every tab upload: the files are the
+same, and the cost is an upload each.
+
+Each tab reads the pointer on its own connection while sharing the stored
+state. A value its connection still says after another tab took a newer one
+is not news: a tab acts on a pointer only when its own connection's value
+changed since it last acted (`SyncEngine` `handled`), so two tabs whose
+connections disagree for a moment do not trade the stored pointer, with a
+download each time, until both have heard.
 
 ### Retention
 
 PASTE's `filehost.php` deletes a file after 30 days. Whichever device is
-connected uploads the document again a week before, the rule avatars follow
-(`avatars/actions.ts`, `avatars.retentionDays`). Every device keeps
+connected uploads the document again a week before (half the keep, if
+shorter; never with `retentionDays` 0), the rule avatars follow
+(`avatars/own.ts` `refreshDue`, `avatars.retentionDays`), and sets its wake
+for that time. Every device keeps
 everything it has, so a file that expired while no device connected is
 uploaded again by the next one that does; only a device signing in for the
 first time in that gap starts empty, and the settings backup file restores
@@ -142,7 +167,8 @@ is kept on the device and never roams.
   the home and the device joins (§ A device joining). "Not now" lasts until
   the app is started again; "never" is kept on the device, and the switch
   still turns sync on.
-- Switching it off stops sync on that device and deletes its copy of the
+- Switching it off stops sync on that device (and the offer is not made
+  again on that page) and deletes its copy of the
   entries' times. The account's file and pointer stay for its other
   devices. Removing the home network from a device (signing out of a
   branded build) switches it off first, so the lists that go with the
@@ -175,9 +201,17 @@ entry:
   the pointer. Only a device holding something newer writes, so the devices
   agree after at most one extra round and never trade writes back and forth;
 - an entry this build does not know is kept and written back as received, so
-  an older build never deletes a newer build's settings;
+  an older build never deletes a newer build's settings. The device's copy
+  marks it as never taken (`u`); once an update of the app knows it, the
+  device takes it, rather than reading its own default as a choice made
+  then;
 - nothing dated more than a minute after this device's clock is taken (the
-  rule the presence keys use).
+  rule the presence keys use). The rest of the file is taken; such an
+  entry, if it is newer than the device's, is kept in the device's copy as
+  received (`d`), passed on in its uploads, and taken once its time is
+  within the minute (the engine wakes for it), so it is neither lost nor
+  left out of the next file. An entry dated more than a day ahead is not
+  taken at all.
 
 That is a last-writer-wins map, one of the simplest CRDTs. It needs no
 library; it is `helpers/settingsSync.ts` (#323) with a time per entry and the
@@ -202,7 +236,16 @@ account that already has a file, the account wins:
   holds it.
 
 The first device of an account has no file to compare with: everything it
-holds that is not a default goes up, dated at the join.
+holds that is not a default goes up, dated at the join. The switch reads
+the pointer again before it decides which (`sync/index.ts` `turnOn`): the
+pointer read at connect may be older than another device switching sync
+on, and a device taking itself for the first would date everything it holds
+at now and win over the account. A device that has not joined and finds a
+pointer it will not read (damaged, too large, on another host) says so and
+joins as if the account's file were gone, so the switch does not stay on
+doing nothing; but what it holds goes up dated as the oldest of choices
+(time 1), so a device that can read the account's own file keeps its side
+and its next upload puts it back.
 
 A device that last synced more than 90 days ago joins again by the same
 rule: the markers for what was removed meanwhile may be gone, and by its
@@ -385,7 +428,7 @@ lost meanwhile, each device keeps its entries and their times.
   pointer's file, join or merge, apply, upload when due. Everything outside
   it is a `SyncHost`, so it runs under mocha.
 - `client/js/sync/index.ts`: the page's host: the settings port, the
-  dialogs, the notices, the Web Lock, and what asks for a run (the pointer,
+  dialogs, the notices, the upload's Web Lock, and what asks for a run (the pointer,
   a write to a roaming store through `localStorage.ts` `onStorageWrite`,
   another tab's write to the sync state, the wake timer).
   `client/js/sync/reload.ts`: § Applying what arrives.
@@ -393,7 +436,8 @@ lost meanwhile, each device keeps its entries and their times.
   it), `onSyncPointer` → the bus event `sync:pointer`, `writeSyncPointer`
   and `backgroundToken` (both through `IrcClient.background`); the key rides
   in the `METADATA * SUB` and login `GET` lines the shared keys already use;
-  `handlers/metadata.ts` takes a value only under our own nick.
+  `handlers/metadata.ts` takes a notification that says `private` or names
+  our own nick, and a reply only for our own nick.
 - UI: `components/Settings/SyncSwitch.vue`, under each network in Settings
   → Networks and on the single network of a branded build
   (`Settings/Account.vue`).
