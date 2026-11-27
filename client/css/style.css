@@ -3825,8 +3825,14 @@ html[data-reduce-motion] .avatar img {
 }
 
 /* A query in the sidebar, or a channel with an avatar (Channel.vue): the
- * avatar stands in for the icon (and for a channel's topic emoji). */
-.channel-list-item:has(> .avatar)::before {
+ * avatar stands in for the icon (and for a channel's topic emoji). An
+ * unsent draft's pen takes the slot back, as it does from the icon and the
+ * emoji. */
+.channel-list-item:has(> .avatar):not(.has-draft:not(.active))::before {
+	display: none;
+}
+
+.channel-list-item.has-draft:not(.active):not([data-type="lobby"]) > .avatar {
 	display: none;
 }
 

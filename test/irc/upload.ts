@@ -14,6 +14,7 @@ import {
 	metadataPlan,
 	parseUploadResponse,
 	uploadFile,
+	uploadFilehost,
 	uploadMaxSize,
 	xhrFetch,
 } from "../../client/js/upload";
@@ -135,6 +136,8 @@ class FakeXhr {
 	status = 0;
 	statusText = "";
 	responseText = "";
+	/** What `getAllResponseHeaders` answers: the headers CORS lets the page read. */
+	responseHeaders = "";
 	upload: {onprogress: ((event: ProgressEvent) => void) | null} = {onprogress: null};
 	onload: (() => void) | null = null;
 	onerror: (() => void) | null = null;
@@ -167,10 +170,15 @@ class FakeXhr {
 		this.upload.onprogress?.({lengthComputable: true, loaded, total} as ProgressEvent);
 	}
 
-	respond(status: number, text: string) {
+	respond(status: number, text: string, headers = "") {
 		this.status = status;
 		this.responseText = text;
+		this.responseHeaders = headers;
 		this.onload?.();
+	}
+
+	getAllResponseHeaders() {
+		return this.responseHeaders;
 	}
 
 	fail() {
@@ -827,6 +835,30 @@ describe("upload", function () {
 			expect(response.status).to.equal(201);
 			expect(response.ok).to.be.true;
 			expect(await response.text()).to.equal("https://cdn.example.test/x");
+		});
+
+		it("keeps the response's headers: a 201's Location with no body", async function () {
+			const pending = xhrFetch(ENDPOINT, {method: "POST"}, {XHR});
+			(await lastXhr()).respond(
+				201,
+				"",
+				"content-length: 0\r\nlocation: /f/abc.webp\r\nx-bad header: no\r\n"
+			);
+			const response = await pending;
+
+			expect(response.headers.get("Location")).to.equal("/f/abc.webp");
+			expect(response.headers.get("Content-Length")).to.equal("0");
+		});
+
+		it("takes a FILEHOST upload's URL from Location when the body is empty", async function () {
+			const pending = uploadFilehost(
+				new File(["PNG"], "avatar.webp", {type: "image/webp"}),
+				{endpoint: ENDPOINT, generate: () => Promise.resolve("t")},
+				{xhr: XHR}
+			);
+			(await lastXhr()).respond(201, "", "Location: https://cdn.example.test/abc.webp\r\n");
+
+			expect(await pending).to.equal("https://cdn.example.test/abc.webp");
 		});
 
 		it("reports upload progress", async function () {

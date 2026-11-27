@@ -16,6 +16,7 @@ import {
 	setAvatarValue,
 } from "../../client/js/avatars/registry";
 import {setAvatarsEnabled, useStorageBackend} from "../../client/js/avatars/prefs";
+import {dispatchInput} from "../../client/js/irc/commands";
 
 const CAPS = `${ALL_CAPS} draft/metadata-2 extended-join account-notify account-tag`;
 const URL_A = "https://files.example/alice.webp";
@@ -254,6 +255,20 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 			expect(avatarKnown(uuid(), "#old")).to.equal(true);
 		});
 
+		it("keeps quiet the answer to a GET sent before the burst said it", function () {
+			// A logged-in user hears the channel's metadata after the NAMES; a
+			// picture known from before is asked at the 366 all the same.
+			setAvatarValue(uuid(), "#old", URL_C);
+			markAvatarsStale(uuid());
+			join("#old");
+			expect(sentMetadata()).to.deep.equal(["METADATA #old GET avatar"]);
+			h.transport.line(`:irc.test METADATA #old avatar * :${URL_A}`);
+			const before = h.messages().length;
+			h.transport.line(`:irc.test 761 alice #old avatar * :${URL_A}`);
+			expect(h.messages().length).to.equal(before);
+			expect(avatarOf(uuid(), "#old")?.value).to.equal(URL_A);
+		});
+
 		it("asks nothing when the burst said it, or nothing was known", function () {
 			setAvatarValue(uuid(), "#said", URL_C);
 			markAvatarsStale(uuid());
@@ -279,6 +294,18 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 			expect(avatarOf(uuid(), "#art")).to.equal(undefined);
 		});
 
+		it("keeps drawing it once we are kicked, and asks again on the rejoin", function () {
+			join("#art", [`:irc.test METADATA #art avatar * :${URL_C}`]);
+			h.transport.line(":bob!bob@host.example KICK #art alice :out");
+			expect(avatarOf(uuid(), "#art")?.value).to.equal(URL_C);
+			expect(avatarKnown(uuid(), "#art")).to.equal(false);
+			h.sent();
+			join("#art");
+			expect(sentMetadata()).to.deep.equal(["METADATA #art GET avatar"]);
+			h.transport.line(":irc.test 766 alice #art avatar :key not set");
+			expect(avatarOf(uuid(), "#art")?.value).to.equal("");
+		});
+
 		it("is asked of nobody where avatars are switched off", function () {
 			setAvatarsEnabled(uuid(), false);
 			join("#plain");
@@ -302,8 +329,15 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 			expect(canSetChannelAvatar(g.client, "#half")).to.equal(true);
 			expect(canSetChannelAvatar(g.client, "#voiced")).to.equal(false);
 			expect(canSetChannelAvatar(g.client, "#nowhere")).to.equal(false);
-			g.transport.line(":alice MODE alice :+o");
+			// A local operator is refused; a global one in the channel is not.
+			g.transport.line(":alice MODE alice :+O");
+			expect(canSetChannelAvatar(g.client, "#voiced")).to.equal(false);
+			g.transport.line(":alice MODE alice :-O+o");
 			expect(canSetChannelAvatar(g.client, "#voiced")).to.equal(true);
+			// Only as a member, oper or not.
+			expect(canSetChannelAvatar(g.client, "#nowhere")).to.equal(false);
+			g.transport.line(":bob!bob@host.example KICK #voiced alice :out");
+			expect(canSetChannelAvatar(g.client, "#voiced")).to.equal(false);
 			expect(canSetChannelAvatar(h.client, "#seance")).to.equal(true); // @alice, no half-ops
 		});
 
@@ -370,24 +404,119 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 			});
 		}
 
-		it("says why when no answer came, the connection closed or a newer change took over", async function () {
-			const codeOf = async (p: Promise<void>) => {
-				try {
-					await p;
-					return "resolved";
-				} catch (err) {
-					return (err as AvatarSetError).code;
-				}
-			};
+		const codeOf = async (p: Promise<void>) => {
+			try {
+				await p;
+				return "resolved";
+			} catch (err) {
+				return (err as AvatarSetError).code;
+			}
+		};
 
+		it("settles two SETs in flight each by its own answer", async function () {
 			const first = setChannelAvatar(h.client, "#seance", URL_C);
-			const second = setChannelAvatar(h.client, "#seance", URL_A);
-			expect(await codeOf(first)).to.equal("superseded");
+			const upkeep = setChannelAvatar(h.client, "#seance", URL_A);
+			const own = setOwnAvatar(h.client, URL_B);
+			h.transport.lines(
+				`:irc.test 761 alice #seance avatar * :${URL_C}`,
+				`:irc.test 761 alice alice avatar * :${URL_B}`,
+				":irc.test FAIL METADATA KEY_NO_PERMISSION #seance avatar :You don't have permission"
+			);
+			expect(await codeOf(first)).to.equal("resolved");
+			expect(await codeOf(own)).to.equal("resolved");
+			expect(await codeOf(upkeep)).to.equal("KEY_NO_PERMISSION");
+		});
+
+		it("says why when the connection closed or it was not connected", async function () {
+			const pending = setChannelAvatar(h.client, "#seance", URL_A);
 			h.transport.closed();
-			expect(await codeOf(second)).to.equal("closed");
+			expect(await codeOf(pending)).to.equal("closed");
 			expect(await codeOf(setChannelAvatar(h.client, "#seance", URL_C))).to.equal(
 				"unavailable"
 			);
+		});
+
+		it("keeps quiet an answer that comes after the timeout", async function () {
+			const clock = sinon.useFakeTimers({toFake: ["setTimeout", "clearTimeout"]});
+
+			try {
+				const late = setChannelAvatar(h.client, "#seance", URL_C);
+				clock.tick(SET_TIMEOUT_MS);
+				expect(await codeOf(late)).to.equal("timeout");
+				const before = h.messages().length;
+				h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_C}`);
+				expect(h.messages().length).to.equal(before);
+				expect(avatarOf(uuid(), "#seance")?.value).to.equal(URL_C);
+			} finally {
+				clock.restore();
+			}
+		});
+
+		it("is not settled by another op's change to the same picture", async function () {
+			const done = setChannelAvatar(h.client, "#seance", URL_C);
+			h.transport.line(`:irc.test METADATA #seance avatar * :${URL_C}`);
+			h.transport.line(
+				":irc.test FAIL METADATA KEY_NO_PERMISSION #seance avatar :You don't have permission"
+			);
+			expect(await codeOf(done)).to.equal("KEY_NO_PERMISSION");
+		});
+
+		it("is not settled by a FAIL about another target, which is shown", async function () {
+			const done = setChannelAvatar(h.client, "#seance", URL_C);
+			let settled = false;
+			void done.then(() => (settled = true));
+			const before = h.messages().length;
+			h.transport.line(
+				":irc.test FAIL METADATA KEY_NO_PERMISSION #other avatar :You don't have permission"
+			);
+			await Promise.resolve();
+			expect(settled).to.equal(false);
+			expect(h.messages().length).to.be.greaterThan(before);
+			h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_C}`);
+			expect(await codeOf(done)).to.equal("resolved");
+		});
+
+		it("gives a SET and a GET of one channel each its own INVALID_TARGET", async function () {
+			join("#gone");
+			const done = setChannelAvatar(h.client, "#gone", URL_C);
+			h.client.open(chanId("#gone"));
+			expect(sentMetadata()).to.deep.equal([
+				`METADATA #gone SET avatar :${URL_C}`,
+				"METADATA #gone GET avatar",
+			]);
+			const before = h.messages().length;
+			// The SET's, first: not the GET's to swallow.
+			h.transport.line(":irc.test FAIL METADATA INVALID_TARGET #gone :Invalid target");
+			expect(await codeOf(done)).to.equal("INVALID_TARGET");
+			h.transport.line(":irc.test FAIL METADATA INVALID_TARGET #gone :Invalid target");
+			expect(h.messages().length).to.equal(before);
+		});
+
+		it("shows the user's own /metadata, sent before a SET of the channel, and settles the SET on its own answer", async function () {
+			const chan = h.client.findChannel("#seance")!;
+			dispatchInput(h.client, chan, "/metadata #seance get avatar");
+			expect(h.sent()).to.deep.equal(["metadata #seance get avatar"]);
+			const done = setChannelAvatar(h.client, "#seance", URL_C);
+			let settled = false;
+			void done.then(() => (settled = true));
+			const before = h.messages().length;
+			h.transport.line(":irc.test 766 alice #seance avatar :key not set");
+			await Promise.resolve();
+			expect(settled).to.equal(false);
+			expect(h.messages().length).to.be.greaterThan(before);
+			const shown = h.messages().length;
+			h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_C}`);
+			expect(await codeOf(done)).to.equal("resolved");
+			expect(h.messages().length).to.equal(shown);
+		});
+
+		it("puts a FAIL naming no target on the oldest SET", async function () {
+			const own = setOwnAvatar(h.client, URL_A);
+			const chan = setChannelAvatar(h.client, "#seance", URL_C);
+			h.transport.line(":irc.test FAIL METADATA VALUE_INVALID :value is too long");
+			expect(await codeOf(own)).to.equal("VALUE_INVALID");
+			h.transport.line(`:irc.test 761 alice #seance avatar * :${URL_C}`);
+			expect(await codeOf(chan)).to.equal("resolved");
 		});
 
 		it("fails at once, not at the timeout, when the line could not be sent", async function () {
@@ -420,6 +549,19 @@ describe("avatars on the wire (irc/avatars.ts)", function () {
 			const before = h.messages().length;
 			h.transport.line(":irc.test 766 alice alice avatar :key not set");
 			expect(h.messages().length).to.equal(before);
+		});
+
+		it("asks again, once back on, for what it had asked before", function () {
+			h.transport.line(":bob!bob@host.example PRIVMSG #seance :hi");
+			expect(h.sent()).to.deep.equal(["METADATA bob GET avatar"]);
+			h.transport.line(`:irc.test 761 alice bob avatar * :${URL_B}`);
+			setAvatarsEnabled(uuid(), false);
+			applyAvatarsEnabled(h.client, false);
+			setAvatarsEnabled(uuid(), true);
+			applyAvatarsEnabled(h.client, true);
+			h.sent();
+			h.transport.line(":bob!bob@host.example PRIVMSG #seance :back");
+			expect(h.sent()).to.deep.equal(["METADATA bob GET avatar"]);
 		});
 	});
 });

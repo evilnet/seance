@@ -124,6 +124,26 @@ export interface UploadFileOptions {
 	omitFields?: ReadonlySet<string>;
 }
 
+/** An XHR's response headers (`getAllResponseHeaders`, one `name: value` per line) as `Headers`. */
+function responseHeaders(xhr: XMLHttpRequest): Headers {
+	const headers = new Headers();
+	const raw = typeof xhr.getAllResponseHeaders === "function" ? xhr.getAllResponseHeaders() : "";
+
+	for (const line of (raw ?? "").split(/\r?\n/)) {
+		const colon = line.indexOf(":");
+
+		if (colon > 0) {
+			try {
+				headers.append(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
+			} catch {
+				// A name or value Headers will not take: not one we read.
+			}
+		}
+	}
+
+	return headers;
+}
+
 /** Statuses a `Response` may not carry a body with. */
 const NULL_BODY_STATUSES = new Set([101, 103, 204, 205, 304]);
 
@@ -131,7 +151,8 @@ const NULL_BODY_STATUSES = new Set([101, 103, 204, 205, 304]);
  * `fetch(url, init)` over an `XMLHttpRequest`, for the upload progress
  * events fetch does not have. Honours `method`, `headers` (a plain record),
  * `credentials: "include"`, `body` and `signal`, and resolves with a
- * `Response` built from the status and text; a network failure rejects with
+ * `Response` built from the status, the headers CORS lets the page read
+ * (a `201`'s `Location`) and the text; a network failure rejects with
  * the same `TypeError("Failed to fetch")` fetch throws, an abort with an
  * `AbortError`.
  *
@@ -181,7 +202,13 @@ export function xhrFetch(
 			}
 
 			const body = NULL_BODY_STATUSES.has(status) ? null : xhr.responseText;
-			resolve(new Response(body, {status, statusText: xhr.statusText}));
+			resolve(
+				new Response(body, {
+					status,
+					statusText: xhr.statusText,
+					headers: responseHeaders(xhr),
+				})
+			);
 		};
 
 		xhr.onerror = () => reject(new TypeError("Failed to fetch"));

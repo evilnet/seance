@@ -9,9 +9,10 @@
  *   - an upload of ours that the host deletes within a week (own.ts
  *     `refreshDue`, `avatars.retentionDays` in config.json, 30 by default)
  *     is uploaded again and the key moved to the new URL, provided the key
- *     still holds the URL we uploaded (another device may have changed it);
- *     the same for a channel's that this device uploaded, while we can
- *     still set it (`canSetChannelAvatar`);
+ *     still holds the URL we uploaded, before the upload and after it
+ *     (another device, or another op, may have changed it meanwhile); the
+ *     same for a channel's that this device uploaded, while we can still
+ *     set it (`canSetChannelAvatar`);
  *   - our own avatar is probed (an `<img>` load, the one cross-origin check
  *     a page has), and own.ts decides when failures mean it is gone.
  */
@@ -101,6 +102,37 @@ export async function reupload(client: IrcClient, rec: RecentAvatar): Promise<Re
 	return useAvatar(client, url, {uploaded: true, blob: rec.blob, channel: rec.channel});
 }
 
+/** The avatar (ours, or `channel`'s) as the server last said it on this connection. */
+function currentValue(client: IrcClient, channel: string | undefined): string | undefined {
+	if (channel === undefined) {
+		return ownAvatarValue(client);
+	}
+
+	return avatarKnown(client.uuid, channel) ? avatarOf(client.uuid, channel)?.value : undefined;
+}
+
+/**
+ * {@link reupload} for the upkeep: the new URL is written only if the
+ * avatar still is the kept one once the upload is done. A change made
+ * meanwhile (a new picture, or none) is newer, and stays.
+ */
+async function refresh(client: IrcClient, rec: RecentAvatar): Promise<void> {
+	if (!rec.blob) {
+		return;
+	}
+
+	const url = await uploadAvatar(client, rec.blob);
+
+	if (
+		currentValue(client, rec.channel) !== rec.url ||
+		(rec.channel !== undefined && !canSetChannelAvatar(client, rec.channel))
+	) {
+		return;
+	}
+
+	await useAvatar(client, url, {uploaded: true, blob: rec.blob, channel: rec.channel});
+}
+
 /** Load `url` the way the page will, off-screen. */
 export function probeImage(url: string, timeoutMs = 20_000): Promise<boolean> {
 	return new Promise((resolve) => {
@@ -140,13 +172,12 @@ async function channelUpkeep(client: IrcClient): Promise<void> {
 	}
 
 	for (const chan of [...client.channels]) {
-		const value = avatarOf(client.uuid, chan.name)?.value;
+		const value = currentValue(client, chan.name);
 
 		if (
 			chan.type !== ChanType.CHANNEL ||
 			chan.state !== ChanState.JOINED ||
 			!value ||
-			!avatarKnown(client.uuid, chan.name) ||
 			!canSetChannelAvatar(client, chan.name)
 		) {
 			continue;
@@ -156,7 +187,7 @@ async function channelUpkeep(client: IrcClient): Promise<void> {
 
 		if (rec && refreshDue(rec, Date.now(), retentionDays())) {
 			try {
-				await reupload(client, rec);
+				await refresh(client, rec);
 			} catch {
 				// Tried again on the next connect; the picture stays until the host drops it.
 			}
@@ -176,7 +207,7 @@ async function ownUpkeep(client: IrcClient): Promise<void> {
 
 	if (canUpload(client) && current && refreshDue(current, Date.now(), retentionDays())) {
 		try {
-			await reupload(client, current);
+			await refresh(client, current);
 			return;
 		} catch {
 			// The probe below tells the user if this leaves the avatar broken.

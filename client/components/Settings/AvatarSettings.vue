@@ -491,7 +491,6 @@ import {
 import {namesEqual} from "../../js/irc/casemap";
 import {leadingEmoji} from "../../js/helpers/emoji";
 import {canSetBans} from "../../js/helpers/banMenu";
-import {isOperOn} from "../../js/helpers/operMenu";
 import {
 	avatarUnavailable,
 	forgetRecentAvatar,
@@ -536,10 +535,11 @@ export default defineComponent({
 				: props.heading || t("avatar.heading")
 		);
 
-		// The server takes a channel's avatar from its half-ops and ops, and
-		// from IRC operators. The IRC client knows our modes in every channel
-		// (the store only in one that has been opened, where it also makes
-		// this follow a change while the dialog is up).
+		// The server takes a channel's avatar from its members who are half-ops
+		// and ops, or global IRC operators. The IRC client knows our modes in
+		// every channel (the store only in one that has been opened); the
+		// store's are read so that this follows a change while the dialog is
+		// up, as is our oper level.
 		const mayChange = computed(() => {
 			if (!props.channel) {
 				return true;
@@ -547,9 +547,9 @@ export default defineComponent({
 
 			const c = client();
 			const net = network.value;
-			const fromStore = !!net && (canSetBans(net, props.channel) || isOperOn(net));
+			void net?.oper?.level;
 			return (
-				fromStore ||
+				(!!net && canSetBans(net, props.channel)) ||
 				(!!c && net?.status.connected === true && canSetChannelAvatar(c, props.channel))
 			);
 		});
@@ -694,11 +694,9 @@ export default defineComponent({
 				: t("avatar.linkElsewhere", {host});
 		});
 
-		/** The words for a failed change; null when a newer change replaced it. */
-		const failureText = (e: unknown): string | null => {
+		/** The words for a failed change. */
+		const failureText = (e: unknown): string => {
 			switch (e instanceof AvatarSetError ? e.code : "") {
-				case "superseded":
-					return null;
 				case "timeout":
 					return t("avatar.failedTimeout");
 				case "closed":
@@ -736,11 +734,7 @@ export default defineComponent({
 				await work();
 				setStatus("ok", done);
 			} catch (e: unknown) {
-				const text = failureText(e);
-
-				if (text !== null) {
-					setStatus("error", text);
-				}
+				setStatus("error", failureText(e));
 			} finally {
 				busy.value = false;
 				await reload();

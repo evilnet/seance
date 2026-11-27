@@ -1,4 +1,5 @@
 import {expect} from "chai";
+import {casefold} from "../../client/js/irc/casemap";
 import {AVATAR_MAX_BYTES, avatarLinkProblem, parseAvatarUrl} from "../../client/js/avatars/url";
 import {
 	avatarView,
@@ -513,6 +514,32 @@ describe("own avatar upkeep (avatars/own.ts)", function () {
 			]);
 			await forgetNetworkAvatars("n1");
 			expect(await recentAvatars("n1", "#art")).to.deep.equal([]);
+		});
+
+		it("tells channels apart as the network folds names", async function () {
+			// CASEMAPPING=ascii: `[` and `{` are different letters there.
+			bindNetwork("n-ascii", (name) => casefold(name, "ascii"));
+
+			for (const [channel, setAt] of [
+				["#a[", 1],
+				["#A{", 2],
+			] as const) {
+				await rememberAvatar({
+					uuid: "n-ascii",
+					channel,
+					url: `https://a.example/${setAt}.png`,
+					setAt,
+					uploaded: false,
+				});
+			}
+
+			expect((await recentAvatars("n-ascii", "#A[")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/1.png",
+			]);
+			expect((await recentAvatars("n-ascii", "#a{")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/2.png",
+			]);
+			await forgetNetworkAvatars("n-ascii");
 		});
 	});
 

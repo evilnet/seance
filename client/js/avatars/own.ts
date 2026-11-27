@@ -13,7 +13,7 @@
  */
 
 import storage from "../localStorage";
-import {casefold} from "../irc/casemap";
+import {foldFor} from "./registry";
 
 export type RecentAvatar = {
 	/** Random id. */
@@ -136,16 +136,15 @@ function newId(): string {
 	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** The same channel (our own avatar is the one with none), compared as rfc1459 folds names. */
-const sameChannel = (a: string | undefined, b: string | undefined): boolean =>
-	casefold(a ?? "") === casefold(b ?? "");
-
 /**
- * This network's recent avatars, newest first: our own, or `channel`'s.
+ * This network's recent avatars, newest first: our own (the ones with no
+ * channel), or `channel`'s, its name compared as the network folds names.
  * Never rejects (an empty list instead).
  */
 export async function recentAvatars(uuid: string, channel?: string): Promise<RecentAvatar[]> {
-	return (await allRecentAvatars(uuid)).filter((rec) => sameChannel(rec.channel, channel));
+	const fold = foldFor(uuid);
+	const wanted = fold(channel ?? "");
+	return (await allRecentAvatars(uuid)).filter((rec) => fold(rec.channel ?? "") === wanted);
 }
 
 /** Every recent avatar on this network, ours and its channels', newest first. */
