@@ -12,7 +12,7 @@
 // small HTTP server here stands in for `draft/FILEHOST`.
 //
 // Claims:
-//   1. the switch under Settings → Networks makes the network the sync home,
+//   1. the switch on a network's details (Settings → Networks → Edit) makes the network the sync home,
 //      and the first device uploads what it holds: one encrypted file, and a
 //      private pointer of four words;
 //   2. a second device that sees the pointer asks, and on "Use them" takes
@@ -220,7 +220,16 @@ export default async function run(page) {
 		});
 		await page.goto(BASE, {waitForSelector: "#network-aaaa-home"});
 		await flip(page, "appearance", "showSeconds");
-		await page.goto(`${BASE}#/settings/networks`, {waitForSelector: ".network-settings-sync"});
+		await page.goto(`${BASE}#/settings/networks`, {waitForSelector: ".network-settings-item"});
+		page.check(
+			"the list of networks has no switch, and no mark yet",
+			!(await page.evaluate(
+				`!!document.querySelector(".network-settings-sync, .network-settings-synced")`
+			))
+		);
+		await page.goto(`${BASE}#/settings/networks/aaaa-home`, {
+			waitForSelector: ".network-settings-sync",
+		});
 		await page.waitFor(
 			`document.querySelector(".network-settings-sync input")?.disabled === false`,
 			{label: "the switch can be switched on", timeout: 15000}
@@ -350,8 +359,25 @@ export default async function run(page) {
 			(await page.evaluate(`${stored("thelounge.state.sync")}?.pointer`)) ===
 				(await b.evaluate(`${stored("thelounge.state.sync")}?.pointer`))
 		);
-		await page.goto(`${BASE}#/settings/networks`, {waitForSelector: ".network-settings-sync"});
+		await page.goto(`${BASE}#/settings/networks`, {
+			waitForSelector: ".network-settings-synced",
+		});
+		page.check(
+			"the list marks the network settings sync with",
+			(await page.evaluate(
+				`document.querySelector(".network-settings-synced")?.getAttribute("aria-label")`
+			)) === "Settings sync with your account here"
+		);
+		page.check(
+			"with a glyph that takes room",
+			(await page.evaluate(
+				`document.querySelector(".network-settings-synced").getBoundingClientRect().width`
+			)) > 4
+		);
 		await page.screenshot("settings-sync-synced");
+		await page.goto(`${BASE}#/settings/networks/aaaa-home`, {
+			waitForSelector: ".network-settings-sync",
+		});
 
 		// --- 5. "Sync now": inside the five minutes, with nothing waited out ---
 		const NOW_BUTTON = `document.querySelector(".network-settings-sync-now button")`;
@@ -364,7 +390,7 @@ export default async function run(page) {
 		});
 		page.check("and uploads nothing", filehost.posts.length === 2);
 		await flip(page, "appearance", "showSeconds");
-		await page.goto(`${BASE}#/settings/networks`, {
+		await page.goto(`${BASE}#/settings/networks/aaaa-home`, {
 			waitForSelector: ".network-settings-sync-now button",
 		});
 		await page.evaluate(`${NOW_BUTTON}.click()`);
@@ -373,6 +399,9 @@ export default async function run(page) {
 			timeout: 15000,
 		});
 		page.check("in one upload, at once", filehost.posts.length === 3);
+		await page.evaluate(
+			`document.querySelector(".network-settings-sync").scrollIntoView({block: "center"})`
+		);
 		await page.screenshot("settings-sync-now");
 		const seconds = await page.evaluate(`${stored("settings")}?.showSeconds`);
 		await b.waitFor(`${stored("settings")}?.showSeconds === ${seconds}`, {

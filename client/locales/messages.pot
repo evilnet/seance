@@ -15463,10 +15463,22 @@ msgctxt "settings.scripts.stateRunning"
 msgid "Running"
 msgstr ""
 
+#. Settings → Networks: tooltip and accessible name of the small sync mark next to the name of the network this device syncs its settings with.
+#: client/components/Settings/Networks.vue
+msgctxt "settings.sync.badge"
+msgid "Settings sync with your account here"
+msgstr ""
+
 #. Settings → Networks: status under the settings sync switch when the account's synced settings were written by a newer version of the app than this device runs.
 #: client/components/Settings/SyncSwitch.vue:68
 msgctxt "settings.sync.blocked"
 msgid "Waiting for an update of the app on this device."
+msgstr ""
+
+#. Settings → Networks → Edit: heading of the section holding the 'Sync settings with this account' switch.
+#: client/components/Windows/NetworkEdit.vue
+msgctxt "settings.sync.heading"
+msgid "Settings sync"
 msgstr ""
 
 #. Settings → Networks: explanation under the 'Sync settings with this account' switch while it is off and can be switched on.
