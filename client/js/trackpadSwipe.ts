@@ -5,8 +5,11 @@
 // reads those; an open overlay, or a pane that can still scroll sideways the
 // way the fingers go (a wide code block, a table), keeps its own
 // (helpers/sidewaysSwipe.ts, as the touch drag asks). One swipe, one change:
-// the gesture has to go quiet before the next one counts. Touch screens have
-// their own swipe (the sidebar's drag) and are left alone.
+// the gesture has to go quiet before the next one counts. A finger on a
+// touch screen sends no wheel events (it has the sidebar's drag), so the
+// listener is installed everywhere: a laptop whose browser calls its
+// touchscreen the primary input, or a tablet with a trackpad, still has the
+// trackpad's swipe, and Messenger's times with it.
 //
 // In Messenger a swipe over the conversation toward the pane's start is not
 // the sidebar's: it slides the conversation aside to show the times
@@ -17,7 +20,6 @@
 // The direction of the fingers is the wheel's, natural scrolling undone:
 // WebKit says when the system's setting is off; Chrome and Firefox do not,
 // so there a user with natural scrolling off swipes the other way.
-import {hasVirtualKeyboard} from "./helpers/device";
 import {inOpenOverlay, scrollerTakesSwipe} from "./helpers/sidewaysSwipe";
 import {trackpadPeek} from "./helpers/trackpadPeek";
 import {messageLayoutShown} from "./settings";
@@ -62,7 +64,7 @@ function opens(left: boolean): boolean {
 }
 
 export function listenForTrackpadSwipes(): void {
-	if (typeof window === "undefined" || hasVirtualKeyboard()) {
+	if (typeof window === "undefined") {
 		return;
 	}
 
