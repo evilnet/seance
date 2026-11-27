@@ -708,8 +708,8 @@ export class SyncEngine {
 			}
 
 			if (change.id === "net:join") {
-				const join = typeof change.after === "string" ? change.after : "";
-				this.host.say(home, {kind: "join-changed", join});
+				const channels = typeof change.after === "string" ? change.after : "";
+				this.host.say(home, {kind: "join-changed", join: channels});
 				continue;
 			}
 
