@@ -13,10 +13,21 @@
  * (a replay, or one the device kept) elsewhere asks for its sender, where
  * they are still here.
  *
+ * A channel has an avatar too (the IRCv3 registry's channel `avatar` key),
+ * which its half-ops and ops set and every member subscribed to the key
+ * hears. nefarious2 sends it to the one joining, after the JOIN (and, for
+ * a logged-in user, after the NAMES); a held session's replayed join burst
+ * carries none. So a channel's value is taken whenever it comes, and asked
+ * for (background, once per channel per connection) only where it matters:
+ * a picture known from before that the burst did not say again (it may be
+ * gone), and a channel opened without one known.
+ *
  * Our own avatar is written public (everyone sharing a channel sees it):
- * `METADATA * SET avatar :<url>`, and `METADATA * SET avatar` clears it.
- * The server answers 761 (or 766 for a clear) or a FAIL, which settles
- * {@link setOwnAvatar}'s promise.
+ * `METADATA * SET avatar :<url>`, and `METADATA * SET avatar` clears it; a
+ * channel's is `METADATA <channel> SET avatar …`. The server answers each
+ * of our GETs and SETs in turn, with a 761 (766 for none) or a FAIL; a SET's
+ * answer settles {@link setOwnAvatar}'s or {@link setChannelAvatar}'s
+ * promise, and none of ours is shown.
  */
 
 import {
@@ -24,6 +35,7 @@ import {
 	avatarOf,
 	clearAvatars,
 	forgetAvatar,
+	markAvatarStale,
 	markAvatarsStale,
 	noteAccount,
 	renameAvatar,
@@ -37,23 +49,57 @@ import type {IrcMessage} from "./message";
 
 export const AVATAR_KEY = "avatar";
 
+/**
+ * Why a SET failed. `message` is the server's description where it gave
+ * one; `code` is what to act on: the FAIL code (`KEY_NO_PERMISSION`,
+ * `VALUE_INVALID`, …), or `closed`, `timeout`, `unsent` or `unavailable`
+ * from this side.
+ */
+export class AvatarSetError extends Error {
+	constructor(message: string, readonly code: string) {
+		super(message);
+		this.name = "AvatarSetError";
+	}
+}
+
 /** A SET waiting for the server's answer. */
 type PendingSet = {
+	kind: "set";
+	/** The channel whose avatar it sets; absent for our own. */
+	channel?: string;
+	/** What it writes (`""` clears): its 761 says it again (a 766 for `""`). */
 	value: string;
+	/** Settled already (it timed out): its late answer is still ours to keep quiet. */
+	done: boolean;
+	/** When it went out, against the other SETs (a FAIL naming no target is the oldest's). */
+	order: number;
 	resolve: () => void;
-	reject: (reason: string) => void;
+	reject: (reason: string, code: string) => void;
 	timer: ReturnType<typeof setTimeout>;
 };
 
+/**
+ * A request for the avatar key the server has yet to answer: our GET, our
+ * SET, or the user's own (`/metadata`, `/raw`), whose answer is theirs to see.
+ */
+type InFlight = {kind: "get"} | {kind: "user"} | PendingSet;
+
 /** Per-connection state, kept off IrcClient's own fields. */
 type State = {
-	/** Folded nicks asked with a GET on this connection. */
+	/** Folded nicks (and channels) asked with a GET on this connection. */
 	asked: Set<string>;
-	/** Folded nicks whose GET is still unanswered (their replies are ours to keep quiet). */
-	waiting: Set<string>;
-	/** Folded channels asked with a SYNC on this connection: their members are covered. */
+	/**
+	 * Our GETs and SETs not yet answered, by target ({@link targetKey}), in
+	 * the order they went out. The server answers one target's in that
+	 * order, each with a 761/766 or a FAIL naming the target, so the oldest
+	 * is the one an answer is for; a METADATA notification answers nothing
+	 * (another op's change can come before our own refusal). The user's own
+	 * requests are filed here too, so theirs and ours are told apart; an
+	 * answer with nothing waiting for it is shown, as theirs is.
+	 */
+	inFlight: Map<string, InFlight[]>;
+	/** Folded channels asked with a SYNC on this connection: they and their members are covered. */
 	synced: Set<string>;
-	pending: PendingSet | null;
 };
 
 const states = new WeakMap<IrcClient, State>();
@@ -62,7 +108,7 @@ function stateOf(client: IrcClient): State {
 	let state = states.get(client);
 
 	if (!state) {
-		state = {asked: new Set(), waiting: new Set(), synced: new Set(), pending: null};
+		state = {asked: new Set(), inFlight: new Map(), synced: new Set()};
 		states.set(client, state);
 	}
 
@@ -91,123 +137,253 @@ export function avatarsWelcomed(client: IrcClient): void {
 	markAvatarsStale(client.uuid);
 	const state = stateOf(client);
 	state.asked.clear();
-	state.waiting.clear();
 	state.synced.clear();
 }
 
-/** The connection closed: an unanswered SET fails. */
+/** The connection closed: nothing will be answered, and an unanswered SET fails. */
 export function avatarsClosed(client: IrcClient): void {
 	const state = stateOf(client);
 	state.asked.clear();
-	state.waiting.clear();
 	state.synced.clear();
-	settle(client, "closed");
-}
+	const open = [...state.inFlight.values()].flat();
+	state.inFlight.clear();
 
-/** A METADATA line or reply naming the avatar key: `value` "" = none. */
-export function onAvatarValue(client: IrcClient, target: string, value: string): void {
-	if (!target || target === "*" || client.isChannelName(target)) {
-		return;
-	}
-
-	setAvatarValue(client.uuid, target, value);
-	const key = client.casefold(target);
-	stateOf(client).waiting.delete(key);
-
-	if (client.isSelf(target)) {
-		const pending = stateOf(client).pending;
-
-		if (pending && pending.value === value) {
-			settle(client);
+	for (const entry of open) {
+		if (entry.kind === "set") {
+			fail(entry, "closed");
 		}
 	}
 }
 
-/**
- * A 761/766 for the avatar key that answers our own GET, or our SET: kept
- * quiet. A user's own `/metadata … get avatar` is shown as any reply is.
- */
-export function isQuietAvatarReply(client: IrcClient, target: string): boolean {
-	if (client.isSelf(target) && stateOf(client).pending) {
-		return true;
-	}
-
-	return stateOf(client).waiting.has(client.casefold(target));
+/** Our own requests are filed under their target: `*` and our nick are one. */
+function targetKey(client: IrcClient, target: string): string {
+	return target === "*" || client.isSelf(target) ? "*" : client.casefold(target);
 }
 
-/**
- * A FAIL METADATA that concerns the avatar: refuses our pending SET (its
- * description goes to the settings), or answers a GET for a user that is
- * gone. True when it was ours and should not be shown.
- */
-export function onAvatarFail(client: IrcClient, msg: IrcMessage): boolean {
-	const state = stateOf(client);
-	const params = msg.params;
-	const code = params[1] ?? "";
-	const context = params.slice(2, -1);
-	const description = params[params.length - 1] ?? code;
+function track(client: IrcClient, target: string, entry: InFlight): void {
+	const inFlight = stateOf(client).inFlight;
+	const key = targetKey(client, target);
+	const list = inFlight.get(key);
 
-	// INVALID_TARGET <target>: the user left before our GET arrived.
-	if (
-		code === "INVALID_TARGET" &&
-		context[0] &&
-		state.waiting.delete(client.casefold(context[0]))
-	) {
-		return true;
+	if (list) {
+		list.push(entry);
+	} else {
+		inFlight.set(key, [entry]);
 	}
-
-	const aboutAvatar = context.includes(AVATAR_KEY);
-
-	if (state.pending && (aboutAvatar || code === "VALUE_INVALID" || code === "RATE_LIMITED")) {
-		settle(client, description || code);
-		return true;
-	}
-
-	return aboutAvatar && state.waiting.size > 0;
 }
 
-function settle(client: IrcClient, failure?: string): void {
-	const state = stateOf(client);
-	const pending = state.pending;
+/** Take `entry` (or, with none given, the oldest for `target`) off the list of what is in flight. */
+function untrack(client: IrcClient, target: string, entry?: InFlight): InFlight | undefined {
+	const inFlight = stateOf(client).inFlight;
+	const key = targetKey(client, target);
+	const list = inFlight.get(key);
 
-	if (!pending) {
+	if (!list) {
+		return undefined;
+	}
+
+	const index = entry === undefined ? 0 : list.indexOf(entry);
+	const [found] = index === -1 ? [] : list.splice(index, 1);
+
+	if (list.length === 0) {
+		inFlight.delete(key);
+	}
+
+	return found;
+}
+
+function finish(set: PendingSet): void {
+	clearTimeout(set.timer);
+
+	if (!set.done) {
+		set.done = true;
+		set.resolve();
+	}
+}
+
+function fail(set: PendingSet, reason: string, code = reason): void {
+	clearTimeout(set.timer);
+
+	if (!set.done) {
+		set.done = true;
+		set.reject(reason, code);
+	}
+}
+
+/** A METADATA line naming the avatar key (a burst or someone's change): `value` "" = none. */
+export function onAvatarValue(client: IrcClient, target: string, value: string): void {
+	if (!target || target === "*") {
 		return;
 	}
 
-	state.pending = null;
-	clearTimeout(pending.timer);
+	setAvatarValue(client.uuid, target, value);
+}
 
-	if (failure === undefined) {
-		pending.resolve();
-	} else {
-		pending.reject(failure);
+/**
+ * A 761/766 for the avatar key: the value (`undefined` for a private one,
+ * which is not anyone's avatar), and the answer to our oldest GET or SET
+ * for its target, if one is in flight. True when it was ours, so is not
+ * shown; a user's own `/metadata … get avatar` is shown as any reply is.
+ */
+export function onAvatarReply(
+	client: IrcClient,
+	target: string,
+	value: string | undefined
+): boolean {
+	if (value !== undefined) {
+		onAvatarValue(client, target, value);
 	}
+
+	const oldest = stateOf(client).inFlight.get(targetKey(client, target))?.[0];
+
+	// Our SET's answer says the value it wrote: another, the server's answer
+	// to another of the account's devices (a shared session hears those).
+	if (oldest?.kind === "set" && oldest.value !== (value ?? oldest.value)) {
+		return false;
+	}
+
+	const answered = untrack(client, target);
+
+	if (answered?.kind === "set") {
+		finish(answered);
+	}
+
+	return answered !== undefined && answered.kind !== "user";
+}
+
+/**
+ * A line the user sent as it was typed (`/metadata …`, `/raw …`). A GET or
+ * SET that names the avatar key gets its answer in turn with ours, so it is
+ * filed with ours: their answer is shown, and is not taken for ours.
+ */
+export function noteTypedLine(client: IrcClient, line: string): void {
+	const [command = "", target, verb = "", ...rest] = line.trim().split(/\s+/);
+
+	if (command.toUpperCase() !== "METADATA" || !target) {
+		return;
+	}
+
+	const keys =
+		verb.toUpperCase() === "GET" ? rest : verb.toUpperCase() === "SET" ? rest.slice(0, 1) : [];
+
+	if (keys.includes(AVATAR_KEY)) {
+		track(client, target, {kind: "user"});
+	}
+}
+
+/**
+ * A FAIL METADATA that concerns the avatar. One that names its target
+ * (`INVALID_TARGET <target>`, `KEY_NO_PERMISSION <target> avatar`) answers
+ * our oldest request for that target; one that names none (VALUE_INVALID,
+ * RATE_LIMITED, or the key alone) our oldest SET. A refused SET's
+ * description goes to the settings that asked. True when it was ours and
+ * should not be shown.
+ */
+export function onAvatarFail(client: IrcClient, msg: IrcMessage): boolean {
+	const params = msg.params;
+	const code = params[1] ?? "";
+	const context = params.slice(2, -1);
+	const description = params[params.length - 1] || code;
+	const target = context[0];
+
+	if (target && target !== AVATAR_KEY) {
+		if (code !== "INVALID_TARGET" && !context.includes(AVATAR_KEY)) {
+			return false;
+		}
+
+		const answered = untrack(client, target);
+
+		if (answered?.kind === "set") {
+			fail(answered, description, code);
+		}
+
+		return answered !== undefined && answered.kind !== "user";
+	}
+
+	if (target !== AVATAR_KEY && code !== "VALUE_INVALID" && code !== "RATE_LIMITED") {
+		return false;
+	}
+
+	const oldest = oldestSet(client);
+
+	if (!oldest) {
+		return false;
+	}
+
+	untrack(client, oldest.target, oldest.set);
+	fail(oldest.set, description, code);
+	return true;
+}
+
+function oldestSet(client: IrcClient): {target: string; set: PendingSet} | undefined {
+	let oldest: {target: string; set: PendingSet} | undefined;
+
+	for (const [target, list] of stateOf(client).inFlight) {
+		for (const entry of list) {
+			if (entry.kind === "set" && (!oldest || entry.order < oldest.set.order)) {
+				oldest = {target, set: entry};
+			}
+		}
+	}
+
+	return oldest;
+}
+
+let nextOrder = 0;
+
+/** Write `value` to the avatar key of `channel`, or our own (undefined). */
+function setAvatar(client: IrcClient, channel: string | undefined, value: string): Promise<void> {
+	if (!client.isWelcomed || !client.caps.hasCapability("draft/metadata-2")) {
+		return Promise.reject(new AvatarSetError("unavailable", "unavailable"));
+	}
+
+	const target = channel ?? "*";
+
+	return new Promise<void>((resolve, reject) => {
+		const set: PendingSet = {
+			kind: "set",
+			channel,
+			value,
+			done: false,
+			order: nextOrder++,
+			resolve,
+			reject: (reason, code) => reject(new AvatarSetError(reason, code)),
+			// It stays in flight: an answer that comes late is still its own.
+			timer: setTimeout(() => fail(set, "timeout"), SET_TIMEOUT_MS),
+		};
+		(set.timer as {unref?: () => void}).unref?.();
+		track(client, target, set);
+		const sent = client.send(
+			value === ""
+				? `METADATA ${target} SET ${AVATAR_KEY}`
+				: `METADATA ${target} SET ${AVATAR_KEY} :${value}`
+		);
+
+		// Not sent, so no answer is coming: fail now rather than at the
+		// timeout. A line over the limit (a long link on a long channel
+		// name) is refused while the socket is open; otherwise it closed.
+		if (!sent) {
+			untrack(client, target, set);
+			fail(set, client.transport.state === "open" ? "unsent" : "closed");
+		}
+	});
 }
 
 /**
  * Write our own avatar (`""` clears it). Resolves when the server confirms,
- * rejects with its reason (or "closed"/"timeout"/"unavailable").
+ * rejects with its reason (or "closed"/"timeout"/"unavailable"/"unsent").
  */
 export function setOwnAvatar(client: IrcClient, value: string): Promise<void> {
-	if (!client.isWelcomed || !client.caps.hasCapability("draft/metadata-2")) {
-		return Promise.reject(new Error("unavailable"));
-	}
+	return setAvatar(client, undefined, value);
+}
 
-	settle(client, "superseded");
-
-	return new Promise<void>((resolve, reject) => {
-		const timer = setTimeout(() => settle(client, "timeout"), SET_TIMEOUT_MS);
-		(timer as {unref?: () => void}).unref?.();
-		stateOf(client).pending = {
-			value,
-			resolve,
-			reject: (reason) => reject(new Error(reason)),
-			timer,
-		};
-		client.send(
-			value === "" ? `METADATA * SET ${AVATAR_KEY}` : `METADATA * SET ${AVATAR_KEY} :${value}`
-		);
-	});
+/**
+ * Write `channel`'s avatar (`""` clears it): the server takes it from a
+ * half-op, an op or an IRC operator and refuses anyone else
+ * (KEY_NO_PERMISSION). Settles as {@link setOwnAvatar} does.
+ */
+export function setChannelAvatar(client: IrcClient, channel: string, value: string): Promise<void> {
+	return setAvatar(client, channel, value);
 }
 
 /**
@@ -307,7 +483,11 @@ export function syncAvatarsOfJoinedChannels(client: IrcClient): void {
 	}
 }
 
-/** Queue a GET for `nick`'s avatar unless it is known or already asked. */
+/**
+ * Queue a GET for the avatar of `nick` (or a channel) unless it is known or
+ * already asked. The queue may run it after the burst has said it after
+ * all: it checks again then.
+ */
 export function askAvatar(client: IrcClient, nick: string): void {
 	if (!avatarsWanted(client) || client.isSelf(nick) || avatarKnown(client.uuid, nick)) {
 		return;
@@ -330,25 +510,84 @@ export function askAvatar(client: IrcClient, nick: string): void {
 				return;
 			}
 
-			state.waiting.add(key);
-			client.send(line);
+			const get: InFlight = {kind: "get"};
+			track(client, nick, get);
+
+			if (!client.send(line)) {
+				untrack(client, nick, get);
+			}
 		},
 	});
 }
 
-/** NICK: the avatar follows the user. */
-export function onAvatarNick(client: IrcClient, from: string, to: string): void {
-	renameAvatar(client.uuid, from, to);
-	const state = stateOf(client);
+/**
+ * The end of a channel's join burst (366). A picture known from before
+ * that the burst has not said again may be gone: ask. So is the channel
+ * open on screen without one known. Anything else waits for the server to
+ * say it (a logged-in user hears it after the NAMES) or for the channel to
+ * be opened.
+ */
+export function onChannelBurstEnd(client: IrcClient, channel: string, open: boolean): void {
+	if (avatarKnown(client.uuid, channel)) {
+		return;
+	}
 
-	for (const set of [state.asked, state.waiting]) {
-		if (set.delete(client.casefold(from))) {
-			set.add(client.casefold(to));
-		}
+	if (open || avatarOf(client.uuid, channel)?.value) {
+		askAvatar(client, channel);
 	}
 }
 
-/** QUIT, or a PART/KICK after which no channel is shared: forget the nick. */
+/**
+ * Whether we may set `channel`'s avatar, as nefarious2 decides it
+ * (`can_modify_target`): a member who is half-op and up (op and up where
+ * the network has no half-ops), or a member who is a global IRC operator
+ * (a local one, +O, is refused).
+ */
+export function canSetChannelAvatar(client: IrcClient, channel: string): boolean {
+	if (!client.isWelcomed || !client.caps.hasCapability("draft/metadata-2")) {
+		return false;
+	}
+
+	const chan = client.findChannel(channel);
+	const me = chan?.state === ChanState.JOINED ? chan.findUser(client.nick) : undefined;
+
+	if (!me) {
+		return false;
+	}
+
+	if (client.oper.level === "global" || client.oper.level === "admin") {
+		return true;
+	}
+
+	const mine = me.modes[0];
+	const symbols = client.isupport.prefix.symbols;
+	const floor = symbols.includes("%") ? symbols.indexOf("%") : symbols.indexOf("@");
+
+	return mine !== undefined && floor !== -1 && client.prefixRank(mine) <= floor;
+}
+
+/** The channel was opened: ask for its avatar unless it is known. */
+export function onChannelOpened(client: IrcClient, channel: string): void {
+	askAvatar(client, channel);
+}
+
+/**
+ * NICK: the avatar follows the user. A GET in flight stays filed under the
+ * nick it named, which is the one its answer names.
+ */
+export function onAvatarNick(client: IrcClient, from: string, to: string): void {
+	renameAvatar(client.uuid, from, to);
+	const asked = stateOf(client).asked;
+
+	if (asked.delete(client.casefold(from))) {
+		asked.add(client.casefold(to));
+	}
+}
+
+/**
+ * QUIT, or a PART/KICK after which no channel is shared: forget the nick.
+ * Also our own PART of a channel, whose avatar goes with its window.
+ */
 export function onAvatarGone(client: IrcClient, nick: string): void {
 	if (client.isSelf(nick)) {
 		return;
@@ -357,7 +596,19 @@ export function onAvatarGone(client: IrcClient, nick: string): void {
 	forgetAvatar(client.uuid, nick);
 	const key = client.casefold(nick);
 	stateOf(client).asked.delete(key);
-	stateOf(client).waiting.delete(key);
+	stateOf(client).synced.delete(key);
+}
+
+/**
+ * We were kicked from `channel`: its window stays, and so does its picture,
+ * but a change made while we are out never reaches us, so a rejoin asks
+ * again (as a reconnect does).
+ */
+export function onChannelKicked(client: IrcClient, channel: string): void {
+	markAvatarStale(client.uuid, channel);
+	const key = client.casefold(channel);
+	stateOf(client).asked.delete(key);
+	stateOf(client).synced.delete(key);
 }
 
 /** After a PART or KICK: forget the nick when no channel we are in still has them. */
@@ -385,13 +636,17 @@ export function ownAvatarValue(client: IrcClient): string | undefined {
 
 /** Our own GET of the avatar key is going out: its reply is state, not news. */
 export function expectOwnAvatar(client: IrcClient): void {
-	stateOf(client).waiting.add(client.casefold(client.nick));
+	track(client, "*", {kind: "get"});
 }
 
 /** The reader switched avatars on or off for this network (Settings → Account). */
 export function applyAvatarsEnabled(client: IrcClient, on: boolean): void {
 	if (!on) {
 		clearAvatars(client.uuid);
+		// The answers are gone with the registry: ask again once back on.
+		const state = stateOf(client);
+		state.asked.clear();
+		state.synced.clear();
 	}
 
 	if (!client.isWelcomed || !client.caps.hasCapability("draft/metadata-2")) {
@@ -401,7 +656,8 @@ export function applyAvatarsEnabled(client: IrcClient, on: boolean): void {
 	client.send(`METADATA * ${on ? "SUB" : "UNSUB"} ${AVATAR_KEY}`);
 
 	if (on) {
-		// Our own at once; those in our channels with a SYNC per channel.
+		// A SUB brings no values. Our own is asked at once; each channel's,
+		// and its members', with a SYNC per channel.
 		expectOwnAvatar(client);
 		client.send(`METADATA * GET ${AVATAR_KEY}`);
 		syncAvatarsOfJoinedChannels(client);

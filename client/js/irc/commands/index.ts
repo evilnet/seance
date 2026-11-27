@@ -51,6 +51,7 @@ import topic from "./topic";
 import who from "./who";
 import whois from "./whois";
 import {wordsOf} from "./words";
+import {noteTypedLine} from "../avatars";
 
 const modules: Command[] = [
 	alias,
@@ -245,5 +246,7 @@ function inputLine(
 		return;
 	}
 
-	client.send(line.slice(1));
+	if (client.send(line.slice(1))) {
+		noteTypedLine(client, line.slice(1)); // a `/metadata … avatar` (irc/avatars.ts)
+	}
 }

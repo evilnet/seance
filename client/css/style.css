@@ -997,6 +997,8 @@ p {
 .context-menu-action-revoke-mode::before { content: "\f068"; /* http://fontawesome.io/icon/minus/ */ }
 .context-menu-network::before { content: "\f233"; /* https://fontawesome.com/icons/server?style=solid */ }
 .context-menu-edit::before { content: "\f303"; /* https://fontawesome.com/icons/pencil-alt?style=solid */ }
+.context-menu-channel-avatar::before { content: "\f03e"; /* https://fontawesome.com/icons/image?style=solid */ }
+.context-menu-action-avatar::before { content: "\f06e"; /* https://fontawesome.com/icons/eye?style=solid */ }
 .context-menu-clear-history::before { content: "\f1f8"; /* https://fontawesome.com/icons/trash?style=solid */ }
 .context-menu-translate::before { content: "\f1ab"; /* https://fontawesome.com/icons/language?style=solid */ }
 .context-menu-mute::before { content: "\f6a9"; /* https://fontawesome.com/v5.15/icons/volume-mute?style=solid */ }
@@ -3849,13 +3851,23 @@ html[data-reduce-motion] .avatar img {
 	min-width: calc(9ch + 1.625rem);
 }
 
-/* A query in the sidebar: the avatar stands in for the speech-bubble icon. */
-.channel-list-item:has(> .avatar)::before {
+/* A query in the sidebar, or a channel with an avatar (Channel.vue): the
+ * avatar stands in for the icon (and for a channel's topic emoji). An
+ * unsent draft's pen takes the slot back, as it does from the icon and the
+ * emoji. */
+.channel-list-item:has(> .avatar):not(.has-draft:not(.active))::before {
 	display: none;
 }
 
+.channel-list-item.has-draft:not(.active):not([data-type="lobby"]) > .avatar {
+	display: none;
+}
+
+/* 1.5rem against the 1.2rem line an icon's row has: it hangs into the row's
+ * padding instead of making its row taller than its neighbours. */
 .channel-list-item > .avatar {
 	margin-inline-end: 0.5rem;
+	margin-block: -0.15rem;
 }
 
 /* The tile sits on the row, not on the window: a selected row has its own
@@ -3869,6 +3881,12 @@ html[data-reduce-motion] .avatar img {
 	animation: avatar-typing-pulse 1.3s ease-in-out infinite;
 }
 
+/* Someone just spoke: the same breath at the calmer pace the icons use for
+ * it (.has-activity above), typing winning while both apply. */
+.channel-list-item.has-activity:not(.is-typing) > .avatar {
+	animation: avatar-typing-pulse 1.8s ease-in-out infinite;
+}
+
 @keyframes avatar-typing-pulse {
 	0%,
 	100% {
@@ -3880,7 +3898,7 @@ html[data-reduce-motion] .avatar img {
 	}
 }
 
-html[data-reduce-motion] .channel-list-item.is-typing > .avatar {
+html[data-reduce-motion] .channel-list-item:is(.is-typing, .has-activity) > .avatar {
 	animation: none;
 }
 
@@ -10077,6 +10095,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #oper-action-overlay,
 #ban-overlay,
 #user-card-overlay,
+#channel-avatar-overlay,
 #avatar-crop-overlay,
 #upload-overlay,
 #image-viewer,
@@ -10096,6 +10115,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #oper-action-overlay,
 #ban-overlay,
 #user-card-overlay,
+#channel-avatar-overlay,
 #avatar-crop-overlay,
 #upload-overlay,
 #image-viewer {
@@ -10152,6 +10172,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #oper-action-overlay.opened,
 #ban-overlay.opened,
 #user-card-overlay.opened,
+#channel-avatar-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {
 	visibility: visible;

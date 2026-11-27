@@ -39,7 +39,10 @@ python3 -c 'import http.server as h, mimetypes as m, functools; m.add_type("text
 
 Chromium comes from `$CHROME_BIN` or `chromium`; `--chrome=` overrides. The
 tool passes `--ignore-certificate-errors` because the dev ircd's certificate is
-self-signed.
+self-signed. `--chrome-arg=<switch>` (repeatable) adds a Chromium switch of
+your own: `--chrome-arg='--host-resolver-rules=MAP img.test:443 127.0.0.1:9178'`
+sends `https://img.test/` to a local server, for pictures that must be on the
+default port (avatars; `tools/scenarios/channel-avatar.mjs`).
 
 ## Wire watching
 

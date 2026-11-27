@@ -1,5 +1,6 @@
 import {expect} from "chai";
 import {computed, reactive} from "vue";
+import {casefold} from "../../client/js/irc/casemap";
 import {filehostHost, viewFor} from "../../client/js/avatars/view";
 import type {TypedStore} from "../../client/js/store";
 import {AVATAR_MAX_BYTES, avatarLinkProblem, parseAvatarUrl} from "../../client/js/avatars/url";
@@ -508,6 +509,69 @@ describe("own avatar upkeep (avatars/own.ts)", function () {
 			await forgetNetworkAvatars("n1");
 			expect(await recentAvatars("n1")).to.deep.equal([]);
 			expect(await recentAvatars("n2")).to.have.length(1);
+		});
+
+		it("keeps each channel's apart from ours, and from each other", async function () {
+			for (let i = 0; i < RECENT_MAX; i++) {
+				await rememberAvatar({
+					uuid: "n1",
+					url: `https://a.example/own-${i}.png`,
+					setAt: i,
+					uploaded: false,
+				});
+			}
+
+			await rememberAvatar({
+				uuid: "n1",
+				channel: "#Art",
+				url: "https://a.example/art.png",
+				setAt: 100,
+				uploaded: true,
+			});
+			await rememberAvatar({
+				uuid: "n1",
+				channel: "#help",
+				url: "https://a.example/help.png",
+				setAt: 101,
+				uploaded: false,
+			});
+
+			// Ours still holds all of its own: a channel's does not push one out.
+			expect(await recentAvatars("n1")).to.have.length(RECENT_MAX);
+			expect((await recentAvatars("n1", "#art")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/art.png",
+			]);
+			expect((await recentAvatars("n1", "#HELP")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/help.png",
+			]);
+			await forgetNetworkAvatars("n1");
+			expect(await recentAvatars("n1", "#art")).to.deep.equal([]);
+		});
+
+		it("tells channels apart as the network folds names", async function () {
+			// CASEMAPPING=ascii: `[` and `{` are different letters there.
+			bindNetwork("n-ascii", (name) => casefold(name, "ascii"));
+
+			for (const [channel, setAt] of [
+				["#a[", 1],
+				["#A{", 2],
+			] as const) {
+				await rememberAvatar({
+					uuid: "n-ascii",
+					channel,
+					url: `https://a.example/${setAt}.png`,
+					setAt,
+					uploaded: false,
+				});
+			}
+
+			expect((await recentAvatars("n-ascii", "#A[")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/1.png",
+			]);
+			expect((await recentAvatars("n-ascii", "#a{")).map((r) => r.url)).to.deep.equal([
+				"https://a.example/2.png",
+			]);
+			await forgetNetworkAvatars("n-ascii");
 		});
 	});
 

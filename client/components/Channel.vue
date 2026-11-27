@@ -9,7 +9,7 @@
 		:in-favorites="inFavorites"
 	>
 		<Avatar
-			v-if="channel.type === 'query'"
+			v-if="channel.type === 'query' || hasChannelAvatar"
 			:uuid="network.uuid"
 			:nick="channel.name"
 			size="list"
@@ -49,6 +49,9 @@
 <script lang="ts">
 import {PropType, defineComponent, computed} from "vue";
 import {useI18n} from "../js/i18n";
+import {useStore} from "../js/store";
+import {viewFor} from "../js/avatars/view";
+import {ChanType} from "../../shared/types/chan";
 import roundBadgeNumber from "../js/helpers/roundBadgeNumber";
 import useCloseChannel from "../js/hooks/use-close-channel";
 import {ClientChan, ClientNetwork} from "../js/types";
@@ -82,7 +85,18 @@ export default defineComponent({
 	},
 	setup(props) {
 		const {t} = useI18n();
+		const store = useStore();
 		const partedAria = computed(() => t("channel.partedAria"));
+
+		// A channel with an avatar (its draft/metadata-2 `avatar` key) draws
+		// it in place of the icon: the picture, or the veiled tile when it is
+		// not loaded (avatars/policy.ts). Without one, the topic's emoji
+		// stands in (ChannelWrapper.vue), and without that the bubbles.
+		const hasChannelAvatar = computed(
+			() =>
+				props.channel.type === ChanType.CHANNEL &&
+				viewFor(store, {uuid: props.network.uuid, nick: props.channel.name}).kind !== "none"
+		);
 		const leaveLabel = computed(() => t("channel.leave"));
 		const closeLabel = computed(() => t("channel.close"));
 		const unreadCount = computed(() => roundBadgeNumber(props.channel.unread));
@@ -90,6 +104,7 @@ export default defineComponent({
 
 		return {
 			t,
+			hasChannelAvatar,
 			partedAria,
 			leaveLabel,
 			closeLabel,

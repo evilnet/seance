@@ -8,7 +8,7 @@ import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
 import {fromIgnored} from "../../ignore";
-import {onAvatarLeft} from "../avatars";
+import {onAvatarLeft, onChannelKicked} from "../avatars";
 
 const kick: Handler = (client, msg) => {
 	const [name, kicked, reason = ""] = msg.params;
@@ -54,6 +54,7 @@ const kick: Handler = (client, msg) => {
 		chan.autoJoin = false;
 		client.conversations.setJoined(chan.name, false); // a page load does not join it again
 		client.dispatch("channel:state", {chan: chan.id, state: chan.state});
+		onChannelKicked(client, chan.name); // its avatar is asked again on a rejoin
 	} else {
 		chan.removeUser(kicked);
 		onAvatarLeft(client, kicked);

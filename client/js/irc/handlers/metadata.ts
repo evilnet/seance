@@ -24,7 +24,7 @@ import {sharedBurstRead} from "../presence";
 import {MUTE_KEY, onMuteValue} from "../pushMute";
 import {MODE_KEY, PRESENCE_KEY, onGlobalModeValue, onPresenceValue} from "../presenceShare";
 import {CLOSED_KEY, onClosedValue} from "../closedQueries";
-import {AVATAR_KEY, isQuietAvatarReply, onAvatarValue} from "../avatars";
+import {AVATAR_KEY, onAvatarReply, onAvatarValue} from "../avatars";
 import {SYNC_KEY} from "../../sync/file";
 // index.ts imports this module too; `unhandled` is only called at run time.
 import {showReply, unhandled} from "./index";
@@ -99,13 +99,9 @@ function showAvatarReply(client: IrcClient, msg: IrcMessage, target: string): vo
 const keyValue: Handler = (client, msg) => {
 	if (msg.params[2] === AVATAR_KEY) {
 		const target = msg.params[1] ?? "";
-		const quiet = isQuietAvatarReply(client, target);
+		const value = msg.params[3] === "private" ? undefined : msg.params[4] ?? "";
 
-		if (msg.params[3] !== "private") {
-			onAvatarValue(client, target, msg.params[4] ?? "");
-		}
-
-		if (!quiet) {
+		if (!onAvatarReply(client, target, value)) {
 			showAvatarReply(client, msg, target);
 		}
 
@@ -155,10 +151,8 @@ const keyValue: Handler = (client, msg) => {
 const keyNotSet: Handler = (client, msg) => {
 	if (msg.params[2] === AVATAR_KEY) {
 		const target = msg.params[1] ?? "";
-		const quiet = isQuietAvatarReply(client, target);
-		onAvatarValue(client, target, "");
 
-		if (!quiet) {
+		if (!onAvatarReply(client, target, "")) {
 			showAvatarReply(client, msg, target);
 		}
 

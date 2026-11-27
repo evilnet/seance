@@ -34,7 +34,13 @@ type Network = {
 	keep: () => boolean;
 };
 
-/** How many users' values a network keeps between launches. */
+/*
+ * A channel's avatar is kept here too, under the channel's name: a nick
+ * never starts with a channel prefix, so the two never meet. It is kept
+ * between launches with the users', so a page load draws it at once.
+ */
+
+/** How many users' (and channels') values a network keeps between launches. */
 export const SEEN_LIMIT = 300;
 
 /** How long after a change the kept values are written. */
@@ -207,6 +213,24 @@ export function markAvatarsStale(uuid: string): void {
 	for (const key of net.users.keys()) {
 		unknownValue.add(`${uuid}\n${key}`);
 	}
+}
+
+/**
+ * One entry stays drawn but counts as not known (we were kicked from the
+ * channel: a change made while we are out never reaches us).
+ */
+export function markAvatarStale(uuid: string, nick: string): void {
+	const net = networks.get(uuid);
+	const key = net?.fold(nick);
+
+	if (key !== undefined && net?.users.has(key)) {
+		unknownValue.add(`${uuid}\n${key}`);
+	}
+}
+
+/** How `uuid`'s network folds names (its CASEMAPPING, once its client has said). */
+export function foldFor(uuid: string): (name: string) => string {
+	return networks.get(uuid)?.fold ?? ((name) => casefold(name));
 }
 
 /** The server said `nick`'s avatar is `value` (`""`: none). */

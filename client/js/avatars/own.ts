@@ -13,12 +13,19 @@
  */
 
 import storage from "../localStorage";
+import {foldFor} from "./registry";
 
 export type RecentAvatar = {
 	/** Random id. */
 	id: string;
 	/** The network's uuid. */
 	uuid: string;
+	/**
+	 * The channel whose avatar it is (as typed when set); absent for our
+	 * own. Each channel has its own strip, and its uploads are kept alive
+	 * as ours are, while we can still set it (actions.ts `upkeep`).
+	 */
+	channel?: string;
 	/** The value written to the `avatar` key. */
 	url: string;
 	/** When it was written (ms). For an upload, when the host got the file. */
@@ -129,8 +136,19 @@ function newId(): string {
 	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** This network's recent avatars, newest first. Never rejects (an empty list instead). */
-export async function recentAvatars(uuid: string): Promise<RecentAvatar[]> {
+/**
+ * This network's recent avatars, newest first: our own (the ones with no
+ * channel), or `channel`'s, its name compared as the network folds names.
+ * Never rejects (an empty list instead).
+ */
+export async function recentAvatars(uuid: string, channel?: string): Promise<RecentAvatar[]> {
+	const fold = foldFor(uuid);
+	const wanted = fold(channel ?? "");
+	return (await allRecentAvatars(uuid)).filter((rec) => fold(rec.channel ?? "") === wanted);
+}
+
+/** Every recent avatar on this network, ours and its channels', newest first. */
+export async function allRecentAvatars(uuid: string): Promise<RecentAvatar[]> {
 	try {
 		return (await backend.all())
 			.filter((rec) => rec.uuid === uuid)
@@ -141,14 +159,15 @@ export async function recentAvatars(uuid: string): Promise<RecentAvatar[]> {
 }
 
 /**
- * Note that `url` is now the avatar on `uuid`: moved to the front of the
- * list (an entry with the same URL is replaced, keeping its picture when
- * none is given), and the oldest beyond {@link RECENT_MAX} dropped.
+ * Note that `url` is now the avatar on `uuid` (ours, or `channel`'s):
+ * moved to the front of that list (an entry with the same URL is replaced,
+ * keeping its picture when none is given), and the oldest beyond
+ * {@link RECENT_MAX} dropped.
  */
 export async function rememberAvatar(
 	rec: Omit<RecentAvatar, "id"> & {id?: string}
 ): Promise<RecentAvatar> {
-	const list = await recentAvatars(rec.uuid);
+	const list = await recentAvatars(rec.uuid, rec.channel);
 	const same = list.find((r) => r.url === rec.url);
 	const saved: RecentAvatar = {
 		...rec,
@@ -183,7 +202,7 @@ export async function forgetRecentAvatar(id: string): Promise<void> {
 export async function forgetNetworkAvatars(uuid: string): Promise<void> {
 	forgetProbe(uuid);
 
-	for (const rec of await recentAvatars(uuid)) {
+	for (const rec of await allRecentAvatars(uuid)) {
 		await forgetRecentAvatar(rec.id);
 	}
 }

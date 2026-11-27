@@ -1,20 +1,25 @@
 /**
- * Setting our own avatar, and keeping it alive. An upload goes to the
- * network's image host (`draft/FILEHOST` with a `draft/authtoken` token,
- * upload.ts `uploadFilehost`), whose URL is written to the `avatar` key
- * (irc/avatars.ts `setOwnAvatar`) and remembered with its picture on this
- * device (own.ts). On every connect, a while after the burst:
+ * Setting our own avatar, or a channel's, and keeping it alive. An upload
+ * goes to the network's image host (`draft/FILEHOST` with a
+ * `draft/authtoken` token, upload.ts `uploadFilehost`), whose URL is
+ * written to the `avatar` key (irc/avatars.ts `setOwnAvatar`,
+ * `setChannelAvatar`) and remembered with its picture on this device
+ * (own.ts). On every connect, a while after the burst:
  *
  *   - an upload of ours that the host deletes within a week (own.ts
  *     `refreshDue`, `avatars.retentionDays` in config.json, 30 by default)
  *     is uploaded again and the key moved to the new URL, provided the key
- *     still holds the URL we uploaded (another device may have changed it);
- *   - the avatar set is probed (an `<img>` load, the one cross-origin check
+ *     still holds the URL we uploaded, before the upload and after it
+ *     (another device, or another op, may have changed it meanwhile); the
+ *     same for a channel's that this device uploaded, while we can still
+ *     set it (`canSetChannelAvatar`);
+ *   - our own avatar is probed (an `<img>` load, the one cross-origin check
  *     a page has), and own.ts decides when failures mean it is gone.
  */
 
 import {FILEHOST_SERVICE} from "../irc/authtoken";
-import {ownAvatarValue, setOwnAvatar} from "../irc/avatars";
+import {canSetChannelAvatar, ownAvatarValue, setChannelAvatar, setOwnAvatar} from "../irc/avatars";
+import {ChanState, ChanType} from "../../../shared/types/chan";
 import type {IrcClient} from "../irc/client";
 import {clientForNetwork} from "../irc/manager";
 import socket from "../socket";
@@ -28,7 +33,8 @@ import {
 	rememberAvatar,
 	type RecentAvatar,
 } from "./own";
-import {avatarsEnabled, clearFailed} from "./prefs";
+import {avatarsEnabled, clearFailed, loadOnce} from "./prefs";
+import {avatarKnown, avatarOf} from "./registry";
 import {parseAvatarUrl} from "./url";
 
 /** After the connect burst, when the server has said what our avatar is. */
@@ -65,26 +71,66 @@ export async function uploadAvatar(client: IrcClient, blob: Blob): Promise<strin
 	return url;
 }
 
-/** Write `url` as our avatar and remember it here. */
+/** Write `url` as our avatar (or `channel`'s) and remember it here. */
 export async function useAvatar(
 	client: IrcClient,
 	url: string,
-	{uploaded, blob}: {uploaded: boolean; blob?: Blob}
+	{uploaded, blob, channel}: {uploaded: boolean; blob?: Blob; channel?: string}
 ): Promise<RecentAvatar> {
-	await setOwnAvatar(client, url);
+	if (channel === undefined) {
+		await setOwnAvatar(client, url);
+		noteProbe(client.uuid, url, true, Date.now());
+	} else {
+		await setChannelAvatar(client, channel, url);
+		// Whoever chose the picture sees it, wherever it is: on a host the
+		// reader has not trusted it would otherwise be a veiled tile, which
+		// reads as the change having failed.
+		loadOnce(parseAvatarUrl(url)?.href ?? url);
+	}
+
 	clearFailed(url);
-	noteProbe(client.uuid, url, true, Date.now());
-	return rememberAvatar({uuid: client.uuid, url, setAt: Date.now(), uploaded, blob});
+	return rememberAvatar({uuid: client.uuid, channel, url, setAt: Date.now(), uploaded, blob});
 }
 
-/** Upload a kept picture again and make the new URL our avatar. */
+/** Upload a kept picture again and make the new URL the avatar it was (ours or its channel's). */
 export async function reupload(client: IrcClient, rec: RecentAvatar): Promise<RecentAvatar> {
 	if (!rec.blob) {
 		throw new UploadError("no picture kept");
 	}
 
 	const url = await uploadAvatar(client, rec.blob);
-	return useAvatar(client, url, {uploaded: true, blob: rec.blob});
+	return useAvatar(client, url, {uploaded: true, blob: rec.blob, channel: rec.channel});
+}
+
+/** The avatar (ours, or `channel`'s) as the server last said it on this connection. */
+function currentValue(client: IrcClient, channel: string | undefined): string | undefined {
+	if (channel === undefined) {
+		return ownAvatarValue(client);
+	}
+
+	return avatarKnown(client.uuid, channel) ? avatarOf(client.uuid, channel)?.value : undefined;
+}
+
+/**
+ * {@link reupload} for the upkeep: the new URL is written only if the
+ * avatar still is the kept one once the upload is done. A change made
+ * meanwhile (a new picture, or none) is newer, and stays.
+ */
+async function refresh(client: IrcClient, rec: RecentAvatar): Promise<void> {
+	if (!rec.blob) {
+		return;
+	}
+
+	const url = await uploadAvatar(client, rec.blob);
+
+	if (
+		currentValue(client, rec.channel) !== rec.url ||
+		(rec.channel !== undefined && !canSetChannelAvatar(client, rec.channel))
+	) {
+		return;
+	}
+
+	await useAvatar(client, url, {uploaded: true, blob: rec.blob, channel: rec.channel});
 }
 
 /** Load `url` the way the page will, off-screen. */
@@ -111,6 +157,46 @@ export async function upkeep(client: IrcClient): Promise<void> {
 		return;
 	}
 
+	await ownUpkeep(client);
+	await channelUpkeep(client);
+}
+
+/**
+ * The channels' avatars this device uploaded, still theirs as the server
+ * last said, that the host deletes within a week: uploaded again and set
+ * again, one channel after another, where we may still set them.
+ */
+async function channelUpkeep(client: IrcClient): Promise<void> {
+	if (!canUpload(client)) {
+		return;
+	}
+
+	for (const chan of [...client.channels]) {
+		const value = currentValue(client, chan.name);
+
+		if (
+			chan.type !== ChanType.CHANNEL ||
+			chan.state !== ChanState.JOINED ||
+			!value ||
+			!canSetChannelAvatar(client, chan.name)
+		) {
+			continue;
+		}
+
+		const rec = (await recentAvatars(client.uuid, chan.name)).find((r) => r.url === value);
+
+		if (rec && refreshDue(rec, Date.now(), retentionDays())) {
+			try {
+				await refresh(client, rec);
+			} catch {
+				// Tried again on the next connect; the picture stays until the host drops it.
+			}
+		}
+	}
+}
+
+/** Our own avatar's share of {@link upkeep}. */
+async function ownUpkeep(client: IrcClient): Promise<void> {
 	const value = ownAvatarValue(client);
 
 	if (!value) {
@@ -121,7 +207,7 @@ export async function upkeep(client: IrcClient): Promise<void> {
 
 	if (canUpload(client) && current && refreshDue(current, Date.now(), retentionDays())) {
 		try {
-			await reupload(client, current);
+			await refresh(client, current);
 			return;
 		} catch {
 			// The probe below tells the user if this leaves the avatar broken.

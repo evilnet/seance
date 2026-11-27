@@ -1,5 +1,5 @@
 <template>
-	<section class="avatar-settings" :aria-labelledby="'avatar-settings-' + uuid">
+	<section class="avatar-settings" :aria-labelledby="headingId">
 		<div v-if="unavailable" class="avatar-settings-warning" role="alert">
 			<div>
 				<strong>{{ t("avatar.unavailableTitle") }}</strong>
@@ -17,11 +17,36 @@
 		</div>
 
 		<div class="avatar-settings-main">
-			<Avatar v-if="nick && enabled" :uuid="uuid" :nick="nick" :self="true" size="large" />
+			<div v-if="subject && enabled" :class="['avatar-settings-preview', {busy}]">
+				<Avatar
+					v-if="!channel || current"
+					:uuid="uuid"
+					:nick="subject"
+					:self="!channel"
+					size="large"
+				/>
+				<!-- A channel without one: what its row in the channel list shows
+				     now, its topic's emoji or the bubbles (Channel.vue). -->
+				<span
+					v-else
+					class="avatar avatar-large avatar-tile avatar-settings-placeholder"
+					aria-hidden="true"
+					><span v-if="channelEmoji" class="avatar-settings-placeholder-emoji">{{
+						channelEmoji
+					}}</span></span
+				>
+			</div>
 			<div class="avatar-settings-body">
-				<h3 :id="'avatar-settings-' + uuid">{{ heading || t("avatar.heading") }}</h3>
+				<h3 :id="headingId">{{ headingText }}</h3>
 				<p class="avatar-settings-help">{{ helpText }}</p>
+				<p v-if="channel" class="avatar-settings-note">{{ t("avatar.channelKeepNote") }}</p>
 				<p v-if="retentionNote" class="avatar-settings-note">{{ retentionNote }}</p>
+				<div v-if="veiledHost" class="avatar-settings-veiled">
+					<p>{{ t("avatar.channelVeiled", {host: veiledHost}) }}</p>
+					<button type="button" class="btn btn-sm" @click="showOnce">
+						{{ t("avatar.showOnce") }}
+					</button>
+				</div>
 				<div v-if="editable" class="avatar-settings-buttons">
 					<label v-if="uploadable" class="btn btn-sm avatar-upload-button">
 						{{ t("avatar.upload") }}
@@ -35,11 +60,12 @@
 						/>
 					</label>
 					<button
+						ref="linkToggle"
 						type="button"
 						class="btn btn-sm"
 						:aria-expanded="linkOpen"
 						:disabled="busy"
-						@click="linkOpen = !linkOpen"
+						@click="toggleLink"
 					>
 						{{ t("avatar.useLink") }}
 					</button>
@@ -54,14 +80,34 @@
 					</button>
 				</div>
 				<p v-else-if="enabled" class="avatar-settings-note">{{ notEditableText }}</p>
+				<p v-if="uploadNeedsAccount" class="avatar-settings-note">
+					{{ t("avatar.uploadNeedsAccount") }}
+				</p>
+				<!-- Next to the buttons that caused it. An error is its own
+				     element, so a screen reader is told as it appears. -->
+				<p
+					v-if="status && statusKind === 'error'"
+					class="avatar-settings-status is-error"
+					role="alert"
+				>
+					{{ status }}
+				</p>
+				<p
+					v-else-if="status"
+					:class="['avatar-settings-status', `is-${statusKind}`]"
+					role="status"
+				>
+					{{ status }}
+				</p>
 			</div>
 		</div>
 
 		<form v-if="linkOpen && editable" class="avatar-settings-link" @submit.prevent="saveLink">
-			<label :for="'avatar-link-' + uuid">{{ t("avatar.linkLabel") }}</label>
+			<label :for="linkId">{{ t("avatar.linkLabel") }}</label>
 			<div class="avatar-settings-link-row">
 				<input
-					:id="'avatar-link-' + uuid"
+					:id="linkId"
+					ref="linkInput"
 					v-model="link"
 					class="input"
 					type="url"
@@ -71,14 +117,21 @@
 					autocapitalize="off"
 					placeholder="https://"
 				/>
-				<button type="submit" class="btn btn-sm" :disabled="busy || !!linkProblem">
-					{{ t("avatar.save") }}
-				</button>
+				<span class="avatar-settings-link-actions">
+					<button
+						type="submit"
+						class="btn btn-sm avatar-settings-save"
+						:disabled="busy || !!linkProblem"
+					>
+						{{ t("avatar.save") }}
+					</button>
+					<button type="button" class="btn btn-sm" :disabled="busy" @click="closeLink">
+						{{ t("confirm.cancel") }}
+					</button>
+				</span>
 			</div>
 			<p class="avatar-settings-note">{{ linkNote }}</p>
 		</form>
-
-		<p v-if="status" class="avatar-settings-status" role="status">{{ status }}</p>
 
 		<div v-if="editable && recent.length > 0" class="avatar-settings-recent">
 			<h4>{{ t("avatar.recent") }}</h4>
@@ -89,6 +142,7 @@
 						class="avatar-recent"
 						:aria-pressed="rec.url === current"
 						:aria-label="recentLabel(rec)"
+						:title="recentLabel(rec)"
 						:disabled="busy"
 						@click="useRecent(rec)"
 					>
@@ -115,15 +169,23 @@
 					</button>
 				</li>
 			</ul>
-			<p class="avatar-settings-note">{{ t("avatar.recentNote") }}</p>
+			<p class="avatar-settings-note">
+				{{ channel ? t("avatar.channelRecentNote") : t("avatar.recentNote") }}
+			</p>
 		</div>
 
-		<label class="avatar-settings-switch">
+		<label v-if="!channel" class="avatar-settings-switch">
 			<input v-switch type="checkbox" :checked="enabled" @change="toggle" />
 			{{ t("avatar.showOnNetwork", {network: networkName}) }}
 		</label>
 
-		<AvatarCrop v-if="cropFile" :file="cropFile" @done="onCropped" @cancel="cropFile = null" />
+		<AvatarCrop
+			v-if="cropFile"
+			:file="cropFile"
+			:title="channel ? t('avatar.channelCropTitle') : ''"
+			@done="onCropped"
+			@cancel="cropFile = null"
+		/>
 	</section>
 </template>
 
@@ -133,12 +195,72 @@
 	flex-direction: column;
 	gap: 0.875rem;
 	padding: 0.875rem 0 0.25rem;
+
+	/* Narrow (a phone, a large font): the picture goes above the text. */
+	/* stylelint-disable-next-line property-no-unknown */
+	container-type: inline-size;
+	/* stylelint-disable-next-line property-no-unknown */
+	container-name: avatar-settings;
 }
 
 .avatar-settings-main {
 	display: flex;
 	gap: 1.25rem;
 	align-items: center;
+}
+
+@container avatar-settings (max-width: 26rem) {
+	.avatar-settings-main {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.75rem;
+	}
+}
+
+/* While a change is on its way, the picture it replaces steps back. */
+.avatar-settings-preview {
+	flex: none;
+	transition: opacity 0.2s;
+}
+
+.avatar-settings-preview.busy {
+	opacity: 0.5;
+}
+
+html[data-reduce-motion] .avatar-settings-preview {
+	transition: none;
+}
+
+.avatar-settings-placeholder::before {
+	font-family: FontAwesome;
+	font-weight: normal;
+	content: "\f086"; /* https://fontawesome.com/icons/comments?style=solid, as the channel list */
+}
+
+.avatar-settings-placeholder:has(.avatar-settings-placeholder-emoji)::before {
+	content: none;
+}
+
+.avatar-settings-placeholder-emoji {
+	font-family: var(--emoji-font);
+	font-size: 2.75rem;
+	font-weight: normal;
+}
+
+.avatar-settings-veiled {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.375rem;
+	padding: 0.625rem 0.75rem;
+	border-radius: 0.5rem;
+	background: rgb(128 128 128 / 12%);
+}
+
+.avatar-settings-veiled p {
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--body-color-muted);
 }
 
 .avatar-settings-body {
@@ -152,6 +274,10 @@
 .avatar-settings h4 {
 	margin: 0;
 	font-size: 1rem;
+}
+
+.avatar-settings h3 {
+	font-weight: 600;
 }
 
 .avatar-settings h4 {
@@ -174,6 +300,31 @@
 	font-size: 0.8125rem;
 	color: var(--body-color-muted);
 	line-height: 1.4;
+}
+
+/* Done reads as plainly as the text around it; a failure as a failure. */
+.avatar-settings-status.is-ok {
+	color: var(--body-color);
+}
+
+.avatar-settings-status.is-error {
+	padding: 0.375rem 0.625rem;
+	border-radius: 0.25rem;
+	color: var(--error-fg, #a94442);
+	background-color: var(--error-bg, #f2dede);
+}
+
+/* style.css gives a disabled .btn its hover fill, which looks pressed. */
+.avatar-settings .btn:disabled {
+	background: none;
+	color: inherit;
+	opacity: 0.5;
+	cursor: default;
+}
+
+.avatar-settings .btn.avatar-settings-save:not(:disabled) {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
 }
 
 .avatar-settings-buttons {
@@ -225,11 +376,18 @@
 
 .avatar-settings-link-row {
 	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+/* Save and Cancel wrap under the field together, never one without the other. */
+.avatar-settings-link-actions {
+	display: flex;
 	gap: 0.5rem;
 }
 
 .avatar-settings-link-row .input {
-	flex: 1;
+	flex: 1 1 12rem;
 	min-width: 0;
 	margin: 0;
 }
@@ -308,7 +466,9 @@
 // Settings: our own avatar on one network (draft/metadata-2 `avatar`):
 // upload a picture to the network's image host, or point at one; the
 // recent ones kept on this device; the switch for avatars on the network.
-import {computed, defineComponent, onBeforeUnmount, onMounted, ref, watch} from "vue";
+// With `channel`, the same for that channel's avatar (ChannelAvatarDialog.vue),
+// which its half-ops and ops (and IRC operators) can change.
+import {computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch} from "vue";
 import Avatar from "../Avatar.vue";
 import AvatarCrop from "./AvatarCrop.vue";
 import {useI18n} from "../../js/i18n";
@@ -321,7 +481,16 @@ import {
 	uploadAvatar,
 	useAvatar,
 } from "../../js/avatars/actions";
-import {applyAvatarsEnabled, setOwnAvatar} from "../../js/irc/avatars";
+import {
+	applyAvatarsEnabled,
+	AvatarSetError,
+	canSetChannelAvatar,
+	setChannelAvatar,
+	setOwnAvatar,
+} from "../../js/irc/avatars";
+import {namesEqual} from "../../js/irc/casemap";
+import {leadingEmoji} from "../../js/helpers/emoji";
+import {canSetBans} from "../../js/helpers/banMenu";
 import {
 	avatarUnavailable,
 	forgetRecentAvatar,
@@ -329,10 +498,10 @@ import {
 	refreshDue,
 	type RecentAvatar,
 } from "../../js/avatars/own";
-import {avatarsEnabled, setAvatarsEnabled} from "../../js/avatars/prefs";
+import {avatarsEnabled, loadOnce, setAvatarsEnabled} from "../../js/avatars/prefs";
 import {avatarOf} from "../../js/avatars/registry";
 import {avatarLinkProblem, parseAvatarUrl} from "../../js/avatars/url";
-import {filehostHost} from "../../js/avatars/view";
+import {filehostHost, viewFor} from "../../js/avatars/view";
 
 export default defineComponent({
 	name: "AvatarSettings",
@@ -341,8 +510,12 @@ export default defineComponent({
 		uuid: {type: String, required: true},
 		/** Replaces "Your avatar" as the heading (the network's name, on the Avatar tab). */
 		heading: {type: String, required: false},
+		/** The channel whose avatar this sets, instead of our own. */
+		channel: {type: String, required: false},
 	},
-	setup(props) {
+	/** `busy`: a change is on its way (ChannelAvatarDialog.vue stays open for it). */
+	emits: ["busy"],
+	setup(props, {emit}) {
 		const {t, tCount} = useI18n();
 		const store = useStore();
 		const network = computed(() => store.getters.findNetwork(props.uuid));
@@ -351,6 +524,35 @@ export default defineComponent({
 		const connected = computed(() => !!network.value?.status.connected);
 		const enabled = computed(() => avatarsEnabled(props.uuid));
 		const client = () => clientForNetwork(props.uuid);
+		/** Whose avatar: the channel's, or ours (our nick). */
+		const subject = computed(() => props.channel ?? nick.value);
+		const idSuffix = computed(() => props.uuid + (props.channel ? `-${props.channel}` : ""));
+		const headingId = computed(() => `avatar-settings-${idSuffix.value}`);
+		const linkId = computed(() => `avatar-link-${idSuffix.value}`);
+		const headingText = computed(() =>
+			props.channel
+				? t("avatar.channelHeading", {channel: props.channel})
+				: props.heading || t("avatar.heading")
+		);
+
+		// The server takes a channel's avatar from its members who are half-ops
+		// and ops, or global IRC operators. The IRC client knows our modes in
+		// every channel (the store only in one that has been opened); the
+		// store's are read so that this follows a change while the dialog is
+		// up, as is our oper level.
+		const mayChange = computed(() => {
+			if (!props.channel) {
+				return true;
+			}
+
+			const c = client();
+			const net = network.value;
+			void net?.oper?.level;
+			return (
+				(!!net && canSetBans(net, props.channel)) ||
+				(!!c && net?.status.connected === true && canSetChannelAvatar(c, props.channel))
+			);
+		});
 
 		const supported = computed(
 			() =>
@@ -359,18 +561,18 @@ export default defineComponent({
 				// re-read when the network's state changes
 				network.value !== undefined
 		);
-		const editable = computed(() => enabled.value && supported.value);
+		const editable = computed(() => enabled.value && supported.value && mayChange.value);
 		const uploadable = computed(() => editable.value && canUpload(client()));
 
 		const current = computed(() =>
-			nick.value ? avatarOf(props.uuid, nick.value)?.value ?? "" : ""
+			subject.value ? avatarOf(props.uuid, subject.value)?.value ?? "" : ""
 		);
 		const currentHost = computed(() => parseAvatarUrl(current.value)?.host ?? "");
 
 		const recent = ref<RecentAvatar[]>([]);
 		const currentRecent = computed(() => recent.value.find((r) => r.url === current.value));
 		const reload = async () => {
-			recent.value = await recentAvatars(props.uuid);
+			recent.value = await recentAvatars(props.uuid, props.channel);
 		};
 
 		// Re-read now and then while open: the probe and the refresh run behind it.
@@ -383,30 +585,85 @@ export default defineComponent({
 		onBeforeUnmount(() => window.clearInterval(tick));
 		watch(current, () => void reload());
 
+		// Only our own avatar is probed (avatars/actions.ts).
 		const unavailable = computed(
 			() =>
+				!props.channel &&
 				!!current.value &&
 				avatarUnavailable(props.uuid, parseAvatarUrl(current.value)?.href ?? "", now.value)
 		);
 
 		const busy = ref(false);
 		const status = ref("");
+		/** What the status line says: work under way, done, or a failure. */
+		const statusKind = ref<"busy" | "ok" | "error">("busy");
 		const linkOpen = ref(false);
 		const link = ref("");
 		const cropFile = ref<File | null>(null);
 		const fileInput = ref<HTMLInputElement>();
+		const linkInput = ref<HTMLInputElement>();
+		const linkToggle = ref<HTMLButtonElement>();
+
+		watch(busy, (isBusy) => emit("busy", isBusy));
+
+		const setStatus = (kind: "busy" | "ok" | "error", text: string) => {
+			statusKind.value = kind;
+			status.value = text;
+		};
+
+		// The channel as the store has it: its topic's emoji is what the
+		// channel list shows while it has no avatar.
+		const channelEmoji = computed(() => {
+			const net = network.value;
+
+			if (!props.channel || !net) {
+				return "";
+			}
+
+			const chan = net.channels.find((c) =>
+				namesEqual(c.name, props.channel ?? "", net.serverOptions.CASEMAPPING)
+			);
+			return chan ? leadingEmoji(chan.topic) : "";
+		});
+
+		// A channel's picture the reader has not loaded: say where it is and
+		// offer to load it, as the user profile does (UserCard.vue).
+		const view = computed(() =>
+			props.channel ? viewFor(store, {uuid: props.uuid, nick: props.channel}) : null
+		);
+		const veiledHost = computed(() =>
+			view.value?.kind === "veiled" && current.value ? view.value.host : ""
+		);
+		const showOnce = () => {
+			if (view.value?.kind === "veiled") {
+				loadOnce(view.value.href);
+			}
+		};
 
 		const helpText = computed(() =>
-			t("avatar.help", {network: networkName.value || t("avatar.thisNetwork")})
+			props.channel
+				? t("avatar.channelHelp", {channel: props.channel})
+				: t("avatar.help", {network: networkName.value || t("avatar.thisNetwork")})
 		);
 
-		const notEditableText = computed(() =>
-			connected.value ? t("avatar.unsupported") : t("avatar.connectFirst")
-		);
+		const notEditableText = computed(() => {
+			if (!connected.value) {
+				return props.channel ? t("avatar.channelConnectFirst") : t("avatar.connectFirst");
+			}
+
+			return supported.value ? t("avatar.channelNotOp") : t("avatar.unsupported");
+		});
 
 		const retentionNote = computed(() => {
 			const days = retentionDays();
-			return uploadable.value && days > 0 ? tCount("avatar.retentionNote", days) : "";
+
+			if (!uploadable.value || days <= 0) {
+				return "";
+			}
+
+			return props.channel
+				? tCount("avatar.channelRetentionNote", days)
+				: tCount("avatar.retentionNote", days);
 		});
 
 		const linkProblem = computed(() => avatarLinkProblem(link.value));
@@ -427,24 +684,89 @@ export default defineComponent({
 
 			const host = parseAvatarUrl(link.value)?.host;
 			const trusted = host && host === filehostHost(store, props.uuid);
-			return host && !trusted ? t("avatar.linkElsewhere", {host}) : t("avatar.linkRules");
+
+			if (!host || trusted) {
+				return t("avatar.linkRules");
+			}
+
+			return props.channel
+				? t("avatar.channelLinkElsewhere", {host})
+				: t("avatar.linkElsewhere", {host});
 		});
 
-		const run = async (work: () => Promise<unknown>, done: string) => {
+		/** The words for a failed change. */
+		const failureText = (e: unknown): string => {
+			switch (e instanceof AvatarSetError ? e.code : "") {
+				case "timeout":
+					return t("avatar.failedTimeout");
+				case "closed":
+					return t("avatar.failedClosed");
+				case "unavailable":
+					return t("avatar.failedUnavailable");
+				case "unsent":
+					return t("avatar.failedUnsent");
+				case "KEY_NO_PERMISSION":
+					if (props.channel) {
+						return t("avatar.channelFailedPermission", {channel: props.channel});
+					}
+
+					break;
+				default:
+					break;
+			}
+
+			// The server's own description, or the image host's.
+			const reason = e instanceof Error ? e.message : String(e);
+			return props.channel
+				? t("avatar.channelFailed", {reason})
+				: t("avatar.failed", {reason});
+		};
+
+		const run = async (
+			work: () => Promise<unknown>,
+			done: string,
+			first = t("avatar.saving")
+		) => {
 			busy.value = true;
-			status.value = t("avatar.saving");
+			setStatus("busy", first);
 
 			try {
 				await work();
-				status.value = done;
+				setStatus("ok", done);
 			} catch (e: unknown) {
-				const reason = e instanceof Error ? e.message : String(e);
-				status.value = t("avatar.failed", {reason});
+				setStatus("error", failureText(e));
 			} finally {
 				busy.value = false;
 				await reload();
 			}
 		};
+
+		// The network has an image host, but uploading to it takes an account.
+		const uploadNeedsAccount = computed(() => {
+			const c = client();
+			return editable.value && !uploadable.value && !!c?.filehostUrl() && !c.account;
+		});
+
+		// "Use a link": its field takes the caret as it opens, and a stale
+		// status goes with a fresh start.
+		const toggleLink = () => {
+			linkOpen.value = !linkOpen.value;
+			status.value = "";
+		};
+
+		const closeLink = () => {
+			linkOpen.value = false;
+			link.value = "";
+			void nextTick(() => linkToggle.value?.focus());
+		};
+
+		watch(linkOpen, (open) => {
+			if (open) {
+				void nextTick(() => linkInput.value?.focus());
+			}
+		});
+
+		const savedText = () => (props.channel ? t("avatar.channelSaved") : t("avatar.saved"));
 
 		const onFile = (event: Event) => {
 			const input = event.target as HTMLInputElement;
@@ -453,6 +775,7 @@ export default defineComponent({
 
 			if (file) {
 				status.value = "";
+				linkOpen.value = false;
 				cropFile.value = file;
 			}
 		};
@@ -465,10 +788,15 @@ export default defineComponent({
 				return;
 			}
 
-			void run(async () => {
-				const url = await uploadAvatar(c, blob);
-				await useAvatar(c, url, {uploaded: true, blob});
-			}, t("avatar.saved"));
+			void run(
+				async () => {
+					const url = await uploadAvatar(c, blob);
+					setStatus("busy", t("avatar.saving"));
+					await useAvatar(c, url, {uploaded: true, blob, channel: props.channel});
+				},
+				savedText(),
+				t("avatar.uploading")
+			);
 		};
 
 		const saveLink = () => {
@@ -480,16 +808,24 @@ export default defineComponent({
 			}
 
 			void run(async () => {
-				await useAvatar(c, parsed.href, {uploaded: false});
+				await useAvatar(c, parsed.href, {uploaded: false, channel: props.channel});
 				linkOpen.value = false;
 				link.value = "";
-			}, t("avatar.saved"));
+			}, savedText()).then(() => {
+				// Saved, the form went: the caret goes back to what opened it,
+				// once that is enabled again. A failure leaves it in the form.
+				if (!linkOpen.value) {
+					void nextTick(() => linkToggle.value?.focus());
+				}
+			});
 		};
 
 		const remove = () => {
 			const c = client();
 
-			if (c) {
+			if (c && props.channel) {
+				void run(() => setChannelAvatar(c, props.channel!, ""), t("avatar.channelRemoved"));
+			} else if (c) {
 				void run(() => setOwnAvatar(c, ""), t("avatar.removed"));
 			}
 		};
@@ -507,8 +843,12 @@ export default defineComponent({
 				() =>
 					stale && rec.blob && canUpload(c)
 						? reupload(c, rec)
-						: useAvatar(c, rec.url, {uploaded: rec.uploaded, blob: rec.blob}),
-				t("avatar.saved")
+						: useAvatar(c, rec.url, {
+								uploaded: rec.uploaded,
+								blob: rec.blob,
+								channel: props.channel,
+						  }),
+				savedText()
 			);
 		};
 
@@ -517,7 +857,7 @@ export default defineComponent({
 			const rec = currentRecent.value;
 
 			if (c && rec) {
-				void run(() => reupload(c, rec), t("avatar.saved"));
+				void run(() => reupload(c, rec), savedText());
 			}
 		};
 
@@ -576,6 +916,19 @@ export default defineComponent({
 			t,
 			networkName,
 			nick,
+			subject,
+			headingId,
+			linkId,
+			headingText,
+			statusKind,
+			linkInput,
+			linkToggle,
+			channelEmoji,
+			veiledHost,
+			showOnce,
+			uploadNeedsAccount,
+			toggleLink,
+			closeLink,
 			enabled,
 			editable,
 			uploadable,
