@@ -522,6 +522,20 @@ export default async function run(page) {
 		await page.sleep(150);
 		const index = await page.evaluate(ROW_WITH(text, "message"));
 		if (focus) {
+			// A real key first (Shift does nothing here): Chrome then counts the
+			// script's focus as a keyboard's, which is what shows a time.
+			await page.send("Input.dispatchKeyEvent", {
+				type: "keyDown",
+				key: "Shift",
+				code: "ShiftLeft",
+				windowsVirtualKeyCode: 16,
+			});
+			await page.send("Input.dispatchKeyEvent", {
+				type: "keyUp",
+				key: "Shift",
+				code: "ShiftLeft",
+				windowsVirtualKeyCode: 16,
+			});
 			await page.evaluate(
 				`${rowAt(
 					"message",
@@ -1446,6 +1460,20 @@ export default async function run(page) {
 		// A run's first line's time takes no room either (no bubble gives up
 		// width for one, whatever the input): out of the flow, hidden, and
 		// shown to a keyboard's focus beside the bubble, inside the pane.
+		// A real key first (Shift does nothing here): Chrome then counts the
+		// script's focus as a keyboard's, which is what shows a time.
+		await page.send("Input.dispatchKeyEvent", {
+			type: "keyDown",
+			key: "Shift",
+			code: "ShiftLeft",
+			windowsVirtualKeyCode: 16,
+		});
+		await page.send("Input.dispatchKeyEvent", {
+			type: "keyUp",
+			key: "Shift",
+			code: "ShiftLeft",
+			windowsVirtualKeyCode: 16,
+		});
 		const firstTime = await page.evaluate(`(() => {
 			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]:not(.previous-source)')].find((x) => x.querySelector(".content :is(a, button)"));
 			const t = m.querySelector(".time");

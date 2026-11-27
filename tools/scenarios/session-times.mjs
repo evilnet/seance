@@ -277,6 +277,20 @@ export default async function run(page) {
 		await page.sleep(300);
 
 		// A keyboard's focus on a row shows its time, a later line's too.
+		// A real key first (Shift does nothing here): Chrome then counts the
+		// script's focus as a keyboard's, which is what shows a time.
+		await page.send("Input.dispatchKeyEvent", {
+			type: "keyDown",
+			key: "Shift",
+			code: "ShiftLeft",
+			windowsVirtualKeyCode: 16,
+		});
+		await page.send("Input.dispatchKeyEvent", {
+			type: "keyUp",
+			key: "Shift",
+			code: "ShiftLeft",
+			windowsVirtualKeyCode: 16,
+		});
 		const focused = await page.evaluate(`(() => {
 			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("notes at"));
 			m.querySelector(".content a").focus({focusVisible: true});
@@ -359,6 +373,59 @@ export default async function run(page) {
 			)})`,
 			tip.under && tip.visibility === "visible" && tip.opacity > 0.95 && asIs === raised
 		);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+		await page.sleep(150);
+
+		// Not hovered, the marker is under the rows: the toolbar of the line
+		// it stands over floats up across it and every button takes the click.
+		const lineAt = await page.evaluate(
+			`(() => { const r = ${MARKER}.nextElementSibling.getBoundingClientRect(); return {x: r.left + 30, y: r.top + 10}; })()`
+		);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", ...lineAt});
+		await page.sleep(250);
+		const buttons =
+			await page.evaluate(`[...${MARKER}.nextElementSibling.querySelectorAll(".msg-actions button")]
+			.filter((b) => b.getBoundingClientRect().width > 0)
+			.map((b) => { const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return e === b || b.contains(e); })`);
+		page.check(
+			`Messenger: the toolbar of a session's first line takes the click over the marker (${JSON.stringify(
+				buttons
+			)})`,
+			buttons.length >= 4 && buttons.every(Boolean)
+		);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
+
+		// A click on a link focuses it, but not visibly: no time comes up.
+		const link = await page.evaluate(`(() => {
+			const a = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("notes at")).querySelector(".content a");
+			a.addEventListener("click", (e) => e.preventDefault(), {once: true});
+			a.scrollIntoView({block: "center"});
+			const r = a.getBoundingClientRect();
+			return {x: r.left + 4, y: r.top + r.height / 2};
+		})()`);
+		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", ...link});
+		await page.send("Input.dispatchMouseEvent", {
+			type: "mousePressed",
+			...link,
+			button: "left",
+			clickCount: 1,
+		});
+		await page.send("Input.dispatchMouseEvent", {
+			type: "mouseReleased",
+			...link,
+			button: "left",
+			clickCount: 1,
+		});
+		await page.sleep(150);
+		const clicked = await page.evaluate(`(() => {
+			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]')].find((x) => x.textContent.includes("notes at"));
+			return {focused: m.contains(document.activeElement), time: getComputedStyle(m.querySelector(":scope > .time")).visibility};
+		})()`);
+		page.check(
+			`Messenger: a click on a line's link shows no time (${JSON.stringify(clicked)})`,
+			clicked.focused && clicked.time === "hidden"
+		);
+		await page.evaluate(`document.activeElement?.blur()`);
 		await page.send("Input.dispatchMouseEvent", {type: "mouseMoved", x: 5, y: 5});
 
 		// A private conversation at a narrow pane with the longest clock: a

@@ -4764,12 +4764,9 @@ html[data-message-layout="bubbles"] #chat .chat .msg[data-type="action"] > .time
  * helpers/messageSessions.ts), not on every line. A row's own time comes
  * only with a keyboard's focus on the row or a swipe (§ By finger and
  * trackpad, below): hover shows none, since a time shown on a bubble that
- * runs to the pane's end covered its words (the user, 2026-11-25). The
- * marker stands over the rows (`z-index`), so the full date its tooltip
- * opens downward is not under the bubble after it. */
+ * runs to the pane's end covered its words (the user, 2026-11-25). */
 html[data-message-layout="bubbles"] #chat .session-marker {
 	position: relative;
-	z-index: 1;
 	margin-block: 0.875rem 0.125rem;
 	margin-inline: 0.625rem;
 	text-align: center;
@@ -4786,8 +4783,17 @@ html[data-message-layout="bubbles"] #chat .session-marker-text {
 	font-variant-numeric: tabular-nums;
 }
 
-/* A keyboard's focus on a row shows its time, where it stands hidden. */
-html[data-message-layout="bubbles"] #chat .chat .messages .msg:focus-within > .time {
+/* Hovered, the marker stands over the rows, so the full date its tooltip
+ * opens downward is not under the bubble after it; only then, since the
+ * toolbar of the row after it floats up over the marker's line. */
+html[data-message-layout="bubbles"] #chat .session-marker:hover {
+	z-index: 1;
+}
+
+/* A keyboard's focus on a row shows its time, where it stands hidden: a
+ * visible focus only, since a click or a tap on a link or a chip focuses
+ * it too, and the time would stay up over the bubble until the next. */
+html[data-message-layout="bubbles"] #chat .chat .messages .msg:is(:focus-visible, :has(:focus-visible)) > .time {
 	visibility: visible;
 }
 
