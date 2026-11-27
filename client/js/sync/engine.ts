@@ -16,12 +16,15 @@
  */
 
 import {
+	deferredUntil,
 	diff,
 	join,
 	MARKER_TTL_MS,
 	merge,
 	reconcile,
+	SKEW_MS,
 	toDocument,
+	type Entries,
 	type Merged,
 	type SyncDocument,
 } from "./document";
@@ -54,7 +57,7 @@ import {
 export const QUIET_MS = 10_000;
 /** After any upload, the account's next waits this long: at most 12 an hour. */
 export const SPACING_MS = 5 * 60_000;
-/** The file is uploaded again this long before the host deletes it. */
+/** The file is uploaded again this long before the host deletes it (half its keep, if shorter). */
 export const REFRESH_BEFORE_MS = 7 * 24 * 3600 * 1000;
 /** The first wait after a failed download or upload; doubled each time. */
 export const RETRY_MS = 60_000;
@@ -121,8 +124,12 @@ export interface SyncHost {
 	 * with (`known`): whether to sync with `account` instead.
 	 */
 	askOtherAccount(account: string, known: string): Promise<boolean>;
-	/** Whether this copy of the app is the one that uploads for the device. */
-	isUploader(): boolean;
+	/**
+	 * Run `upload` while no other copy of the app on the device uploads
+	 * (a lock held only for the upload). When another copy holds the lock:
+	 * after it, with `wait`; else undefined, without running it.
+	 */
+	exclusively<T>(upload: () => Promise<T>, wait: boolean): Promise<T | undefined>;
 	/** Run again in `ms`; a later call replaces an earlier one. */
 	wake(ms: number): void;
 	/** How long the file host keeps a file. */
@@ -139,9 +146,29 @@ export class SyncEngine {
 	/** The user asked for a sync: the next upload does not wait its turn. */
 	private urgent = false;
 	private outcome: "sent" | "failed" | null = null;
+	/** The last run found the account's file applied and nothing to send. */
+	private upToDate = false;
+	/**
+	 * The pointer this copy's connection said that a run acted on. The
+	 * device's tabs share the stored state, but each reads the pointer on
+	 * its own connection: a value this tab's connection still says, after
+	 * another tab took a newer one, is not news and is not taken again.
+	 */
+	private handled: string | undefined = undefined;
+	/** The pointer this copy last wrote, and the one it wrote over. */
+	private wrote: {pointer: string; over: string} | null = null;
+	/** Writes of this copy's the server did not keep, since one went through. */
+	private lostSets = 0;
+	/** The account this copy was told not to sync with, while its home stays on it. */
+	private declined = "";
 	private idle: Array<() => void> = [];
 
-	constructor(private readonly host: SyncHost) {}
+	constructor(private readonly host: SyncHost) {
+		// A newer format blocked an older build: this one may read it.
+		if (this.state.blocked) {
+			this.update({blocked: false, refused: null});
+		}
+	}
 
 	get state(): SyncState {
 		return readState(this.host.storage);
@@ -197,7 +224,17 @@ export class SyncEngine {
 
 		await this.settled();
 		this.outcome = null;
+		this.upToDate = false;
 		this.urgent = true;
+		this.failures = 0;
+
+		// A file refused before (a download a proxy answered) is read again.
+		this.handled = undefined;
+
+		if (this.state.refused !== null) {
+			this.update({refused: null});
+		}
+
 		this.run();
 		await this.settled();
 		this.urgent = false;
@@ -206,7 +243,7 @@ export class SyncEngine {
 			return this.outcome;
 		}
 
-		return this.state.dirty ? "failed" : "upToDate";
+		return this.upToDate && !this.state.dirty ? "upToDate" : "failed";
 	}
 
 	/** Ask for a run; one is started unless one is under way. */
@@ -225,8 +262,17 @@ export class SyncEngine {
 		return this.running ? new Promise((resolve) => this.idle.push(resolve)) : Promise.resolve();
 	}
 
+	/** The earliest wake a run asked for: the host is asked once, when the run ends. */
+	private wakeMs: number | null = null;
+
+	private wakeIn(ms: number): void {
+		this.wakeMs = this.wakeMs === null ? ms : Math.min(this.wakeMs, ms);
+	}
+
 	private async loop(): Promise<void> {
 		try {
+			this.wakeMs = null;
+
 			do {
 				this.again = false;
 
@@ -238,6 +284,10 @@ export class SyncEngine {
 					console.error("settings sync", e);
 				}
 			} while (this.again);
+
+			if (this.wakeMs !== null) {
+				this.host.wake(this.wakeMs);
+			}
 		} finally {
 			this.running = false;
 
@@ -262,11 +312,62 @@ export class SyncEngine {
 		}
 
 		const {storage} = this.host;
-		const result = diff(
-			readCopy(storage),
-			collect(this.host.context(state.home)),
-			this.host.now()
+		const ctx = this.host.context(state.home);
+		const copy = readCopy(storage);
+		const now = this.host.now();
+		let local = collect(ctx);
+		let marked = false;
+
+		// A copy written before entries carried the mark (#357's build).
+		for (const id in copy) {
+			if (!copy[id].u && !local.owns(id)) {
+				copy[id] = {...copy[id], u: true};
+				marked = true;
+			}
+		}
+
+		// Entries kept without being taken: one an older build did not know
+		// and this one does, and one dated ahead whose time has come. They
+		// are taken now, rather than what the device holds read as a choice;
+		// but where the device already holds a choice for a newly known id
+		// (the one the user just made, which made the store), that choice
+		// is newer and diff dates it.
+		const unchosen = (id: string) =>
+			!Object.hasOwn(local.current, id) || local.isDefault(id, local.current[id]);
+		const adopt = Object.keys(copy).filter(
+			(id) =>
+				(copy[id].u && local.owns(id) && unchosen(id)) ||
+				(copy[id].d && copy[id].t <= now + SKEW_MS)
 		);
+
+		if (adopt.length > 0) {
+			const due: Entries = {};
+
+			for (const id of adopt) {
+				const {u: _u, d: _d, l: _l, ...entry} = copy[id];
+				due[id] = entry;
+			}
+
+			const {keys} = apply(ctx, due, adopt);
+			local = collect(ctx);
+			Object.assign(copy, reconcile(due, local));
+
+			if (keys.length > 0) {
+				this.host.applied(keys);
+			}
+		}
+
+		if (marked || adopt.length > 0) {
+			writeCopy(storage, copy);
+		}
+
+		const next = deferredUntil(copy);
+
+		if (next > 0) {
+			this.wakeIn(next - SKEW_MS - now + 1);
+		}
+
+		const result = diff(copy, local, now);
 
 		if (result.changed) {
 			writeCopy(storage, result.entries);
@@ -299,6 +400,8 @@ export class SyncEngine {
 			return;
 		}
 
+		this.declined = "";
+
 		if (state.pausedFor) {
 			state = this.update({pausedFor: ""});
 		}
@@ -309,17 +412,46 @@ export class SyncEngine {
 			return; // not read on this connection yet
 		}
 
+		if (this.wrote && value !== this.wrote.pointer) {
+			if (value === this.wrote.over) {
+				// The server kept what it had (a full key list, a rate limit):
+				// wait longer each time, so a server that refuses every write
+				// is not sent a file every five minutes.
+				const wait = Math.min(RETRY_MS * 2 ** this.lostSets, RETRY_MAX_MS);
+				this.lostSets++;
+				state = this.update({retryAt: Math.max(state.retryAt, this.host.now() + wait)});
+			} else {
+				this.lostSets = 0; // another device's write went through
+			}
+
+			this.wrote = null;
+		}
+
+		const news = value !== this.handled || !state.joined;
+
 		if (value === "") {
 			if (!state.joined) {
 				this.first(home);
-			} else if (state.pointer !== null) {
-				// The key is gone: the next upload sets it again.
-				this.update({pointer: null, dirty: true});
+			} else if (
+				news &&
+				this.handled !== undefined &&
+				(state.pointer !== null || state.blocked)
+			) {
+				// The key is gone: the next upload sets it again. (A tab that
+				// has not acted yet, whose connection says unset while the
+				// device holds a pointer, more likely has not heard a write.)
+				this.update({pointer: null, dirty: true, blocked: false});
 			}
-		} else if (value !== state.pointer && value !== state.refused) {
+
+			this.handled = value;
+		} else if (value === state.pointer) {
+			this.handled = value; // what the device holds: not news from here on
+		} else if (news && value !== state.refused) {
 			if (!(await this.take(home, link, value))) {
 				return;
 			}
+
+			this.handled = value;
 		}
 
 		state = this.state;
@@ -333,18 +465,17 @@ export class SyncEngine {
 		const now = this.host.now();
 
 		if (!state.dirty && value !== "" && value === state.pointer) {
-			const pointer = parsePointer(value);
+			const at = this.refreshAt(value);
 
-			if (
-				pointer &&
-				isReadable(pointer) &&
-				now - pointer.changedAt >= this.host.retentionMs() - REFRESH_BEFORE_MS
-			) {
+			if (at !== null && now >= at) {
 				state = this.update({dirty: true});
+			} else if (at !== null) {
+				this.wakeIn(at - now);
 			}
 		}
 
 		if (!state.dirty || state.stuck) {
+			this.upToDate = !state.dirty && (value === "" || value === state.pointer);
 			return;
 		}
 
@@ -358,15 +489,47 @@ export class SyncEngine {
 		);
 
 		if (!urgent && now < due) {
-			this.host.wake(due - now);
+			this.wakeIn(due - now);
 			return;
 		}
 
-		if ((!urgent && !this.host.isUploader()) || !link.canWrite || !link.filehost) {
+		if (!link.canWrite || !link.filehost) {
 			return;
 		}
 
-		await this.upload(home, link, value, urgent);
+		if (this.wrote && value === this.wrote.pointer) {
+			// The last write stood: a later refusal starts the wait over.
+			this.lostSets = 0;
+			this.wrote = null;
+		}
+
+		// The user waits for a sync they asked for: behind another copy's
+		// upload, not instead of it.
+		const ran = await this.host.exclusively(
+			() => this.upload(home, link, value, urgent, state.uploadedAt),
+			urgent
+		);
+
+		if (ran === undefined) {
+			// Another copy of the app on the device is uploading: its
+			// upload moves the shared state, and this one looks again.
+			this.wakeIn(QUIET_MS);
+		}
+	}
+
+	/**
+	 * When the file `value` names is uploaded again before the host deletes
+	 * it, or null when the host keeps files (`retentionDays` 0).
+	 */
+	private refreshAt(value: string): number | null {
+		const pointer = parsePointer(value);
+		const keep = this.host.retentionMs();
+
+		if (!pointer || !isReadable(pointer) || keep <= 0) {
+			return null;
+		}
+
+		return pointer.changedAt + keep - Math.min(REFRESH_BEFORE_MS, keep / 2);
 	}
 
 	/** The first device of an account: everything it holds that is not a default goes up. */
@@ -379,7 +542,13 @@ export class SyncEngine {
 	}
 
 	private async otherAccount(home: string, account: string, state: SyncState): Promise<void> {
-		if (sameAccount(state.pausedFor, account) || this.asking) {
+		// Another tab still on the first account clears the stored pause:
+		// this one does not ask again while its home stays on this account.
+		if (
+			sameAccount(state.pausedFor, account) ||
+			sameAccount(this.declined, account) ||
+			this.asking
+		) {
 			return;
 		}
 
@@ -400,6 +569,7 @@ export class SyncEngine {
 			// Another account's file: this device joins it as a new one.
 			this.enable(home, account);
 		} else {
+			this.declined = account;
 			this.update({pausedFor: account});
 		}
 	}
@@ -417,45 +587,56 @@ export class SyncEngine {
 	private async take(home: string, link: HomeLink, value: string): Promise<boolean> {
 		const pointer = parsePointer(value);
 
-		if (!pointer) {
-			this.refuse(home, value, {kind: "damaged"});
-			return true;
-		}
-
-		if (!isReadable(pointer)) {
+		if (pointer && !isReadable(pointer)) {
 			this.block(home);
 			return false;
 		}
 
-		if (!acceptableUrl(pointer.url, link.filehost)) {
-			this.refuse(home, value, {kind: "elsewhere"});
-			return true;
+		if (!link.filehost) {
+			// Nothing to say whose file it is yet: read it once the network says.
+			return false;
 		}
 
 		let doc: SyncDocument | null = null;
+		let refusal: Notice | null = null;
 
-		try {
-			doc = await open(await download(pointer.url, this.host.fetch), pointer.key);
-		} catch (e) {
-			if (e instanceof FileError) {
-				if (e.code === "newer-version") {
-					this.block(home);
+		if (!pointer) {
+			refusal = {kind: "damaged"};
+		} else if (!acceptableUrl(pointer.url, link.filehost)) {
+			refusal = {kind: "elsewhere"};
+		} else {
+			try {
+				doc = await open(await download(pointer.url, this.host.fetch), pointer.key);
+			} catch (e) {
+				if (e instanceof FileError) {
+					if (e.code === "newer-version") {
+						this.block(home);
+						// Not downloaded again on every run; a newer build reads it.
+						this.update({refused: value});
+						return false;
+					}
+
+					if (e.code === "unsupported") {
+						return false;
+					}
+
+					refusal = {kind: e.code === "too-large" ? "too-large" : "damaged"};
+				} else if (!(e instanceof DownloadError && e.gone)) {
+					this.wakeIn(this.backoff());
 					return false;
 				}
+				// The host no longer has the file: this device's entries are what is left.
+			}
+		}
 
-				if (e.code === "unsupported") {
-					return false;
-				}
+		if (refusal) {
+			this.refuse(home, value, refusal);
 
-				this.refuse(home, value, {kind: e.code === "too-large" ? "too-large" : "damaged"});
+			// A device that has joined keeps what it has. One that has not
+			// joins as if the file were gone: else sync is on and does nothing.
+			if (this.state.joined) {
 				return true;
 			}
-
-			if (!(e instanceof DownloadError && e.gone)) {
-				this.host.wake(this.backoff());
-				return false;
-			}
-			// The host no longer has the file: this device's entries are what is left.
 		}
 
 		const state = this.state;
@@ -472,11 +653,27 @@ export class SyncEngine {
 		const fresh = !state.joined || now - state.syncedAt > MARKER_TTL_MS;
 		let merged: Merged;
 
-		if (fresh) {
+		if (fresh && refusal) {
+			// No file to join, but an account that has one: what the device
+			// holds goes up dated as the oldest of choices, so any device
+			// that can read the account's own takes nothing of it over its
+			// own, and its next upload restores the account's side.
+			merged = join({}, collect(ctx), now);
+
+			for (const id in merged.entries) {
+				merged.entries[id] = {...merged.entries[id], t: 1};
+			}
+		} else if (fresh) {
 			merged = join(doc?.entries ?? {}, collect(ctx), now);
 		} else {
 			this.scan();
 			merged = merge(readCopy(storage), doc?.entries ?? {}, now);
+		}
+
+		if (merged.deferred > 0) {
+			// Another device's clock runs ahead: what it dated ahead is kept
+			// and taken when its time comes (scan); the rest is taken now.
+			this.wakeIn(merged.deferred - SKEW_MS - now + 1);
 		}
 
 		const {changes, keys} = apply(ctx, merged.entries, merged.taken);
@@ -488,7 +685,11 @@ export class SyncEngine {
 			refused: doc ? null : value,
 			blocked: false,
 			syncedAt: now,
-			uploadedAt: Math.max(state.uploadedAt, Math.min(pointer.changedAt, now)),
+			// A pointer refused says nothing true about the account's uploads.
+			uploadedAt:
+				pointer && !refusal
+					? Math.max(state.uploadedAt, Math.min(pointer.changedAt, now))
+					: state.uploadedAt,
 			dirty: ahead,
 			changedAt: ahead && !this.state.dirty ? now : this.state.changedAt,
 		});
@@ -527,9 +728,19 @@ export class SyncEngine {
 		home: string,
 		link: HomeLink,
 		value: string,
-		urgent = false
-	): Promise<void> {
+		urgent: boolean,
+		uploadedAt: number
+	): Promise<true> {
 		const {storage} = this.host;
+		const before = this.state;
+
+		// Another copy uploaded while this one waited for the lock.
+		if (before.home !== home || !before.dirty || before.uploadedAt !== uploadedAt) {
+			this.urgent = urgent;
+			this.again = true;
+			return true;
+		}
+
 		const raw = storage.get(COPY_KEY);
 		let sealed: {bytes: Uint8Array; key: string};
 
@@ -542,7 +753,7 @@ export class SyncEngine {
 			}
 
 			this.outcome = "failed";
-			return;
+			return true;
 		}
 
 		let url: string;
@@ -567,7 +778,7 @@ export class SyncEngine {
 
 			this.outcome = "failed";
 			this.again = true; // to arm the wake
-			return;
+			return true;
 		}
 
 		const now = this.host.now();
@@ -583,26 +794,33 @@ export class SyncEngine {
 
 			this.update({retryAt: now + REFUSED_RETRY_MS, saidRefusal: true});
 			this.outcome = "failed";
-			return;
+			this.again = true; // to arm the wake
+			return true;
 		}
 
 		const current = this.host.link(home);
+		const after = this.state;
 
-		// Another device moved the pointer meanwhile, or the connection went:
-		// merge with what is there first.
+		// Another device moved the pointer meanwhile, the connection went or
+		// changed account, or sync was switched off and on: start over from
+		// what is there.
 		if (
-			this.state.home !== home ||
+			after.home !== home ||
+			!after.joined ||
 			!current ||
 			!current.canWrite ||
+			!sameAccount(current.account, after.account) ||
 			current.pointer !== value
 		) {
 			// What the user asked for is still owed after the merge.
 			this.urgent = urgent;
 			this.again = true;
-			return;
+			return true;
 		}
 
 		current.setPointer(pointer);
+		this.handled = pointer;
+		this.wrote = {pointer, over: value};
 		this.outcome = "sent";
 		this.failures = 0;
 		const dirty = storage.get(COPY_KEY) !== raw;
@@ -619,5 +837,7 @@ export class SyncEngine {
 		if (dirty) {
 			this.again = true;
 		}
+
+		return true;
 	}
 }

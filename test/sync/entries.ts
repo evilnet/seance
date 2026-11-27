@@ -292,6 +292,28 @@ describe("settings sync entries (sync/entries.ts)", function () {
 		expect(d.settings).to.deep.equal({theme: "coffee", media: true, also: []});
 	});
 
+	it("keeps the device's own alias, favorite and ignore where the incoming value is one it cannot hold", function () {
+		const d = device();
+		d.put("thelounge.aliases", [{name: "wave", body: "/me waves"}]);
+		d.put("thelounge.favorites", [{network: HOME, name: "#f", type: "channel"}]);
+		d.put(`thelounge.ignore.${HOME}`, [{nick: "a", ident: "b", hostname: "c", when: 1}]);
+		const result = apply(d.ctx, {
+			"alias:wave": {t: 5, v: {name: "wave", body: "x".repeat(2001)}},
+			"fav:#f": {t: 5, v: {name: "#f", type: "window"}},
+			"ignore:a!b@c": {t: 5, v: {nick: "a", ident: "b"}},
+			"mute:#x": {t: 5, v: true},
+		});
+
+		expect(result.changes.map((change) => change.id)).to.deep.equal(["mute:#x"]);
+		expect(d.read("thelounge.aliases")).to.deep.equal([{name: "wave", body: "/me waves"}]);
+		expect(d.read("thelounge.favorites")).to.deep.equal([
+			{network: HOME, name: "#f", type: "channel"},
+		]);
+		expect(d.read(`thelounge.ignore.${HOME}`)).to.deep.equal([
+			{nick: "a", ident: "b", hostname: "c", when: 1},
+		]);
+	});
+
 	it("does not own a setting this build does not have, nor an unknown kind of entry", function () {
 		const local = collect(device().ctx);
 

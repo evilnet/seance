@@ -1,6 +1,7 @@
 import {expect} from "chai";
 import {
 	canonical,
+	DEFER_MS,
 	diff,
 	DocumentError,
 	FORMAT,
@@ -43,6 +44,8 @@ describe("settings sync document (sync/document.ts)", function () {
 		it("is the clock, or one millisecond past the newest entry held if that is later", function () {
 			expect(stampAfter({a: {t: NOW - 5}}, NOW)).to.equal(NOW);
 			expect(stampAfter({a: {t: NOW + 40, v: 1}, b: {t: NOW + 9}}, NOW)).to.equal(NOW + 41);
+			// One dated more than a minute ahead (a clock since put right) does not count.
+			expect(stampAfter({a: {t: NOW + 3 * 3600_000, v: 1}}, NOW)).to.equal(NOW);
 		});
 	});
 
@@ -102,7 +105,26 @@ describe("settings sync document (sync/document.ts)", function () {
 				NOW
 			);
 
-			expect(Object.keys(merged.entries)).to.deep.equal(["soon"]);
+			expect(merged.taken).to.deep.equal(["soon"]);
+			// Kept to pass on, marked as not taken yet.
+			expect(merged.entries.late).to.deep.equal({t: NOW + SKEW_MS + 1, v: 2, d: true});
+		});
+
+		it("says when the earliest of them comes, within a day", function () {
+			const ahead = {
+				a: {t: NOW + 3 * SKEW_MS, v: 1},
+				b: {t: NOW + 2 * SKEW_MS, v: 2},
+				far: {t: NOW + DEFER_MS + 1, v: 3},
+			};
+
+			expect(merge({}, ahead, NOW).deferred).to.equal(NOW + 2 * SKEW_MS);
+			expect(join(ahead, local({}), NOW).deferred).to.equal(NOW + 2 * SKEW_MS);
+			expect(merge({}, {far: ahead.far}, NOW).deferred).to.equal(0);
+			expect(merge({}, {far: ahead.far}, NOW).entries).to.deep.equal({});
+			// Not one the device already holds as new.
+			expect(merge({a: {t: NOW + 3 * SKEW_MS, v: 1}}, {a: ahead.a}, NOW).deferred).to.equal(
+				0
+			);
 		});
 
 		it("keeps an entry this build does not know, as received", function () {
@@ -227,7 +249,8 @@ describe("settings sync document (sync/document.ts)", function () {
 				missing: {t: 5, v: 1, l: {}},
 				removed: {t: 5},
 				kept: {t: 5, l: {v: "still"}},
-				"new?": {t: 5, v: 9},
+				// Not this build's: marked as never taken.
+				"new?": {t: 5, v: 9, u: true},
 			});
 		});
 	});
