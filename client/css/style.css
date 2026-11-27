@@ -10244,9 +10244,15 @@ html[data-reduce-motion] #image-viewer.settling > img {
 	z-index: 1002;
 }
 
+/* Square buttons half way down the sides, not strips the sides' full height:
+ * a double tap near an edge or a corner zooms the picture rather than
+ * stepping to the next one. Centred by margin, not translate, because right
+ * to left they already carry a mirroring transform. */
 #image-viewer .previous-image-btn,
 #image-viewer .next-image-btn {
 	bottom: 0;
+	height: 2em;
+	margin-block: auto;
 	z-index: 1001;
 }
 

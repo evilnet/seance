@@ -326,17 +326,32 @@ async function touchChecks(page) {
 	await page.sleep(300);
 	page.check("a swipe right goes back", (await page.evaluate(SRC)) === first);
 
-	// The next and previous buttons run the screen's full height at its
-	// edges, where a thumb starts a swipe: one begun on them swipes, and a
-	// tap on them is still their click.
+	// The next and previous buttons sit at the screen's edges, where a thumb
+	// starts a swipe: one begun on them swipes, and a tap on them is still
+	// their click. They are buttons, not strips down the whole side: a
+	// double tap above one, near the picture's corner, zooms.
 	const btn = await page.evaluate(
 		`JSON.stringify(document.querySelector("#image-viewer .next-image-btn").getBoundingClientRect())`
 	);
 	const edge = JSON.parse(btn);
-	await drag(page, edge.x + edge.width / 2, cy + 80, -200, 0);
+	page.check(
+		`the next button is a button, not the side's full height (${Math.round(edge.height)}px)`,
+		edge.height < 120
+	);
+	const corner = {x: edge.x + edge.width / 2, y: Math.max(box.y, edge.y - 120) + 10};
+	await tapAt(page, corner.x, corner.y, 80);
+	await tapAt(page, corner.x, corner.y, 500);
+	page.check(
+		"a double tap above the next button zooms",
+		(await page.evaluate(SRC)) === first && (await page.evaluate(SCALE)) > fit * 1.5
+	);
+	await tapAt(page, corner.x, corner.y, 80);
+	await tapAt(page, corner.x, corner.y, 500);
+	page.check("…and a second goes back to fitted", (await page.evaluate(SCALE)) === fit);
+	await drag(page, edge.x + edge.width / 2, edge.y + edge.height / 2, -200, 0);
 	await page.sleep(300);
 	page.check(
-		"a swipe begun on the next button's strip goes to the next",
+		"a swipe begun on the next button goes to the next",
 		/b\.png/.test(await page.evaluate(SRC))
 	);
 	await drag(page, cx - 100, cy, 200, 0);
