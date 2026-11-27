@@ -71,6 +71,7 @@ import {
 	avatarsClosed,
 	avatarsWelcomed,
 	onChannelOpened,
+	syncAvatarsOfJoinedChannels,
 	expectOwnAvatar,
 } from "./avatars";
 import {avatarsEnabled} from "../avatars/prefs";
@@ -124,6 +125,7 @@ import {abortHistory, GAP_IDS, noteZncLine, retryLostHistory} from "./history";
 import {resetSearches} from "./historysearch";
 import {globalUntil, MUTE_KEY, MUTE_READ_DELAY_MS, type PendingMute, releaseMute} from "./pushMute";
 import {MODE_KEY, PRESENCE_KEY, syncShared, type Stamped} from "./presenceShare";
+import {SYNC_KEY} from "../sync/file";
 import {getMuteMemory, setMuteMemory, type MuteMemory} from "./muteMemory";
 import {STAMP_EVERY_MS, lastInSync, mayHaveMissed, setInSync} from "./presenceSync";
 import {getUserAway} from "./userAwayStore";
@@ -228,6 +230,9 @@ import {
 	TYPING_TAG,
 	UNREACT_TAG,
 } from "./wire";
+
+/** How long after a refused read of the sync pointer it is asked again. */
+const SYNC_REREAD_DELAY_MS = 30_000;
 
 export interface HighlightKeywords {
 	keywords: string[];
@@ -474,6 +479,17 @@ export class IrcClient {
 	presenceServer: Stamped | null = null;
 	globalKnown = false;
 	globalServer: Stamped | null = null;
+	/**
+	 * The account's settings sync pointer (`seance/sync`, sync/file.ts) as
+	 * this connection last read it: undefined until it has, "" when the key
+	 * is not set. sync/index.ts follows it through `sync:pointer`.
+	 */
+	syncPointer: string | undefined = undefined;
+	private syncPointerWaiters: Array<() => void> = [];
+	/** A pointer SET is out and not answered yet: a FAIL naming the key is its refusal. */
+	private syncSetPending = false;
+	/** A pointer SET is queued behind what the user waits for, and not sent yet. */
+	private syncSetQueued = false;
 	/**
 	 * The mute and the shared keys are subscribed on this connection: before
 	 * `CAP END` when the server offers `draft/metadata-2=before-connect` and
@@ -1963,7 +1979,7 @@ export class IrcClient {
 				);
 				lines.push(
 					[
-						`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`,
+						`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY} ${SYNC_KEY}`,
 						...avatarSubKeys(this),
 					].join(" ")
 				);
@@ -2158,6 +2174,10 @@ export class IrcClient {
 		this.globalKnown = false;
 		this.globalServer = null;
 		this.closedKnown = false;
+		this.syncPointer = undefined;
+		this.syncSetPending = false;
+		this.syncSetQueued = false;
+		this.syncPointerRead();
 		this.metadataSubscribed = false;
 		this.metadataBeforeConnect = false;
 		this.mutePending.length = 0;
@@ -3677,6 +3697,8 @@ export class IrcClient {
 					// login later on this connection still has to subscribe.
 					if (this.isWelcomed && !this.metadataSubscribed) {
 						this.send(`METADATA * SUB ${AVATAR_KEY}`);
+						// After the autojoin: those bursts said no one's avatar.
+						syncAvatarsOfJoinedChannels(this);
 					}
 				}, MUTE_READ_DELAY_MS);
 				(this.muteReadTimer as {unref?: () => void}).unref?.();
@@ -3697,10 +3719,12 @@ export class IrcClient {
 					this.metadataSubscribed = true;
 					this.send(
 						[
-							`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`,
+							`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY} ${SYNC_KEY}`,
 							...avatarSubKeys(this),
 						].join(" ")
 					);
+					// After the autojoin: those bursts said no one's avatar.
+					syncAvatarsOfJoinedChannels(this);
 				}
 
 				// Our own avatar (Settings → Account) rides along: its reply is state.
@@ -3715,7 +3739,7 @@ export class IrcClient {
 				// the answer, and handlers/metadata.ts rewrites it private.
 				this.send(
 					[
-						`METADATA * GET ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${PAYLOAD_KEY} ${CLOSED_KEY}`,
+						`METADATA * GET ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${PAYLOAD_KEY} ${CLOSED_KEY} ${SYNC_KEY}`,
 						...avatar,
 					].join(" ")
 				);
@@ -3763,6 +3787,9 @@ export class IrcClient {
 		this.globalKnown = false;
 		this.globalServer = null;
 		this.closedKnown = false;
+		this.syncPointer = undefined;
+		this.syncSetPending = false;
+		this.syncPointerRead();
 		this.metadataSubscribed = false;
 		this.mutePending.length = 0;
 		// Nor is this connection in sync until that read: the registration
@@ -3802,6 +3829,195 @@ export class IrcClient {
 		if (line) {
 			this.send(line);
 		}
+	}
+
+	/** A `seance/sync` value read: our own key, from the burst, the login read or a notification. */
+	onSyncPointer(value: string): void {
+		this.syncSetPending = false;
+		this.syncRereading = false;
+
+		// Our SET still waits in the background queue: a read answered now
+		// says what the server held before it, not a refusal of it.
+		if (this.syncSetQueued) {
+			this.syncPointerRead();
+			return;
+		}
+
+		if (this.syncPointer !== value) {
+			this.syncPointer = value;
+			this.dispatchBus("sync:pointer", {network: this.uuid});
+		}
+
+		this.syncPointerRead();
+	}
+
+	/**
+	 * The connection logged in, out, or as another account once registered
+	 * (a 900 or 901: a SASL exchange after 001; nefarious2 sends none for a
+	 * login through services): the pointer read was another account's. A
+	 * login subscribes and reads the account's own keys as registration
+	 * does; before 001, registration's own read is still to come.
+	 */
+	onAccountChanged(): void {
+		if (!this.isWelcomed) {
+			return;
+		}
+
+		this.forgetSyncPointer();
+		// The other own keys were the first account's too: unknown until
+		// read again, as after a reconnect, so nothing is written on them.
+		this.muteKnown = false;
+		this.presenceKnown = false;
+		this.presenceServer = null;
+		this.globalKnown = false;
+		this.globalServer = null;
+		this.closedKnown = false;
+
+		if (this.account !== "") {
+			this.scheduleMuteRead();
+		}
+	}
+
+	/**
+	 * A `FAIL METADATA` naming the pointer: if it answers our SET (a full
+	 * key list, a rate limit), the server kept the value it had, which this
+	 * connection no longer knows. Read it again; sync/engine.ts sees the
+	 * old value come back and waits longer before it uploads again.
+	 */
+	onSyncPointerFail(): void {
+		if (this.syncSetPending) {
+			this.forgetSyncPointer();
+			this.rereadSyncPointer(0);
+		} else if (this.syncRereading) {
+			// The read was refused too (a rate limit): ask again later, or
+			// the pointer stays unknown until a reconnect.
+			this.rereadSyncPointer(SYNC_REREAD_DELAY_MS);
+		}
+	}
+
+	/** A read of the pointer after a refused SET is out and not answered yet. */
+	private syncRereading = false;
+	private syncRereadTimer: ReturnType<typeof setTimeout> | null = null;
+
+	private rereadSyncPointer(delayMs: number): void {
+		if (this.syncRereadTimer !== null) {
+			clearTimeout(this.syncRereadTimer);
+		}
+
+		this.syncRereadTimer = null;
+		this.syncRereading = false;
+		const read = () => {
+			this.syncRereadTimer = null;
+
+			if (!this.isWelcomed || this.syncPointer !== undefined) {
+				return;
+			}
+
+			const line = `METADATA * GET ${SYNC_KEY}`;
+			this.background.add({
+				key: `metadata:get:${SYNC_KEY}`,
+				cost: this.fakeLag.cost(line),
+				run: () => {
+					this.syncRereading = this.send(line);
+				},
+			});
+		};
+
+		if (delayMs <= 0) {
+			read();
+			return;
+		}
+
+		this.syncRereadTimer = setTimeout(read, delayMs);
+		(this.syncRereadTimer as {unref?: () => void}).unref?.();
+	}
+
+	/** The pointer is unknown again: whoever follows it hears so. */
+	private forgetSyncPointer(): void {
+		const known = this.syncPointer !== undefined;
+		this.syncPointer = undefined;
+		this.syncSetPending = false;
+		this.syncPointerRead();
+
+		if (known) {
+			this.dispatchBus("sync:pointer", {network: this.uuid});
+		}
+	}
+
+	/** Whoever waits on {@link readSyncPointer} has its answer, or none is coming. */
+	private syncPointerRead(): void {
+		for (const resolve of this.syncPointerWaiters.splice(0)) {
+			resolve();
+		}
+	}
+
+	/**
+	 * Read the settings sync pointer again, for a user who asked to sync
+	 * now (sync/engine.ts `syncNow`): resolves once the server answered, or
+	 * at once where there is nothing to ask.
+	 */
+	readSyncPointer(): Promise<void> {
+		if (!this.isWelcomed || !this.caps.hasCapability("draft/metadata-2")) {
+			return Promise.resolve();
+		}
+
+		return new Promise((resolve) => {
+			this.syncPointerWaiters.push(resolve);
+			this.send(`METADATA * GET ${SYNC_KEY}`);
+		});
+	}
+
+	/**
+	 * Write the settings sync pointer (sync/engine.ts), behind whatever the
+	 * user is waiting for. False when this connection cannot write it as a
+	 * private key; then nothing is sent.
+	 */
+	writeSyncPointer(value: string): boolean {
+		const line = this.canWriteSyncPointer ? this.metadataSetLine(SYNC_KEY, value) : undefined;
+
+		if (!line) {
+			return false;
+		}
+
+		this.syncPointer = value;
+		this.syncSetQueued = true;
+		this.background.add({
+			key: `metadata:${SYNC_KEY}`,
+			cost: this.fakeLag.cost(line),
+			run: () => {
+				this.syncSetQueued = false;
+				this.syncSetPending = this.send(line);
+			},
+		});
+		return true;
+	}
+
+	/** Whether a pointer written now would be private: metadata in use on a server that can say so. */
+	get canWriteSyncPointer(): boolean {
+		return (
+			this.isWelcomed &&
+			this.account !== "" &&
+			this.caps.hasCapability("draft/metadata-2") &&
+			this.serverVersion !== undefined &&
+			this.profile.privateMetadata === true
+		);
+	}
+
+	/**
+	 * A `draft/authtoken` token for the file host, asked behind whatever
+	 * the user is waiting for (the settings sync upload, sync/engine.ts).
+	 */
+	backgroundToken(service = FILEHOST_SERVICE): Promise<string> {
+		const line = `TOKEN GENERATE ${service}`;
+		return new Promise((resolve, reject) => {
+			this.background.add({
+				key: `token:${service}#${++this.roomWaits}`,
+				cost: this.fakeLag.cost(line),
+				run: () => {
+					this.authtoken.request(service, () => this.send(line)).then(resolve, reject);
+				},
+			});
+		});
 	}
 
 	private clearMuteRead(): void {

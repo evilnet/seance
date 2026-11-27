@@ -615,7 +615,7 @@ describe("a held session says AWAY once remote DND is known (presence.ts armResu
 		expect(aways(h.sent()), "nothing in the connect burst").to.deep.equal([]);
 		clock.tick(10_000);
 		expect(h.sent()).to.include(
-			"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed avatar"
+			"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed seance/sync avatar"
 		);
 		h.transport.line(OTHER_DND);
 		expect(aways(h.sent())).to.deep.equal(["AWAY *"]);
@@ -727,7 +727,7 @@ describe("a held session says AWAY once remote DND is known (presence.ts armResu
 			expect(h.transport.sent.slice(0, end), "declared before CAP END").to.include(declared);
 			clock.tick(10_000);
 			expect(h.sent(), "the resume check was armed").to.include(
-				"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed avatar"
+				"METADATA * GET draft/webpush/mute seance/presence seance/mode draft/webpush/payload seance/closed seance/sync avatar"
 			);
 			h.transport.line(EMPTY);
 			expect(aways(h.sent()).filter((l) => l === "AWAY")).to.deep.equal([]);

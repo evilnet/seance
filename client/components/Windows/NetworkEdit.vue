@@ -11,7 +11,12 @@
 			:defaults="networkData"
 			:disabled="disabled"
 			:embedded="true"
-		/>
+		>
+			<template v-if="showSync" #extra>
+				<h2>{{ t("settings.sync.heading") }}</h2>
+				<SyncSwitch :uuid="homeUuid" />
+			</template>
+		</NetworkForm>
 	</div>
 </template>
 
@@ -19,6 +24,20 @@
 .network-settings-back {
 	display: inline-block;
 	margin-top: 20px;
+}
+
+/* Settings sync inside the form (SyncSwitch.vue): its label is the whole
+ * line and its button its own size, where `#connect label` is a quarter
+ * wide and `#connect .btn` the full width (style.css). */
+#connect .network-settings-sync label.opt {
+	display: block;
+	width: auto;
+	margin-top: 0;
+}
+
+#connect .network-settings-sync .btn {
+	width: auto;
+	margin: 0;
 }
 </style>
 
@@ -32,6 +51,8 @@ import {useStore} from "../../js/store";
 import * as saved from "../../js/irc/saved-networks";
 import type {SavedNetwork} from "../../js/irc/saved-networks";
 import webpush from "../../js/webpush";
+import SyncSwitch from "../Settings/SyncSwitch.vue";
+import {syncState} from "../../js/sync";
 import NetworkForm, {ConnectionAction, NetworkFormDefaults} from "../NetworkForm.vue";
 
 /**
@@ -47,6 +68,7 @@ export default defineComponent({
 	name: "NetworkEdit",
 	components: {
 		NetworkForm,
+		SyncSwitch,
 	},
 	setup() {
 		const route = useRoute();
@@ -57,6 +79,18 @@ export default defineComponent({
 		const networkData = ref<NetworkFormDefaults | null>(null);
 		const status = computed(
 			() => store.getters.findNetwork(String(route.params.uuid || ""))?.status ?? null
+		);
+
+		const homeUuid = computed(() => String(route.params.uuid || ""));
+		/**
+		 * Settings sync (SyncSwitch.vue) is switched here, on the one network
+		 * it is about: while it is live, and offline too where it is this
+		 * device's sync home, to turn it off.
+		 */
+		const showSync = computed(
+			() =>
+				!!store.getters.findNetwork(homeUuid.value) ||
+				syncState.value.home === homeUuid.value
 		);
 
 		const setNetworkData = () => {
@@ -141,6 +175,8 @@ export default defineComponent({
 
 		return {
 			t,
+			homeUuid,
+			showSync,
 			disabled,
 			networkData,
 			status,

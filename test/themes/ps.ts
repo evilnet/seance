@@ -10,6 +10,7 @@ import {
 	rgbHex,
 } from "../../client/js/scenes/ps/colour";
 import {momentFor, sunTimes} from "../../client/js/scenes/ps/engine";
+import {THEMES} from "../../client/js/themeRegistry";
 import {
 	DAY_BRIGHTNESS,
 	DAY_GLASS_MARK,
@@ -676,13 +677,9 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 	});
 
 	it("gives ps the daylight fallback's canvas as its theme-color before the scene loads", function () {
-		const config = fs.readFileSync(
-			path.resolve(__dirname, "../../client/js/configuration.ts"),
-			"utf8"
-		);
 		const canvas = valueOf(DAY, "--canvas-bg-color");
 		expect(canvas).to.equal("#3f8fe6");
-		expect(config).to.include(`{name: "ps", displayName: "ps", themeColor: "${canvas}"}`);
+		expect(THEMES.find((theme) => theme.name === "ps")?.themeColor).to.equal(canvas);
 	});
 
 	it("draws both badges alike, the generated fill and a white numeral: the mockup's one badge", function () {
@@ -1140,7 +1137,9 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 			for (const selector of r.selectors) {
 				const surface = subjectOf(selector);
 
-				if (!surface) {
+				// Never under ps: the looks (style.css § The looks) are keyed on
+				// `data-message-layout`, which ps never carries.
+				if (!surface || /^html\S*\[data-message-layout/.test(selector)) {
 					continue;
 				}
 
@@ -2014,7 +2013,7 @@ describe("the ps theme's type", function () {
 	it("sets words in Source Sans 3 500 with 700 for bold, and names in Newsreader 700, each weight inside its face's files", function () {
 		expect(css).to.match(/font-family:\s*"Source Sans 3",[^;]*;\s*font-weight:\s*500;/);
 		expect(css).to.match(
-			/b,\s*strong,\s*\.msg \.content b,\s*#chat \.msg\.highlight \.content \{\s*font-weight:\s*700;\s*\}/
+			/b,\s*strong,\s*\.msg \.content b,\s*#chat \.chat-view\[data-type="channel"\] \.msg\.highlight \.content \{\s*font-weight:\s*700;\s*\}/
 		);
 		// Bold is the words' heaviest weight in use: nothing asks for more.
 		expect(css).to.not.match(/font-weight:\s*(800|900|bolder)\b/);
@@ -2141,26 +2140,28 @@ describe("the ps theme's type", function () {
 	});
 });
 
-describe("the ps theme on the shared bubble layout (style.css § Bubbles)", function () {
+describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the time first, 2026-10-08)", function () {
 	const M = '[data-type="message"], [data-type="notice"]';
 	const ROW = `#chat .chat .msg:is(${M})`;
+	const SYS =
+		'#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"])';
 	const style = rulesIn(
 		fs.readFileSync(path.resolve(__dirname, "../../client/css/style.css"), "utf8")
 	);
 
-	it("lays no row out itself: the grid, the runs and the status lines are style.css's", function () {
-		const layout = ["grid-template-areas", "grid-template-columns", "grid-area"];
-		const own = rules.filter(
-			(r) =>
-				r.selectors.some((sel) => /^#chat \.chat \.(msg|condensed-summary)\b/.test(sel)) &&
-				r.decls.some(([p]) => layout.includes(p))
+	it("starts every row with its time, in a column as wide in every row as the clock setting's widest time", function () {
+		// the widest English time of each setting, 0.8em tabular figures, in the
+		// text's ch (measured 2026-10-08: 3.62, 6.01, 5.63 and 8.02), with slack
+		expect(valueOf("#chat", "--ps-time-w")).to.equal("4ch");
+		expect(valueOf("#chat.time-12h", "--ps-time-w")).to.equal("6.5ch");
+		expect(valueOf("#chat.time-seconds", "--ps-time-w")).to.equal("6ch");
+		expect(valueOf("#chat.time-seconds.time-12h", "--ps-time-w")).to.equal("8.5ch");
+		const column = "minmax(var(--ps-time-w), max-content)";
+		expect(valueOf(ROW, "grid-template-columns")).to.match(
+			new RegExp(`^${column.replace(/[()]/g, "\\$&")} `)
 		);
-		expect(own.map((r) => r.selectors.join(", "))).to.deep.equal([]);
-		expect(css, "the old time column").to.not.include("--ps-time-w");
-		const shared =
-			'html[data-message-layout="bubbles"] #chat .chat .msg:is([data-type="message"], [data-type="notice"])';
-		expect(declsOf(shared, "", style).find(([p]) => p === "grid-template-areas")).to.not.equal(
-			undefined
+		expect(valueOf(SYS, "grid-template-columns")).to.match(
+			new RegExp(`^${column.replace(/[()]/g, "\\$&")} `)
 		);
 	});
 
@@ -2174,14 +2175,25 @@ describe("the ps theme on the shared bubble layout (style.css § Bubbles)", func
 		expect(valueOf("#chat .msg-reply-text", "pointer-events")).to.equal("none");
 	});
 
-	it("gives the words' outline room past the text: overflow-clip-margin, or on WebKit a clip-path as far out", function () {
+	it("lays a message out as its time, then the nick, and the text on the next line under the nick", function () {
+		expect(valueOf(ROW, "display")).to.equal("grid");
+		expect(valueOf(ROW, "grid-template-areas")?.replace(/\s+/g, " ")).to.equal(
+			'"time from" ". content"'
+		);
+		expect(valueOf(`${ROW} .from`, "grid-area")).to.equal("from");
+		expect(valueOf(`${ROW} .time`, "grid-area")).to.equal("time");
+		expect(valueOf(`${ROW} .content`, "grid-area")).to.equal("content");
+		// logical, so a right-to-left page has its time at its own start
+		expect(valueOf(ROW, "padding-inline")).to.equal("0.625rem");
+		// the outline's room past the column: overflow-clip-margin, or on
+		// WebKit, which has none, a clip-path as far out
 		expect(valueOf(`${ROW} .content`, "overflow-clip-margin")).to.equal("0.75rem");
 		const webkit = "@supports not (overflow-clip-margin: 0.75rem)";
 		expect(valueOf(`${ROW} .content`, "clip-path", webkit)).to.equal("inset(-0.75rem)");
 	});
 
-	it("lines a mention up with the cards around it: its 5px bar is taken off the card's start", function () {
-		const H = `#chat .chat .msg.highlight:is(${M})`;
+	it("lines a mention up with the rows around it: its 5px bar is taken off the row's start", function () {
+		const H = `#chat .chat-view[data-type="channel"] .chat .msg.highlight:is(${M})`;
 		// style.css's bar, which this takes off
 		expect(
 			declsOf('#chat .chat-view[data-type="channel"] .msg.highlight', "", style).find(
@@ -2193,11 +2205,122 @@ describe("the ps theme on the shared bubble layout (style.css § Bubbles)", func
 		expect(valueOf(`${H} .time`, "padding")).to.equal("0");
 	});
 
-	it("puts a later line's hover time on a fill of its own, by day and at night, since the card is see-through", function () {
-		expect(valueOf("#chat", "--bubble-time-bg")).to.equal("rgb(255 251 244 / 94%)");
-		expect(valueOf('html[data-ps-light="night"] #chat', "--bubble-time-bg")).to.equal(
-			"rgb(12 17 32 / 94%)"
+	it("never cuts a nick: it wraps rather than ending in an ellipsis", function () {
+		expect(valueOf(`${ROW} .from`, "overflow")).to.equal("visible");
+		expect(valueOf(`${ROW} .from`, "white-space")).to.equal("normal");
+		expect(valueOf(`${ROW} .from`, "overflow-wrap")).to.equal("anywhere");
+		// none of the shipped column's sizing is left in ps.css
+		expect(valueOf("#chat .from", "flex-basis")).to.equal(undefined);
+		expect(valueOf("#chat .content", "flex-basis")).to.equal(undefined);
+		expect(valueOf("#chat.time-seconds .time", "width")).to.equal(undefined);
+		expect(valueOf("#chat .chat .from", "margin")).to.equal(undefined);
+	});
+
+	it("shows a run of one sender's lines with the nick once, each line's time in its column when pointed at", function () {
+		const run = `#chat .chat .msg.previous-source:is(${M})`;
+		expect(valueOf(run, "grid-template-areas")).to.equal('"time content"');
+		expect(valueOf(`${run} .from`, "display")).to.equal("none");
+		const hidden = `${run} .time`;
+		expect(valueOf(hidden, "visibility"), "kept in place, so nothing moves").to.equal("hidden");
+		const shown = "#chat .chat .msg.previous-source:is(:hover, .actions-open) .time";
+		expect(valueOf(shown, "visibility")).to.equal("visible");
+		expect(
+			rules.findIndex((r) => r.selectors.includes(shown)) -
+				rules.findIndex((r) => r.selectors.includes(hidden)),
+			"after the rule that hides it"
+		).to.be.above(0);
+		// a day's divider or the unread line between two of them starts a new run
+		const after =
+			"#chat .chat :is(.date-marker-container, .unread-marker) + .msg.previous-source";
+		expect(valueOf(after, "grid-template-areas")?.replace(/\s+/g, " ")).to.equal(
+			'"time from" ". content"'
 		);
+		expect(valueOf(`${after} .from`, "display")).to.equal("block");
+		expect(valueOf(`${after} .time`, "visibility")).to.equal("visible");
+		expect(
+			compareSpecificity(specificity(`${after} .from`), specificity(`${run} .from`))
+		).to.be.at.least(0);
+		expect(
+			rules.findIndex((r) => r.selectors.includes(`${after} .from`)) -
+				rules.findIndex((r) => r.selectors.includes(`${run} .from`)),
+			"after the rule that hides them"
+		).to.be.above(0);
+	});
+
+	it("runs every other row as its time, its icon, then the text; a condensed summary's text stands with the nicks", function () {
+		expect(valueOf(SYS, "display")).to.equal("grid");
+		expect(valueOf(SYS, "grid-template-areas")).to.equal('"time from content"');
+		expect(valueOf(`${SYS} .time`, "grid-area")).to.equal("time");
+		expect(valueOf(`${SYS} .from`, "grid-area")).to.equal("from");
+		expect(valueOf(`${SYS} .content`, "grid-area")).to.equal("content");
+		expect(valueOf(`${SYS} .from`, "order"), "no reordering: the grid places it").to.equal(
+			undefined
+		);
+		expect(valueOf("#chat .chat .condensed-summary", "grid-template-areas")).to.equal(
+			'"time content"'
+		);
+		expect(valueOf("#chat .chat .condensed-summary .from", "display")).to.equal("none");
+	});
+
+	it("starts an icon row's text where every message's text starts: the icon shares the text's cell, and only the first line steps past it", function () {
+		const types = ["action", "join", "part", "quit", "nick", "mode", "topic", "kick"];
+		// the rule whose one selector is the row itself, `#chat .chat .msg:is(…)` with nothing after it
+		const iconRule = rules.find(
+			(r) =>
+				r.at === "" &&
+				r.selectors.some((sel) =>
+					/^#chat \.chat \.msg:is\(\[data-type="action"\][^)]*\)$/.test(sel)
+				)
+		);
+		expect(iconRule, "the icon rows' rule").to.not.equal(undefined);
+		const ROW_SEL = iconRule!.selectors[0];
+
+		for (const type of types) {
+			expect(ROW_SEL, type).to.include(`[data-type="${type}"]`);
+		}
+
+		expect(valueOf(ROW_SEL, "grid-template-areas")).to.equal('"time content"');
+		expect(valueOf(`${ROW_SEL} .from`, "grid-area")).to.equal("content");
+		expect(valueOf(`${ROW_SEL} .from`, "inline-size")).to.equal("1.25em");
+		expect(valueOf(`${ROW_SEL} .content`, "text-indent")).to.equal("calc(1.25em + 0.375rem)");
+		expect(
+			valueOf(`${ROW_SEL} .content *`, "text-indent"),
+			"a block inside starts at its own edge"
+		).to.equal("0");
+		// after the generic system rows, which put the icon in a column of its own
+		expect(rules.indexOf(iconRule!)).to.be.above(
+			rules.findIndex((r) => r.selectors.includes(SYS))
+		);
+	});
+
+	it("wins over style.css's narrow inline flow on the same elements, so the row is alike at every width", function () {
+		const narrow = style.filter(
+			(r) =>
+				r.at.includes("@container chat (max-width: calc(50ch + 2.5rem))") &&
+				r.selectors.some((sel) =>
+					/^#chat \.(msg|time|from|content|condensed-summary)\b/.test(sel)
+				)
+		);
+		expect(narrow.length, "style.css's narrow rules for the row").to.be.greaterThan(0);
+		const theirs = narrow
+			.flatMap((r) => r.selectors)
+			.filter((sel) => !/highlight|who|table|condensed"\] \.msg/.test(sel))
+			.map(specificity)
+			.sort(compareSpecificity)
+			.at(-1)!;
+		const stacked = /^#chat \.chat \.(msg(?=[:.[])|condensed-summary)/;
+		const ours = rules
+			.filter((r) => r.at === "" && r.selectors.some((sel) => stacked.test(sel)))
+			.flatMap((r) => r.selectors)
+			.filter((sel) => stacked.test(sel))
+			.map(specificity)
+			.sort(compareSpecificity)[0];
+		// At least as heavy: ps.css is linked after style.css, so at equal
+		// weight the later rule wins.
+		expect(
+			compareSpecificity(ours, theirs),
+			`ours ${ours.join()} against theirs ${theirs.join()}`
+		).to.be.at.least(0);
 	});
 });
 
@@ -2394,7 +2517,11 @@ describe("the ps theme's embers (spec §9)", function () {
 	});
 
 	it("lights an own message's echo, never its pending copy: four sparks, on the row's and its text's pseudo-elements", function () {
-		const onRows = pseudoSelectors.filter((s) => /\.msg(?![\w-])/.test(s));
+		// The row's pseudo-elements are also Bubbles' whole-line hover boxes,
+		// which draw nothing (the next test).
+		const onRows = pseudoSelectors.filter(
+			(s) => /\.msg(?![\w-])/.test(s) && !s.includes(".msg.has-actions::")
+		);
 		expect([...new Set(onRows)]).to.have.members(SEND);
 		const onPending = pseudoSelectors.filter((s) => /\.pending(?![\w-])/.test(withoutNot(s)));
 		expect(onPending, "no pseudo-element on a pending copy").to.deep.equal([]);
@@ -2402,6 +2529,39 @@ describe("the ps theme's embers (spec §9)", function () {
 		for (const s of onRows) {
 			expect(s, "the echo, not the pending copy").to.include(":not(.pending)");
 			expect(s, "while it is the newest row").to.include(":last-child");
+		}
+	});
+
+	it("leaves Bubbles' whole-line hover boxes empty and placed by their end edge, so a send's sparks keep their place", function () {
+		const hit = [...new Set(pseudoSelectors.filter((s) => s.includes(".msg.has-actions::")))];
+		expect(hit.map((s) => s.slice(s.indexOf("::"))).sort()).to.deep.equal([
+			"::after",
+			"::before",
+		]);
+
+		for (const s of hit) {
+			expect(s, "under Bubbles only").to.match(/data-ps-words="bubbles"/);
+			const props = declsOf(s).map(([p]) => p);
+			expect(props, `${s} is placed by its end edge`).to.include("inset-inline-end");
+
+			// The sparks' own: a hit box naming any of them would move or paint them.
+			for (const p of [
+				"left",
+				"right",
+				"top",
+				"inset",
+				"inset-inline",
+				"inset-inline-start",
+				"width",
+				"height",
+				"background",
+				"background-color",
+				"box-shadow",
+				"animation",
+				"pointer-events",
+			]) {
+				expect(props, `${s} sets no ${p}`).to.not.include(p);
+			}
 		}
 	});
 
@@ -3112,9 +3272,9 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 		expect(valueOf(view(`:root${WORDS_SURFACE}`, "channel"), "background")).to.equal(
 			"rgb(255 214 230 / var(--ps-g-tint-card, var(--ps-s-tint)))"
 		);
-		expect(valueOf(view(`:root${WORDS_SURFACE}`, "query"), "background")).to.equal(
-			"rgb(255 214 230 / var(--ps-g-tint-card, var(--ps-s-tint)))"
-		);
+		// A private conversation flags every line to us as a highlight (it
+		// drives the badge): none of them is painted as a mention.
+		expect(valueOf(view(`:root${WORDS_SURFACE}`, "query"), "background")).to.equal(undefined);
 		expect(
 			valueOf(view(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "channel"), "background")
 		).to.equal("rgb(40 20 48 / var(--ps-s-tint))");
@@ -3155,9 +3315,7 @@ describe("the ps theme's words: the surface family (docs/projects/ps-words.md §
 			own(BUBBLES),
 			own(BUBBLES_NIGHT),
 			wash(`:root${WORDS_SURFACE}`, "channel"),
-			wash(`:root${WORDS_SURFACE}`, "query"),
 			wash(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "channel"),
-			wash(`:root[data-ps-light="night"]${WORDS_SURFACE}`, "query"),
 			...PILLS.flatMap((p) => [
 				`${BUBBLES} #chat .chat ${p}`,
 				`${BUBBLES_NIGHT} #chat .chat ${p}`,

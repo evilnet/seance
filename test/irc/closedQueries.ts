@@ -454,8 +454,8 @@ describe("closed queries (irc/closedQueries.ts)", function () {
 			clock.tick(MUTE_READ_DELAY_MS);
 			const read = h.transport.sent.filter((l) => / (SUB|GET) /.test(l));
 			expect(read).to.have.length(2);
-			expect(read[0]).to.match(/^METADATA \* SUB .* seance\/closed( avatar)?$/);
-			expect(read[1]).to.match(/^METADATA \* GET .* seance\/closed( avatar)?$/);
+			expect(read[0]).to.match(/^METADATA \* SUB .* seance\/closed seance\/sync( avatar)?$/);
+			expect(read[1]).to.match(/^METADATA \* GET .* seance\/closed seance\/sync( avatar)?$/);
 		});
 
 		it("writes a close private, merged with what the server holds", function () {

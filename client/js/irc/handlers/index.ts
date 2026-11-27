@@ -25,6 +25,8 @@ import {
 import {labeledBatch} from "../request";
 import {isErrorNumeric} from "../errors";
 import type {Handler} from "../types";
+import type {IrcClient} from "../client";
+import type {IrcMessage} from "../message";
 import account from "./account";
 import away from "./away";
 import bouncer from "./bouncer";
@@ -132,6 +134,14 @@ export const unhandled: Handler = (client, msg) => {
 		return;
 	}
 
+	showReply(client, msg, true);
+};
+
+/**
+ * A reply shown raw: in the active tab when the user most likely asked for
+ * it, else only in the server window (or the channel it names).
+ */
+export function showReply(client: IrcClient, msg: IrcMessage, inActive: boolean): void {
 	const params = [...msg.params];
 
 	// Do not display our own name (numerics start with it).
@@ -149,8 +159,8 @@ export const unhandled: Handler = (client, msg) => {
 			command: msg.command,
 			params,
 			text: `${msg.command} ${params.join(" ")}`,
-			showInActive: true,
+			showInActive: inActive,
 		},
 		true
 	);
-};
+}

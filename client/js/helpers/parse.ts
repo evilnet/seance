@@ -3,6 +3,7 @@ import {layout, LayoutNode, Style, toPlainText} from "./ircmessageparser/layout"
 import {createFragment} from "./fragment";
 import {confirmMismatch} from "./openLink";
 import emojiMap from "./fullnamemap.json";
+import {shortcodesForEmoji} from "./ircmessageparser/findShortcode";
 import LinkPreviewToggle from "../../components/LinkPreviewToggle.vue";
 import LinkPreviewFileSize from "../../components/LinkPreviewFileSize.vue";
 import CodeBlock from "../../components/CodeBlock.vue";
@@ -398,16 +399,23 @@ function renderPart(
 
 		case "emoji": {
 			const emojiWithoutModifiers = node.emoji.replace(emojiModifiersRegex, "");
-			const title = emojiMap[emojiWithoutModifiers]
+			const label = emojiMap[emojiWithoutModifiers]
 				? `Emoji: ${emojiMap[emojiWithoutModifiers]}`
 				: null;
+			// Hovered, an emoji names the shortcodes that write it (`:+1:
+			// :thumbsup:`), what a reader wants in order to send one back; its
+			// accessible name stays its description. One the shortcode map does
+			// not know keeps the description as its tooltip.
+			const shortcodes = shortcodesForEmoji(node.emoji);
+			const title =
+				shortcodes.length > 0 ? shortcodes.map((name) => `:${name}:`).join(" ") : label;
 
 			return createElement(
 				"span",
 				{
 					class: ["emoji"],
 					role: "img",
-					"aria-label": title,
+					"aria-label": label,
 					title: title,
 				},
 				fragments

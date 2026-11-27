@@ -14264,28 +14264,40 @@ msgctxt "settings.appearance.mediaRevealGroup"
 msgid "When to load previews"
 msgstr ""
 
-#. Option in Settings > Appearance > Message layout: each sender's messages grouped in bubbles beside their picture, as in a messenger.
+#. Option in Settings > Appearance > Look: each sender's messages grouped in bubbles beside their picture, and a private conversation drawn as a two-sided chat, as in a messaging app. The name of a look, not of a program.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutBubbles"
-msgid "Bubbles"
+msgid "Messenger"
 msgstr ""
 
-#. Hint after the Bubbles option in Settings > Appearance > Message layout (shown after a dash).
+#. Hint after the Messenger option in Settings > Appearance > Look (shown after a dash).
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutBubblesHint"
 msgid "each person's lines grouped in bubbles beside their picture"
 msgstr ""
 
-#. Option in Settings > Appearance > Message layout: the classic IRC log, one row per message.
+#. Option in Settings > Appearance > Look: the classic IRC log, one row per message with its time, nick and words in columns. The name of a look, the default.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutLines"
-msgid "Lines"
+msgid "Classic"
 msgstr ""
 
-#. Hint after the Lines option in Settings > Appearance > Message layout (shown after a dash).
+#. Hint after the Classic option in Settings > Appearance > Look (shown after a dash).
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.messageLayoutLinesHint"
 msgid "time, name and words on one row, as an IRC log"
+msgstr ""
+
+#. Option in Settings > Appearance > Look: each sender's messages grouped under their picture, name and time, as flat rows across the whole width, as in a team chat app. The name of a look.
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutWorkspace"
+msgid "Workspace"
+msgstr ""
+
+#. Hint after the Workspace option in Settings > Appearance > Look (shown after a dash).
+#: client/components/Settings/Appearance.vue
+msgctxt "settings.appearance.messageLayoutWorkspaceHint"
+msgid "each person's lines grouped under their name and picture, at full width"
 msgstr ""
 
 #. Heading of the message display section in Settings > Appearance.
@@ -14378,10 +14390,10 @@ msgctxt "settings.appearance.psGroupMessagesHint"
 msgid "their name and time once, for lines sent within ten minutes of each other"
 msgstr ""
 
-#. Heading in Settings > Appearance, shown under the ps theme and the themes that offer a bubble layout: how chat messages are laid out.
+#. Heading in Settings > Appearance, shown under the ps theme and the themes that offer a choice of look: how chat messages are drawn (Classic, Messenger or Workspace). A noun, as in 'the look of the chat'.
 #: client/components/Settings/Appearance.vue
 msgctxt "settings.appearance.psLayoutHeading"
-msgid "Message layout"
+msgid "Look"
 msgstr ""
 
 #. Radio option under Scene animation (ps theme): the scene's motion follows the device.
@@ -15586,6 +15598,120 @@ msgctxt "settings.scripts.stateRunning"
 msgid "Running"
 msgstr ""
 
+#. Settings → Networks: tooltip and accessible name of the small sync mark next to the name of the network this device syncs its settings with.
+#: client/components/Settings/Networks.vue
+msgctxt "settings.sync.badge"
+msgid "Settings sync with your account here"
+msgstr ""
+
+#. Settings → Networks: status under the settings sync switch when the account's synced settings were written by a newer version of the app than this device runs.
+#: client/components/Settings/SyncSwitch.vue:68
+msgctxt "settings.sync.blocked"
+msgid "Waiting for an update of the app on this device."
+msgstr ""
+
+#. Settings → Networks → Edit: heading of the section holding the 'Sync settings with this account' switch.
+#: client/components/Windows/NetworkEdit.vue
+msgctxt "settings.sync.heading"
+msgid "Settings sync"
+msgstr ""
+
+#. Settings → Networks: explanation under the 'Sync settings with this account' switch while it is off and can be switched on.
+#: client/components/Settings/SyncSwitch.vue:92
+msgctxt "settings.sync.help"
+msgid "Your settings, aliases, mutes, favorites and ignore list follow your account to every device signed in here. They are kept as an encrypted file on this network's file host."
+msgstr ""
+
+#. Settings → Networks: label of a switch on one network. On, the user's settings, aliases and lists follow their account on that network to their other devices.
+#: client/components/Settings/SyncSwitch.vue:12
+msgctxt "settings.sync.label"
+msgid "Sync settings with this account"
+msgstr ""
+
+#. Settings → Networks: why the settings sync switch is disabled: the browser lacks encryption or compression.
+#: client/components/Settings/SyncSwitch.vue:80
+msgctxt "settings.sync.noBrowser"
+msgid "This browser cannot encrypt the settings file, so settings cannot be synced here."
+msgstr ""
+
+#. Settings → Networks: why the settings sync switch is disabled: the IRC network offers no upload host for files.
+#: client/components/Settings/SyncSwitch.vue:86
+msgctxt "settings.sync.noFilehost"
+msgid "This network has no file host, so settings cannot be synced here."
+msgstr ""
+
+#. Settings → Networks: why the settings sync switch is disabled: the IRC server cannot store a value only the account's own devices can read.
+#: client/components/Settings/SyncSwitch.vue:88
+msgctxt "settings.sync.noPrivate"
+msgid "This server cannot keep the sync key private, so settings are not synced here."
+msgstr ""
+
+#. Settings → Networks: button under the settings sync switch. Sends this device's settings to the account and takes the account's, at once instead of after the usual wait.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now"
+msgid "Sync now"
+msgstr ""
+
+#. Settings → Networks: label of the Sync now button while the sync it started is under way.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.busy"
+msgid "Syncing…"
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button when the upload did not go through (the file host refused it or could not be reached).
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.failed"
+msgid "The settings could not be sent just now. Sync will try again later."
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button when the network is not connected.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.offline"
+msgid "Connect to this network to sync."
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button after it uploaded this device's settings.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.sent"
+msgid "Your settings were sent to your account."
+msgstr ""
+
+#. Settings → Networks: shown next to the Sync now button when this device held nothing the account did not already have.
+#: client/components/Settings/SyncSwitch.vue
+msgctxt "settings.sync.now.upToDate"
+msgid "Nothing new to send from this device."
+msgstr ""
+
+#. Settings → Networks: why the settings sync switch is disabled: the network is not connected.
+#: client/components/Settings/SyncSwitch.vue:82
+msgctxt "settings.sync.offline"
+msgid "Connect to this network to sync settings with your account."
+msgstr ""
+
+#. Settings → Networks: status under the settings sync switch while it is on. {account} is the services account name, verbatim.
+#: client/components/Settings/SyncSwitch.vue:75
+msgctxt "settings.sync.on"
+msgid "Syncing with the account {account}."
+msgstr ""
+
+#. Settings → Networks: status under the settings sync switch while sync is paused because another account is signed in. {account} is the account signed in now, {known} the account this device syncs with; both verbatim.
+#: client/components/Settings/SyncSwitch.vue:72
+msgctxt "settings.sync.paused"
+msgid "Paused: signed in as {account}. This device syncs with {known}."
+msgstr ""
+
+#. Settings → Networks: why the settings sync switch is disabled for a few seconds after connecting: the app has not yet read whether the account has synced settings.
+#: client/components/Settings/SyncSwitch.vue:90
+msgctxt "settings.sync.reading"
+msgid "Checking whether your account already has synced settings…"
+msgstr ""
+
+#. Settings → Networks: why the settings sync switch is disabled: connected without a services account.
+#: client/components/Settings/SyncSwitch.vue:84
+msgctxt "settings.sync.signIn"
+msgid "Sign in to an account on this network to sync settings."
+msgstr ""
+
 #. Settings tab label on a deploy that is one network's own client and keeps that network as it set it; the tab shows who this device signs in as, with buttons to connect, disconnect, sign in and sign out. Replaces the Networks tab there.
 #: client/js/hooks/use-settings-tabs.ts
 msgctxt "settings.tabs.account"
@@ -15966,6 +16092,138 @@ msgstr ""
 #: client/service-worker.js:1141
 msgctxt "sw.titleNickCount"
 msgid "{nick} ({count})"
+msgstr ""
+
+#. Body of the 'Move settings sync to {network}?' dialog. {account} is the services account and {home} the IRC network this device syncs with now; both verbatim.
+#: client/js/sync/index.ts:267
+msgctxt "sync.move.text"
+msgid "This device syncs its settings with the account {account} on {home}. A device syncs with one network at a time."
+msgstr ""
+
+#. Title of a question dialog: settings sync is already on for another network, and the user switched it on for {network} (an IRC network's name, verbatim).
+#: client/js/sync/index.ts:266
+msgctxt "sync.move.title"
+msgid "Move settings sync to {network}?"
+msgstr ""
+
+#. Button of the 'Move settings sync to {network}?' dialog: make the other network the one this device syncs its settings with.
+#: client/js/sync/index.ts:268
+msgctxt "sync.move.yes"
+msgid "Move"
+msgstr ""
+
+#. A line in the network's window: another device of the account added a command alias and this device took it. {name} is the alias's name, verbatim.
+#: client/js/sync/index.ts:112
+msgctxt "sync.notice.aliasAdded"
+msgid "Settings sync added the alias /{name}."
+msgstr ""
+
+#. A line in the network's window: another device of the account changed a command alias and this device took the change. {name} is the alias's name, verbatim.
+#: client/js/sync/index.ts:114
+msgctxt "sync.notice.aliasChanged"
+msgid "Settings sync changed the alias /{name}."
+msgstr ""
+
+#. A line in the network's window: another device of the account removed a command alias and this device removed it too. {name} is the alias's name, verbatim.
+#: client/js/sync/index.ts:116
+msgctxt "sync.notice.aliasRemoved"
+msgid "Settings sync removed the alias /{name}."
+msgstr ""
+
+#. A line in the network's window: the account's settings file could not be decrypted or was not a settings file.
+#: client/js/sync/index.ts:122
+msgctxt "sync.notice.damaged"
+msgid "The account's synced settings could not be read. This device keeps what it has."
+msgstr ""
+
+#. A line in the network's window: the account's settings sync pointer names a URL outside the network's own upload host, so this device ignored it.
+#: client/js/sync/index.ts:120
+msgctxt "sync.notice.elsewhere"
+msgid "The account's synced settings point to a file that is not on this network's file host and were not read. This device keeps what it has."
+msgstr ""
+
+#. A line in the network's window: the account's settings file has a format this version of the app does not know, so this device neither reads nor writes it.
+#: client/js/sync/index.ts:124
+msgctxt "sync.notice.newerVersion"
+msgid "The account's synced settings were written by a newer version of the app. Settings sync waits on this device until the app is updated."
+msgstr ""
+
+#. A line in the network's window: the settings file the account points to is too large, so this device ignored it.
+#: client/js/sync/index.ts:118
+msgctxt "sync.notice.tooLarge"
+msgid "The account's synced settings are over the size limit and were not read. This device keeps what it has."
+msgstr ""
+
+#. A line in the network's window: the upload host refused the settings sync file. {status} is the HTTP status code, a number.
+#: client/js/sync/index.ts:128
+msgctxt "sync.notice.uploadRefused"
+msgid "The network's file host did not take the settings file (HTTP {status}). Settings sync will try again later."
+msgstr ""
+
+#. A line in the network's window: what this device would upload for settings sync is too large.
+#: client/js/sync/index.ts:126
+msgctxt "sync.notice.uploadTooLarge"
+msgid "This device's settings are over the size limit for settings sync and were not uploaded."
+msgstr ""
+
+#. Button of the 'Use your account's settings here?' dialog: do not sync and do not ask again on this device.
+#: client/js/sync/index.ts:299
+msgctxt "sync.offer.never"
+msgid "Never on this device"
+msgstr ""
+
+#. Button of the 'Use your account's settings here?' dialog: do not sync for now; the question comes back the next time the app starts.
+#: client/js/sync/index.ts:300
+msgctxt "sync.offer.notNow"
+msgid "Not now"
+msgstr ""
+
+#. Second paragraph of the 'Use your account's settings here?' dialog: what happens to this device's own settings.
+#: client/js/sync/index.ts:246
+msgctxt "sync.offer.note"
+msgid "Where this device and the account both have a setting, the account's replaces this device's. What only this device has is added to the account."
+msgstr ""
+
+#. Body of the 'Use your account's settings here?' dialog. {account} is the services account name, {network} the IRC network's name; both verbatim.
+#: client/js/sync/index.ts:245
+msgctxt "sync.offer.text"
+msgid "The account {account} on {network} has settings that follow it from device to device: settings, aliases, mutes, favorites and the ignore list."
+msgstr ""
+
+#. Title of a question dialog: the account signed in on this device already has synced settings from another device.
+#: client/js/sync/index.ts:244
+msgctxt "sync.offer.title"
+msgid "Use your account's settings here?"
+msgstr ""
+
+#. Button of the 'Use your account's settings here?' dialog: turn settings sync on for this device.
+#: client/js/sync/index.ts:247
+msgctxt "sync.offer.yes"
+msgid "Use them"
+msgstr ""
+
+#. Button of the 'Sync settings with {account} instead?' dialog: leave settings sync paused until the first account is signed in again.
+#: client/js/sync/index.ts:174
+msgctxt "sync.otherAccount.no"
+msgid "Keep it paused"
+msgstr ""
+
+#. Body of the 'Sync settings with {account} instead?' dialog. {known} is the account this device syncs with, {account} the account signed in now, {network} the IRC network's name; all verbatim.
+#: client/js/sync/index.ts:168
+msgctxt "sync.otherAccount.text"
+msgid "This device syncs its settings with the account {known}, and {network} is now signed in as {account}. Settings sync is paused until {known} is signed in again."
+msgstr ""
+
+#. Title of a question dialog: the network this device syncs its settings with is now signed in as a different account. {account} is that account's name, verbatim.
+#: client/js/sync/index.ts:167
+msgctxt "sync.otherAccount.title"
+msgid "Sync settings with {account} instead?"
+msgstr ""
+
+#. Button of the 'Sync settings with {account} instead?' dialog: switch settings sync to the account signed in now. {account} is its name, verbatim.
+#: client/js/sync/index.ts:173
+msgctxt "sync.otherAccount.yes"
+msgid "Sync with {account}"
 msgstr ""
 
 #. System line when a user is marked away. {nick} is the user's nick, VERBATIM user content; it renders as the interactive username element. The away reason (user-set, verbatim) follows in parentheses.

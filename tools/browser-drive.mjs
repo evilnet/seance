@@ -53,6 +53,10 @@
 //   --touch-laptop    a desktop whose browser calls its touchscreen the primary input:
 //                     (hover: none) and (pointer: coarse), with a mouse there too
 //                     (any-hover: hover, any-pointer: fine)
+//   --stable-raster   rasterise on one thread, whole tiles at a time, so two runs give
+//                     pixel-identical screenshots (the capture gallery, gallery.mjs);
+//                     without it a blurred backdrop or a gradient's edge can differ
+//                     by a few pixels from run to run
 //
 // A throwaway profile is the default on purpose: localStorage (saved
 // networks, settings, `thelounge.media.trusted`) survives inside one profile,
@@ -112,6 +116,9 @@ const chrome = spawn(
 		// The dev ircd and the dev web server use self-signed certificates.
 		"--ignore-certificate-errors",
 		"--window-size=1280,900",
+		...(flags.has("--stable-raster")
+			? ["--num-raster-threads=1", "--disable-partial-raster"]
+			: []),
 		// A headless Chromium with no input device answers `(hover: none)` and
 		// `(pointer: none)`, which is neither a desktop nor a phone: the
 		// `@media (hover: none)` rules (the message action toolbar's touch

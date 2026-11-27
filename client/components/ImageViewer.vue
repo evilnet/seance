@@ -776,10 +776,10 @@ export default defineComponent({
 
 			const viewerEl = viewer.value;
 
-			// The open link keeps its own tap. A button's strip is part of the
-			// screen a swipe starts from (the next and previous ones run its
-			// full height), so a touch there is a gesture too, and a tap on it
-			// is the button's click.
+			// The open link keeps its own tap. A button is part of the screen a
+			// swipe starts from (the next and previous ones sit at its edges),
+			// so a touch there is a gesture too, and a tap on it is the
+			// button's click.
 			const target = e.target as Element | null;
 
 			if (!viewerEl || target?.closest?.("a")) {

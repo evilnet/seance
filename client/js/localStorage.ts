@@ -8,13 +8,33 @@
 // https://github.com/thelounge/thelounge/issues/2699
 // https://www.chromium.org/for-testers/bug-reporting-guidelines/uncaught-securityerror-failed-to-read-the-localstorage-property-from-window-access-is-denied-for-this-document
 
+const writeListeners = new Set<(key: string) => void>();
+
+/**
+ * Hear every write this page makes through the wrapper (another tab's
+ * arrive as `storage` events): settings sync dates a change the moment it
+ * is stored (sync/index.ts). Returns the unsubscribe.
+ */
+export function onStorageWrite(listener: (key: string) => void): () => void {
+	writeListeners.add(listener);
+	return () => writeListeners.delete(listener);
+}
+
+function wrote(key: string): void {
+	for (const listener of writeListeners) {
+		listener(key);
+	}
+}
+
 export default {
 	set(key: string, value: string) {
 		try {
 			window.localStorage.setItem(key, value);
 		} catch (e) {
-			//
+			return;
 		}
+
+		wrote(key);
 	},
 	get(key: string) {
 		try {
@@ -28,8 +48,10 @@ export default {
 		try {
 			window.localStorage.removeItem(key);
 		} catch (e) {
-			//
+			return;
 		}
+
+		wrote(key);
 	},
 	keys(): string[] {
 		try {

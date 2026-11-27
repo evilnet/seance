@@ -17,7 +17,16 @@
 		<ul v-else class="network-settings-list">
 			<li v-for="network in networks" :key="network.uuid" class="network-settings-item">
 				<div class="network-settings-summary">
-					<strong>{{ displayName(network) }}</strong>
+					<strong
+						>{{ displayName(network)
+						}}<span
+							v-if="syncHome === network.uuid"
+							class="network-settings-synced"
+							role="img"
+							:title="t('settings.sync.badge')"
+							:aria-label="t('settings.sync.badge')"
+						></span
+					></strong>
 					<span>{{ network.host }}:{{ network.port }}</span>
 					<span :class="['network-settings-status', statusClass(network.uuid)]">
 						{{ statusLabel(network.uuid) }}
@@ -68,6 +77,17 @@
 	gap: 0.5rem;
 	font-size: 0.875rem;
 	padding-block: 0.25rem;
+}
+
+/* The network this device syncs its settings with (sync/index.ts). */
+.network-settings-synced {
+	margin-inline-start: 0.5rem;
+	color: var(--body-color-muted);
+}
+
+.network-settings-synced::before {
+	font: normal normal normal 0.875em/1 FontAwesome;
+	content: "\f021"; /* https://fontawesome.com/icons/sync?style=solid */
 }
 
 .network-settings-heading,
@@ -174,6 +194,7 @@ import {computed, defineComponent, ref} from "vue";
 import {brandingFeatures} from "../../js/branding";
 import AccountSettings from "./Account.vue";
 import Avatar from "../Avatar.vue";
+import {syncState} from "../../js/sync";
 import eventbus from "../../js/eventbus";
 import {createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
@@ -274,7 +295,11 @@ export default defineComponent({
 			);
 		};
 
+		/** This device's sync home: its row carries a mark; the switch is on its details (NetworkEdit.vue). */
+		const syncHome = computed(() => syncState.value.home);
+
 		return {
+			syncHome,
 			editable,
 			live,
 			networks,

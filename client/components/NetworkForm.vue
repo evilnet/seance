@@ -450,6 +450,9 @@
 				</template>
 			</template>
 
+			<!-- What a screen adds of its own, last before Save (NetworkEdit.vue: settings sync). -->
+			<slot name="extra" />
+
 			<div>
 				<button type="submit" class="btn" :disabled="disabled ? true : false">
 					{{ t("form.save") }}

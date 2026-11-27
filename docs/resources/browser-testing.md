@@ -88,7 +88,9 @@ you are confirming they stay fixed; against an older build, this is how you
 recognise them.
 
 `--headful` shows the browser, `--devtools` opens DevTools with it, `--keep`
-leaves it running afterwards, `--no-ws` silences frames, `--quiet` drops
+leaves it running afterwards, `--stable-raster` rasterises on one thread so
+screenshots are pixel-identical run to run (the capture gallery, `themes.md`
+§ Checking a theme), `--no-ws` silences frames, `--quiet` drops
 everything but failures and scenario output. The viewport is 1280×900 unless
 `--width=`/`--height=` say otherwise; `--mobile` adds touch emulation and the
 mobile viewport flag, so `--width=390 --height=844 --mobile` is a phone (the

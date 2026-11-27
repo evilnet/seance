@@ -32,6 +32,7 @@ import {forgetSeen} from "../avatars/registry";
 import {forgetLogin} from "./saslTrust";
 import {forgetIgnoreList} from "../ignore";
 import {forgetNetworkFavorites} from "../favorites";
+import {forgetSyncNetwork} from "../sync/state";
 import type {ConnectOptions} from "./types";
 import {accountRequired} from "../branding";
 import {PRESENCE_MODES, type NetworkMode, type PresenceMode} from "../helpers/dnd";
@@ -758,6 +759,9 @@ export function remove(uuid: string): void {
 		write(remaining);
 	}
 
+	// First: were it still the settings sync home, the entries forgotten
+	// below would be read as removals and uploaded to the whole account.
+	forgetSyncNetwork(backend, uuid);
 	forgetNetworkConversations(uuid); // its conversations go with it
 	forgetClosedQueries(uuid); // and the ones it closed
 	forgetNoticeLog(uuid); // and its server notices

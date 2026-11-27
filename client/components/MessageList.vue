@@ -2,7 +2,11 @@
 	<div
 		ref="chat"
 		class="chat"
-		:class="{selecting, 'selection-live': selectionActive}"
+		:class="{
+			selecting,
+			'selection-live': selectionActive,
+			'time-peek': timePeek || trackpadPeek > TRACKPAD_SLOP,
+		}"
 		tabindex="-1"
 	>
 		<div
@@ -67,6 +71,18 @@
 				>
 					<span class="unread-marker-text" :data-label="t('chat.unreadMarker')" />
 				</div>
+				<div
+					v-if="sessionStartsAt(id)"
+					:key="message.id + '-session'"
+					class="session-marker"
+				>
+					<time
+						class="session-marker-text tooltipped tooltipped-s"
+						:datetime="new Date(message.time).toISOString()"
+						:aria-label="sessionTimeLocale(message)"
+						>{{ sessionTime(message) }}</time
+					>
+				</div>
 
 				<MessageCondensed
 					v-if="message.type === 'condensed'"
@@ -98,8 +114,13 @@ import {ChanState, ChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import clipboard from "../js/clipboard";
 import {continuesRun} from "../js/helpers/messageRuns";
+import {sessionStarts} from "../js/helpers/messageSessions";
+import {formatDateTime, formatTime} from "../js/i18n/dates";
+import {messageLayoutShown} from "../js/settings";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
+import {scrollerTakesSwipe} from "../js/helpers/sidewaysSwipe";
+import {trackpadPeek} from "../js/helpers/trackpadPeek";
 import socket from "../js/socket";
 import {translationOn} from "../js/translate";
 import {onScreen} from "../js/translate/reader";
@@ -153,7 +174,7 @@ export default defineComponent({
 	},
 	setup(props) {
 		const store = useStore();
-		const {t} = useI18n();
+		const {t, locale} = useI18n();
 
 		const chat = ref<HTMLDivElement | null>(null);
 		const loadMoreButton = ref<HTMLButtonElement | null>(null);
@@ -729,8 +750,33 @@ export default defineComponent({
 			return true;
 		};
 
-		// The ps theme's setting (Combine messages): off, and no line is a
-		// continuation, so every message shows its nick and time.
+		// Messenger's session times (helpers/messageSessions.ts): the time,
+		// centred, over the first line of each stretch of conversation. The
+		// other looks show a time on every row and have no use for them.
+		const sessionRows = computed(() =>
+			messageLayoutShown.value === "bubbles" ? sessionStarts(condensedMessages.value) : []
+		);
+
+		const sessionStartsAt = (id: number) => sessionRows.value[id] === true;
+
+		// The clock follows the reader's settings, as each row's does; the
+		// tooltip adds the date. locale.value ties both to the language.
+		const sessionTime = (message: ClientMessage | CondensedMessageContainer) => {
+			void locale.value;
+			return formatTime(
+				new Date(message.time).getTime(),
+				store.state.settings.showSeconds,
+				store.state.settings.use12hClock
+			);
+		};
+
+		const sessionTimeLocale = (message: ClientMessage | CondensedMessageContainer) => {
+			void locale.value;
+			return formatDateTime(new Date(message.time), store.state.settings.use12hClock);
+		};
+
+		// Combine messages (Messenger, Workspace and ps): off, and no line is
+		// a continuation, so every message shows its nick and time.
 		const isPreviousSource = (currentMessage: ClientMessage, id: number) =>
 			store.state.settings.psGroupMessages !== false &&
 			continuesRun(condensedMessages.value[id - 1], currentMessage);
@@ -868,8 +914,84 @@ export default defineComponent({
 		// must not decide whether the list is still pinned.
 		let seenHeight = 0;
 
-		const touchDown = () => noteTouch(true);
-		const touchUp = () => noteTouch(false);
+		// A sideways swipe toward the pane's start slides the conversation
+		// aside to show the times that take no room (style.css § By finger).
+		// Only the travel is ours: the stylesheet caps it. Only Messenger has
+		// such times (the look applied, `html[data-message-layout]`, which a
+		// theme without looks leaves off), so only there is a swipe watched.
+		// One drag is one gesture: a drag the sidebar has taken (toward the
+		// pane's end, Sidebar.vue) is never also a peek, and once the peek
+		// has it the sidebar stands down.
+		const PEEK_SLOP = 28;
+		const timePeek = ref(false);
+		let peekFrom: Touch | undefined;
+
+		const touchDown = (e: TouchEvent) => {
+			noteTouch(true);
+			peekFrom =
+				e.touches.length === 1 &&
+				!selectionActive.value &&
+				document.documentElement.dataset.messageLayout === "bubbles"
+					? e.touches[0]
+					: undefined;
+		};
+
+		const peekMove = (e: TouchEvent) => {
+			const touch = e.touches[0];
+
+			if (!peekFrom || !chat.value || !touch) {
+				return;
+			}
+
+			const toStart = document.documentElement.dir === "rtl" ? -1 : 1;
+			const dx = toStart * (peekFrom.clientX - touch.clientX);
+
+			if (!timePeek.value) {
+				const dy = Math.abs(touch.clientY - peekFrom.clientY);
+
+				// A scroll, or the sidebar's drag.
+				if (dy > Math.max(PEEK_SLOP / 2, Math.abs(dx) / 2) || store.state.sidebarDragging) {
+					peekFrom = undefined;
+					return;
+				}
+
+				// A deliberate swipe: well past a tap's wobble, and flat.
+				if (dx < PEEK_SLOP) {
+					return;
+				}
+
+				// A swipe in something that scrolls sideways itself. Asked once,
+				// now the swipe is one: the walk reads layout.
+				if (e.target instanceof Element && scrollerTakesSwipe(e.target, false)) {
+					peekFrom = undefined;
+					return;
+				}
+
+				timePeek.value = true;
+			}
+
+			// The list trails the finger, from where the swipe was taken up.
+			chat.value.style.setProperty("--time-peek", `${Math.max(0, dx - PEEK_SLOP) * 0.7}px`);
+		};
+
+		const touchUp = () => {
+			noteTouch(false);
+			peekFrom = undefined;
+			timePeek.value = false;
+			chat.value?.style.removeProperty("--time-peek");
+		};
+
+		// The same by trackpad (trackpadSwipe.ts): two fingers over the
+		// conversation, past a little sideways drift.
+		const TRACKPAD_SLOP = 12;
+
+		watch(trackpadPeek, (travel) => {
+			if (travel > TRACKPAD_SLOP) {
+				chat.value?.style.setProperty("--time-peek", `${(travel - TRACKPAD_SLOP) * 0.5}px`);
+			} else if (!timePeek.value) {
+				chat.value?.style.removeProperty("--time-peek");
+			}
+		});
 
 		const handleScroll = () => {
 			// The list is moving: a page arriving now is held (scrollSettle.ts).
@@ -925,6 +1047,7 @@ export default defineComponent({
 			watchSelection();
 			chat.value?.addEventListener("scroll", handleScroll, {passive: true});
 			chat.value?.addEventListener("touchmove", dismissKeyboard, {passive: true});
+			chat.value?.addEventListener("touchmove", peekMove, {passive: true});
 			chat.value?.addEventListener("touchstart", touchDown, {passive: true});
 			chat.value?.addEventListener("touchend", touchUp, {passive: true});
 			chat.value?.addEventListener("touchcancel", touchUp, {passive: true});
@@ -1073,6 +1196,7 @@ export default defineComponent({
 			}
 
 			chat.value?.removeEventListener("touchmove", dismissKeyboard);
+			chat.value?.removeEventListener("touchmove", peekMove);
 			chat.value?.removeEventListener("touchstart", touchDown);
 			chat.value?.removeEventListener("touchend", touchUp);
 			chat.value?.removeEventListener("touchcancel", touchUp);
@@ -1094,6 +1218,9 @@ export default defineComponent({
 			onCopy,
 			condensedMessages,
 			shouldDisplayDateMarker,
+			sessionStartsAt,
+			sessionTime,
+			sessionTimeLocale,
 			shouldDisplayUnreadMarker,
 			canAskOlder,
 			gapBefore,
@@ -1103,6 +1230,9 @@ export default defineComponent({
 			jumpToBottom,
 			selecting,
 			selectionActive,
+			timePeek,
+			trackpadPeek,
+			TRACKPAD_SLOP,
 			onPointerDown,
 		};
 	},

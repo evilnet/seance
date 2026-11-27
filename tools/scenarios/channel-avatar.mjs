@@ -33,7 +33,8 @@
 //   5. a channel opened without an avatar known asks for it, once;
 //   6. a change another op makes reaches the row;
 //   7. activity pulses the avatar;
-//   8. no console errors.
+//   8. an unsent draft's pen takes the avatar's slot, the row's height kept;
+//   9. no console errors.
 
 import {execFileSync} from "node:child_process";
 import {mkdtempSync, readFileSync, rmSync} from "node:fs";
@@ -614,6 +615,38 @@ export default async function run(page) {
 			pulsing?.animation === "avatar-typing-pulse"
 		);
 		await page.screenshot("sidebar", {selector: "#sidebar"});
+
+		// 8. An unsent draft's pen takes the avatar's slot, as it takes the
+		// icon's and the emoji's.
+		await page.click(row("#art"));
+		await page.waitFor(activeIs("#art"), {label: "#art active"});
+		await page.fill("#input", "half a thought");
+		await page.click(row("#games"));
+		await page.waitFor(
+			`document.querySelector(${JSON.stringify(
+				row("#art")
+			)})?.classList.contains("has-draft")`,
+			{label: "#art has a draft"}
+		);
+		const drafted = await page.evaluate(`(() => {
+			const el = document.querySelector(${JSON.stringify(row("#art"))});
+			const avatar = el.querySelector(":scope > .avatar");
+			return {
+				pen: getComputedStyle(el, "::before").content,
+				avatar: avatar ? getComputedStyle(avatar).display : null,
+				height: el.getBoundingClientRect().height,
+				plain: document.querySelector(${JSON.stringify(row("#plain"))}).getBoundingClientRect().height,
+			};
+		})()`);
+		page.check(
+			`#art with a draft: the pen (${drafted.pen}), not the avatar (${drafted.avatar})`,
+			drafted.pen.includes("\uf304") && drafted.avatar === "none"
+		);
+		page.check(
+			`#art with a draft: the row keeps its height (${drafted.height} vs ${drafted.plain})`,
+			Math.abs(drafted.height - drafted.plain) < 0.5
+		);
+		await page.screenshot("sidebar-draft", {selector: "#sidebar"});
 
 		page.check(
 			`no console errors${
