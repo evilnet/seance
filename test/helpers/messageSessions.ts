@@ -1,0 +1,63 @@
+import {expect} from "chai";
+import {RUN_GAP_MS} from "../../client/js/helpers/messageRuns";
+import {SESSION_GAP_MS, sessionStarts} from "../../client/js/helpers/messageSessions";
+
+const at = (minutes: number) => new Date(Date.UTC(2026, 10, 25, 12, 0) + minutes * 60_000);
+const row = (minutes: number, type = "message") => ({type, time: at(minutes)});
+
+describe("conversation sessions (helpers/messageSessions.ts)", function () {
+	it("waits half an hour, longer than a run's pause", function () {
+		expect(SESSION_GAP_MS).to.equal(30 * 60_000);
+		expect(SESSION_GAP_MS).to.be.greaterThan(RUN_GAP_MS);
+	});
+
+	it("starts at the first line, then only after a quiet half hour", function () {
+		expect(sessionStarts([row(0), row(2), row(20), row(49), row(79), row(80)])).to.deep.equal([
+			true,
+			false,
+			false,
+			false,
+			true,
+			false,
+		]);
+	});
+
+	it("counts what people said, not the joins and parts around it", function () {
+		expect(
+			sessionStarts([
+				row(0, "join"),
+				row(5),
+				row(20, "part"),
+				row(25, "condensed"),
+				row(30, "action"),
+				row(70, "notice"),
+				row(200, "quit"),
+			])
+		).to.deep.equal([false, true, false, false, false, true, false]);
+	});
+
+	it("measures from the line said before, not from where the stretch began", function () {
+		const lines = [0, 25, 50, 75, 100].map((minutes) => row(minutes));
+		expect(sessionStarts(lines)).to.deep.equal([true, false, false, false, false]);
+	});
+
+	it("starts nothing at a time that does not parse, or one out of order", function () {
+		expect(sessionStarts([{type: "message", time: "never"}, row(0)])).to.deep.equal([
+			false,
+			true,
+		]);
+		expect(sessionStarts([row(60), row(0)])).to.deep.equal([true, false]);
+	});
+
+	it("measures the quiet from the newest line, not from a late one with an earlier time", function () {
+		// 10:00, then a line delayed from 09:58, then 10:28: 28 minutes after
+		// the newest speech, the same stretch.
+		expect(sessionStarts([row(0), row(-2), row(28)])).to.deep.equal([true, false, false]);
+		// Half an hour after the newest is a new one, however early the late line.
+		expect(sessionStarts([row(0), row(-90), row(30)])).to.deep.equal([true, false, true]);
+	});
+
+	it("has nothing to say about an empty list", function () {
+		expect(sessionStarts([])).to.deep.equal([]);
+	});
+});

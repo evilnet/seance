@@ -477,9 +477,10 @@ export default async function run(page) {
 				got.later.every((m) => m === 0.25)
 		);
 	};
-	// Messenger, with a mouse: a run's later line, hovered, shows its time
-	// beside the bubble (before it for our own at the far side), inside the
-	// pane.
+	// Messenger, with a mouse: a run's later line, hovered, keeps its time
+	// hidden (a swipe shows it, as by finger: style.css § By finger and
+	// trackpad), where it would stand beside the bubble (before it for our
+	// own at the far side), inside the pane.
 	const timeBeside = async (label, shot, own = false) => {
 		const pick = `[...document.querySelectorAll('#chat .chat .msg.previous-source[data-type="message"]${
 			own ? ".self" : ":not(.self)"
@@ -498,10 +499,10 @@ export default async function run(page) {
 			return {shown: getComputedStyle(t).visibility, time: box(t), bubble: box(m), list: box(document.querySelector("#chat .chat"))};
 		})()`);
 		page.check(
-			`${label}: a later line's time shows on hover, level with its bubble, inside the pane (${JSON.stringify(
+			`${label}: a later line's time stays hidden on hover, placed level with its bubble, inside the pane (${JSON.stringify(
 				got
 			)})`,
-			got.shown === "visible" &&
+			got.shown === "hidden" &&
 				got.time.left >= got.list.left &&
 				got.time.right <= got.list.right &&
 				got.time.top >= got.bubble.top - 2 &&
@@ -513,11 +514,37 @@ export default async function run(page) {
 	// A later line's hover time takes the pointer, so its tooltip (the full
 	// date) opens under a mouse resting on it; over a link, the link keeps
 	// the rest of its length.
-	const timeTakesPointer = async (text, label) => {
+	// Workspace shows a later line's time on hover; Messenger on hover shows
+	// none (§ Session times), only to a keyboard's focus on the row (`focus`:
+	// its first link or button takes it).
+	const timeTakesPointer = async (text, label, focus = false) => {
 		await scrollTo("message", text);
 		await page.sleep(150);
 		const index = await page.evaluate(ROW_WITH(text, "message"));
-		await page.hover('#chat .chat .msg[data-type="message"]', index);
+		if (focus) {
+			// A real key first (Shift does nothing here): Chrome then counts the
+			// script's focus as a keyboard's, which is what shows a time.
+			await page.send("Input.dispatchKeyEvent", {
+				type: "keyDown",
+				key: "Shift",
+				code: "ShiftLeft",
+				windowsVirtualKeyCode: 16,
+			});
+			await page.send("Input.dispatchKeyEvent", {
+				type: "keyUp",
+				key: "Shift",
+				code: "ShiftLeft",
+				windowsVirtualKeyCode: 16,
+			});
+			await page.evaluate(
+				`${rowAt(
+					"message",
+					index
+				)}.querySelector(".content :is(a, button)").focus({focusVisible: true})`
+			);
+		} else {
+			await page.hover('#chat .chat .msg[data-type="message"]', index);
+		}
 		await page.sleep(150);
 		const at = await page.evaluate(`(() => {
 			const t = ${rowAt("message", index)}.querySelector(".time").getBoundingClientRect();
@@ -536,7 +563,9 @@ export default async function run(page) {
 				link: !a || document.elementFromPoint(r.left + 4, r.top + r.height / 2)?.closest("a") === a};
 		})()`);
 		page.check(
-			`${label}: a later line's hover time takes the pointer and opens its date, a link under it keeps the rest (${JSON.stringify(
+			`${label}: a later line's ${
+				focus ? "time, shown to a keyboard's focus," : "hover time"
+			} takes the pointer and opens its date, a link under it keeps the rest (${JSON.stringify(
 				got
 			)})`,
 			got.shown === "visible" &&
@@ -545,6 +574,9 @@ export default async function run(page) {
 				got.tip !== "none" &&
 				got.link
 		);
+		if (focus) {
+			await page.evaluate(`document.activeElement?.blur()`);
+		}
 		await unhover();
 	};
 	// Messenger: a bubble's chips hang off its bottom edge, a third of a chip on
@@ -583,8 +615,8 @@ export default async function run(page) {
 		);
 		return g;
 	};
-	// Messenger's action, hovered: its time just past its words, the toolbar
-	// up and inside the pane.
+	// Messenger's action, hovered: its time (hidden, as every row's is until
+	// a swipe) just past its words, the toolbar up and inside the pane.
 	const actionHover = async (text, label) => {
 		await scrollTo("action", text);
 		await page.sleep(150);
@@ -1081,12 +1113,26 @@ export default async function run(page) {
 			`Messenger query: ours in the own fill (${mine.background} = ${ownFill}), theirs not`,
 			mine.background === ownFill && peer1.background !== ownFill
 		);
+		// No row shows a time of its own: Messenger stamps each stretch of
+		// the conversation once, centred (§ Session times), and a swipe shows
+		// every row's.
 		page.check(
-			"Messenger query: a run's first line shows its time at the bubble's end, a later line's is hidden",
-			peer1.time.visibility === "visible" &&
+			"Messenger query: a run's first line keeps its time's place at the bubble's end, hidden, as a later line's is",
+			peer1.time.visibility === "hidden" &&
 				peer1.time.left >= peer1.content.right - 1 &&
 				peer2.time.visibility === "hidden"
 		);
+		{
+			const index = await page.evaluate(ROW_WITH("hey, got a minute", "message"));
+			await page.hover('#chat .chat .msg[data-type="message"]', index);
+			await page.sleep(150);
+			page.check(
+				"Messenger query: hovered, a run's first line still keeps its time hidden",
+				(await geometry("message", "hey, got a minute")).time.visibility === "hidden"
+			);
+			await unhover();
+			await page.sleep(100);
+		}
 		await page.screenshot("9-messenger-query");
 		await timeBeside("Messenger query, theirs", "9g-messenger-query-time");
 		await toolbarFits("yep", "Messenger query, a short line of theirs");
@@ -1124,10 +1170,10 @@ export default async function run(page) {
 			"Messenger query, our own action"
 		);
 		page.check(
-			`Messenger query, our own action hovered: its time before its words, the toolbar inside the pane (${JSON.stringify(
+			`Messenger query, our own action hovered: its time hidden, placed before its words, the toolbar inside the pane (${JSON.stringify(
 				qOwnHover
 			)})`,
-			qOwnHover.shown === "visible" &&
+			qOwnHover.shown === "hidden" &&
 				qOwnHover.before >= 0 &&
 				qOwnHover.inside &&
 				qOwnHover.toolbar
@@ -1185,10 +1231,10 @@ export default async function run(page) {
 		);
 		const mHover = await actionHover("nods along", "Messenger");
 		page.check(
-			`Messenger, an action hovered: its time just past its words, inside the pane, the toolbar up inside it (${JSON.stringify(
+			`Messenger, an action hovered: its time hidden, placed just past its words, inside the pane, the toolbar up inside it (${JSON.stringify(
 				mHover
 			)})`,
-			mHover.shown === "visible" &&
+			mHover.shown === "hidden" &&
 				mHover.after >= 0 &&
 				mHover.after <= 20 &&
 				mHover.inside &&
@@ -1344,10 +1390,10 @@ export default async function run(page) {
 			"Messenger query, right to left"
 		);
 		page.check(
-			`Messenger query, right to left, our own action hovered: its time before its words, inside the pane (${JSON.stringify(
+			`Messenger query, right to left, our own action hovered: its time hidden, placed inside the pane (${JSON.stringify(
 				rtlOwnAction
 			)})`,
-			rtlOwnAction.shown === "visible" && rtlOwnAction.inside && rtlOwnAction.toolbar
+			rtlOwnAction.shown === "hidden" && rtlOwnAction.inside && rtlOwnAction.toolbar
 		);
 		await page.screenshot("9f-messenger-rtl-query");
 		await page.evaluate(`document.documentElement.dir = "ltr"`);
@@ -1408,30 +1454,54 @@ export default async function run(page) {
 		await timeBeside("phone Messenger channel", "12d-phone-messenger-time");
 		await timeTakesPointer(
 			"the middle one, reacted to",
-			"phone Messenger channel, a short later line"
+			"phone Messenger channel, a short later line",
+			true
 		);
-		// The time's tooltip (the full date) opens over the bubble from its
-		// start, inside the pane.
-		const tip = await page.evaluate(`(() => {
-			const m = document.querySelector('#chat .chat .msg[data-type="message"]:not(.previous-source)');
-			const a = getComputedStyle(m.querySelector(".time"), "::after");
-			const r = m.getBoundingClientRect();
-			const pane = document.querySelector("#chat .chat").getBoundingClientRect();
-			// From the bubble's start it has the bubble's column to open into.
-			return {position: getComputedStyle(m.querySelector(".time")).position, left: Math.round(r.left + parseFloat(a.left)), bubble: Math.round(r.left), transform: a.transform, pane: Math.round(pane.right)};
+		// A run's first line's time takes no room either (no bubble gives up
+		// width for one, whatever the input): out of the flow, hidden, and
+		// shown to a keyboard's focus beside the bubble, inside the pane.
+		// A real key first (Shift does nothing here): Chrome then counts the
+		// script's focus as a keyboard's, which is what shows a time.
+		await page.send("Input.dispatchKeyEvent", {
+			type: "keyDown",
+			key: "Shift",
+			code: "ShiftLeft",
+			windowsVirtualKeyCode: 16,
+		});
+		await page.send("Input.dispatchKeyEvent", {
+			type: "keyUp",
+			key: "Shift",
+			code: "ShiftLeft",
+			windowsVirtualKeyCode: 16,
+		});
+		const firstTime = await page.evaluate(`(() => {
+			const m = [...document.querySelectorAll('#chat .chat .msg[data-type="message"]:not(.previous-source)')].find((x) => x.querySelector(".content :is(a, button)"));
+			const t = m.querySelector(".time");
+			const rest = {position: getComputedStyle(t).position, shown: getComputedStyle(t).visibility};
+			m.querySelector(".content :is(a, button)").focus({focusVisible: true});
+			const r = t.getBoundingClientRect();
+			const c = document.querySelector("#chat .chat");
+			const left = c.getBoundingClientRect().left + c.clientLeft;
+			const got = {...rest, focused: getComputedStyle(t).visibility, left: Math.round(r.left), right: Math.round(r.right), pane: [Math.round(left), Math.round(left + c.clientWidth)]};
+			document.activeElement.blur();
+			return got;
 		})()`);
 		page.check(
-			`phone Messenger: the time's tooltip is placed against the bubble, from its start (${JSON.stringify(
-				tip
+			`phone Messenger: a run's first line's time takes no room, hidden until a keyboard's focus shows it inside the pane (${JSON.stringify(
+				firstTime
 			)})`,
-			tip.position === "static" && tip.left === tip.bubble && tip.transform === "none"
+			firstTime.position === "absolute" &&
+				firstTime.shown === "hidden" &&
+				firstTime.focused === "visible" &&
+				firstTime.left >= firstTime.pane[0] &&
+				firstTime.right <= firstTime.pane[1]
 		);
 		const phoneHover = await actionHover("nods along", "phone Messenger");
 		page.check(
-			`phone Messenger, an action hovered: its time inside the pane, the toolbar too (${JSON.stringify(
+			`phone Messenger, an action hovered: its time hidden, placed inside the pane, the toolbar inside it (${JSON.stringify(
 				phoneHover
 			)})`,
-			phoneHover.shown === "visible" && phoneHover.inside && phoneHover.toolbar
+			phoneHover.shown === "hidden" && phoneHover.inside && phoneHover.toolbar
 		);
 		await page.evaluate(update("fontSize", "huge"));
 		await page.sleep(400);
@@ -1565,11 +1635,13 @@ export default async function run(page) {
 			const state = `(() => {
 				const box = (e) => { const r = e.getBoundingClientRect(); return {left: Math.round(r.left), right: Math.round(r.right)}; };
 				const pane = box(document.querySelector("#chat .chat"));
-				const rows = [...document.querySelectorAll('#chat .chat .msg.previous-source[data-type="message"]')]
+				const rows = [...document.querySelectorAll('#chat .chat .messages > .msg:is([data-type="message"], [data-type="action"])')]
 					.filter((m) => { const r = m.getBoundingClientRect(); return r.top > 60 && r.bottom < innerHeight - 60; })
-					.map((m) => ({shown: getComputedStyle(m.querySelector(".time")).display !== "none" && getComputedStyle(m.querySelector(".time")).visibility === "visible", time: box(m.querySelector(".time")), bubble: box(m)}));
+					.map((m) => ({shown: getComputedStyle(m.querySelector(".time")).display !== "none" && getComputedStyle(m.querySelector(".time")).visibility === "visible", time: box(m.querySelector(".time")), bubble: box(m),
+						size: [m.getBoundingClientRect().width, m.getBoundingClientRect().height, m.getBoundingClientRect().top].map((v) => Math.round(v * 4) / 4)}));
 				return {pane, rows, wide: document.querySelector("#chat .chat").scrollWidth > document.querySelector("#chat .chat").clientWidth};
 			})()`;
+			const before = await page.evaluate(state);
 			const point = (x) => [{x, y: 420, id: 1}];
 			await page.send("Input.dispatchTouchEvent", {
 				type: "touchStart",
@@ -1603,7 +1675,14 @@ export default async function run(page) {
 			await page.sleep(150);
 			const after = await page.evaluate(state);
 			page.check(
-				`${label}: a swipe shows every later line's time past its bubble, inside the pane (${JSON.stringify(
+				`${label}: the swipe moves no row but the slide: every first line, later line and action keeps its size and height (${JSON.stringify(
+					{before: before.rows.map((r) => r.size), during: during.rows.map((r) => r.size)}
+				)})`,
+				JSON.stringify(before.rows.map((r) => r.size)) ===
+					JSON.stringify(during.rows.map((r) => r.size))
+			);
+			page.check(
+				`${label}: a swipe shows every line's time, a first line's and an action's too, past its bubble, inside the pane (${JSON.stringify(
 					during
 				)})`,
 				during.rows.length > 0 &&
