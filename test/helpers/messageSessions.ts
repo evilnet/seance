@@ -49,6 +49,14 @@ describe("conversation sessions (helpers/messageSessions.ts)", function () {
 		expect(sessionStarts([row(60), row(0)])).to.deep.equal([true, false]);
 	});
 
+	it("measures the quiet from the newest line, not from a late one with an earlier time", function () {
+		// 10:00, then a line delayed from 09:58, then 10:28: 28 minutes after
+		// the newest speech, the same stretch.
+		expect(sessionStarts([row(0), row(-2), row(28)])).to.deep.equal([true, false, false]);
+		// Half an hour after the newest is a new one, however early the late line.
+		expect(sessionStarts([row(0), row(-90), row(30)])).to.deep.equal([true, false, true]);
+	});
+
 	it("has nothing to say about an empty list", function () {
 		expect(sessionStarts([])).to.deep.equal([]);
 	});

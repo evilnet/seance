@@ -21,11 +21,14 @@ interface SessionRow {
 }
 
 /** For each row, whether a stretch of conversation starts there: the first
- * line said in the list, or one said SESSION_GAP_MS or more after the line
- * said before it. A row whose time does not parse starts nothing (and
- * leaves the line before it as the one to measure from). */
+ * line said in the list, or one said SESSION_GAP_MS or more after the
+ * newest line said before it. The newest, not the one before in the list:
+ * a line that arrives late with an earlier time (a lagging server's, a
+ * delayed relay's) starts nothing and does not turn the clock back, so the
+ * quiet is always measured from the last thing anyone said. A row whose
+ * time does not parse starts nothing and measures nothing. */
 export function sessionStarts(rows: readonly SessionRow[]): boolean[] {
-	let previous: number | undefined;
+	let newest: number | undefined;
 
 	return rows.map((row) => {
 		if (!conversationTypes.has(row.type || "")) {
@@ -38,8 +41,8 @@ export function sessionStarts(rows: readonly SessionRow[]): boolean[] {
 			return false;
 		}
 
-		const starts = previous === undefined || time - previous >= SESSION_GAP_MS;
-		previous = time;
+		const starts = newest === undefined || time - newest >= SESSION_GAP_MS;
+		newest = newest === undefined ? time : Math.max(newest, time);
 		return starts;
 	});
 }
