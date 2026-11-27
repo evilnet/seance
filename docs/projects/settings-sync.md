@@ -274,13 +274,25 @@ Decided 2026-11-24:
   the notice routes, the temporary ones, the snomask and the investigation
   notes. The notes are the oper's remarks about channels, IP addresses and
   accounts, and the network's other operators can read the file's key.
-- **Services support** (the network form's package, bots and report and
-  snoop channels, kept in the saved network's `services`; added
-  2026-11-27) roams: an oper who set it on one device had to set it again
-  on every other. It holds no secret. A device that has not saved the home
-  network has nowhere to keep it, and takes it once it has. A change is
-  heard through `onSavedNetworksChange`, not as a write to the key, which
-  the history cursor rewrites with every message.
+- **The home's saved network, but how to reach it** (added 2026-11-27):
+  its display name, nick, autojoin channels, commands on connect and
+  services support (the network form's package, bots and report and snoop
+  channels) roam, so an oper who set services support on one device no
+  longer finds it unset on the others. What stays on the device: the
+  server, port, TLS and transport (the home's connection is how a device
+  reads the file at all), the SASL mechanism, account and password, the
+  server password and whether passwords are kept (the file's key is in a
+  metadata key the network's operators can read), trusted certificates,
+  autoconnect, the push and notification switches (each device's own
+  subscription and permission), and the bookkeeping (history cursor, last
+  use, the bouncer fields). A device that has not saved the home has
+  nowhere to keep them. The connection takes the services support and the
+  name at once and the channels at its next registration
+  (`manager.reloadSavedNetworks`); a nick that arrives is used from the
+  next launch, since sending `NICK` for a choice made elsewhere is not the
+  device's to do. A change is heard through `onSavedNetworksChange`, not as
+  a write to the key, which the history cursor rewrites with every message.
+  Another network's saved entry waits for the network-name mapping (§ Open).
 - **Stays on the device**: the rest of the saved network list
   (`thelounge.networks`, which holds passwords), Lua scripts and their data (`thelounge.scripts`,
   `thelounge.script_storage.*`), and the recently used reactions
@@ -292,7 +304,8 @@ Decided 2026-11-24:
 - **The first version carries the home network's entries** (§ Open): its
   mutes, favorites and their order, ignore list, channel order, trusted
   media channels and accounts, trusted avatar people, oper preferences,
-  services support and per-channel translation choices. Trusted media hosts belong to no network
+  the saved network's name, nick, channels, commands and services support,
+  and per-channel translation choices. Trusted media hosts belong to no network
   and roam whole. The order of the networks is a list of each device's own
   uuids and does not roam yet. The entry ids and their values are the table
   at the top of `sync/entries.ts`.
@@ -303,6 +316,9 @@ account, and IRC operators, who can set another user's metadata. So every
 alias that sync adds, changes or removes is said in the home network's
 window (decided 2026-11-25), a line with nothing to answer, so that one the
 user did not make is seen.
+The home's commands on connect and its autojoin channels run or join at
+every registration and come from the same writers, so a change to either is
+said the same way, with the new list (added 2026-11-27).
 
 ### The settings
 

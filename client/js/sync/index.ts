@@ -7,7 +7,7 @@
  * What asks the engine for a run: the home's pointer read or changed
  * (`sync:pointer`), a write to a store that roams (localStorage.ts
  * `onStorageWrite`, or saved-networks.ts `onSavedNetworksChange` for the
- * services support; dated a moment later), another tab's write to the
+ * home's saved network; dated a moment later), another tab's write to the
  * shared sync state, and the wake timer. Any tab whose home is connected
  * uploads; a Web Lock held for the upload alone keeps it to one at a time.
  */
@@ -122,6 +122,14 @@ function noticeText(notice: Notice): string {
 			return t("sync.notice.aliasChanged", {name: notice.name});
 		case "alias-removed":
 			return t("sync.notice.aliasRemoved", {name: notice.name});
+		case "commands-changed":
+			return notice.commands.length > 0
+				? t("sync.notice.commandsChanged", {commands: notice.commands.join(" · ")})
+				: t("sync.notice.commandsRemoved");
+		case "join-changed":
+			return notice.join
+				? t("sync.notice.joinChanged", {channels: notice.join})
+				: t("sync.notice.joinRemoved");
 		case "too-large":
 			return t("sync.notice.tooLarge");
 		case "elsewhere":
@@ -417,7 +425,7 @@ export function startSettingsSync(): void {
 		}
 	});
 
-	// A saved network edited on this page: its services support roams.
+	// A saved network edited on this page: the home's choices roam.
 	onSavedNetworksChange(() => {
 		if (readState(storage).home) {
 			scanSoon();

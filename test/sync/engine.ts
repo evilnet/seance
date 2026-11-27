@@ -296,7 +296,7 @@ describe("settings sync engine (sync/engine.ts)", function () {
 		expect(b.engine.state.dirty).to.equal(false);
 	});
 
-	it("carries the home's services support set after sync was on to a device that joins later", async function () {
+	it("carries the home's services support set after sync was on to a device that joins later, and keeps its login", async function () {
 		const net = (extra: Record<string, unknown>) =>
 			JSON.stringify([
 				{
@@ -323,7 +323,10 @@ describe("settings sync engine (sync/engine.ts)", function () {
 		server.now += SPACING_MS;
 		await phone.run();
 
-		phone.stored.set("thelounge.networks", net({nick: "phone", services: x3}));
+		phone.stored.set(
+			"thelounge.networks",
+			net({nick: "phone", services: x3, commands: ["/mode phone +x"]})
+		);
 		await phone.changed();
 		server.now += QUIET_MS;
 		await phone.run();
@@ -337,10 +340,18 @@ describe("settings sync engine (sync/engine.ts)", function () {
 
 		expect(JSON.parse(mac.stored.get("thelounge.networks")!)).to.deep.equal(
 			JSON.parse(
-				net({nick: "mac", saslPassword: "kept", rememberPassword: true, services: x3})
+				net({
+					nick: "phone",
+					saslPassword: "kept",
+					rememberPassword: true,
+					services: x3,
+					commands: ["/mode phone +x"],
+				})
 			)
 		);
 		expect(mac.applied.flat()).to.include("thelounge.networks");
+		// What runs at each registration is said, as an alias is.
+		expect(mac.said).to.deep.include({kind: "commands-changed", commands: ["/mode phone +x"]});
 	});
 
 	it("carries a removal, which stays removed on a device that still held the entry", async function () {

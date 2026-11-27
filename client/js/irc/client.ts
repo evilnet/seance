@@ -1018,6 +1018,20 @@ export class IrcClient {
 		this.services = services;
 	}
 
+	/**
+	 * The autojoin list changed without an edit of the rest (settings sync
+	 * took another device's): the next registration joins it, as an edit's.
+	 */
+	setJoin(join: string): void {
+		if (this.options.join !== join) {
+			this.options = {...this.options, join};
+		}
+
+		if (this.pendingOptions && this.pendingOptions.join !== join) {
+			this.pendingOptions = {...this.pendingOptions, join};
+		}
+	}
+
 	/** The settings the next connect will use: an edit made while connected waits in `pendingOptions`. */
 	get nextOptions(): Readonly<IrcClientOptions> {
 		return this.pendingOptions ?? this.options;

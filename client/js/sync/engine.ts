@@ -95,6 +95,12 @@ export type SyncNowResult = "sent" | "upToDate" | "offline" | "failed";
 /** What the device says once in the home network's window. */
 export type Notice =
 	| {kind: "alias-added" | "alias-changed" | "alias-removed"; name: string}
+	/**
+	 * What the home runs or joins at each registration changed: said like an
+	 * alias, for whoever can write the account's key can write these too.
+	 */
+	| {kind: "commands-changed"; commands: string[]}
+	| {kind: "join-changed"; join: string}
 	/** The account's file is over the size limit: not read. */
 	| {kind: "too-large"}
 	/** The pointer names a file that is not on the network's file host: not read. */
@@ -695,6 +701,18 @@ export class SyncEngine {
 		});
 
 		for (const change of changes) {
+			if (change.id === "net:commands") {
+				const commands = Array.isArray(change.after) ? (change.after as string[]) : [];
+				this.host.say(home, {kind: "commands-changed", commands});
+				continue;
+			}
+
+			if (change.id === "net:join") {
+				const join = typeof change.after === "string" ? change.after : "";
+				this.host.say(home, {kind: "join-changed", join});
+				continue;
+			}
+
 			if (!change.id.startsWith("alias:")) {
 				continue;
 			}

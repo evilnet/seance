@@ -15983,6 +15983,18 @@ msgctxt "sync.notice.aliasRemoved"
 msgid "Settings sync removed the alias /{name}."
 msgstr ""
 
+#. A line in the network's window: another device of the account changed the commands run each time this network connects, and this device took the change. {commands} is the list of commands, verbatim, separated by dots.
+#: client/js/sync/index.ts
+msgctxt "sync.notice.commandsChanged"
+msgid "Settings sync changed the commands this network runs on connect: {commands}"
+msgstr ""
+
+#. A line in the network's window: another device of the account removed every command run each time this network connects, and this device took the change.
+#: client/js/sync/index.ts
+msgctxt "sync.notice.commandsRemoved"
+msgid "Settings sync removed the commands this network runs on connect."
+msgstr ""
+
 #. A line in the network's window: the account's settings file could not be decrypted or was not a settings file.
 #: client/js/sync/index.ts:122
 msgctxt "sync.notice.damaged"
@@ -15993,6 +16005,18 @@ msgstr ""
 #: client/js/sync/index.ts:120
 msgctxt "sync.notice.elsewhere"
 msgid "The account's synced settings point to a file that is not on this network's file host and were not read. This device keeps what it has."
+msgstr ""
+
+#. A line in the network's window: another device of the account changed the channels joined each time this network connects, and this device took the change. {channels} is the comma-separated channel list, verbatim.
+#: client/js/sync/index.ts
+msgctxt "sync.notice.joinChanged"
+msgid "Settings sync changed the channels this network joins: {channels}"
+msgstr ""
+
+#. A line in the network's window: another device of the account cleared the channels joined each time this network connects, and this device took the change.
+#: client/js/sync/index.ts
+msgctxt "sync.notice.joinRemoved"
+msgid "Settings sync removed the channels this network joins."
 msgstr ""
 
 #. A line in the network's window: the account's settings file has a format this version of the app does not know, so this device neither reads nor writes it.

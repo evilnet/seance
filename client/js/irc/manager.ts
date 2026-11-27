@@ -663,20 +663,39 @@ registerBusHandlers(socket, registry);
 
 /**
  * The saved networks were written under the running app (settings sync
- * took another device's services support, or another tab saved the form):
- * each connection takes its saved services support, as an edit does, and
- * the network's view follows.
+ * took another device's choices for the home, or another tab saved the
+ * form): each connection takes what can change without a reconnect, as an
+ * edit does. The services support and the display name apply at once, the
+ * autojoin list at the next registration; a nick applies at the next
+ * launch (sending NICK for a choice made elsewhere is not this device's
+ * to do), and the commands on connect are read at each registration.
  */
-export function reloadSavedServices(): void {
+export function reloadSavedNetworks(): void {
 	for (const client of clients.values()) {
-		const services = saved.get(client.uuid)?.services;
+		const entry = saved.get(client.uuid);
 
-		if (JSON.stringify(services) === JSON.stringify(client.services)) {
+		if (!entry) {
 			continue;
 		}
 
-		client.setServices(services);
-		const info = networkInfo(registry, client.uuid);
+		let changed = false;
+
+		if (JSON.stringify(entry.services) !== JSON.stringify(client.services)) {
+			client.setServices(entry.services);
+			changed = true;
+		}
+
+		if (entry.name && entry.name !== client.name) {
+			client.setNetworkName(entry.name);
+			changed = true;
+		}
+
+		if (entry.join !== client.nextOptions.join) {
+			client.setJoin(entry.join);
+			changed = true;
+		}
+
+		const info = changed ? networkInfo(registry, client.uuid) : undefined;
 
 		if (info) {
 			socket.dispatch("network:info", info);

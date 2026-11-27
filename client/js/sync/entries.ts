@@ -22,7 +22,11 @@
  * | `oper:snomask`         | the snomask                    | `thelounge.oper`           |
  * | `oper:note:<about>`    | the note                       | `thelounge.oper`           |
  * | `tr:<channel>`         | the channel's translation choices | `thelounge.translate`   |
- * | `services`             | the home's services support    | `thelounge.networks`       |
+ * | `net:name`             | the home's display name        | `thelounge.networks`       |
+ * | `net:nick`             | the home's nick                | `thelounge.networks`       |
+ * | `net:join`             | the home's autojoin channels   | `thelounge.networks`       |
+ * | `net:commands`         | the home's commands on connect | `thelounge.networks`       |
+ * | `net:services`         | the home's services support    | `thelounge.networks`       |
  *
  * Everything keyed by a network is the home network's alone (§ Open): the
  * home is the same network on every device, so its entries need no name,
@@ -755,62 +759,148 @@ const translation: Codec = {
 	},
 };
 
-// --- the home network's services support ---
+// --- the home network's saved network, but how to reach it and log in ---
 
 const NETWORKS_KEY = "thelounge.networks";
-const SERVICES = "services";
 
-/** The saved network list as stored: written back with only the home's services changed. */
+const validNick = (value: unknown): value is string =>
+	typeof value === "string" && value !== "" && !/[\s,:\0]/.test(value);
+const validJoin = (value: unknown): value is string =>
+	typeof value === "string" && !/[\r\n\0]/.test(value);
+const validCommands = (value: unknown): value is string[] =>
+	Array.isArray(value) &&
+	value.every((line) => typeof line === "string" && line.trim() === line && line !== "") &&
+	!value.some((line: string) => /[\r\n\0]/.test(line));
+
+/**
+ * The fields of the home's saved network that roam, by entry id: what the
+ * user chose about the network, not how this device reaches it. The server,
+ * TLS, the login and its passwords, trusted certificates, the push and
+ * notification switches, autoconnect and the bookkeeping stay on the device:
+ * the home's connection is how a device reads the file at all, its
+ * passwords must not reach a key the network's operators can read, and the
+ * rest is each device's own.
+ */
+const NETWORK_FIELDS: Array<{
+	id: string;
+	field: string;
+	/** What this build can hold. */
+	valid: (value: unknown) => boolean;
+	/** The value of a field nobody chose; absent: there is none (the nick). */
+	none?: unknown;
+	/** Not stored at all when it has no value (the services support). */
+	optional?: true;
+}> = [
+	{id: "net:name", field: "name", valid: (v) => typeof v === "string", none: ""},
+	{id: "net:nick", field: "nick", valid: validNick},
+	{id: "net:join", field: "join", valid: validJoin, none: ""},
+	{id: "net:commands", field: "commands", valid: validCommands, none: []},
+	{
+		id: "net:services",
+		field: "services",
+		valid: (v) => asServices(v) !== undefined,
+		optional: true,
+	},
+];
+
+/** The saved network list as stored: written back with only the home's roaming fields changed. */
 function storedNetworks(ctx: EntryContext): unknown[] {
 	const parsed = readJson(ctx.storage, NETWORKS_KEY);
 	return Array.isArray(parsed) ? parsed : [];
 }
 
-function isHome(ctx: EntryContext, entry: unknown): entry is Record<string, unknown> {
-	return isObject(entry) && entry.uuid === ctx.home;
+function storedHome(ctx: EntryContext): Record<string, unknown> | undefined {
+	return storedNetworks(ctx).find(
+		(entry): entry is Record<string, unknown> => isObject(entry) && entry.uuid === ctx.home
+	);
 }
 
-/**
- * The services block of the home's saved network (the network form's
- * Services support). The rest of the saved network stays on the device: it
- * holds passwords, and each device's own nick, server and channels.
- */
-const services: Codec = {
-	owns: (_ctx, id) => id === SERVICES,
+const fieldOf = (id: string) => NETWORK_FIELDS.find((f) => f.id === id);
+
+/** A field as this build reads it, or undefined when it holds nothing it can. */
+function fieldValue(home: Record<string, unknown>, field: (typeof NETWORK_FIELDS)[number]) {
+	const value = home[field.field];
+
+	if (field.optional) {
+		return asServices(value);
+	}
+
+	if (field.field === "commands") {
+		return Array.isArray(value) ? value.filter((line) => typeof line === "string") : [];
+	}
+
+	return field.valid(value) ? value : field.none;
+}
+
+const savedNetwork: Codec = {
+	owns: (_ctx, id) => fieldOf(id) !== undefined,
 	read(ctx) {
 		const out = dict<unknown>();
-		const home = storedNetworks(ctx).find((entry) => isHome(ctx, entry));
-		const config = home ? asServices(home.services) : undefined;
+		const home = storedHome(ctx);
 
-		if (config) {
-			out[SERVICES] = config;
+		if (!home) {
+			return out;
+		}
+
+		for (const field of NETWORK_FIELDS) {
+			const value = fieldValue(home, field);
+
+			if (value !== undefined) {
+				out[field.id] = value;
+			}
 		}
 
 		return out;
 	},
+	isDefault(_ctx, id, value) {
+		const field = fieldOf(id);
+		return !!field && Object.hasOwn(field, "none") && sameValue(value, field.none);
+	},
 	write(ctx, wanted) {
 		const list = storedNetworks(ctx);
-		const index = list.findIndex((entry) => isHome(ctx, entry));
+		const index = list.findIndex((entry) => isObject(entry) && entry.uuid === ctx.home);
 
 		// A device that has not saved the home has nowhere to keep it.
 		if (index === -1) {
 			return;
 		}
 
-		const home = list[index] as Record<string, unknown>;
-		const mine = asServices(home.services);
-		// A value this build cannot hold is skipped: the device's own stays.
-		const next = Object.hasOwn(wanted, SERVICES)
-			? asServices(wanted[SERVICES]) ?? mine
-			: undefined;
+		const home = {...(list[index] as Record<string, unknown>)};
+		let changed = false;
 
-		if (sameValue(next, mine)) {
-			return;
+		for (const field of NETWORK_FIELDS) {
+			const mine = fieldValue(home, field);
+			let next: unknown;
+
+			if (Object.hasOwn(wanted, field.id)) {
+				// A value this build cannot hold is skipped: the device's own stays.
+				next = field.valid(wanted[field.id]) ? wanted[field.id] : mine;
+			} else {
+				// Removed: what nobody chose; a nick stays as it is.
+				next = Object.hasOwn(field, "none") || field.optional ? field.none : mine;
+			}
+
+			if (field.optional) {
+				next = asServices(next);
+			}
+
+			if (sameValue(next, mine)) {
+				continue;
+			}
+
+			if (next === undefined) {
+				delete home[field.field];
+			} else {
+				home[field.field] = next;
+			}
+
+			changed = true;
 		}
 
-		const {services: _old, ...rest} = home;
-		list[index] = next ? {...rest, services: next} : rest;
-		ctx.storage.set(NETWORKS_KEY, JSON.stringify(list));
+		if (changed) {
+			list[index] = home;
+			ctx.storage.set(NETWORKS_KEY, JSON.stringify(list));
+		}
 	},
 };
 
@@ -850,7 +940,7 @@ const CODECS: readonly Codec[] = [
 	dnd,
 	oper,
 	translation,
-	services,
+	savedNetwork,
 ];
 
 const codecOf = (ctx: EntryContext, id: string): Codec | undefined =>
