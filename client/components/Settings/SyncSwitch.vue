@@ -1,6 +1,6 @@
 <template>
 	<div class="network-settings-sync">
-		<label class="opt">
+		<label v-if="!always" class="opt">
 			<input
 				v-switch
 				:checked="on"
@@ -49,14 +49,16 @@
 import {computed, defineComponent, ref} from "vue";
 import {useI18n} from "../../js/i18n";
 import {sameAccount} from "../../js/sync/state";
-import {syncNow, syncState, syncTick, turnOff, turnOn, unavailable} from "../../js/sync";
+import {alwaysOn, syncNow, syncState, syncTick, turnOff, turnOn, unavailable} from "../../js/sync";
 import {clientForNetwork} from "../../js/irc/manager";
 
 /**
  * Settings → Networks, on one network: "Sync settings with this account"
  * (docs/projects/settings-sync.md § The home). On, the network is this
  * device's sync home; there is one at most, so switching it on elsewhere
- * asks to move it (sync/index.ts `turnOn`).
+ * asks to move it (sync/index.ts `turnOn`). A deploy that syncs every
+ * account (`features.alwaysSync`) has no switch: the status and "Sync now"
+ * are all of it.
  */
 export default defineComponent({
 	name: "SyncSwitch",
@@ -66,6 +68,7 @@ export default defineComponent({
 	setup(props) {
 		const {t} = useI18n();
 
+		const always = alwaysOn();
 		const on = computed(() => syncState.value.home === props.uuid);
 
 		/** Why it cannot be switched on here; null when it can. */
@@ -106,7 +109,8 @@ export default defineComponent({
 				case "reading":
 					return t("settings.sync.reading");
 				default:
-					return t("settings.sync.help");
+					// Without a switch it is on its way on (sync/index.ts).
+					return always ? t("settings.sync.reading") : t("settings.sync.help");
 			}
 		});
 
@@ -164,7 +168,7 @@ export default defineComponent({
 			}
 		};
 
-		return {t, on, reason, note, toggle, canSyncNow, busy, result, now};
+		return {t, always, on, reason, note, toggle, canSyncNow, busy, result, now};
 	},
 });
 </script>

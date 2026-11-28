@@ -142,4 +142,22 @@ export interface ServerProfile {
 	 * leaves visibility to the server and has no such parameter).
 	 */
 	privateMetadata?: boolean;
+	/**
+	 * How an oper asks the server which nicks its service commands go to
+	 * (nefarious2: `STATS R`), when it can say: the line, the numerics that
+	 * end its answer, and the answer read (services/detect.ts).
+	 */
+	serviceMappings?: {
+		command: string;
+		end: string[];
+		parse(lines: IrcMessage[]): ServiceMapping[];
+	};
+}
+
+/** One service command the server forwards: `/AUTHSERV` → `AuthServ@services.example`. */
+export interface ServiceMapping {
+	/** The command, upper case (`AUTHSERV`). */
+	command: string;
+	nick: string;
+	server: string;
 }

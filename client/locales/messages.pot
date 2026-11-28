@@ -2138,6 +2138,12 @@ msgctxt "connect.guestTitle"
 msgid "No account?"
 msgstr ""
 
+#. Connect form: the first choice in the Network list of known IRC networks; with it chosen the user types a server address themself.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.knownNetwork.other"
+msgid "Another server"
+msgstr ""
+
 #. Notice in the dialog a plain irc:// link opens in the app, under the link's description: the suggested IRC connection would be unencrypted plain TCP.
 #: client/components/Windows/Connect.vue:122
 msgctxt "connect.linkCleartext"

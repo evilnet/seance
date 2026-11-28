@@ -8,6 +8,7 @@ import {ALERT_LINES} from "./alerts";
 import {checkReport} from "./check";
 import {describeBan} from "./extbans";
 import {classifyNotice, NOTICE_KINDS} from "./notices";
+import {parseMappings} from "./mappings";
 import {NEFARIOUS_SNOMASK} from "./snomask";
 import {STATS_ENTRIES, statsReport} from "./stats";
 
@@ -24,4 +25,5 @@ export const nefarious: ServerProfile = {
 	checkReport,
 	operFeatures: ["CONNEXIT_NOTICES", "SNOMASK_OPERDEFAULT"],
 	privateMetadata: true,
+	serviceMappings: {command: "STATS R", end: ["219"], parse: parseMappings},
 };

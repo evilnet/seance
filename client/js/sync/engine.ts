@@ -182,6 +182,34 @@ export class SyncEngine {
 		this.run();
 	}
 
+	/**
+	 * A deploy that syncs every account (`features.alwaysSync`): `uuid` is
+	 * the home for whoever is logged in there, with no question asked. A
+	 * device joins the account's file as any other does, the account winning.
+	 * Nothing moves while another home is connected and logged in.
+	 */
+	always(uuid: string): void {
+		const link = this.host.link(uuid);
+
+		if (!link || !link.account || link.pointer === undefined) {
+			return;
+		}
+
+		const state = this.state;
+
+		if (state.home === uuid) {
+			if (!sameAccount(state.account, link.account)) {
+				this.enable(uuid, link.account);
+			}
+
+			return;
+		}
+
+		if (!state.home || !this.host.link(state.home)?.account) {
+			this.enable(uuid, link.account);
+		}
+	}
+
 	/** Sync off on this device. The account's file stays for its other devices. */
 	disable(): void {
 		clearSync(this.host.storage);

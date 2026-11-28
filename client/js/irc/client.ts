@@ -198,10 +198,12 @@ import {
 	isSaved as isSavedNetwork,
 	MAX_TRUSTED_CERTIFICATES,
 	NetworkCursor,
+	save as saveNetwork,
 	setBouncerSettled,
 	zncLogin,
 	setCursor,
 } from "./saved-networks";
+import {effectiveServices} from "./known-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
 import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
 import {BackgroundQueue, FakeLagClock, type FakeLagModel} from "./fakelag";
@@ -786,7 +788,7 @@ export class IrcClient {
 			this.presence.userAwayText = away;
 		}
 
-		this.services = getSavedNetwork(this.uuid)?.services;
+		this.services = effectiveServices(getSavedNetwork(this.uuid), host);
 		this.lobby = new Channel(this.ids.chanId(), this.networkName, ChanType.LOBBY, (s) =>
 			this.casefold(s)
 		);
@@ -1017,6 +1019,23 @@ export class IrcClient {
 	/** The services setting changed (`network:edit`); takes effect at once. */
 	setServices(services: ServicesConfig | undefined): void {
 		this.services = services;
+	}
+
+	/**
+	 * Services found out at oper-up (services/detect.ts): used from now on,
+	 * kept with the saved network so the next oper-up asks nothing, and
+	 * shown to the page. Not the oper's choice (`servicesChosen` stays off).
+	 */
+	adoptServices(services: ServicesConfig): void {
+		this.services = services;
+
+		const stored = getSavedNetwork(this.uuid);
+
+		if (stored && !stored.services && !stored.servicesChosen) {
+			saveNetwork({...stored, services});
+		}
+
+		this.bus.dispatch("network:info", {uuid: this.uuid, services});
 	}
 
 	/** The settings the next connect will use: an edit made while connected waits in `pendingOptions`. */

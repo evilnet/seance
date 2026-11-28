@@ -15,6 +15,7 @@ import {ref, type Ref} from "vue";
 import {retentionDays} from "../avatars/actions";
 import eventbus from "../eventbus";
 import {t} from "../i18n/core";
+import {brandingFeatures} from "../branding";
 import {clientForNetwork} from "../irc/manager";
 import storage, {onStorageWrite} from "../localStorage";
 import {config, createState} from "../settings";
@@ -135,6 +136,12 @@ function noticeText(notice: Notice): string {
 	}
 }
 
+/**
+ * The deploy syncs every account that signs in (`features.alwaysSync`):
+ * no switch, no offer, no question. Its network is the home while logged in.
+ */
+export const alwaysOn = (): boolean => brandingFeatures().alwaysSync;
+
 const networkName = (uuid: string): string => store.getters.findNetwork(uuid)?.name ?? "";
 
 let wakeTimer: number | null = null;
@@ -155,6 +162,10 @@ const engine = new SyncEngine({
 		}
 	},
 	askOtherAccount(account, known) {
+		if (alwaysOn()) {
+			return Promise.resolve(true);
+		}
+
 		const home = readState(storage).home;
 		return new Promise((resolve) => {
 			eventbus.emit(
@@ -313,6 +324,10 @@ export async function turnOn(uuid: string): Promise<void> {
 
 /** The settings switch, off: this device stops syncing; the account's file stays. */
 export function turnOff(): void {
+	if (alwaysOn()) {
+		return;
+	}
+
 	const home = readState(storage).home;
 
 	// Not offered again on this page: the user just said no to it.
@@ -392,7 +407,15 @@ export function startSettingsSync(): void {
 	socket.on("sync:pointer", ({network}) => {
 		syncTick.value++;
 
-		if (readState(storage).home === network) {
+		if (alwaysOn()) {
+			// The pointer was read a moment ago, so a device that joins
+			// an account's file does not take itself for the first.
+			if (unavailable(network) === null) {
+				engine.always(network);
+			}
+
+			engine.run();
+		} else if (readState(storage).home === network) {
 			engine.run();
 		} else {
 			void offer(network);

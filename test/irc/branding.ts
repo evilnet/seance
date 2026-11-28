@@ -73,6 +73,7 @@ describe("branding", function () {
 				guestAccess: true,
 				editNetworks: true,
 				signIn: false,
+				alwaysSync: false,
 			});
 		});
 
@@ -101,6 +102,7 @@ describe("branding", function () {
 				guestAccess: true,
 				editNetworks: true,
 				signIn: false,
+				alwaysSync: false,
 			});
 			expect(config.strings).to.deep.equal({"connect.submit": "Go"});
 		});
@@ -214,6 +216,7 @@ describe("branding", function () {
 				signIn: false,
 				guestAccess: true,
 				editNetworks: true,
+				alwaysSync: false,
 			});
 			expect(brandingFeatures({appName: "x"}).allowCustomServer).to.equal(true);
 			expect(
@@ -297,6 +300,23 @@ describe("branding", function () {
 			expect(brandingFeatures(normalizeBranding({defaultNetwork: network})).signIn).to.equal(
 				false
 			);
+		});
+
+		it("syncs every account only where the deploy asks and signs in (alwaysSync)", function () {
+			const on = {signIn: true, alwaysSync: true};
+
+			expect(
+				brandingFeatures(normalizeBranding({defaultNetwork: network})).alwaysSync
+			).to.equal(false);
+			expect(
+				brandingFeatures(normalizeBranding({defaultNetwork: network, features: on}))
+					.alwaysSync
+			).to.equal(true);
+			expect(
+				brandingFeatures(
+					normalizeBranding({defaultNetwork: network, features: {alwaysSync: true}})
+				).alwaysSync
+			).to.equal(false);
 		});
 
 		it("needs a network to sign in to", function () {

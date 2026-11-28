@@ -1016,6 +1016,14 @@ single question; a multiple-choice prompt is not a conversation.
 - **The X3 lines are per-network config.** X3 does not tag an override in
   words; which channel a line went to is the only signal, which is why the
   report and snoop channels are fields rather than detected.
+- **Who the bots are is no longer the oper's to type** (2026-11-27). A
+  network in `irc/known-networks.ts` carries its services, channels
+  included; any other is asked at oper-up with `STATS R`
+  (`irc/services/detect.ts`), which finds the bots and the package but not
+  the two channels. Walking `STATS U` was turned down (16 servers on
+  AfterNET, a `VERSION` each), as was probing the default nicks (AfterNET's
+  channel bot is `X3`, not `ChanServ`). Map: `docs/resources/oper-tools-map.md`
+  § Services support.
 - **The builder's "none are opers" costs a WHO.** X3 2.0's `trace print`
   prints no flags, so the opers among the matches come from one WHOX on
   the server (the first 20 nicks) after every count. If O3 ever marks

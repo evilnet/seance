@@ -37,6 +37,7 @@ import type {ConnectOptions} from "./types";
 import {accountRequired} from "../branding";
 import {PRESENCE_MODES, type NetworkMode, type PresenceMode} from "../helpers/dnd";
 import type {ServicesConfig} from "../../../shared/types/network";
+import {effectiveServices, knownNetworkByHost, sameServices} from "./known-networks";
 
 export const STORAGE_KEY = "thelounge.networks";
 
@@ -103,6 +104,13 @@ export type SavedNetwork = ConnectOptions & {
 	 * bots by role, set in the edit form once opered. Absent means none.
 	 */
 	services?: ServicesConfig;
+	/**
+	 * The oper set the services themself, "None" included (then `services`
+	 * is absent): neither the known-networks list nor detection at oper-up
+	 * (known-networks.ts, services/detect.ts) says otherwise. Absent, the
+	 * network follows them.
+	 */
+	servicesChosen?: boolean;
 	/** Online / Auto / Away / Do not disturb; absent = Same as global (docs/projects/shared-presence-modes.md §2). */
 	presenceMode?: PresenceMode;
 	/**
@@ -376,6 +384,10 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		net.services = services;
 	}
 
+	if (raw.servicesChosen === true) {
+		net.servicesChosen = true;
+	}
+
 	const mode = raw.presenceMode;
 
 	if (typeof mode === "string" && PRESENCE_MODES.includes(mode as PresenceMode)) {
@@ -498,8 +510,23 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 
 	// The services block travels whole: the key present with nothing in it
 	// is "None" (the loop above keeps the stored one for a missing key).
+	// What the form posts back unchanged is no choice: a network the list
+	// knows keeps following the list, and one with nothing set stays open
+	// to detection.
 	if ("services" in data) {
-		base.services = data.services;
+		const picked = asServices(data.services);
+		const known = knownNetworkByHost(asString(base.host))?.services;
+		const shown = existing ? effectiveServices(existing) : known;
+
+		delete base.services;
+		delete base.servicesChosen;
+
+		if (picked && !sameServices(picked, known)) {
+			base.services = picked;
+			base.servicesChosen = existing?.servicesChosen || !sameServices(picked, shown);
+		} else if (!picked && (shown || existing?.servicesChosen)) {
+			base.servicesChosen = true;
+		}
 	}
 
 	const net = normalize(base);

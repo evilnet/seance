@@ -356,6 +356,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"connect.guestNickRequired",
 	"connect.guestSubmit",
 	"connect.guestTitle",
+	"connect.knownNetwork.other",
 	"connect.linkCleartext",
 	"connect.linkIgnored",
 	"connect.linkSuggest",
