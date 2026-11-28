@@ -23,6 +23,7 @@ import type {IrcMessage} from "./message";
 import {getOperPrefs, setSnomaskPref} from "./operprefs";
 import {canRequest, request} from "./request";
 import {verifyServiceBots} from "./services";
+import {detectServices} from "./services/detect";
 
 export interface OperState {
 	umodes: Set<string>;
@@ -159,6 +160,9 @@ function operUp(client: IrcClient): void {
 		// Which services bots are real (bottrust.ts), before the first
 		// lookup or snoop line needs to know: behind everything else.
 		verifyServiceBots(client);
+		// A network with none set is asked which nicks its services are
+		// (services/detect.ts): last of all, nobody is waiting on it.
+		void detectServices(client);
 	});
 }
 

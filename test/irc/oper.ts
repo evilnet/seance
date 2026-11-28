@@ -460,7 +460,11 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 
 		await flush();
 
-		expect(transport.sent.at(-1)).to.match(/^@label=\S+ MODE opr \+s 983039$/);
+		// Last of the oper-up's own lines; the services question follows it
+		// (services/detect.ts).
+		expect(transport.sent.filter((l) => !l.endsWith(" STATS R")).at(-1)).to.match(
+			/^@label=\S+ MODE opr \+s 983039$/
+		);
 	});
 
 	it("a restore that waited its turn reads the chosen mask again when it runs", async function () {
@@ -470,9 +474,13 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 		const waiting: (() => void)[] = [];
 		const room = () => waiting.splice(0).forEach((go) => go());
 		sinon.stub(client.background, "fits").returns(false);
-		sinon
-			.stub(client, "whenRoom")
-			.callsFake(() => new Promise<void>((resolve) => waiting.push(resolve)));
+		sinon.stub(client, "whenRoom").callsFake((key: string) =>
+			// The services question (services/detect.ts) waits behind the
+			// restore, and is not this test's business: it never gets its turn.
+			key.startsWith("services:")
+				? new Promise<void>(() => undefined)
+				: new Promise<void>((resolve) => waiting.push(resolve))
+		);
 
 		transport.line(":opr!opr@host MODE opr +ow");
 		await flush();

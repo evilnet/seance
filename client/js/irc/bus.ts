@@ -15,6 +15,7 @@ import {changeBans} from "./banList";
 import {refreshOper, setSnomask} from "./oper";
 import {request} from "./request";
 import * as saved from "./saved-networks";
+import {effectiveServices} from "./known-networks";
 import {forgetLogin} from "./saslTrust";
 import {checkServices, servicesBan} from "./services";
 import type {ConnectOptions} from "./types";
@@ -53,7 +54,8 @@ export function networkInfo(
 		nick: client?.nick ?? stored?.nick ?? "",
 		connected: client?.isConnected ?? false,
 		// Always present, so a store network set back to None loses it too.
-		services: stored?.services,
+		// What the list says of the host stands in where the oper set nothing.
+		services: client ? client.services : effectiveServices(stored),
 	};
 }
 
@@ -460,7 +462,7 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 			}
 
 			// Services support applies at once: the feed and the ban path read it live.
-			client.setServices(next.services);
+			client.setServices(effectiveServices(next));
 			client.setPresenceMode(
 				saved.presenceModeOf(next),
 				modeChosen ? next.presenceAt : undefined

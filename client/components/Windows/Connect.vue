@@ -129,6 +129,27 @@
 					<strong>{{ networkLabel }}</strong>
 				</div>
 			</div>
+			<!--
+				Networks Seance knows (irc/known-networks.ts): picking one fills
+				the server fields, and typing another server is still "Another
+				server". Not on a link's form, which already names its server.
+			-->
+			<div v-if="showKnownNetworks" class="connect-row">
+				<label for="connect:knownNetwork">{{ t("connect.network") }}</label>
+				<div class="input-wrap">
+					<select
+						id="connect:knownNetwork"
+						v-model="knownNetwork"
+						class="input"
+						name="knownNetwork"
+					>
+						<option value="">{{ t("connect.knownNetwork.other") }}</option>
+						<option v-for="known in KNOWN_NETWORKS" :key="known.id" :value="known.id">
+							{{ known.name }}
+						</option>
+					</select>
+				</div>
+			</div>
 			<div v-if="!hostLocked" class="connect-row">
 				<label for="connect:host">{{ t("connect.server") }}</label>
 				<div class="input-wrap">
@@ -489,6 +510,7 @@ import {askNativeAlertPermission, nativeAlertsAvailable} from "../../js/helpers/
 import {router, switchToChannel} from "../../js/router";
 import {useI18n} from "../../js/i18n";
 import type {ConnectOptions} from "../../js/irc/types";
+import {KNOWN_NETWORKS, knownNetworkById} from "../../js/irc/known-networks";
 import RevealPassword from "../RevealPassword.vue";
 import SidebarToggle from "../SidebarToggle.vue";
 
@@ -587,6 +609,36 @@ export default defineComponent({
 			},
 		});
 
+		// The known network the server fields name right now, and picking
+		// one: the fields are the state, so editing the host by hand reads
+		// back as "Another server" with nothing to keep in step.
+		const knownNetwork = computed({
+			get: () =>
+				KNOWN_NETWORKS.find(
+					(known) =>
+						known.host === form.host.trim().toLowerCase() &&
+						known.port === form.port &&
+						known.tls === form.tls &&
+						(form.transport ?? "websocket") === "websocket"
+				)?.id ?? "",
+			set(id: string) {
+				const known = knownNetworkById(id);
+
+				if (!known) {
+					return;
+				}
+
+				form.host = known.host;
+				form.port = known.port;
+				form.tls = known.tls;
+				form.transport = "websocket";
+
+				if (known.channels && !form.join?.trim()) {
+					form.join = known.channels.join(", ");
+				}
+			},
+		});
+
 		// The sign-in panel replaces the whole form; `brandingFeatures` only
 		// reports it when there is a `defaultNetwork` to sign in to, and pins
 		// the server when it does.
@@ -674,6 +726,8 @@ export default defineComponent({
 		const savedLink = savedLinkUuid ? saved.get(savedLinkUuid) : undefined;
 		const linkIgnored = firstParam(props.queryParams?.linkIgnored);
 		const fromLink = isTruthyParam(props.queryParams?.fromLink);
+		// A deploy with a network of its own offers that one, not a list.
+		const showKnownNetworks = !hostLocked && !fromLink && !network && KNOWN_NETWORKS.length > 0;
 		let focusPassword: "sasl" | "server" | false = false;
 
 		if (savedLink) {
@@ -891,6 +945,9 @@ export default defineComponent({
 
 		return {
 			dragRegion: macDragRegion(),
+			KNOWN_NETWORKS,
+			knownNetwork,
+			showKnownNetworks,
 			form,
 			store,
 			t,

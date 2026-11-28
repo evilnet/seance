@@ -4,8 +4,10 @@
  * its channels and answers to its commands, as data and pure functions
  * over text, so mocha covers them with fixtures taken from the wire
  * reference (docs/resources/x3-services.md). Which package a network runs,
- * and its bots' nicks, is the oper's setting (`ServicesConfig`), never
- * detected — nothing about a network's services is standard.
+ * and its bots' nicks, is a setting (`ServicesConfig`) — nothing about a
+ * network's services is standard — that the oper can leave alone where
+ * the list knows the network (`../known-networks.ts`) or its server can
+ * say (`./detect.ts`).
  *
  * Adding a package: implement {@link ServicesProfile} in a new directory
  * here and list it in `./index.ts`.
@@ -219,4 +221,12 @@ export interface ServicesProfile {
 	 * alone.
 	 */
 	lookups?: ServicesLookups;
+	/**
+	 * Detection (`./detect.ts`): the role a realname the package ships with
+	 * names (`other` for a bot that fills none of the three), undefined for
+	 * a realname that is not the package's own.
+	 */
+	roleOfRealname?(realname: string): "oper" | "account" | "channel" | "other" | undefined;
+	/** Detection: whether a `VERSION <services server>` answer (351) is this package's. */
+	isVersion?(text: string): boolean;
 }

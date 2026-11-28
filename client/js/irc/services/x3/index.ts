@@ -45,6 +45,25 @@ export const X3_REALNAMES = [
 	"Anti Spam Services",
 ];
 
+/** The role each of those realnames names; the other two fill none we use. */
+const X3_REALNAME_ROLES: Record<string, "oper" | "account" | "channel" | "other"> = {
+	"oper services": "oper",
+	"nick services": "account",
+	"channel services": "channel",
+	"global services": "other",
+	"anti spam services": "other",
+};
+
+function roleOfRealname(realname: string): "oper" | "account" | "channel" | "other" | undefined {
+	const key = realname.trim().toLowerCase();
+	return Object.hasOwn(X3_REALNAME_ROLES, key) ? X3_REALNAME_ROLES[key] : undefined;
+}
+
+/** `x3 2.0+[release] <server>`, the services server's 351 (x3-services.md §2). */
+function isVersion(text: string): boolean {
+	return /^x3[ -]\S/i.test(text.trim());
+}
+
 // ----------------------------------------------------------------- snoop
 
 /** `[HH:MM:SS] KEYWORD rest` (mod-snoop.c), the bold already stripped. */
@@ -407,4 +426,6 @@ export const x3: ServicesProfile = {
 	parseBanReply,
 	isServiceNick,
 	lookups: x3Lookups,
+	roleOfRealname,
+	isVersion,
 };

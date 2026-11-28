@@ -407,6 +407,7 @@
   "connect.guestNickRequired": "Choose a nick to connect as a guest.",
   "connect.guestSubmit": "Connect as guest",
   "connect.guestTitle": "No account?",
+  "connect.knownNetwork.other": "Another server",
   "connect.linkCleartext": "This connection will not be encrypted: anyone between you and the server can read what you send, your password included.",
   "connect.linkIgnored": "This app only connects to {network}. The link to {host} was ignored.",
   "connect.linkSuggest": "This link suggests connecting to {host}:{port}. Nothing is saved until you choose to connect.",

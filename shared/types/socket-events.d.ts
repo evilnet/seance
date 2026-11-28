@@ -110,7 +110,7 @@ interface ServerToClientEvents {
 	 * the lobby; the view follows it there.
 	 */
 	"network:aborted": EventHandler<{network: string; reason: string}>;
-	"network:info": EventHandler<{uuid: string}>;
+	"network:info": EventHandler<{uuid: string; services?: ServicesConfig}>;
 	"network:name": EventHandler<{uuid: string; name: string}>;
 
 	nick: EventHandler<{network: string; nick: string}>;
