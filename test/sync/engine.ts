@@ -619,6 +619,66 @@ describe("settings sync engine (sync/engine.ts)", function () {
 		});
 	});
 
+	describe("a deploy that syncs every account (always)", function () {
+		it("makes the network the home with nothing asked, and uploads the first file", async function () {
+			const a = new Device(server);
+			a.settings.theme = "day";
+			a.engine.always(HOME);
+			await a.engine.settled();
+			server.now += QUIET_MS;
+			await a.run();
+
+			expect(a.engine.state).to.include({home: HOME, account: "alice", joined: true});
+			expect(await server.values()).to.include({"set:theme": "day"});
+			expect(a.asked).to.deep.equal([]);
+		});
+
+		it("joins the account's file, the account winning", async function () {
+			await firstDevice();
+			const b = new Device(server);
+			b.settings.theme = "night";
+			b.engine.always(HOME);
+			await b.engine.settled();
+
+			expect(b.settings.theme).to.equal("day");
+			expect(b.aliasNames()).to.deep.equal(["wave"]);
+		});
+
+		it("waits for the pointer to be read, and for a login", function () {
+			const a = new Device(server);
+			a.sees = () => undefined;
+			a.engine.always(HOME);
+			expect(a.engine.state.home).to.equal(null);
+
+			a.sees = null;
+			a.online = false;
+			a.engine.always(HOME);
+			expect(a.engine.state.home).to.equal(null);
+		});
+
+		it("leaves a device that already syncs there as it is", async function () {
+			const a = await firstDevice();
+			const before = a.engine.state;
+			a.engine.always(HOME);
+			await a.engine.settled();
+
+			expect(a.engine.state).to.deep.equal(before);
+		});
+
+		it("joins another account's file when that one signs in, though the device had said no", async function () {
+			const a = await firstDevice();
+			a.account = "bob";
+			server.pointer = "";
+			await a.run();
+			expect(a.engine.state).to.include({account: "alice", pausedFor: "bob"});
+
+			a.engine.always(HOME);
+			await a.engine.settled();
+
+			expect(a.engine.state).to.include({account: "bob", joined: true, pausedFor: ""});
+		});
+	});
+
 	describe("the upload host", function () {
 		it("waits out a 429 for the time it names", async function () {
 			const a = new Device(server);

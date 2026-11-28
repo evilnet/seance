@@ -181,6 +181,27 @@ is kept on the device and never roams.
   joins the other account's file. Otherwise one account's aliases, ignore
   list and oper notes would be uploaded into another's.
 
+### A deploy that syncs every account
+
+Decided 2026-11-27. A sign-in deploy that sets `features.alwaysSync`
+(`docs/resources/branding.md`) has no switch, no offer and no question:
+
+- once the deploy's network is logged in and its pointer read, it is the
+  home (`sync/engine.ts` `always`, from `sync:pointer`). The device joins
+  as any other does (§ A device joining), the account winning; the pointer
+  was read a moment before, so it does not take itself for the first;
+- signed in as another account, it joins that account's file without
+  asking, whatever was answered before the deploy set the flag. Signing out
+  still switches sync off first, so the next account joins as a new device:
+  what only the device holds (an alias, a mute) is added to it;
+- "never" answers and the switch are not read. Settings shows the status
+  and "Sync now" (`Settings/SyncSwitch.vue`);
+- where sync cannot run (no file host, no private metadata, a browser
+  without the encryption) nothing happens and nothing is said.
+
+Browser check: `tools/scenarios/settings-sync-always.mjs` (two devices, the
+config its header gives).
+
 ## The merge: the newest choice for each entry
 
 Two devices that save at once each upload a file, and the pointer written

@@ -90,6 +90,14 @@ export interface BrandingFeatures {
 	 * `signIn` it has no effect; `brandingFeatures()` resolves that.
 	 */
 	editNetworks?: boolean;
+	/**
+	 * Settings sync (docs/projects/settings-sync.md) is on for every account
+	 * that signs in, with nothing to switch and nothing asked: the deploy's
+	 * network is the device's sync home whenever its connection is logged in.
+	 * Default false. For a network's own client, so without `signIn` it has
+	 * no effect; `brandingFeatures()` resolves that.
+	 */
+	alwaysSync?: boolean;
 }
 
 /**
@@ -320,6 +328,7 @@ export const DEFAULT_BRANDING: BrandingConfig = {
 		signIn: false,
 		guestAccess: true,
 		editNetworks: true,
+		alwaysSync: false,
 	},
 	strings: {},
 };
@@ -419,6 +428,8 @@ export function brandingFeatures(config: BrandingConfig = current): Required<Bra
 		guestAccess: config.features?.guestAccess !== false,
 		// Locking the network only makes sense where the deploy owns it.
 		editNetworks: !signIn || config.features?.editNetworks !== false,
+		// Whose account a home belongs to is only plain where the deploy owns the network.
+		alwaysSync: signIn && config.features?.alwaysSync === true,
 	};
 }
 
@@ -1025,8 +1036,10 @@ export function normalizeBranding(
 		features[key] = optionalBoolean(rawFeatures[key]) ?? defaults.features?.[key] ?? true;
 	}
 
-	// Opt-in, so it is the one flag a missing value leaves off.
-	features.signIn = optionalBoolean(rawFeatures.signIn) ?? defaults.features?.signIn ?? false;
+	// Opt-in, so these are the flags a missing value leaves off.
+	for (const key of ["signIn", "alwaysSync"] as const) {
+		features[key] = optionalBoolean(rawFeatures[key]) ?? defaults.features?.[key] ?? false;
+	}
 
 	const config: BrandingConfig = {
 		appName: optionalString(source.appName) ?? defaults.appName,
